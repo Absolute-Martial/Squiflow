@@ -43,6 +43,37 @@ The current source precedence is:
 4. `docs/decisions/OPEN_DECISIONS.md` for intentionally unresolved items;
 5. historical/review artifacts only for traceability.
 
+## Markdown can drift too
+
+Removing CSV does **not** solve duplication automatically. Repeating the same detailed contract in several Markdown files can create the same stale-source problem.
+
+Use this rule:
+
+- one focused document **owns** detailed semantics for a topic;
+- the master plan summarizes the decision and links to the owner;
+- `CURRENT_DECISIONS.md` records the accepted direction, not another full specification;
+- source-review documents record evidence/reasoning and do not override the current owner;
+- implementation/test docs reference the owning contract instead of re-describing it differently.
+
+Examples of current topic owners:
+
+```text
+Tenant isolation             docs/architecture/MULTI_TENANCY_ISOLATION.md
+Identity/session              docs/security/IDENTITY_AND_SESSIONS.md
+Permissions/authorization     docs/security/TENANT_PERMISSIONS.md
+API idempotency/retry         docs/api/API_CONTRACT_IDEMPOTENCY_AND_RETRY.md
+Workstation local-first       docs/workstation/LOCAL_FIRST_DESKTOP.md
+Guard/device integration      docs/workstation/GUARD_AND_DEVICE_INTEGRATION.md
+Object/file lifecycle         docs/data/FILES_AND_OBJECT_STORAGE.md
+Physical capacity/recovery    docs/operations/DEPLOYMENT_CAPACITY_AND_RECOVERY.md
+Accessibility                 docs/ux/ACCESSIBILITY_AND_INTERACTION_QUALITY.md
+Verification/testing          docs/testing/VERIFICATION_STRATEGY.md
+Rules                         docs/rules/NATIVE_RULE_ENGINE.md
+Workflow                      docs/workflow/WORKFLOW_DESIGN.md
+```
+
+If two current documents disagree, resolve the disagreement in the owning document and then update summaries/references. Do not create a third interpretation.
+
 ## Why Markdown instead of CSV here
 
 The important information is semantic: *why* a classification changed and which decision is current. Markdown is easier for engineers to review in GitLab and less likely to be mistaken for a machine-authoritative truth table.
