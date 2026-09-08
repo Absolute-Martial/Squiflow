@@ -138,6 +138,45 @@ It may share underlying infrastructure such as the central database, OpenFGA, ZI
 
 If a shared database/provider itself is unavailable, Admin API may also be degraded. The requirement is **process/API independence from Core API**, not impossible independence from all shared infrastructure.
 
+## Edge gateway/reverse-proxy boundary
+
+An edge reverse proxy or API-gateway capability may route north-south traffic to the appropriate backend and may own generic edge concerns such as:
+- TLS termination;
+- hostname/custom-domain routing;
+- public/private exposure policy;
+- request-size limits;
+- WAF/DDoS controls where provided;
+- coarse rate limiting.
+
+A shared edge does **not** collapse the application planes.
+
+Valid topology:
+
+```text
+edge
+├── tenant/business routes → Core API
+└── private/platform routes → Admin API
+```
+
+Invalid normal topology:
+
+```text
+edge
+→ Core API
+→ Admin API
+```
+
+or:
+
+```text
+edge authorization
+→ therefore backend skips authorization
+```
+
+Core API/Admin API still independently authenticate/authorize, validate resource scope/state, enforce operation-specific admission, and emit their own audit/health evidence.
+
+A service mesh is not baseline. SquiFlow does not currently have enough independently deployed east-west services to justify the memory/network/failure/operations cost. Revisit only when real service-to-service topology makes mTLS, discovery, traffic policy, and distributed observability materially difficult without one.
+
 ## Resource-based authorization
 
 The API path is not the authorization boundary.
