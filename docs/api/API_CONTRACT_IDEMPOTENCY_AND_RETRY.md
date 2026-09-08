@@ -2,7 +2,7 @@
 
 **Version:** v0.0.15
 
-This document turns the Stripe, AWS Builders' Library, ASP.NET Core, Azure Architecture, and reviewed ByteByteGo reliability material into the SquiFlow API contract without adding a new service or framework.
+This document turns the Stripe, AWS Builders' Library, ASP.NET Core, Azure Architecture, and reviewed ByteByteGo reliability/API material into the SquiFlow API contract without adding a new service or framework.
 
 ## 1. Idempotency is part of command semantics
 
@@ -236,12 +236,17 @@ Use HTTP semantics where they naturally match the resource operation, but do not
 Examples:
 
 ```text
+Core API:
 POST /api/orders
 POST /api/quotes/{id}/approval
 POST /api/payments/{id}/refunds
 POST /tenant-admin/rule-set-publications
+
+Admin API:
 POST /platform-admin/worker-control-proposals
 ```
+
+The path alone is not authority. Core API and Admin API are separate backend executables/security planes; a `/platform-admin/...` route belongs to `services/admin-api`, not Core API.
 
 The endpoint name should express business intent; authorization and domain state still decide whether it can execute.
 
@@ -269,7 +274,70 @@ Use:
 
 Client-selected projections cannot expose fields the caller is not authorized to see.
 
-## 14. Long-running request-reply
+## 14. REST baseline and GraphQL boundary
+
+REST/task-oriented HTTP is the v0.0.15 baseline because SquiFlow controls its Web, Workstation, and Admin clients and benefits from explicit command/resource contracts, OpenAPI inventory, bounded request shapes, idempotency semantics, and straightforward route ownership.
+
+Do not add GraphQL merely to reduce round trips or because clients can choose fields.
+
+Revisit GraphQL only when a real implemented client has complex aggregation/evolving read needs that are materially awkward or expensive through the REST/query surface.
+
+If GraphQL is ever introduced, it is a separately reviewed surface with:
+- tenant/resource/field authorization;
+- query depth/complexity/cost limits;
+- pagination limits;
+- N+1/data-loading strategy;
+- cache/freshness rules;
+- schema/deprecation ownership;
+- introspection/persisted-query policy appropriate to its audience.
+
+GraphQL Federation is not baseline while SquiFlow remains a modular-monolith business core with only a few justified backend executables.
+
+## 15. Rate limiting and admission
+
+Rate limiting is a reliability/fairness control as well as an abuse control. It is separate from authentication and authorization.
+
+A caller can be fully authorized and still be told `not now` because current resource/provider/tenant policy requires throttling.
+
+Rate/admission dimensions may include:
+- unauthenticated/IP/network source for login/recovery/public abuse;
+- account/device;
+- tenant;
+- endpoint/operation class;
+- expensive upload/report/document/import action;
+- platform-admin action;
+- downstream paid/provider budget.
+
+Do not force one global requests-per-second value onto every operation.
+
+When HTTP work is temporarily throttled, use a stable `RateLimited`/`ResourceExhausted` error and `429 Too Many Requests` with `Retry-After` where appropriate. Clients must honor backoff rather than aggressively retry.
+
+HTTP rate limiting alone does not protect Worker/database/provider capacity. Queued/background work also needs bounded concurrency, admission, per-tenant fairness, and provider budgets.
+
+Do not create a separate rate-limiting service initially; use the appropriate edge/server/runtime controls until scale/topology proves another boundary is needed.
+
+## 16. API performance techniques and their limits
+
+Performance optimizations are selected from measurement, not enabled blindly.
+
+### Pagination
+Required for potentially large collections; see section 13.
+
+### Asynchronous telemetry logging
+Operational logs/traces may use bounded asynchronous export/buffering so disk/network I/O does not block every request. The buffer has explicit size/backpressure/drop behavior. Authoritative security/business audit cannot exist only in a lossy asynchronous telemetry queue.
+
+### Caching
+Use only where the freshness contract permits it. A stale cache must not become current permission, payment, stock, credit, or tenant authority.
+
+### Payload compression
+Use for sufficiently large compressible responses/requests where CPU/memory trade-off is favorable. Do not recompress already-compressed PDFs/images/archives or buffer unbounded bodies merely to compress them.
+
+### Connection pooling
+Use normal provider pooling, but bound/max it from measured rack/database capacity. Pool reuse must not retain Tenant A's DB/RLS context for Tenant B.
+
+Measure at least representative latency percentiles, throughput, query/dependency time, allocation/memory pressure, payload size, and pool wait under the real slice before adding another optimization layer.
+
+## 17. Long-running request-reply
 
 Long operations do not hold an HTTP request open indefinitely.
 
@@ -301,7 +369,7 @@ If completion creates a separate resource, the status resource can direct the ca
 
 Cancellation is only exposed when the underlying operation has a safe cancellation or compensation contract.
 
-## 15. Synchronous versus asynchronous threshold
+## 18. Synchronous versus asynchronous threshold
 
 Keep a command synchronous when its authoritative transaction/validation is expected to finish within the interactive request budget and the user needs the result immediately.
 
@@ -314,7 +382,7 @@ Use async request-reply when:
 
 Do not queue every command merely because a Worker exists.
 
-## 16. Problem details and error classification
+## 19. Problem details and error classification
 
 HTTP errors expose safe structured machine-readable results, preferably based on Problem Details semantics, with SquiFlow failure codes such as:
 
@@ -336,7 +404,7 @@ InternalDefect
 
 Internal stack traces/provider details stay out of ordinary client responses.
 
-## 17. API implementation gate
+## 20. API implementation gate
 
 A new mutating endpoint is incomplete until reviewers can answer:
 
@@ -354,6 +422,8 @@ A new mutating endpoint is incomplete until reviewers can answer:
 12. What happens if an external effect succeeds but receipt persistence fails?
 13. Which layer owns retry and what is the maximum total attempt budget?
 14. Which 4xx/5xx results are retryable?
-15. What are request/page/payload/resource limits?
+15. What are request/page/payload/resource/rate limits?
 16. What authorization/resource requirement applies?
-17. What audit/trace identifiers are recorded?
+17. Which backend owns the route: Core API or Admin API?
+18. What audit/trace identifiers are recorded?
+19. What consistency/freshness contract does any returned derived data have?
