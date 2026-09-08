@@ -48,6 +48,8 @@ services/worker           durable background execution
 
 Business capability code remains a modular monolith.
 
+Containerization may be used for server deployment where it helps packaging/operations, but container design patterns are not permission to create extra services, proxies, sidecars, leaders, or fan-out machinery without a concrete deployment/coordination problem.
+
 ### Guard
 
 `SquiFlow.Guard` is accepted because supervision/recovery must survive or observe Workstation failure from outside the Workstation process.
@@ -121,7 +123,9 @@ system browser
 
 No reusable native client secret and no central DB credentials on the Workstation.
 
-ZITADEL provides authentication/account/session/MFA/SSO capability; it does not become current business authorization truth simply because it can expose roles/claims.
+ZITADEL provides authentication/account/session/MFA/passkey/SSO/federation capability according to configuration. SquiFlow does not build a competing password/OTP/MFA/passkey stack; it owns OIDC integration, application session/device/tenant binding, step-up requirements, and post-authentication authorization.
+
+ZITADEL does not become current business authorization truth simply because it can expose roles/claims.
 
 Open Phase-1 details include ZITADEL Cloud vs self-hosted, exact instance/project/application layout, tenant-organization mapping, Web session topology, and native callback choice.
 
@@ -176,6 +180,8 @@ Do not implement:
 - browser offline mutation/conflict engine.
 
 Selected valuable forms may use explicit online server-side drafts/autosave.
+
+Blazor Web App does not make all Web state stateless. If Interactive Server rendering is used, per-user circuit state can live in server memory. That state is transient runtime/UI state, not authoritative business state. Exact render-mode/circuit/session-affinity/distributed-state behavior is a Phase-1 decision before multi-node failover claims.
 
 Owner: `docs/web/WEB_RUNTIME_AND_STORAGE.md`.
 
@@ -238,7 +244,7 @@ Owner: `docs/architecture/MULTI_TENANCY_ISOLATION.md`.
 
 ---
 
-## 8. Command/query, API, idempotency, and retry
+## 8. Command/query, API security, idempotency, and retry
 
 SquiFlow adopts **command/query responsibility separation** without assuming full CQRS infrastructure.
 
@@ -251,6 +257,10 @@ Query
 ```
 
 Material actions remain task-oriented (`ApproveQuote`, `RefundPayment`, `AdjustInventory`). Separate read/write databases, event sourcing, or command/query microservices are added only if an implemented workload proves they are worth the extra consistency/operations contract.
+
+Cross-cutting API behavior is uniform where it truly spans endpoints: correlation/safe logging, authentication, generic rate/resource limits, safe error shaping, and coarse policy live in ASP.NET Core host/pipeline/endpoint metadata. Resource/OpenFGA authorization and domain/workflow/concurrency validation still run at the layer where the actual resource/state exists.
+
+Every externally reachable endpoint declares its audience/authentication/policy/limits or an explicit reviewed public exception. Authentication success alone is never resource authorization.
 
 Retryable mutations use caller-provided semantic idempotency keys.
 
@@ -267,7 +277,9 @@ Retry is finite/classified/budgeted, with an intentional retry owner for each re
 
 Long-running work uses durable async status only when genuinely long-running; ordinary short transactions stay synchronous.
 
-Owner: `docs/api/API_CONTRACT_IDEMPOTENCY_AND_RETRY.md`.
+Owners:
+- `docs/server/CORE_API_AND_WORKER.md`
+- `docs/api/API_CONTRACT_IDEMPOTENCY_AND_RETRY.md`.
 
 ---
 
@@ -293,7 +305,7 @@ Owner: `docs/sync/SYNC_AND_AUTHORITY.md`.
 
 ---
 
-## 10. Persistence — real provider first, abstractions only where justified
+## 10. Persistence — real provider first, measured optimization
 
 Exact DB products remain open until phase POCs:
 - PostgreSQL — strongest central reference candidate;
@@ -303,6 +315,8 @@ Exact DB products remain open until phase POCs:
 Do **not** create generic `IRepository<T>`, `IUnitOfWork`, or one-interface-per-provider hierarchies solely to appear portable.
 
 Provider-specific DB code stays contained outside business/domain code. Extract interfaces only when an actual dependency/replacement boundary requires them.
+
+Database performance is a trade-off, not a checklist. Indexes can increase write/import cost; caches introduce freshness/invalidation risk; denormalization complicates authoritative updates. Hot-path POCs therefore measure realistic growth/cardinality, query plans, tenant-aware indexes, write/sync/import cost, pool contention and storage/WAL/temp impact before adding Redis/read replicas/sharding/denormalized views.
 
 Owner: `docs/data/PERSISTENCE_SELECTION.md`.
 
@@ -480,7 +494,7 @@ Owners:
 
 ---
 
-## 16. Observability and physical operations
+## 16. State placement, observability, and physical operations
 
 OpenTelemetry/OTLP is the telemetry boundary.
 
@@ -493,22 +507,44 @@ Guard supplies bounded desktop lifecycle/crash/resource evidence into the suppor
 
 Telemetry failure cannot invalidate business transactions.
 
-Current server hardware is lower-spec/desktop-class rack equipment. `Stateless` means process memory is not authoritative; it does not promise automatic failover.
+Current server hardware is lower-spec/desktop-class rack equipment.
+
+`Stateless Core API/Worker` means process memory is not the only authoritative durable business state. State is relocated into the systems that own it: DB, object store, durable job/outbox state, ZITADEL/OpenFGA, configuration/session state where required, and the local Workstation DB for offline work. Process-local caches/circuits remain disposable/explicitly lossy.
+
+`Stateless` does not promise automatic failover, transparent Blazor circuit recovery, or zero downtime.
 
 Owner: `docs/operations/DEPLOYMENT_CAPACITY_AND_RECOVERY.md`.
 
 ---
 
-## 17. Verification
+## 17. History/audit without event-sourcing the product
+
+SquiFlow needs explainable history in selected domains, but the baseline remains authoritative current relational state plus explicit immutable/append-only records where required.
+
+Examples:
+- payment/effect evidence;
+- stock movements;
+- corrections/reversals;
+- issued document revisions;
+- privileged security/admin audit;
+- versioned rule/workflow/form publication.
+
+Transactional outbox events and audit logs are **not** event sourcing. Event sourcing remains deferred unless a real domain requires replay-derived authoritative state strongly enough to justify event schema/projection/rebuild complexity.
+
+---
+
+## 18. Verification
 
 Keep tests focused on real correctness risks:
 - business/domain invariants;
 - real DB transaction/concurrency/isolation behavior;
+- DB hot-path performance at representative growth/cardinality and write/index cost;
 - Workstation local durability/restart;
 - Guard independent crash/hang/update recovery;
 - ZITADEL authentication/session flows;
 - OpenFGA model/tuple/custom-role/consistency/reconciliation behavior;
 - tenant/API authorization;
+- endpoint cross-cutting metadata/policy completeness;
 - idempotency/response loss across caller/transport/consumer boundaries;
 - retry amplification and retry-budget exhaustion;
 - sync conflict/long-offline;
@@ -522,15 +558,15 @@ Owner: `docs/testing/VERIFICATION_STRATEGY.md`.
 
 ---
 
-## 18. Sequential implementation plan
+## 19. Sequential implementation plan
 
 Default WIP limit: **one implementation phase**, but each phase must cover its defined edge/failure behavior before being called complete.
 
 ```text
 Phase 0  Web + Workstation + Guard + Core API skeleton, provider contracts, minimal CI
-Phase 1  ZITADEL identity + OpenFGA Owner/Staff/custom-role authorization
+Phase 1  ZITADEL identity + OpenFGA Owner/Staff/custom-role authorization + Web session/render-mode proof
 Phase 2  first local-first Workstation Customer/Order transaction + local DB + Guard recovery
-Phase 3  authoritative sync + central DB + pooled tenant isolation + idempotency
+Phase 3  authoritative sync + central DB + pooled tenant isolation + idempotency + realistic DB performance proof
 Phase 4  conflict/long-offline/resnapshot recovery
 Phase 5  one native rule + workflow + bounded dynamic form
 Phase 6  create Worker + Platform Admin Web; prove first real queue/schedule/event consequence
@@ -544,7 +580,7 @@ Owner: `docs/implementation/PHASES_AND_GATES.md`.
 
 ---
 
-## 19. Explicit non-baseline work
+## 20. Explicit non-baseline work
 
 Do not add these now:
 - dedicated accessibility/a11y workstream or conformance program;
@@ -556,6 +592,7 @@ Do not add these now:
 - microservice-per-module architecture;
 - full CQRS/event sourcing/Saga core architecture;
 - event-driven-everything;
+- container sidecar/proxy/leader/scatter-gather infrastructure without a concrete need;
 - global CRDTs;
 - schema/database/deployment per tenant baseline;
 - multi-currency/FX subsystem;
@@ -568,7 +605,7 @@ The accepted `IObjectStore`, `IBackupTarget`, Guard, ZITADEL, and OpenFGA bounda
 
 ---
 
-## 20. Implementation-complete rule
+## 21. Implementation-complete rule
 
 A capability is complete when the concerns that materially apply to that capability are proven: user states/recovery, tenant/authority, validation/permission, transaction/idempotency/concurrency, local-vs-server authority, async/external-unknown behavior, resource/storage bounds, upgrade/restore implications, and relevant hostile tests.
 
