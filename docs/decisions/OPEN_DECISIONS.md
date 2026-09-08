@@ -14,6 +14,7 @@ These are decisions that can materially affect the current implementation baseli
 - Exact authentication-context (`acr`) mapping for high-risk step-up operations.
 - **OpenFGA is selected**; open implementation details are deployment topology, store layout, first authorization model, authorization model ID rollout procedure, and consistency policy by operation class.
 - Exact messaging/scheduling mechanism only when Phase 6 implements the first durable Worker path.
+- Exact external API/sync version-negotiation scheme before Phase 3 supports Workstations that may skip releases. The compatibility behavior is required; URI/header/media-type representation is not yet selected.
 
 Avalonia, Blazor Web App, ZITADEL, and OpenFGA are accepted product/technology decisions and are not provider-selection questions anymore.
 
@@ -24,6 +25,8 @@ Avalonia, Blazor Web App, ZITADEL, and OpenFGA are accepted product/technology d
 - Exact mapping between SquiFlow Tenant membership and ZITADEL Organizations. Do not automatically make `ZITADEL OrganizationId == SquiFlow TenantId` until the multi-tenant identity POC proves that mapping fits cross-tenant users and future enterprise identity-provider needs.
 - Exact durable/reconciliation protocol when SquiFlow role/grant metadata/audit and OpenFGA tuple writes span two systems; revocation/change success must not be reported before OpenFGA state is known.
 - Which authorization checks require OpenFGA `HIGHER_CONSISTENCY` versus the lower-latency mode. Sensitive mutations/revocation-adjacent checks must fail safely; do not blindly force the highest consistency on every read without measurement.
+- Exact behavior when OpenFGA is unavailable: which operations fail closed immediately, whether any low-risk read can use explicitly bounded/revision-aware cached evidence, and how the UI/operator distinguishes dependency failure from permission denial.
+- Exact behavior when ZITADEL is unavailable: new login/step-up behavior, how long already-established sessions may remain usable under current revocation policy, and how recovery avoids turning identity-provider outage into accidental permanent access.
 - Whether explicit `Deny` semantics are ever necessary; baseline remains allow-oriented unless the OpenFGA model proves a real deny requirement.
 - Exact persistence representation/type of `TenantAuthorizationRevision`; semantics are accepted.
 - Exact resource families that support `Own/Assigned` scope and what ownership/assignment means for each.
@@ -50,7 +53,17 @@ Do not reopen the existence of Guard merely to reduce process count unless evide
 - Private infrastructure break-glass mechanism and operator access policy.
 - Who operates/responds to alerts and physical failures, and what maintenance/support promise is realistic.
 - Actual rack uplink bandwidth and transfer-concurrency limits.
+- Exact edge/reverse-proxy deployment and whether it is a single point of failure for tenant/admin access. The recovery plan must distinguish `edge unavailable` from `Core API/Admin API unavailable` and must not make the same public edge the only infrastructure-recovery path.
+- DNS/TLS certificate renewal/expiry monitoring and recovery procedure for the initial deployment.
+- Acceptable system clock-skew tolerance and alert/recovery policy for OIDC/TLS/leases/schedules; clock time must not become a substitute for versions/fencing/idempotency.
 - Backup scope for ZITADEL/OpenFGA depends on Cloud versus self-hosted selection: exported configuration/reprovisioning evidence may be enough for managed services, while self-hosted state requires provider-supported database/config backup and restore.
+
+## API/edge questions to close with implemented surfaces
+
+- Endpoint/cacheability classification for implemented APIs: which responses are explicitly cacheable/private/no-store, for how long, and under which tenant/authorization scope. Current-authority payment/stock/credit/authorization responses cannot become stale cache authority.
+- Exact supported HTTP/proxy protocol configuration only after deployment measurements; HTTP/1.1, HTTP/2, or HTTP/3 transport negotiation must not change business semantics.
+- Whether WebSocket/SignalR is needed for any implemented live-update UX. If used, it remains a signal/reconnect mechanism and not durable business truth.
+- Whether the simple edge/reverse proxy remains sufficient or a fuller API-management product is justified by real external-developer/version/transformation/policy requirements.
 
 ## Bootstrap storage decisions already selected
 
@@ -115,3 +128,7 @@ Open only if a real requirement appears:
 - specialized import/ETL platform;
 - Kafka/event-log infrastructure, mandatory Redis, global CRDT model, sharding, or active-active multi-region without a measured requirement;
 - container sidecar/proxy/leader/scatter-gather patterns without a concrete deployment or workload problem.
+
+## Question-driven review rule
+
+Questions raised by reviewed sources are applied to SquiFlow rather than left as interview prompts. If an applicable question cannot yet be answered, it must become an item in this file or a named phase gate with an owner. See `docs/review/ARCHITECTURE_QUESTION_LEDGER.md`.
