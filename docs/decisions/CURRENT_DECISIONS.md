@@ -10,11 +10,11 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Blazor Web App is the tenant Web presentation foundation and the future Platform Admin Web presentation foundation.
 - The business core is a modular monolith. A module does not become a service merely because it has a name.
 - `apps/web`, `apps/desktop`, and `services/core-api` are early executable boundaries.
-- `apps/admin-web` remains a separate platform-control-plane executable and is created when the platform-admin slice needs it.
+- `apps/admin-web` is a separate platform-control-plane UI executable and is created when the platform-admin slice needs it.
+- **`services/admin-api` is a separate Platform Admin backend executable and deployment boundary from `services/core-api`.** Platform/super-admin operations do not depend on Core API being available and are not hosted as `/platform-admin/...` routes on Core API.
 - `services/worker` remains a separate durable background executable and is created when durable background work is implemented.
 - **`SquiFlow.Guard` is a baseline Workstation companion process.** It owns desktop process supervision, bounded crash/hang recovery, update handoff/recovery, child/helper cleanup, and bounded diagnostic/resource evidence. It does not own business rules, authorization, sync semantics, or central DB access.
 - Printing is a Workstation device side effect. Other peripherals are requirement-driven.
-- Containerization is a deployment/runtime choice, not a reason to split modules into services or add sidecars/proxies/adapters. Container patterns are introduced only for a concrete deployment/coordination problem.
 
 ## Completeness versus minimalism
 
@@ -26,15 +26,15 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Do not introduce an interface merely because an implementation class exists or because mocking it is possible.
 - Generic `IRepository<T>`, `IUnitOfWork`, and one-interface-per-class conventions are not baseline.
 - An interface is justified when there is a concrete dependency-inversion/replacement boundary, including an already-planned near-term provider migration.
-- Cross-cutting behavior should be centralized when uniform enforcement is the requirement, but resource authorization and business/domain validity must not be pushed into one generic middleware layer merely for fewer files.
 
 ## Small-team tenant control
 
 - `Owner` + `Staff` are the default small-team role templates.
 - Tenant Owner controls ordinary staff permissions inside SquiFlow security/entitlement limits.
 - Role/permission assignment and tenant rule/workflow/form publication are Web-only tenant-administration operations.
-- Tenant administration lives in the normal tenant Web Settings/Administration area.
-- Platform-critical application controls are available only through the separate Platform Admin Web during normal operation.
+- Tenant administration lives in the normal tenant Web Settings/Administration area and uses the ordinary Core API tenant-admin surface.
+- Platform-critical application controls are available only through the separate Platform Admin Web **and separate Admin API backend** during normal operation.
+- Platform Admin Web does not call Core API as its normal platform-command backend.
 - Desktop never grants permissions or changes platform control-plane state.
 
 ## Identity and authorization stack
@@ -44,20 +44,18 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Stable external account identity remains `(issuer, subject)`, not email.
 - **OpenFGA is the current application-authorization engine choice** for tenant roles, tenant-defined custom roles, role assignments, stable permissions/relations, and resource relationship checks where applicable.
 - ZITADEL authentication and OpenFGA application authorization are separate concerns. ZITADEL role/token claims are not treated as current SquiFlow business authorization truth.
-- ASP.NET Core policy/requirements/`IAuthorizationService` remain the Core API integration point: handlers/policies invoke OpenFGA where a relationship/permission decision belongs there, then SquiFlow domain/workflow/concurrency rules still run separately.
+- ASP.NET Core policy/requirements/`IAuthorizationService` remain the server integration point. Core API uses tenant authorization; Admin API uses separate platform authorization. SquiFlow domain/workflow/concurrency rules still run separately.
 - OpenFGA does not replace database tenant isolation, business state validation, workflow guards, idempotency, or concurrency checks.
 - OpenFGA production calls pin an explicit authorization model ID; model migrations are versioned/controlled rather than silently using whatever model is newest.
 - Tenant-created custom role instances/assignments are data/tuples, not a new OpenFGA authorization-model deployment for every role edit.
 - OpenFGA tuples use opaque SquiFlow IDs rather than emails or other unnecessary PII.
 - Permission/relationship changes return success only after the authoritative OpenFGA change is known/applied; ambiguous external-write outcomes are reconciled rather than assumed successful.
 - `TenantAuthorizationRevision` remains SquiFlow evidence/versioning for effective authorization/configuration and Workstation snapshot freshness; it complements rather than replaces OpenFGA model/tuple state.
-- SquiFlow does not build a parallel password/OTP/MFA/passkey authentication stack. Authentication methods/credential policy belong to ZITADEL; SquiFlow owns OIDC/session binding, application step-up requirements, device/tenant mapping, and post-authentication authorization.
 
 ## Web and Workstation
 
 - Web is online-only for business operations in v0.0.15. No IndexedDB business replica, service-worker business sync, or browser offline mutation queue is baseline.
 - Valuable online forms may use explicit server-side drafts/autosave when justified.
-- Blazor Web App does not make Web application state magically stateless. If Interactive Server rendering is used, circuit/session state can live in server memory; high-value business state must still be persisted independently, and multi-node circuit/session behavior is an explicit deployment decision.
 - Workstation is the local-first/offline client.
 - Local Workstation success and server-authoritative acceptance are separate states (`LocalCommitted`, `PendingRemote`, `Authoritative`, `Conflict`, `Rejected`, `AuthorizationChanged`, `UpgradeRequired`).
 - SquiFlow adopts local-first interaction/durability, not a global CRDT or peer-authority model for payments, stock, credit, permissions, or other shared invariants.
@@ -70,9 +68,6 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - PostgreSQL remains the strongest central reference candidate; if used, its proof includes RLS defense in depth and safe runtime-role/connection-pool behavior.
 - SQLite + WAL and libSQL remain Workstation-store candidates.
 - Exact central and local database products remain open until the relevant vertical-slice POCs close them.
-- Database performance choices are measurement-driven. Indexes, caches and denormalization have write/freshness/consistency costs and are not introduced merely because they are common optimizations.
-- Database POCs/hot-path tests include representative growth/cardinality, query plans, tenant-aware indexes, write/import/sync cost, connection-pool behavior and storage/WAL/temp impact where applicable.
-- Redis, read replicas, sharding and denormalized read models are not baseline performance fixes without measured need.
 
 ## API, sync, and Worker correctness
 
@@ -83,21 +78,6 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Retry is finite, classified, budgeted, and uses backoff/jitter/`Retry-After` where appropriate.
 - Long-running HTTP work uses durable asynchronous status only when work is actually long-running; ordinary short business transactions remain synchronous.
 - Conflict handling is aggregate-specific; no global last-write-wins policy.
-- API cross-cutting concerns such as correlation/safe logging, authentication, generic limits, error shaping and coarse policy are enforced consistently through ASP.NET Core pipeline/policies/endpoint metadata where appropriate.
-- Every externally reachable endpoint must declare its audience/authentication/policy/limits or be an explicit reviewed public exception; resource authorization and domain validation still run at the correct deeper layer.
-
-## State placement and server statelessness
-
-- `Stateless Core API/Worker` means process memory is not the sole authoritative durable business state. It does not mean the product has no state.
-- Durable/shared state lives in the appropriate system: central DB, object storage, job/outbox store, ZITADEL/OpenFGA, configuration/backup, and the local Workstation DB for offline work.
-- Process-local caches/circuits/temporary state are allowed only with explicit loss/freshness semantics and cannot be correctness authority.
-- Stateless server compute does not imply high availability, automatic failover, transparent multi-node Web circuits, or zero downtime.
-
-## Event history versus event sourcing
-
-- SquiFlow keeps explicit append-only/immutable history where the domain requires it: payments/effects, stock movements, corrections/reversals, issued documents, privileged audit, and versioned rules/workflows/forms.
-- Transactional outbox events represent committed facts/consequences and do not make SquiFlow event-sourced.
-- Event sourcing is **not** the v0.0.15 authoritative persistence model. Revisit only if an implemented domain genuinely needs replay-derived authoritative state strongly enough to justify immutable-event schema/projection/rebuild complexity.
 
 ## Rules/workflow
 
@@ -126,6 +106,7 @@ This file records accepted direction only. Detailed reasoning and changes from t
 
 - Current server hardware is lower-spec/desktop-class rack hardware; `stateless` does not imply automatic failover or zero downtime.
 - Resource use is explicitly bounded; spare CPU/RAM is headroom rather than permission for caches/workers to grow without limit.
+- Core API and Admin API have independent process/deployment health. A Core API outage must not automatically remove the Platform Admin application control surface; an Admin API outage must not block ordinary tenant business API work.
 - OpenTelemetry/OTLP is the instrumentation boundary. New Relic + Aiven OpenSearch are current managed targets and Backtrace remains the crash-diagnostics direction.
 - Guard contributes bounded Workstation lifecycle/crash/resource evidence into diagnostics without becoming business authority.
 - Telemetry-provider failure/quota exhaustion cannot block business transaction correctness.
@@ -138,6 +119,5 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Kafka, mandatory Redis, event-sourced/full-CQRS/Saga core architecture;
 - global CRDTs;
 - microservice-per-module design;
-- container sidecar/proxy/leader/scatter-gather infrastructure without a concrete workload/deployment requirement;
 - per-tenant infrastructure by default;
 - advanced peripheral suite, MRP/wastage, specialized ETL/search, or SaaS billing engine without a current customer/commercial requirement.
