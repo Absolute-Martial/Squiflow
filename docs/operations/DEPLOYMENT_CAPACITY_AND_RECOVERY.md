@@ -2,194 +2,141 @@
 
 **Version:** v0.0.15
 
-This document grounds SquiFlow's server assumptions in the current deployment reality instead of treating owned desktop-class hardware as if it were an elastic cloud.
+This document grounds SquiFlow in the current lower-spec owned rack and bootstrap external-storage reality. It does not pretend the environment is an elastic cloud.
 
-## 1. Current environment constraint
+## 1. Current environment
 
-The current available environment includes:
+Current known constraints:
+- lower-spec/desktop-class rack hardware;
+- primary business-object storage on a **private Hugging Face Storage Bucket**;
+- approximately **100 GB** current private Hugging Face storage envelope;
+- temporary off-site backup carrier on a **private Kaggle Dataset** using encrypted opaque backup files;
+- managed external observability;
+- no assumption of automatic hardware replacement, autoscaling, or failover.
 
-- a rack of lower-spec/desktop-class server hardware;
-- approximately 100 GB of currently available S3/object-storage capacity;
-- managed external observability targets;
-- no assumption of automatic cloud autoscaling or automatic hardware replacement.
+Exact rack machine count, CPU/RAM, disk/filesystem, network/uplink, power protection and spare inventory remain deployment facts to capture before production.
 
-Exact machine count, CPU/RAM, disk models, filesystem, network uplink, UPS/power protection and spare-hardware inventory must be captured before production qualification. Do not invent those values in architecture docs.
+## 2. `Stateless` does not mean `high availability`
 
-## 2. What `stateless/disposable server node` means
+Web/Core API/future Worker process memory is not authoritative business state.
 
-`Stateless` means Web/Core API/Worker process memory is not authoritative business state and a process/node can be restarted or replaced without intentionally losing committed business truth.
-
-It does **not** mean:
-
-- another healthy node automatically exists;
+That does not mean:
+- another node exists;
 - failover is automatic;
-- a failed motherboard/SSD/PSU causes zero downtime;
-- the physical machine is disposable in operational practice.
+- a disk/PSU/motherboard/network failure has zero downtime.
 
-Until redundant capacity and routing are actually proven, a node failure can be a real outage requiring manual recovery.
+Until redundancy is actually implemented and tested, physical failure can require manual recovery.
 
-## 3. Physical durability must be qualified
+## 3. Physical durability must be tested
 
-Database-level ACID semantics are necessary but not sufficient to claim a physical durability objective.
+The selected central/local database stack must be tested on the actual hardware class for:
+- process/OS restart;
+- abrupt power loss where practical/safe to reproduce;
+- disk full/low-space behavior;
+- database recovery/integrity checks;
+- restore onto replacement hardware;
+- measured restart/recovery time.
 
-The selected central/local storage stack must be tested on the hardware actually used, including:
+UPS, ECC, RAID/ZFS, enterprise SSDs, and similar hardware are not automatically required by architecture. Decide them from real RPO/RTO/risk/budget.
 
-- abrupt power loss;
-- OS/process crash;
-- disk-full and low-free-space behavior;
-- filesystem/storage errors where reproducible;
-- restart/recovery time;
-- database integrity/check/repair path;
-- backup restore onto replacement hardware.
+## 4. Capacity is bounded
 
-UPS/power-loss protection is a deployment decision, not an implied property. If no UPS exists, the accepted durability/recovery risk must be explicit rather than hidden behind `COMMIT` semantics.
-
-ECC memory, enterprise SSD power-loss protection, RAID/ZFS or other hardware features are **not automatically required** by this document. Their need is decided from the target RPO/RTO, measured failure risk and actual hardware budget.
-
-## 4. Hardware inventory and node roles
-
-Before a production topology is declared, maintain a small authoritative deployment inventory containing at least:
-
-- node identifier;
-- CPU / RAM;
-- disk type/capacity/health source;
-- OS/version;
-- network interfaces/uplink assumptions;
-- intended runtime roles;
-- whether the node is a single point of failure;
-- replacement/spare procedure;
-- last qualification date.
-
-Do not spread this information across architecture Markdown. It belongs in deployment configuration/runbooks and can be generated for diagnostics.
-
-## 5. Capacity is budgeted, not inferred from free resources
-
-Server capacity planning uses explicit budgets for:
-
-- API concurrent work;
+Explicit budgets eventually cover:
+- API concurrency;
 - DB connections;
-- Worker concurrency by work class;
-- report/document/image processing;
+- future Worker concurrency;
+- document/image work;
 - memory/RSS;
-- local temp/staging bytes;
-- object storage bytes;
-- outbound provider calls;
-- retry volume;
-- network upload/download bandwidth.
+- local staging/temp bytes;
+- Hugging Face object bytes;
+- backup bytes;
+- provider requests/retries;
+- network bandwidth.
 
-Available RAM/CPU is headroom, not permission for caches/workers to grow without bounds.
+Available CPU/RAM is headroom, not permission for unbounded cache/worker growth.
 
-## 6. Current 100 GB object-storage ceiling
+## 5. Hugging Face object capacity
 
-Treat the current ~100 GB object-storage capacity as a hard planning constraint, not an effectively unlimited cloud bucket.
+Treat the current ~100 GB private Hugging Face capacity as finite.
 
-Track usage by purpose and tenant where applicable:
+Measure:
+- total bytes;
+- retained business objects;
+- temporary/expiring objects;
+- orphan candidates;
+- bytes by tenant where useful;
+- growth rate.
 
-- retained customer artwork/attachments;
-- immutable issued/generated documents;
-- product/profile assets;
-- temporary exports;
-- diagnostic archives;
-- orphaned/unreferenced objects awaiting GC.
+Do not silently delete retained business objects as the account approaches its limit. Reject/defer optional new large work before hard exhaustion when necessary.
 
-Backups are a separate durability concern and must **not** be assumed to fit indefinitely inside the same 100 GB primary-object budget or to make the same bucket its own only backup copy.
+The planned migration to a paid object-storage provider occurs when the first paying customer arrives, or earlier if Hugging Face capacity/rate/reliability/privacy/compliance requirements demand it.
 
-Before production, define configurable:
+## 6. Bandwidth is a real resource
 
-- soft warning threshold;
-- critical threshold;
-- hard admission behavior;
-- per-tenant/default quota policy where useful;
-- retention/expiry by object class;
-- orphan GC policy;
-- usage trend/forecast alert.
+Measure actual rack uplink/downlink.
 
-Exact percentages are deployment policy and should not be invented before measuring normal file sizes and growth.
+Large uploads, restores, diagnostics and backups use bounded concurrent transfers and must not starve normal API/Workstation synchronization.
 
-## 7. Capacity exhaustion behavior
+Do not add a complicated traffic scheduler before measurement shows one is needed; start with small concurrency limits and observe.
 
-When capacity approaches a hard limit:
+## 7. Kaggle backup bootstrap
 
-1. preserve authoritative business state;
-2. do not silently delete retained customer/business objects;
-3. reject/defer new optional large work with a stable `StorageCapacityExceeded`/equivalent result;
-4. preferentially expire disposable caches/temp/expired diagnostics according to policy;
-5. surface the reason and remediation in Platform Admin;
-6. keep enough reserve for metadata/audit/recovery operations.
+The current off-site backup carrier is a private Kaggle Dataset.
 
-A full object store or local staging disk must not cascade into corrupt transaction state.
+Important constraints:
+- upload only opaque **encrypted** backup artifacts;
+- never upload raw customer DB/CSV/object files to Kaggle;
+- keep the encryption key outside Kaggle and recoverable;
+- verify remote download + checksum;
+- perform actual restore drills;
+- treat Kaggle private-storage limits/versioning as finite.
 
-## 8. Bandwidth is also a resource
+The backup pipeline can remain simple before paying customers, but the first paying customer is the planned trigger to move to a purpose-built paid backup arrangement. Migrate earlier if capacity/security/automation/restore requirements demand it.
 
-Object-store capacity is only one constraint. Measure the actual rack uplink/downlink and normal business traffic.
+## 8. Backup/restore contract
 
-Large attachments, restore downloads, diagnostics and backups use:
+A useful backup identifies what is required to rebuild service:
+- central DB;
+- required object bytes/metadata;
+- durable job/idempotency state where those exist;
+- required configuration;
+- secrets/key recovery through a separate safe process.
 
-- bounded concurrent transfers;
-- resumable/multipart transfer where provider/size justifies it;
-- retry/backoff without saturating the link;
-- work-class priority so backups/diagnostics do not starve interactive API/sync traffic;
-- observable transfer rate and backlog age.
+`Backup uploaded` is not enough. Restore must prove the application starts and tenant-isolated business state is usable.
 
-## 9. Backup and restore are separate from primary object storage
+Exact customer-facing RPO/RTO remain OPEN until a real production/commercial requirement exists.
 
-A valid backup plan states:
+## 9. Break-glass infrastructure recovery
 
-- what is backed up: central DB, object metadata/bytes, durable job/idempotency state where required, configuration/secrets according to policy;
-- where independent backup copies live;
-- encryption/key ownership;
-- backup frequency;
-- retention;
-- restore order;
-- expected RPO/RTO;
-- how a restore is verified;
-- how DB/object versions are reconciled after asymmetric recovery.
+Normal platform-control operations use future Platform Admin Web.
 
-`Backup succeeded` is not enough. A restore drill must prove recovery to usable business state.
+If the app/control plane itself is unavailable, private infrastructure recovery may be needed for:
+- process restart/redeploy;
+- node replacement;
+- DB recovery;
+- network/config repair required for the app to boot.
 
-The final backup target and RPO/RTO remain OPEN until deployment requirements are chosen.
+This is not a hidden Desktop/business API. Keep it private, least privilege, runbook-driven, and as small as the actual operating model allows.
 
-## 10. Application control plane versus break-glass infrastructure recovery
+## 10. Operator ownership
 
-Normal platform-critical operations use Platform Admin Web and audited `/platform-admin/...` commands.
+Before production answer:
+- who receives alerts;
+- who can physically access/recover the rack;
+- who has private infrastructure credentials;
+- what maintenance/support promise is realistic;
+- what happens if that operator is unavailable.
 
-However, if Admin Web/Core API itself is unavailable, recovery cannot depend on the unavailable application control plane.
+Do not invent an enterprise on-call organization for a tiny team.
 
-A separate private infrastructure break-glass path is therefore required for tasks such as:
+## 11. Production qualification
 
-- restarting/redeploying a failed application process;
-- replacing a failed node;
-- recovering the database when the app cannot start;
-- restoring configuration needed for the app to boot;
-- diagnosing network/storage failure.
-
-This path is not an alternative business/admin API. It uses least-privilege private infrastructure access (for example the selected Tailscale/Twingate/SSH/container mechanism), has a documented runbook, and records operator/recovery evidence where feasible.
-
-## 11. Operations ownership
-
-Before production, answer explicitly:
-
-- who receives an outage/capacity alert;
-- who can access the rack physically;
-- who can perform private infrastructure recovery;
-- expected support/maintenance hours;
-- how customers are informed of significant outages/maintenance;
-- what happens when the only qualified operator is unavailable.
-
-Do not design an enterprise on-call organization if the actual team is tiny. Define a realistic operating model and scope the SLA accordingly.
-
-## 12. Production qualification gates
-
-A release/deployment is not production-qualified until it has evidence for:
-
+Before accepting paying-customer production traffic, prove at least:
 - actual-node resource benchmark;
-- storage free-space/capacity alerts;
-- DB connection/resource bounds;
-- abrupt-power/restart recovery appropriate to hardware;
-- object-store exhaustion behavior;
-- bandwidth/backlog behavior;
-- backup + restore drill;
+- DB/restart/disk-full recovery;
+- Hugging Face capacity monitoring and migration readiness;
+- encrypted Kaggle backup download/restore;
 - single-point-of-failure inventory;
-- break-glass runbook;
-- telemetry-provider quota/degradation behavior;
-- documented provisional/final RPO/RTO.
+- private recovery runbook;
+- provisional RPO/RTO;
+- migration plan to purpose-built paid object/backup storage.
