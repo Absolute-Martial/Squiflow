@@ -2,147 +2,153 @@
 
 **Version:** v0.0.15
 
-The persistence products remain OPEN decisions, but an implementation phase that needs persistence must select and prove a real adapter for that slice.
+Database products remain OPEN until the implementation phase that needs them proves a real candidate. Provider portability does not require a generic repository/unit-of-work hierarchy.
 
-## 1. Central store requirements
+## 1. Central store — Phase 3 selection
 
-A central candidate must prove:
+The first central DB candidate must prove the properties required by the actual sync/order slice:
 - ACID transaction correctness and constraints;
-- concurrency/isolation behavior under SquiFlow workloads;
-- indexing/query performance;
-- migrations/expand-contract compatibility;
+- concurrency/isolation behavior;
+- useful indexing/query performance;
+- schema migration;
 - idempotency receipt + business mutation/outbox atomicity where applicable;
-- durable Worker claim/lease/fencing primitives;
 - pooled tenant isolation;
-- backup/restore and recovery behavior;
+- backup/restore/recovery behavior;
 - mature .NET integration;
-- observability;
-- bounded connection/resource use on the actual lower-spec deployment class;
-- a credible later HA/read-scale path without requiring it now.
+- bounded connections/resources on the actual lower-spec server class.
 
 PostgreSQL is the strongest current central reference candidate, not an implicit final decision.
 
-## 2. Pooled multi-tenant baseline
+Do not require future Worker/HA/reporting features to be solved before the Phase-3 slice unless the selected DB would make a known required path impossible.
 
-The ordinary v0.0.15 central data model is designed for pooled storage with an explicit `TenantId`/equivalent discriminator on tenant-owned authoritative records.
+## 2. No generic persistence abstraction baseline
 
-The selected provider must prove that tenant isolation does not depend only on every developer remembering a `WHERE TenantId = ...` clause.
+Do not create:
 
-Required proof includes:
-- typed authoritative `TenantContext` from the application boundary;
-- tenant-scoped repositories/query contracts;
-- read **and write** isolation;
-- tenant-aware uniqueness/indexing where uniqueness is tenant-local;
-- cross-tenant negative tests for reads, writes, reports, search, jobs, diagnostics and migrations;
-- deliberate privileged identities for maintenance/backup/migration paths;
-- safe behavior under connection pooling.
+```text
+IRepository<T>
+IUnitOfWork
+IPersistenceProvider
+one interface per DB implementation
+persistence/abstractions project
+```
+
+merely for provider neutrality or mocking.
+
+Instead:
+- keep SQL/ORM/provider-specific code inside the infrastructure/data-access portion of the application;
+- expose application/business operations in domain/use-case terms rather than leaking provider APIs upward;
+- test provider-specific behavior against the real provider;
+- extract a narrow interface/project only if an actual replacement, dual provider, plugin/process boundary or dependency-inversion problem requires it.
+
+Containment is enough until migration is real.
+
+## 3. Pooled multi-tenant baseline
+
+Tenant-owned central data uses explicit tenant scope/discriminator.
+
+Prove:
+- authoritative `TenantContext` enters the data-access path from server membership/session resolution;
+- tenant-owned reads and writes cannot casually cross tenants;
+- tenant-local uniqueness/indexes include tenant scope where needed;
+- list/report/export paths preserve tenant scope;
+- connection reuse cannot carry another tenant's context;
+- maintenance/backup/migration uses deliberate privileged identities.
+
+This does not require a generic repository interface. Tenant scope can be enforced through concrete query/application/data-access code plus DB defense in depth.
 
 ### PostgreSQL reference proof
 
-If PostgreSQL remains the central reference candidate, its adapter/POC must also prove Row-Level Security for pooled tenant-owned tables.
+If PostgreSQL is used:
+- prove Row-Level Security on applicable tenant-owned tables;
+- runtime role is not superuser/`BYPASSRLS`;
+- table-owner/`FORCE ROW LEVEL SECURITY` behavior is deliberately handled;
+- read and write policies are tested;
+- any custom tenant setting used by RLS is transaction-local under connection pooling.
 
-The runtime role must not be superuser or `BYPASSRLS`. Table-owner bypass/`FORCE ROW LEVEL SECURITY` behavior must be deliberately handled. `USING`/`WITH CHECK` coverage must protect applicable reads and writes.
+RLS is defense in depth, not a replacement for application authorization.
 
-If a custom PostgreSQL setting carries tenant context, it must be transaction-local so a reused pooled connection cannot retain the previous tenant's scope.
+## 4. Physical durability
 
-RLS is defense in depth alongside SquiFlow tenant/resource authorization, not a replacement for application authorization.
+Database `COMMIT` semantics do not by themselves prove recovery on the current rack.
 
-## 3. Physical durability is deployment evidence, not a database slogan
-
-`COMMIT`/`fsync` semantics from a database do not by themselves prove the accepted recovery behavior of the current desktop-class rack hardware.
-
-The chosen central adapter/deployment must be qualified for:
-- abrupt process/OS restart;
-- power-loss-equivalent recovery appropriate to the available hardware;
-- disk full/low free space;
+Test the selected central/local stack for the relevant cases:
+- process/OS restart;
+- power-loss-equivalent recovery where practical;
+- disk full/low space;
 - database restart/recovery time;
 - integrity/check/repair path;
-- restore onto replacement hardware;
-- behavior when storage is slower than expected and connection/Worker queues back up.
+- restore onto replacement hardware.
 
-UPS, enterprise SSD power-loss protection, ECC memory, RAID/ZFS or similar features are **not silently assumed**. Their need follows the accepted RPO/RTO and actual hardware risk/budget.
+UPS, ECC, RAID/ZFS, enterprise SSDs etc. are deployment choices derived from real RPO/RTO/risk, not architecture defaults.
 
-See `docs/operations/DEPLOYMENT_CAPACITY_AND_RECOVERY.md`.
+Owner: `docs/operations/DEPLOYMENT_CAPACITY_AND_RECOVERY.md`.
 
-## 4. Restore consistency extends beyond the database
+## 5. Restore consistency
 
-A restore can be unsafe even if the SQL database itself restores cleanly.
-
-Qualification must consider the relationship between:
+Restore correctness can involve:
 - business records;
 - idempotency receipts;
-- outbox/job state;
-- object metadata;
-- durable object bytes;
-- versioned rules/workflows/config;
-- security/audit state needed for correctness.
+- outbox/job state once present;
+- object metadata/bytes;
+- rules/workflow/config needed to interpret state.
 
-Important hostile case:
+Example hostile case:
 
 ```text
 business effect restored
-idempotency receipt not restored
-→ late retry could attempt duplicate effect
+idempotency receipt lost
+→ late retry may duplicate effect
 ```
 
-Restore verification must prove the selected recovery point does not accidentally recreate completed external/business effects or silently orphan required objects.
+Restore qualification must consider this relationship rather than checking only `database starts`.
 
-## 5. Connection/resource envelope
+## 6. Connection/resource envelope
 
-The selected central adapter must expose measurable limits for:
-- max/normal connection-pool size;
+Measure the actual selected provider/driver rather than accepting framework defaults blindly:
+- normal/max pool size;
 - pool wait time;
-- statement/transaction timeout policy where safe;
-- long-running report/query isolation;
-- Worker claim/batch size;
-- migration resource behavior;
-- memory/disk/WAL/temp growth.
+- transaction/query duration under the implemented workload;
+- memory/disk/WAL/temp growth;
+- migration cost on actual hardware.
 
-Pool sizes are derived from the actual server/database capacity, not from framework defaults or available RAM alone.
+Do not size pools/caches from available RAM alone.
 
-## 6. Future placement profiles
+## 7. Future dedicated tenant placement
 
-The persistence abstraction must not hard-code the assumption that every tenant will forever share one physical database.
+Application/business code should not assume a physical DB filename/connection belongs permanently to every tenant, but do not implement per-tenant DB routing/pools before a real residency/compliance/SLO customer requires them.
 
-A future tenant may be routed to dedicated storage because of residency, compliance, contractual isolation, enterprise scale or customer-managed deployment requirements.
+Schema-per-tenant and DB-per-tenant are not baseline.
 
-Do not implement per-tenant database routing/pools before a real dedicated-data requirement exists. The current requirement is only to avoid domain/application contracts that make later placement impossible.
+Owner: `docs/architecture/MULTI_TENANCY_ISOLATION.md`.
 
-Schema-per-tenant is not baseline because it increases migration/operational complexity while still sharing the DB process, and SquiFlow expects tenant variation to be expressed through configuration/rules/forms/workflows rather than tenant-specific table definitions.
+## 8. Workstation local store — Phase 2 selection
 
-See `docs/architecture/MULTI_TENANCY_ISOLATION.md`.
-
-## 7. Local Workstation store requirements
-
-A local candidate must prove:
+A local candidate must prove the actual local-first requirements:
 - atomic business + outbox transaction;
-- crash/power-loss/restart recovery;
+- crash/restart recovery;
 - bounded resource use;
-- schema migration across skipped releases;
-- backup/recovery/export;
-- long-offline behavior;
-- corruption detection/repair or safe recovery path;
-- file/object reference durability;
+- schema migration;
+- long-offline queue persistence;
 - lock/contention behavior;
-- disk-full/low-space behavior;
-- .NET/Windows integration and packaging.
+- disk-full behavior;
+- corruption/recovery path;
+- .NET/Windows packaging/integration.
 
-SQLite + WAL is the mature reference candidate. libSQL is an explicit candidate and must be tested under the same SquiFlow workload/failure matrix.
+SQLite + WAL is the mature reference candidate. libSQL is an explicit candidate. Test both against the same small SquiFlow workload/failure cases needed to make the decision.
 
-Do not select libSQL merely because it is newer, and do not select SQLite merely because it is familiar.
+Server and Workstation may use different DB products without requiring a shared persistence interface.
 
-Server and Workstation may choose different database products.
+## 9. Selection evidence
 
-## 8. Selection evidence
-
-A provider decision is accepted only when its POC records:
+Record:
 - exact product/driver/version/config;
-- exact hardware/OS used;
-- test workload and data size;
-- failure/concurrency/isolation results;
+- hardware/OS;
+- workload/data size;
+- transaction/concurrency/isolation results;
 - resource measurements;
-- backup/restore evidence;
-- known limitations/workarounds;
-- exit/migration implications.
+- backup/recovery evidence;
+- known limitations;
+- migration/exit implications.
 
-A reference-project directory or architecture preference is not proof of selection.
+Then select the product for the slice. Do not keep a decision open indefinitely merely to preserve theoretical optionality.
