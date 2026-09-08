@@ -25,7 +25,8 @@
 - Local Workstation commit and server-authoritative acceptance are distinct states.
 - SquiFlow adapts local-first principles incrementally; it does not adopt a global CRDT/peer-to-peer authority model for payments, inventory, permissions, credit or other shared invariants.
 - Server authorization has separate function-, resource/object-, property-, state/workflow- and concurrency layers where applicable.
-- ASP.NET Core `IAuthorizationService`/resource authorization handlers are the framework primitive for loaded-resource authorization; SquiFlow does not build a competing authorization runtime.
+- ASP.NET Core `IAuthorizationService`/policy/requirement/resource authorization handlers are the framework primitive; SquiFlow does not build a competing authorization runtime.
+- Multiple requirements inside one policy are treated as AND; handlers must not rely on invocation order or perform business side effects.
 - Tenant resource queries are constrained by authoritative tenant context before finer authorization wherever practical.
 - Request/response contracts use explicit DTO/projection allowlists rather than client JSON binding directly to persistence/domain entities.
 - Tenant authorization changes advance a monotonic `TenantAuthorizationRevision`; the authorization change, revision, audit and durable invalidation/outbox evidence commit atomically.
@@ -34,7 +35,22 @@
 - SquiFlow adopts Zanzibar's authorization-freshness lesson but **not** a Zanzibar service, global tuple graph, zookie protocol, Spanner/Leopard machinery or universal per-row ACL model.
 - API security release gates cover OWASP API object/function/property authorization, authentication/recovery abuse, resource consumption, sensitive flows, SSRF, security configuration, API inventory and unsafe third-party consumption.
 - API/version inventory is generated from executable endpoint metadata/OpenAPI in CI/release; manual CSV inventories are not architecture authority.
+- Retryable mutating commands whose duplicate execution could cause a meaningful effect use caller-provided semantic idempotency keys.
+- A semantic idempotency key is separate from HTTP request ID, correlation ID, message ID and business entity ID.
+- Same idempotency key + same semantic intent returns the same/semantically equivalent result or operation status; same key + materially different parameters is rejected.
+- Where one authoritative store owns both, the idempotency receipt and business mutation/outbox are committed atomically.
+- At-least-once message/Worker delivery is assumed; consumers/effects are idempotent or explicitly reconcilable.
+- Retry is limited to transient failures, uses finite attempt/elapsed-time budgets, honors `Retry-After`, and uses backoff/jitter as appropriate. Nested retry storms and endless retry loops are prohibited.
+- Long-running HTTP operations use durable asynchronous request-reply/status resources rather than keeping request threads open indefinitely.
+- Ordinary short authoritative business transactions remain synchronous; SquiFlow does not queue every command merely because a Worker exists.
+- API collection reads have server-enforced bounds/pagination; client-selected field projections cannot bypass property-level authorization.
+- ETags/`If-Match` may expose optimistic concurrency to HTTP clients while the domain version remains the correctness boundary.
+- Full HATEOAS is not a baseline requirement.
 - Durable Worker jobs distinguish already-committed business consequences from deferred actor actions and platform-control commands so permission revocation is handled semantically rather than with one blanket rule.
+- Cloud architecture patterns are selected only when their problem statement matches a measured/current SquiFlow constraint; the Azure pattern catalog is not an implementation backlog.
+- Current selective pattern use includes async request-reply, bulkhead-style workload isolation, health endpoints, idempotent consumers, bounded priority/load-leveling queues, retry/throttling, selected compensation, and narrowly scoped signed object access when justified.
+- Full CQRS, event sourcing, Saga-based core architecture, per-frontend BFF services, sharding, leader election, deployment stamps and active-active multi-region are deferred until a concrete workload requirement justifies their costs.
+- Cache-aside/local caches are optional measured optimizations; shared Redis is not baseline and caches are never authoritative.
 - Central/local persistence product choices remain open; PostgreSQL/SQLite are reference candidates and libSQL is a real local-store candidate.
 - SquiFlow-native bounded rule architecture is baseline.
 - Workflow is continuation-first and versioned.
