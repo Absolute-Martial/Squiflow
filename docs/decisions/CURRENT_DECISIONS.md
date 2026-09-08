@@ -2,20 +2,26 @@
 
 - C# / modern .NET application foundation.
 - ASP.NET Core Core API host.
-- Windows Workstation + Web primary product surfaces.
-- Modular monolith business architecture, with distinct Web/Admin/Desktop/API/Worker runtime boundaries.
-- Small-team-first tenant UX: Owner + Staff default templates.
-- Tenant Owner controls ordinary staff roles/permissions inside secure platform limits.
-- Tenant Settings/Admin lives in normal Web; platform Admin Web is separate.
+- Windows Workstation + hosted Web are primary user surfaces.
+- Modular monolith business architecture with distinct Web/Admin/Desktop/API/Worker runtime boundaries.
+- Small-team-first tenant UX: `Owner` + `Staff` default templates.
+- Tenant Owner controls ordinary staff roles/permissions inside secure platform and entitlement limits.
+- Permission/role assignment is performed through Web administration only; Desktop can consume effective permissions but never grant them.
+- Tenant workflow/rule/stage editing and publication is performed through Web administration only.
+- Tenant Settings/Admin lives in ordinary tenant Web; SquiFlow platform Admin Web is separate.
+- Platform-critical server/Worker/control-plane commands originate only from Platform Admin Web and privileged `/platform-admin/...` APIs.
+- Ordinary Desktop business changes continue through `/sync/...`; Web-only control-plane policy does not block normal Workstation synchronization.
 - Canonical browser identity authority; Workstation interactive login uses system-browser authorization-code + PKCE semantics.
-- Tenant custom domains are supported with ownership verification/TLS/audit/fallback.
-- Web is online-first with cached shell, selected drafts and selective future offline commands.
-- Browser auth secrets are not stored in localStorage.
-- Central/local persistence product choices remain open; PostgreSQL/SQLite are references and libSQL is a real local candidate.
+- Tenant custom domains are supported with ownership verification, TLS lifecycle, audit and fallback.
+- Web business operation is **online-only in v0.0.15**. No IndexedDB business replica, service-worker sync, queued offline mutations or partial-offline business model is baseline.
+- Browser auth secrets are not stored in `localStorage`; `localStorage` is for harmless preferences only and `sessionStorage` for transient tab-local UI hints.
+- Workstation is the local-first/offline client. Local-permitted operations commit durably locally first and synchronize in the background.
+- Local Workstation commit and server-authoritative acceptance are distinct states.
+- SquiFlow adapts local-first principles incrementally; it does not adopt a global CRDT/peer-to-peer authority model for payments, inventory, permissions, credit or other shared invariants.
+- Central/local persistence product choices remain open; PostgreSQL/SQLite are reference candidates and libSQL is a real local-store candidate.
 - SquiFlow-native bounded rule architecture is baseline.
 - Workflow is continuation-first and versioned.
-- Workstation remains strongest local-first/offline client.
-- Client does not receive central DB credentials and remains untrusted for server authority.
+- Client never receives central DB credentials and remains untrusted for server authority.
 - OpenTelemetry is permanent instrumentation; New Relic + Aiven OpenSearch current managed targets; Backtrace crash diagnostics direction.
 - Server infrastructure nodes are stateless/disposable for authoritative business state.
-- Kafka/YugabyteDB are not baseline dependencies.
+- Kafka, YugabyteDB, mandatory Redis, full browser offline sync and a microservice-per-module model are not baseline dependencies.
