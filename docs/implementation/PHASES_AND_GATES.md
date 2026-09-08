@@ -19,7 +19,7 @@ For each phase:
 - **Phase 1:** close ZITADEL Cloud vs self-hosted, instance/project/application layout, first OpenFGA store/model, model-ID rollout, and initial consistency/reconciliation policy.
 - **Phase 2:** choose the Workstation local DB after the smallest SQLite/libSQL proof needed for a real local transaction.
 - **Phase 3:** choose the initial central DB implementation capable of authoritative transaction + pooled isolation proof.
-- **Phase 6:** choose only the background scheduling/messaging mechanism required by the first durable Worker workload.
+- **Phase 6:** choose only the background mechanism required by the first durable Worker workload. Decide from the real semantic need (single durable job, scheduled occurrence, multi-consumer event, or replayable stream); do not select a broker/event platform first and search for a use case afterward.
 - **Phase 7:** use private Hugging Face through `IObjectStore` and encrypted private Kaggle through `IBackupTarget`.
 - **Before paying-customer production:** actual rack inventory/recovery, backup restore proof, provisional RPO/RTO, operator/break-glass access, printer support, and provider migration readiness must be known honestly.
 
@@ -171,24 +171,25 @@ Deliver:
 - PostgreSQL RLS proof if PostgreSQL is selected;
 - atomic business mutation + idempotency receipt + outbox where one store owns them;
 - remote change feed + cursor;
-- finite retry/backoff.
+- finite retry/backoff with an intentional retry owner for each remote path.
 
 Attack:
 - response lost after commit;
-- duplicate same-intent command;
+- duplicate same-intent command from caller retry;
 - same key + changed intent;
 - cross-tenant object/list/write attempt;
 - valid OpenFGA permission but wrong TenantId/resource query;
 - permission revoked while local operation pending;
 - connection reused across tenants;
 - partial batch failure;
-- retry amplification.
+- retry amplification across Workstation/API/provider layers.
 
 Gate:
-- no duplicate effect;
+- no duplicate semantic effect;
 - no cross-tenant leakage even if authorization relation exists incorrectly;
 - stale Workstation permission snapshot is not server authority;
-- central DB behavior proven against the real adapter.
+- central DB behavior proven against the real adapter;
+- no system-wide `exactly once` claim is made from one local transaction guarantee.
 
 ---
 
@@ -256,20 +257,33 @@ apps/admin-web
 ```
 
 Deliver:
+- first real background workload classified by trigger: user consequence, schedule, external system, batch/volume, or platform control;
+- explicit message semantics: command/job versus committed event;
+- the simplest durable execution pattern matching that workload;
 - durable job/outbox consumption;
+- if scheduled, a durable schedule occurrence identity/state before execution rather than `cron fired` as the only truth;
+- if multiple consumers genuinely need one fact, explicit durable fan-out; otherwise do not add pub/sub;
 - claims/leases where needed;
 - bounded concurrency/fairness;
 - retry/no-progress/quarantine;
+- idempotent/reconcilable consumer behavior for producer retry, transport redelivery, and consumer crash after effect;
 - one real long-running `202 Accepted` operation if justified;
 - Platform Admin controls for implemented Worker/runtime controls;
 - ZITADEL authentication + separate platform OpenFGA/application authorization model/scope as designed for platform operators;
 - private infrastructure break-glass path when app control plane is unavailable.
 
+Do not add Kafka/event streaming unless this phase proves an actual requirement for replay/history/independent consumer offsets that the normal durable job/outbox approach cannot satisfy.
+
 Attack:
-- Worker crash before/after external effect;
+- same job produced twice after response loss;
+- duplicate schedule firing;
+- Worker crash before effect;
+- Worker crash after effect but before acknowledgement;
 - stale lease owner;
+- repeated transport redelivery;
 - `OutcomeUnknown`;
 - one tenant flooding work;
+- lower-priority work starvation;
 - normal tenant user reaches platform route;
 - ZITADEL-authenticated tenant user has no platform OpenFGA authority;
 - Admin Web/Core API unavailable during recovery.
@@ -277,7 +291,9 @@ Attack:
 Gate:
 - no generic force-success/mark-complete;
 - tenant authorization cannot become platform authority;
-- break-glass is infrastructure recovery, not hidden tenant API.
+- break-glass is infrastructure recovery, not hidden tenant API;
+- one queue/broker feature is not described as end-to-end exactly-once;
+- event/pub-sub/stream infrastructure exists only if the first real workload proves the matching semantic need.
 
 ---
 
@@ -401,6 +417,8 @@ Do not spend baseline work on:
 - arbitrary additional helper processes beyond Guard without a specific need;
 - browser offline/PWA business sync;
 - Kafka/mandatory Redis;
+- generic pub/sub/event-bus infrastructure without a real multi-consumer requirement;
+- event-driven-everything;
 - full CQRS/event sourcing/Saga;
 - global CRDTs;
 - per-tenant schema/database/queue/stack by default;
