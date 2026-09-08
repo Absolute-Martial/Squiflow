@@ -2,7 +2,7 @@
 
 **Version:** v0.0.15
 
-This document turns the Stripe, AWS Builders' Library, ASP.NET Core, and Azure Architecture guidance into the SquiFlow API contract without adding a new service or framework.
+This document turns the Stripe, AWS Builders' Library, ASP.NET Core, Azure Architecture, and reviewed ByteByteGo reliability material into the SquiFlow API contract without adding a new service or framework.
 
 ## 1. Idempotency is part of command semantics
 
@@ -102,7 +102,70 @@ Every command family declares a retention rule based on:
 
 High-risk financial/effect receipts can require much longer durable evidence than low-risk operational commands.
 
-## 6. Transport IDs are separate
+The retention period is part of the guarantee. After the deduplication/receipt evidence expires, SquiFlow must not keep advertising the same duplicate-suppression guarantee unless another durable business invariant still proves it.
+
+## 6. Duplicates can enter at several stages
+
+Do not treat one deduplication table or broker feature as an end-to-end exactly-once guarantee.
+
+A logical operation can duplicate at different points:
+
+```text
+producer/caller
+  response loss or local retry can send the same intent again
+
+transport/broker
+  redelivery/reconnect/republication can deliver the same envelope again
+
+consumer/effect
+  consumer crash after an effect but before acknowledgement can repeat execution
+```
+
+SquiFlow therefore uses different evidence for different boundaries:
+
+```text
+semantic IdempotencyKey
+  identifies the intended business operation
+
+MessageId / transport metadata
+  helps reason about one envelope/delivery attempt
+
+business/effect receipt or provider reference
+  proves or reconciles the actual semantic effect
+```
+
+A broker-level duplicate filter does not replace semantic idempotency. A semantic API receipt does not prove an external provider effect if the provider response is lost. A provider idempotency key does not replace SquiFlow's local record/reconciliation of what the application believes happened.
+
+## 7. “Exactly once” requires a named scope
+
+Use the phrase `exactly once` only when the scope is explicit and proven.
+
+Examples:
+
+```text
+one local DB transaction
+→ business change + local outbox commit atomically
+
+one central DB transaction
+→ mutation + idempotency receipt + outbox commit atomically
+```
+
+Those are meaningful atomicity guarantees **inside one store**.
+
+They do not automatically make this end-to-end path exactly-once:
+
+```text
+Workstation
+→ network
+→ Core API
+→ DB
+→ Worker/broker
+→ third-party payment/object/notification provider
+```
+
+Across distributed/external boundaries, the baseline is at-least-once/retryable delivery plus semantic idempotency and explicit reconciliation where outcome is ambiguous.
+
+## 8. Transport IDs are separate
 
 Keep distinct identifiers for different purposes:
 
@@ -117,7 +180,7 @@ BusinessId         order/payment/etc. identity
 
 Do not use a transient HTTP request ID as the business idempotency key.
 
-## 7. Retry classification
+## 9. Retry classification
 
 A client retries only when the failure contract says retry can plausibly succeed.
 
@@ -138,7 +201,7 @@ Do not automatically retry:
 
 A retry must still use the same idempotency key when it represents the same intended operation.
 
-## 8. Retry budget, backoff and jitter
+## 10. Retry ownership, budget, backoff and jitter
 
 Retries are bounded by:
 - per-attempt timeout;
@@ -148,11 +211,20 @@ Retries are bounded by:
 
 Background/deferred retries normally use exponential backoff plus jitter and honor `Retry-After`.
 
-Do not layer independent retry loops blindly at HTTP client + application service + Worker + provider SDK. Coordinated retries are required so a small dependency failure cannot multiply into a retry storm.
+For each remote dependency call path, deliberately decide **which layer owns retries**. Do not layer independent retry loops blindly at HTTP client + application service + Worker + provider SDK.
 
-Never use an endless retry loop.
+A useful review question is:
 
-## 9. HTTP method semantics
+```text
+If the lowest dependency call fails once,
+how many actual outbound attempts can the whole stack generate?
+```
+
+The answer must be bounded and intentional.
+
+Never use an endless retry loop. Retry improves availability only when the failure is transient; indiscriminate retry can amplify latency/load and turn a dependency problem into a broader outage.
+
+## 11. HTTP method semantics
 
 Use HTTP semantics where they naturally match the resource operation, but do not force complex business commands into generic CRUD shapes merely to look RESTful.
 
@@ -173,7 +245,7 @@ POST /platform-admin/worker-control-proposals
 
 The endpoint name should express business intent; authorization and domain state still decide whether it can execute.
 
-## 10. Optimistic concurrency and ETags/version tokens
+## 12. Optimistic concurrency and ETags/version tokens
 
 Normal collaborative editing uses explicit versions.
 
@@ -183,7 +255,7 @@ A stale write returns a stable conflict/precondition result and does not silentl
 
 Do not use one global last-write-wins policy for SquiFlow aggregates.
 
-## 11. Pagination and query bounds
+## 13. Pagination and query bounds
 
 Every unbounded collection API requires server-enforced limits.
 
@@ -197,7 +269,7 @@ Use:
 
 Client-selected projections cannot expose fields the caller is not authorized to see.
 
-## 12. Long-running request-reply
+## 14. Long-running request-reply
 
 Long operations do not hold an HTTP request open indefinitely.
 
@@ -229,7 +301,7 @@ If completion creates a separate resource, the status resource can direct the ca
 
 Cancellation is only exposed when the underlying operation has a safe cancellation or compensation contract.
 
-## 13. Synchronous versus asynchronous threshold
+## 15. Synchronous versus asynchronous threshold
 
 Keep a command synchronous when its authoritative transaction/validation is expected to finish within the interactive request budget and the user needs the result immediately.
 
@@ -242,7 +314,7 @@ Use async request-reply when:
 
 Do not queue every command merely because a Worker exists.
 
-## 14. Problem details and error classification
+## 16. Problem details and error classification
 
 HTTP errors expose safe structured machine-readable results, preferably based on Problem Details semantics, with SquiFlow failure codes such as:
 
@@ -264,7 +336,7 @@ InternalDefect
 
 Internal stack traces/provider details stay out of ordinary client responses.
 
-## 15. API implementation gate
+## 17. API implementation gate
 
 A new mutating endpoint is incomplete until reviewers can answer:
 
@@ -272,12 +344,16 @@ A new mutating endpoint is incomplete until reviewers can answer:
 2. Can the client retry it?
 3. What is the idempotency-key scope?
 4. What happens for same key + changed parameters?
-5. What is the expected-version/concurrency rule?
-6. What is the authoritative transaction boundary?
-7. Does it create async work?
-8. What happens if the response is lost after commit?
-9. What happens if an external effect succeeds but receipt persistence fails?
-10. Which 4xx/5xx results are retryable?
-11. What are request/page/payload/resource limits?
-12. What authorization/resource requirement applies?
-13. What audit/trace identifiers are recorded?
+5. Where can a duplicate enter: caller, transport, consumer/effect?
+6. How long is duplicate suppression/effect evidence retained?
+7. What `exactly once` claim, if any, is being made and what exact boundary proves it?
+8. What is the expected-version/concurrency rule?
+9. What is the authoritative transaction boundary?
+10. Does it create async work?
+11. What happens if the response is lost after commit?
+12. What happens if an external effect succeeds but receipt persistence fails?
+13. Which layer owns retry and what is the maximum total attempt budget?
+14. Which 4xx/5xx results are retryable?
+15. What are request/page/payload/resource limits?
+16. What authorization/resource requirement applies?
+17. What audit/trace identifiers are recorded?
