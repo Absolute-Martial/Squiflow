@@ -2,101 +2,121 @@
 
 **Version:** v0.0.15
 
-## Current state versus target state
+## 1. Current state
 
-The tree below is the **target implementation structure**, not a claim that the projects already exist.
+The repository is still pre-Phase-0. Do not scaffold the full future architecture before the first vertical slice needs it.
 
-At the current review point the GitLab repository is still **pre-Phase-0** and contains the curated architecture/planning baseline. Phase 0 creates only the executable projects/directories required for the first vertical slices.
-
-Do not create empty projects/directories simply because this document contains a box.
-
-## Target structure
+The first executable structure can be deliberately small:
 
 ```text
 SquiFlow/
 ├── apps/
-│   ├── web/          # Blazor Web App: tenant staff Web + tenant-owner Settings
-│   ├── admin-web/    # Blazor Web App: SquiFlow platform administration/control plane
-│   └── desktop/      # Avalonia Windows Workstation + Guard/on-demand helpers
+│   ├── web/          # Blazor tenant Web + tenant Settings/Admin
+│   └── desktop/      # Avalonia Windows Workstation
 ├── services/
-│   ├── core-api/     # ASP.NET Core HTTP/composition host
-│   └── worker/       # durable background execution
-├── modules/          # business capability modules
-├── packages/         # stable reusable implementation primitives/contracts
-├── persistence/
-│   ├── abstractions/
-│   └── reference/    # provider proof/reference adapters only when actively evaluated
-├── infrastructure/   # object storage, telemetry, identity/provider integrations
-├── contracts/        # versioned wire/inter-process contracts only when a separate boundary is useful
+│   └── core-api/     # ASP.NET Core HTTP/composition host
+├── modules/          # only modules needed by implemented slices
+├── infrastructure/   # only concrete providers/integrations currently used
 ├── tests/
-├── benchmarks/       # only measured qualification/POCs that matter
-├── dev/
-├── tools/
-├── build/
 ├── deploy/
 └── docs/
 ```
 
-## Runtime boundaries
+Create these later only when their first real feature exists:
 
-Web, Admin Web, Desktop, Core API and Worker are genuine build/run/deployment boundaries.
+```text
+apps/admin-web/       # when platform-control UI is implemented
+services/worker/      # when durable background work is implemented
+```
+
+## 2. Do not pre-create abstraction directories
+
+The following are **not required directories** in the initial repository:
+
+```text
+packages/
+contracts/
+persistence/abstractions/
+helpers/
+benchmarks/
+tools/
+build/
+dev/
+```
+
+Any of them may appear later if real code gives them a clear responsibility. Their presence in an old architecture tree is not an instruction to scaffold them.
+
+## 3. Project creation rule
+
+A new project earns its existence only for a real boundary such as:
+- independently built/deployed executable;
+- security/fault/process isolation;
+- dependency direction that cannot remain clear inside the current project;
+- stable wire/inter-process/plugin contract;
+- active provider migration/dual implementation where a separate adapter project materially helps;
+- a benchmark/test harness that genuinely needs a separate executable/project.
+
+Do not create a project because a noun exists in the domain model.
+
+## 4. Interface/abstraction rule
+
+Do not default to:
+
+```text
+IRepository<T>
+IUnitOfWork
+IManager
+IHelper
+IService for every Service
+one interface per concrete provider class
+```
+
+Use concrete implementations until an actual inversion/replacement/process boundary requires abstraction.
+
+Testing alone does not justify wrapping every framework/provider API in a custom interface. When transaction/locking/provider behavior matters, test the real adapter.
+
+Provider details still stay localized. For example, Hugging Face storage calls belong in infrastructure code and provider-specific types do not leak into business records. Localization is enough until migration begins.
+
+## 5. Runtime boundaries
+
+Accepted runtime direction remains:
+- tenant Web;
+- Windows Workstation;
+- Core API;
+- future Platform Admin Web;
+- future Worker.
+
+The last two are architectural runtime boundaries, not Phase-0 project requirements.
 
 Business modules remain modular-monolith code and do not automatically become network services.
 
-## Creation rule
+## 6. Web/control-plane separation
 
-Create a separate project only when it provides at least one real boundary:
-- dependency direction;
-- independently built/deployed executable;
-- provider adapter under active evaluation;
-- test/benchmark isolation;
-- security/fault/process isolation;
-- stable wire/inter-process contract shared across runtimes.
+- Tenant Web owns ordinary tenant business Web plus tenant Owner Settings/Administration.
+- Future Platform Admin Web is a separate SquiFlow-operator surface.
+- Workstation is a local-first business client and never becomes a tenant/platform permission editor or platform control plane.
 
-If `Manager → Service → Executor → Handler` merely forwards the same call, collapse it.
+Using Blazor for tenant Web and future Platform Admin Web does not merge their authorization/audience boundaries.
 
-A capability can begin as a small number of coherent files inside an existing module and split later when dependency/ownership evidence appears.
+## 7. Workstation process model
 
-## `packages/` versus `contracts/`
+Baseline is one process:
 
-Avoid turning both into generic shared-code dumping grounds.
+```text
+SquiFlow.Workstation
+```
 
-- `packages/` contains reusable implementation primitives/libraries that may have behavior.
-- `contracts/` contains stable versioned wire/inter-process/API contract assemblies where separating them protects runtime compatibility.
+There is no always-running Guard/helper process requirement.
 
-Domain/application projects should not depend on transport-specific DTO assemblies merely for convenience.
+If a future updater/native library/driver proves it can hang/crash/leak in a way that warrants process isolation, add one narrow helper then. Do not design its project before the problem exists.
 
-## Provider reference projects
+Printing starts through the normal Workstation/Windows printing path. Printer failure remains separate from committed business truth.
 
-Provider-specific projects can be created under `persistence/reference` or `infrastructure/reference` to prove a candidate.
+## 8. Phase-0 proof
 
-Their existence means **we are evaluating/proving this adapter**, not that the product selected the provider.
-
-## Web/control-plane separation
-
-- `apps/web`: tenant business Web + tenant-owner Settings/Administration.
-- `apps/admin-web`: SquiFlow platform control plane only.
-- `apps/desktop`: local-first business client; never tenant/platform permission management or platform server controls.
-
-Using Blazor Web App for both Web projects does not merge their security surface, route audience or release responsibilities.
-
-## ASP.NET Core host pattern
-
-`services/core-api` owns HTTP routing/composition, similar in architectural role to an executable host project.
-
-Domain/application logic lives in modules and should not depend on ASP.NET Core or provider-specific infrastructure.
-
-## Workstation process boundary
-
-`apps/desktop` contains the Avalonia Workstation application plus the deliberately tiny Guard/helper boundary described in `docs/workstation/GUARD_AND_DEVICE_INTEGRATION.md`.
-
-A helper process is created only when native/heavy/hanging/crashing work earns process isolation; Guard is not a second business application.
-
-## Phase-0 proof
-
-The target structure becomes real only when Phase 0 proves:
-- every executable builds independently;
-- forbidden dependency directions are executable architecture tests;
-- Web/Admin/Desktop do not reference provider persistence implementations directly;
-- stable provider abstractions do not leak provider-specific types into domain/application contracts;
-- no placeholder projects exist solely to make the tree look complete.
+Phase 0 should prove only what the early slices need:
+- Web, Workstation and Core API build/run;
+- basic CI exists;
+- forbidden dependency directions are tested where real projects exist;
+- tenant context/security boundaries can be implemented without provider leakage into business code;
+- no empty placeholder projects/directories were created for future architecture.
