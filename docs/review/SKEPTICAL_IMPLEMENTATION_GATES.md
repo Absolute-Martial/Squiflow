@@ -2,7 +2,11 @@
 
 **Version:** v0.0.15
 
-Use these questions before adding another project, interface, helper process, queue, cache, offline layer, provider abstraction, isolation tier or configurable state.
+Use these questions before adding **or removing** another project, interface, process, queue, cache, offline layer, provider boundary, isolation tier, or configurable state.
+
+The gate works in both directions:
+- reject unnecessary architecture ceremony;
+- reject over-minimalism that removes required edge-case/recovery/security behavior.
 
 ## Product/UX
 
@@ -14,27 +18,34 @@ Use these questions before adding another project, interface, helper process, qu
 - Is `Cancel` actually safe, or is refund/reversal/correction the real action?
 - Could an online server-side draft solve valuable-form loss without browser offline architecture?
 
-## Identity/session
+## Identity — ZITADEL
 
-- Is this authentication, application authorization, or tenant isolation? Are we mixing them?
+- Is this authentication, OpenFGA authorization, or tenant data isolation? Are we mixing them?
 - Is `(issuer, subject)` the stable external account key instead of mutable email?
 - Is issuer/callback/redirect validation strict?
-- Does Workstation use system browser + Authorization Code + PKCE `S256` with no embedded reusable secret?
+- Does Workstation use ZITADEL through system browser + Authorization Code + PKCE `S256` with no embedded reusable secret?
+- Are we accidentally trusting ZITADEL project/role claims as current SquiFlow permission truth instead of using OpenFGA/SquiFlow authorization?
+- Is `ZITADEL OrganizationId` being mistaken for authoritative SquiFlow `TenantId` without a deliberate mapping?
 - What exactly does local sign-out terminate?
 - What happens to pending local work when user/device credentials expire?
 - Can another Windows user/profile inherit authenticated state accidentally?
+- Does the ZITADEL management service account have only the scopes/roles it actually needs?
+- If ZITADEL is unavailable, does the system fail safely rather than converting dependency failure into accidental allow?
 
-## Permissions/control plane
+## Authorization — OpenFGA
 
-- Is this permission a stable business action or a UI implementation detail?
-- Can Owner safely delegate it?
-- Could it expose money, stock, margin, security or another tenant?
-- Is permission assignment Web-only?
-- Does Desktop merely consume effective permissions rather than grant them?
-- What happens to pending/offline commands after revocation?
-- Does an authorization change advance `TenantAuthorizationRevision` atomically with its durable evidence?
-- If a permission result is cached later, how is stale revocation prevented?
-- If Core API/Admin Web is down, is recovery a private infrastructure runbook rather than a hidden business endpoint?
+- Is this relationship/permission question a good fit for OpenFGA, or is it really a workflow/domain/financial invariant that belongs in SquiFlow code?
+- Is the production request pinned to the intended `authorization_model_id`?
+- Is a tenant-created custom role represented as tuples/data rather than a new authorization-model deployment?
+- Are OpenFGA tuple identifiers opaque and free of unnecessary PII?
+- What is the consistency requirement for this check: ordinary read, mutation, revocation-adjacent, or high-risk admin action?
+- Could lower-latency/cached authorization return stale authority after revocation?
+- If an OpenFGA tuple write succeeds but the SquiFlow completion/audit write fails, how is the operation reconciled?
+- Does the API avoid reporting a role/grant change as applied before OpenFGA state is known/applied?
+- Does Desktop remain read-only with respect to permission relationships?
+- Can Owner safely delegate this permission without manufacturing platform/cross-tenant authority?
+- Does an OpenFGA `allow` still pass through current SquiFlow state/workflow/concurrency checks?
+- If OpenFGA is unavailable, which actions fail closed, which can use already-authoritative committed consequences, and which can safely degrade?
 
 ## Multi-tenancy/isolation
 
@@ -47,6 +58,7 @@ Use these questions before adding another project, interface, helper process, qu
 - If PostgreSQL RLS is used, can runtime credentials bypass it?
 - Can one tenant consume all shared Worker/DB/provider capacity?
 - Is a dedicated DB/stack request based on a real compliance/SLO/customer requirement rather than future fear?
+- Are we treating an OpenFGA relation as a substitute for database tenant isolation?
 
 ## API/resource authorization
 
@@ -79,55 +91,63 @@ Use these questions before adding another project, interface, helper process, qu
 - Does update/restart/sign-out preserve pending durable work?
 - What if local DB/staging disk is full?
 - Does a local rule depend on current central credit/stock/security facts?
+- Does reconnect repeat current OpenFGA + tenant/domain authorization rather than trust the old snapshot?
 - Do we really need CRDT semantics for this aggregate?
 
-## Device/process isolation
+## Workstation Guard
 
-- Does this work truly need another process, or can it run safely in `SquiFlow.Workstation`?
-- Is the proposed helper solving a measured crash/hang/native-leak/update problem, or merely following a pattern?
-- If process isolation is required, what is the narrow job contract and why does the helper need any business authority?
-- Can the external/native library be bounded/cancelled in-process first?
-- Is Windows spooler acceptance being mistaken for proof of physical paper output?
-- Does printer failure leave committed business truth intact?
-- Is another peripheral a confirmed customer journey or speculative hardware support?
+- Is Guard still able to perform the actual supervision/recovery job, or has resource/minimalism pressure stripped away required behavior?
+- Can Guard launch/relaunch Workstation and distinguish intentional shutdown from crash?
+- Is hang detection resistant to sleep/hibernate/temporary low-resource stalls?
+- Is restart bounded with backoff/safe mode rather than an infinite loop?
+- Can Guard survive/observe Workstation failure without depending on Workstation memory?
+- If Guard itself crashes, can Workstation continue and can Guard recover later without corrupting local state?
+- Does update recovery preserve the local DB/outbox/staged attachments?
+- Are Guard diagnostics bounded and privacy-safe?
+- Does Guard avoid business rules, OpenFGA permission writes, sync acknowledgment, and central DB credentials?
+- Are we adding a second helper process only because a specific native/driver/library fault proves it is needed?
 
 ## Currency/business primitives
 
 - Is a currency code configurable instead of hardcoded?
 - Does an issued/posted monetary record retain the currency code needed to interpret history?
 - Are we accidentally building an FX/multi-currency subsystem before a customer needs it?
-- Is a generic Money/Unit/Clock helper/framework adding more complexity than using the platform types plus a few explicit business rules?
+- Is a generic Money/Unit/Clock helper/framework adding more complexity than a few explicit shared rules/types?
 - Are document numbers being confused with stable internal IDs?
 - Is posted history being destructively edited instead of corrected/revised?
 
-## Hugging Face object storage
+## `IObjectStore` / Hugging Face
 
-- Is this object a retained business object, temporary export/diagnostic, or disposable staging data?
+- Is the interface SquiFlow-shaped or merely a copy of the Hugging Face/S3 SDK?
+- Does business code depend only on `IObjectStore`/SquiFlow-owned object types?
+- Can a future paid adapter satisfy the contract without rewriting domain/application code?
+- Are provider-specific migration/admin capabilities allowed to stay provider-specific instead of bloating the runtime interface?
+- Is this object retained business data, temporary export/diagnostic, or disposable staging?
 - How does it fit inside the current ~100 GB private Hugging Face envelope?
-- What happens before the capacity limit is reached?
-- Is the business DB still the authority for tenant/resource ownership?
-- Are issued/historical objects protected with immutable/versioned application keys instead of silently overwriting mutable bucket paths?
+- What happens before capacity is exhausted?
+- Is business DB metadata still authoritative for tenant/resource ownership?
+- Are issued/historical objects protected with immutable/versioned application keys?
 - Can a large upload starve normal API/sync traffic?
-- Are provider-specific Hugging Face types contained inside infrastructure code?
-- Why do we need an `IObjectStorage` today? Can containment suffice until the actual paid-provider migration starts?
 
-## Kaggle backup
+## `IBackupTarget` / Kaggle
 
+- Is backup orchestration an infrastructure recovery concern rather than business-domain code?
+- Does third-party Kaggle code stay behind `IBackupTarget`?
 - Is the artifact encrypted **before** Kaggle receives it?
 - Could raw DB/CSV/customer files accidentally be uploaded directly?
-- Is backup key/recovery material kept outside Kaggle and itself recoverable?
-- Can the remote artifact be downloaded and checksum-verified?
+- Is key/recovery material kept outside Kaggle and itself recoverable?
+- Can the artifact be listed/downloaded/checksum-verified through the provider contract?
 - Has a real restore succeeded?
-- What does the backup currently include, and what required state would still be missing after a rack loss?
+- What does the backup include besides application rows: objects, idempotency/job state, rules/config, deploy/recovery metadata, ZITADEL/OpenFGA recovery evidence as applicable?
+- Can a future paid backup provider replace Kaggle without rewriting backup orchestration?
 - Are Kaggle storage/version limits treated as finite?
-- Are we ready to migrate to purpose-built paid backup storage at the first paying customer or earlier if requirements demand it?
 
 ## Physical hardware/operations
 
 - Which actual rack node/hardware was this assumption tested on?
 - Does `stateless` accidentally imply failover that does not exist?
 - What happens if the only active node loses disk/power/network?
-- What are DB, RAM, temp-disk and network budgets on the actual lower-spec hardware?
+- What are DB, RAM, temp-disk and network budgets on actual lower-spec hardware?
 - Who receives the alert and who can physically/private-admin recover it?
 - Is there a restore/redeploy procedure?
 - What RPO/RTO can we actually promise?
@@ -147,35 +167,36 @@ Use these questions before adding another project, interface, helper process, qu
 - Is telemetry capacity/retention finite?
 - Can exporter failure fill local disk or create retry storms?
 - Is authoritative business/security audit stored independently from best-effort telemetry where correctness requires it?
-- Could logs/crash dumps leak tenant/customer/secret data?
+- Could logs/crash dumps/Guard evidence leak tenant/customer/secret data?
 - Can support move from symptom to correlated evidence to safe recovery?
+- Can ZITADEL/OpenFGA/provider outages be distinguished from SquiFlow application defects?
 
 ## Verification
 
-- Which test layer proves the invariant: pure logic, real DB adapter, Workstation store, ASP.NET pipeline, cross-runtime journey, actual hardware, or restore drill?
+- Which test layer proves the invariant: pure logic, real DB adapter, ZITADEL integration, OpenFGA store/model, Guard process, Workstation store, ASP.NET pipeline, provider contract, cross-runtime journey, actual hardware, or restore drill?
 - Is a mock/in-memory substitute hiding the real transaction/locking/provider behavior?
 - Are Tenant A/Tenant B fixtures present for isolation attacks?
 - Does CI claim a restore/hardware test it never ran?
-- Are we creating interfaces only so tests can mock them? Could a real integration test be simpler and more valuable?
+- Is an interface present because there is a real replacement boundary (`IObjectStore`, `IBackupTarget`) or only to make mocking easier?
+- Is a required edge case being skipped because the implementation has been made 'minimal'?
 
 ## Architecture/complexity
 
-- Why does this need a separate project/process/service?
-- Why does this need an interface?
-- Is the interface backed by two real implementations or a real dependency inversion, or is it speculative/mock-driven?
-- If a provider may change later, can we simply contain provider calls now and extract a seam during the actual migration?
-- Would a concrete class/function in the current module be clearer?
+- What responsibility would be lost if this project/process/interface were removed?
+- What unnecessary ceremony appears if it is kept?
+- Does the boundary protect a real replacement, process-failure, security, deployment, or compatibility concern?
+- Would a concrete class/function be clearer where no such boundary exists?
 - Are `Manager → Service → Executor → Handler` layers merely forwarding calls?
-- Are we adding infrastructure because a catalog/article mentioned it rather than because SquiFlow has the problem?
-- Does this abstraction have enough behavior/ownership to justify its name?
-- Can we postpone it until measurement/customer demand exists?
-- Is architecture review itself delaying Phase 0 after the risk is already understood?
+- Are we adding infrastructure because an article/catalog mentioned it rather than because SquiFlow has the problem?
+- Are we removing infrastructure merely because 'minimal' sounds better even though SquiFlow has the problem?
+- Can resource optimization be measured/tuned instead of deleting required behavior?
+- Is architecture review itself delaying Phase 0 after the risk is understood?
 
 ## Documentation consistency
 
 - Which focused document owns this topic?
 - Is an old review/source file being mistaken for current accepted architecture?
 - Is an OPEN item described somewhere else as selected?
-- Has a removed baseline component (Guard, dedicated accessibility work, generic abstraction) survived in another current doc?
+- Has a changed decision (Guard, `IObjectStore`, `IBackupTarget`, ZITADEL, OpenFGA) left stale contradictory wording in another current doc?
 
-An implementation is not better because it contains more layers. Prefer the smallest design that preserves the actual business/security/recovery invariant.
+An implementation is not better because it has more layers, and it is not better because it has fewer. Prefer the smallest design that **fully preserves the actual business/security/recovery invariant**.
