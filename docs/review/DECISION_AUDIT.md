@@ -1,95 +1,150 @@
 # v0.0.15 Decision Audit
 
-**Purpose:** Audit current architecture decisions for necessity, consistency, implementation timing, and accidental overengineering. This file records the audit result; accepted decisions live in `docs/decisions/CURRENT_DECISIONS.md` and unresolved ones in `docs/decisions/OPEN_DECISIONS.md`.
+**Purpose:** Audit architecture decisions for necessity, consistency, implementation timing, and both forms of architectural failure:
+
+1. **overengineering** — unnecessary layers/components that increase cost without protecting a requirement;
+2. **over-minimalism** — removing a real boundary or edge-case capability until the system can no longer perform its accepted job safely.
+
+Accepted decisions live in `docs/decisions/CURRENT_DECISIONS.md`; unresolved details live in `docs/decisions/OPEN_DECISIONS.md`.
 
 ## Audit rules
 
-Every architecture decision is classified as one of:
+Every decision is classified as:
+- **KEEP** — needed now or protects a real correctness/runtime boundary;
+- **SIMPLIFY** — the responsibility is real but the prior shape had unnecessary machinery;
+- **DEFER** — valid future work with no current slice;
+- **REMOVE** — no current requirement;
+- **OPEN** — resolve just-in-time before the phase that needs it;
+- **RESTORE** — a previous simplification removed capability that is actually required.
 
-- **KEEP** — needed now or establishes a real correctness/runtime boundary.
-- **SIMPLIFY** — the problem is real but the previous solution introduced unnecessary machinery.
-- **DEFER** — valid possible future work, but no current vertical slice requires it.
-- **REMOVE** — not a v0.0.15 requirement and should stop consuming implementation effort.
-- **OPEN** — must be resolved just-in-time before a phase that actually needs it.
+The target is:
 
-The default is the smallest design that preserves the required business/security/recovery invariant.
+```text
+smallest structure that fully owns the required behavior
+```
 
-## 1. Runtime/project decisions
+not:
+
+```text
+fewest files/processes/interfaces at any cost
+```
+
+A component is not allowed to become functionally weak merely to satisfy a minimalist architecture aesthetic.
+
+## 1. Runtime/project audit
 
 | Decision | Audit | Result |
 |---|---|---|
-| C#/.NET + ASP.NET Core | KEEP | Current application/server foundation. |
+| C#/.NET + ASP.NET Core | KEEP | Current foundation. |
 | Avalonia Workstation | KEEP | Current Windows desktop decision. |
-| Blazor Web App | KEEP | Current tenant Web and future Admin Web presentation decision. |
-| Modular monolith business core | KEEP | Fits current team/product scale and keeps network boundaries limited. |
-| Separate Core API executable | KEEP | Real HTTP/security/composition boundary. |
-| Separate Worker executable | KEEP, **create later** | Real deployment/failure boundary, but no project is needed until Phase 6 has durable background work. |
-| Separate Platform Admin Web | KEEP, **create later** | Real privileged presentation boundary, but no project is needed until the platform-control slice exists. |
-| `SquiFlow.Guard` always-running companion | REMOVE from baseline | It was a named component before a proven updater/crash/native isolation need. Start with one Workstation process. |
-| On-demand helper processes | DEFER | Add only for a library/driver that demonstrably hangs/crashes/leaks or requires process isolation. |
+| Blazor Web App | KEEP | Tenant Web and future Platform Admin presentation decision. |
+| Modular monolith business core | KEEP | Fits team/product scale and keeps network boundaries limited. |
+| Core API executable | KEEP | Real HTTP/security/composition boundary. |
+| Worker executable | KEEP, create when needed | Real deployment/failure boundary once durable background work exists. |
+| Platform Admin Web | KEEP, create when needed | Real privileged presentation/control boundary. |
+| `SquiFlow.Guard` | **RESTORE / KEEP** | Process supervision, crash/hang recovery, update handoff and evidence require an external companion boundary. Removing it would weaken the Workstation. |
+| Arbitrary helper processes | DEFER | Only a specific native/heavy/driver problem earns another process. |
 
-## 2. Abstraction/interface audit
+### Guard correction
 
-Previous planning risked creating directories such as `packages/`, `contracts/`, and `persistence/abstractions/` before any code proved they were needed.
+The prior audit removed Guard because it looked like pre-implementation machinery. That was too aggressive.
 
-### Current rule
+Guard has a concrete responsibility independent of future native helpers:
+- supervise Workstation lifecycle;
+- detect/recover bounded crash/hang cases;
+- coordinate updater handoff/recovery;
+- preserve/process diagnostic evidence outside a failed Workstation;
+- monitor bounded process/resource/lifecycle health;
+- provide safe-mode/restart-budget behavior.
 
-Do not create:
+This is exactly the kind of boundary that cannot be reliably reduced into code inside the process it must supervise.
+
+**Audit result: RESTORE.** Keep the Guard capable enough to do its job; optimize its resources after measurement, not by deleting responsibilities.
+
+## 2. Interface/abstraction audit
+
+The anti-interface rule remains valid for speculative abstractions such as:
 
 ```text
 IRepository<T>
 IUnitOfWork
 IManager
 IHelper
-one-interface-per-class
-provider wrapper around every SDK
+IService for every concrete Service
 ```
 
-merely for architectural symmetry or mocking.
+But the previous audit incorrectly treated every planned provider switch as speculative.
 
-Prefer:
+### Current rule
+
+An interface earns its existence when at least one is true:
+1. dependency direction materially requires it;
+2. multiple live implementations coexist;
+3. stable wire/process/plugin contract exists;
+4. a provider migration is **already committed/near-term** and the seam prevents application code from depending on the bootstrap provider;
+5. a fault/process boundary needs a narrow contract.
+
+### Current justified provider interfaces
+
+The first paying customer is already the planned migration trigger for object and backup storage. Therefore these are not hypothetical:
 
 ```text
-real vertical slice
-→ concrete framework/provider integration contained in one area
-→ extract a boundary only when replacement/inversion/process compatibility actually needs it
+IObjectStore
+└── HuggingFaceObjectStore
+
+IBackupTarget
+└── KaggleBackupTarget
 ```
 
-An interface earns its existence when at least one of these is true:
+They must stay narrow and SquiFlow-owned. They do not mirror all provider SDK features and do not imply a generic provider framework.
 
-1. domain/application dependency direction cannot otherwise remain correct;
-2. two production implementations genuinely coexist;
-3. a stable wire/inter-process/plugin contract exists;
-4. an imminent provider migration is being implemented and the seam materially reduces that migration;
-5. a fault/process boundary requires a narrow contract.
+**Audit result: RESTORE narrowly scoped interfaces.**
 
-"Maybe we will switch later" by itself is not enough.
-
-Testing should prefer real adapters/integration tests where provider behavior matters instead of manufacturing interfaces solely to mock persistence/storage.
-
-**Audit result: SIMPLIFY.** Provider details must remain localized, but speculative provider-neutral interface hierarchies are removed from the baseline.
-
-## 3. Web/Desktop/offline decisions
+## 3. Web/Desktop/offline audit
 
 | Decision | Audit | Result |
 |---|---|---|
 | Web online-only for business operations | KEEP | Avoids a second offline/sync client before Workstation sync is proven. |
-| Server-side draft for selected valuable Web forms | KEEP selectively | Prevents data loss without IndexedDB/PWA sync. |
+| Server-side draft for selected valuable Web forms | KEEP selectively | Prevents loss without IndexedDB/PWA sync. |
 | Workstation local-first | KEEP | Core offline/business requirement. |
-| Global CRDT/peer authority | REMOVE baseline | Wrong authority model for payments/stock/credit/permissions. |
-| Full browser offline/PWA | DEFER | Revisit only after production demand. |
+| Global CRDT/peer authority | REMOVE baseline | Wrong for payments/stock/credit/permissions. |
+| Full browser offline/PWA | DEFER | Revisit after real demand. |
 
-## 4. Identity/authorization decisions
+Minimalism must not reduce the Workstation from a durable local-first client into a thin online shell. Offline durability, pending work, long-offline recovery and conflict handling remain core capabilities.
 
-Keep OIDC, system-browser Authorization Code + PKCE for Workstation, `(issuer, subject)` account identity, Web-only role/permission administration, ASP.NET Core authorization primitives, authoritative server reauthorization, and `TenantAuthorizationRevision` semantics.
+## 4. Identity and authorization audit
 
-Do **not** add a Zanzibar service, custom authentication protocol, dynamic client-registration system, or authorization microservice without a demonstrated requirement.
+### ZITADEL
 
-**Audit result: KEEP current simple model.**
+The prior docs left the OIDC provider open. Current correction: **ZITADEL is selected**.
 
-## 5. Multi-tenancy decision
+Use it for standards-based identity/authentication, MFA/SSO/session/account capability. Workstation continues system-browser Authorization Code + PKCE.
 
-Keep pooled tenancy as the ordinary baseline:
+Open details are deployment/layout choices, not product selection.
+
+### OpenFGA
+
+The prior audit explicitly rejected a Zanzibar-style authorization service because the initial Owner/Staff model looked simple. That conclusion was too broad once OpenFGA became the chosen authorization component and tenant-created custom roles/resource relationships are required.
+
+**OpenFGA is selected** for application authorization.
+
+This does not mean copying Zanzibar machinery or putting every domain rule in OpenFGA. Keep responsibilities separated:
+
+```text
+ZITADEL      identity/authentication
+OpenFGA      relationships/roles/permissions
+ASP.NET Core authorization integration
+SquiFlow     workflow/domain/business invariants
+DB           tenant data isolation
+```
+
+OpenFGA's custom-role model is a good fit because tenant-created roles are represented as tuples/data rather than requiring authorization-model redeployment for each role instance.
+
+**Audit result: RESTORE/KEEP OpenFGA as the authorization engine, while rejecting unnecessary custom authorization infrastructure around it.**
+
+## 5. Multi-tenancy audit
+
+Keep pooled tenancy:
 
 ```text
 TenantContext
@@ -98,172 +153,139 @@ TenantContext
 + provider-specific defense in depth
 ```
 
-Do not prebuild schema-per-tenant, database-per-tenant, queue-per-tenant, or stack-per-tenant routing.
+OpenFGA relationship checks do not replace pooled DB isolation.
 
-PostgreSQL RLS remains a proof requirement only if PostgreSQL is the central candidate/selection; RLS is not allowed to silently select PostgreSQL.
+Do not prebuild schema-per-tenant, DB-per-tenant, queue-per-tenant or stack-per-tenant routing.
 
 **Audit result: KEEP.**
 
 ## 6. Currency audit
 
-The previous cross-cutting document was drifting toward a future multi-currency/FX design that v0.0.15 does not need.
-
-Current requirement is much smaller:
+Current requirement remains intentionally small:
 
 ```text
 Tenant.DefaultCurrencyCode
-Money/financial record retains CurrencyCode where historical meaning requires it
+monetary records retain CurrencyCode where historical meaning requires it
 ```
 
-Rules:
-- never hardcode `NPR`, `USD`, or another currency throughout business logic;
-- tenant setup provides the default currency;
-- issued/posted monetary records retain the applicable currency code so a later tenant setting change does not reinterpret history;
-- use decimal/fixed-precision money semantics appropriate to the selected DB/.NET implementation;
-- do not implement exchange rates, FX conversion, multi-currency allocations, gain/loss accounting, or a currency provider/service until a real customer needs them.
+Do not hardcode one currency. Do not add FX/rate/ledger machinery without a real multi-currency requirement.
 
-No currency helper process, service, interface, rate feed, or conversion subsystem is baseline.
-
-**Audit result: SIMPLIFY.**
+**Audit result: SIMPLIFY without removing currency identity.**
 
 ## 7. Accessibility audit
 
-A dedicated accessibility document, formal conformance gate, manual screen-reader plan, and release-level accessibility program were added before the product has an executable Phase 0.
+Formal accessibility/a11y work remains outside the current requested baseline. Ordinary UI quality still uses normal controls/labels/errors/navigation.
 
-That is not necessary for the current requested scope.
+**Audit result: REMOVE dedicated workstream from baseline.**
 
-Normal UI engineering should still use framework-standard controls, clear labels/errors, usable focus/navigation, and readable state because those are ordinary quality concerns. But v0.0.15 does **not** create a separate accessibility workstream, conformance target, or dedicated test gate.
+## 8. Object storage audit — Hugging Face + `IObjectStore`
 
-Revisit only if a customer contract, jurisdiction, public-sector requirement, or product goal makes it necessary.
+Current bootstrap provider is the private Hugging Face Storage Bucket with the current ~100 GB private-storage envelope.
 
-**Audit result: REMOVE from baseline.**
+Because replacement at the first paying customer is already planned, direct Hugging Face dependencies throughout runtime code would create guaranteed rewrite work.
 
-## 8. Object-storage audit — Hugging Face bootstrap
-
-The earlier docs incorrectly described the current ~100 GB resource generically as `S3/object storage`.
-
-The actual bootstrap provider is **Hugging Face**.
-
-Current Hugging Face documentation says:
-- storage limits apply to repositories and Storage Buckets;
-- free users/organizations currently have **100 GB private storage**;
-- Storage Buckets are non-versioned/mutable S3-like object storage;
-- private buckets are supported;
-- an S3-compatible API is available.
-
-Therefore the current bootstrap implementation can use a **private Hugging Face Storage Bucket** directly.
-
-Do not create an `IObjectStorage` abstraction only because a future provider migration is planned. Keep Hugging Face SDK/API use localized inside infrastructure code and keep provider-specific types out of business/domain records. Business records store provider-neutral object metadata such as object key, tenant/resource owner, hash, size, lifecycle, and business reference.
-
-Because Hugging Face buckets are mutable, SquiFlow itself uses immutable/versioned application object keys for issued/retained business objects rather than overwriting historical bytes.
-
-### Migration trigger
-
-Planned migration: **when the first paying customer arrives**.
-
-Migrate earlier if any of these happen first:
-- capacity approaches the current account limit;
-- API/rate/latency behavior is unsuitable;
-- contractual support/durability is insufficient;
-- data residency/privacy/compliance requirement appears;
-- operational recovery/restore requirements exceed the bootstrap arrangement.
-
-The later paid provider is intentionally not selected now.
-
-**Audit result: REPLACE generic initial-provider abstraction with a concrete Hugging Face bootstrap integration and a localized migration seam.**
-
-## 9. Backup audit — Kaggle bootstrap
-
-The current bootstrap off-site backup destination is **Kaggle private Datasets**.
-
-Current Kaggle documentation supports private datasets, dataset versions, CLI/API upload/download, and currently documents a **200 GB per dataset** limit and **200 GB maximum private datasets**.
-
-However Kaggle Datasets is a dataset platform, not a purpose-built backup service. Its documentation says uploaded archives can be unpacked and tabular data can be analyzed/typed. Therefore SquiFlow must **not upload raw DB dumps, CSV customer data, raw object directories, or ordinary ZIP archives containing customer data** as the backup representation.
-
-### Bootstrap backup format
-
-Use one opaque encrypted backup artifact per retained backup version, for example conceptually:
+Therefore:
 
 ```text
-DB dump + required metadata/config + selected object snapshot/manifest
-→ package/compress locally
-→ authenticated encryption locally
-→ opaque `.sqfbak` blob
-→ hash/checksum
-→ private Kaggle Dataset version
-→ download verification
-→ periodic restore drill
+business/application
+→ IObjectStore
+→ HuggingFaceObjectStore
 ```
 
-The encryption key/recovery material is kept outside Kaggle and must itself be recoverable.
+is justified now.
 
-Kaggle privacy/versioning is not enough by itself: backup validity requires a successful restore test.
+The interface remains intentionally narrow; provider-specific migration tooling can still use provider APIs inside infrastructure when necessary.
 
-### Migration trigger
+**Audit result: KEEP Hugging Face bootstrap; RESTORE provider interface.**
 
-The planned move to purpose-built paid backup storage is the **first paying customer**, or earlier if private-capacity, security, terms, automation, retention, or restore requirements become inadequate.
+## 9. Backup audit — infrastructure-level `IBackupTarget`
 
-**Audit result: KEEP as an encrypted bootstrap off-site carrier only, not as a permanent production backup architecture.**
+Current bootstrap off-site carrier is private Kaggle with locally encrypted opaque artifacts only.
+
+Backup is not merely an application feature. A useful restore may require:
+- DB state;
+- object data/metadata;
+- idempotency/job state;
+- rules/config;
+- deploy/recovery configuration;
+- ZITADEL/OpenFGA restore/reprovision evidence depending on managed vs self-hosted topology;
+- independently recoverable keys/secrets through the appropriate secure recovery path.
+
+The provider destination is abstracted at infrastructure level:
+
+```text
+backup orchestration
+→ IBackupTarget
+→ KaggleBackupTarget
+```
+
+This boundary is justified because backup-provider migration at the first paying customer is already planned.
+
+**Audit result: KEEP encrypted Kaggle bootstrap + RESTORE infrastructure provider interface.**
 
 ## 10. Testing audit
 
-Keep tests for real correctness risks: tenant isolation, idempotency, transaction atomicity, local DB crash/restart, sync conflict, permission revocation, backup restore, and resource bounds.
+Do not reduce testing to unit tests simply because the design is lean.
 
-Remove a dedicated accessibility verification workstream from the current baseline.
+Keep tests for:
+- tenant isolation;
+- OpenFGA permission/custom-role/revocation/model-version/reconciliation behavior;
+- ZITADEL login/session/PKCE flows;
+- transaction/idempotency correctness;
+- local DB crash/restart/long-offline;
+- Guard crash/hang/update recovery;
+- `IObjectStore` adapter contract and migration proof;
+- `IBackupTarget` encrypted artifact download/restore;
+- resource bounds and actual deployment behavior.
 
-Do not create mocks/interfaces simply to increase unit-test count. Provider correctness belongs in real adapter/integration tests.
-
-**Audit result: KEEP but focus on correctness and real-provider evidence.**
+Testing should attack required edge cases even when the implementation uses few components.
 
 ## 11. Documentation audit
 
-Detailed docs are useful only while they prevent mistakes. They should not generate new components automatically.
+One focused document owns each detailed topic. Review docs never override current decisions.
 
-Current documentation rules:
-- one topic owner document where depth is needed;
-- review docs do not override current decisions;
-- no generated CSV design authority;
-- remove obsolete docs rather than keeping contradictory "historical current" guidance in the main navigation;
-- architecture tree is a possible shape, not a scaffold command.
+Current owners include:
+- identity/session → `docs/security/IDENTITY_AND_SESSIONS.md`;
+- authorization → `docs/security/TENANT_PERMISSIONS.md`;
+- object/backup provider boundaries → `docs/data/FILES_AND_OBJECT_STORAGE.md`;
+- Guard → `docs/workstation/GUARD_AND_RECOVERY.md`;
+- local-first Workstation → `docs/workstation/LOCAL_FIRST_DESKTOP.md`.
 
-## 12. Resulting immediate implementation shape
+## 12. Corrected implementation shape
 
-Before any background Worker or platform-admin UI exists, the first executable implementation can be as small as:
+The early implementation is still compact, but includes the boundaries already justified by required behavior or committed migration:
 
 ```text
 SquiFlow/
 ├── apps/
-│   ├── web/          # Blazor tenant Web + tenant Settings
-│   └── desktop/      # Avalonia Workstation
+│   ├── web/
+│   └── desktop/
+│       ├── workstation/
+│       └── guard/
 ├── services/
-│   └── core-api/     # ASP.NET Core
-├── modules/          # only modules needed by the first slice
-├── infrastructure/   # only concrete providers currently used
+│   └── core-api/
+├── modules/
+├── infrastructure/
+│   ├── storage/        # IObjectStore + HuggingFaceObjectStore
+│   ├── backup/         # IBackupTarget + KaggleBackupTarget
+│   ├── identity/       # ZITADEL
+│   └── authorization/  # OpenFGA
 ├── tests/
 ├── deploy/
 └── docs/
 ```
 
-Later, when the feature actually exists:
-
-```text
-apps/admin-web/       # when platform-control UI is implemented
-services/worker/      # when durable background execution is implemented
-```
-
-Do not create `packages/`, `contracts/`, `persistence/abstractions/`, `helpers/`, or `Guard` projects until a real boundary earns them.
+Worker/Admin remain later because their first real workload/UI still occurs later.
 
 ## 13. Audit conclusion
 
-The architecture direction remains strong, but the previous review started turning good future-proofing into pre-implementation machinery.
-
-The v0.0.15 correction is:
+The architecture should use **disciplined completeness**:
 
 ```text
-preserve hard correctness boundaries
-+ implement the current concrete provider/workflow
-+ defer optional abstractions
-+ create components only when their first real use exists
+remove unnecessary ceremony
+without removing required responsibility
 ```
 
-The repository should now move into Phase 0 rather than continuing to expand speculative architecture.
+Specifically, v0.0.15 now treats Guard, `IObjectStore`, `IBackupTarget`, ZITADEL, and OpenFGA as justified boundaries. Generic repositories, forwarding services, arbitrary helper processes, and unrelated provider interfaces remain rejected.
+
+The implementation should begin, but every phase must prove the edge/failure behavior that makes SquiFlow's core abilities real rather than merely produce the smallest possible happy-path codebase.
