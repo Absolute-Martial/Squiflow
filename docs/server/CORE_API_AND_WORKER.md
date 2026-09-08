@@ -37,7 +37,9 @@ Authenticate
 
 The endpoint path is organizational, not the security boundary.
 
-Resource authorization is imperative when the decision requires the loaded resource. ASP.NET Core `IAuthorizationService` and `AuthorizationHandler<TRequirement,TResource>` are the default framework primitives.
+ASP.NET Core policies/requirements are the framework primitive. Multiple requirements inside one policy are ANDed. Multiple handlers can satisfy one requirement as alternative authorization paths. Handlers must not depend on invocation order and must not perform business mutations as side effects.
+
+Resource authorization is imperative when the decision requires the loaded resource. `IAuthorizationService` and typed authorization handlers are the default framework primitives.
 
 Do not bind arbitrary request JSON directly onto domain/persistence entities. Use explicit command/request DTOs and explicit response projections to prevent property-level over-posting/exposure.
 
@@ -71,7 +73,66 @@ Every externally reachable API surface declares:
 
 Development/debug/test endpoints are not simply hidden; they are absent or inaccessible in production configuration.
 
-## 5. Resource consumption/admission
+## 5. Synchronous versus asynchronous HTTP
+
+Keep ordinary short authoritative business transactions synchronous when the user needs a definitive result in the interactive request budget.
+
+Use asynchronous request-reply for long-running/resource-heavy work:
+
+```text
+POST
+→ authenticate/authorize/validate/idempotency
+→ durable operation accepted
+→ 202 Accepted
+   Location: /api/operations/{id}
+   Retry-After: ... where useful
+```
+
+The operation resource persists states such as:
+
+```text
+Pending
+Running
+Succeeded
+Failed
+Cancelled
+OutcomeUnknown
+```
+
+A duplicate POST with the same semantic idempotency key returns the existing operation/status resource rather than creating another Worker item.
+
+Do not queue every command merely because a Worker exists.
+
+## 6. API idempotency and retry
+
+Mutating commands that can be retried after an uncertain outcome use caller-provided semantic idempotency keys.
+
+The server distinguishes:
+
+```text
+same key + same intent
+→ same/semantically equivalent result
+
+same key + different intent
+→ validation/idempotency mismatch
+```
+
+Do not derive identity only by hashing request parameters; identical parameter sets can represent separate intentional operations.
+
+Where the business mutation, receipt and outbox share one authoritative store, commit them in one transaction.
+
+Retry policy is finite and failure-classified:
+- retry only transient conditions;
+- honor `Retry-After`;
+- set per-attempt timeouts;
+- use backoff/jitter where appropriate;
+- cap attempts/elapsed time and aggregate retry budget;
+- avoid nested retry multiplication across API/application/Worker/provider SDK layers;
+- never endlessly retry deterministic domain/auth/validation failures.
+
+Full details: `docs/api/API_CONTRACT_IDEMPOTENCY_AND_RETRY.md`.
+
+## 7. Resource consumption/admission
 
 Rate limiting is only one control.
 
@@ -83,11 +144,12 @@ Also bound:
 - document/image/report concurrency;
 - request/handler deadlines where safe;
 - outbound provider calls and paid-operation budgets;
-- per-tenant/noisy-neighbor consumption.
+- per-tenant/noisy-neighbor consumption;
+- aggregate retry budget.
 
 Expensive work moves to the Worker rather than keeping request threads occupied indefinitely.
 
-## 6. Worker
+## 8. Worker
 
 `services/worker` executes durable asynchronous work that should not keep API requests open.
 
@@ -101,7 +163,7 @@ Examples:
 - rule/workflow snapshot distribution where asynchronous;
 - diagnostic packaging.
 
-## 7. Durable work lifecycle
+## 9. Durable work lifecycle
 
 ```text
 Pending
@@ -122,7 +184,7 @@ OutcomeUnknown
 
 A claim has a lease/ownership expiry. Use fencing/claim generations for work where a stale previous owner could cause an unsafe duplicate effect.
 
-## 8. Worker loop requirements
+## 10. Worker loop requirements
 
 A process may run indefinitely. A loop may not spin indefinitely.
 
@@ -136,9 +198,22 @@ Required:
 - graceful drain/shutdown;
 - retry classification with exponential backoff + jitter;
 - poison-work quarantine;
-- crash-loop protection.
+- crash-loop protection;
+- queue-age/oldest-item monitoring in addition to depth;
+- business priority classes with fairness/aging so lower-priority work cannot starve forever.
 
-## 9. Authorization semantics for durable jobs
+## 11. Idempotent consumers
+
+Assume at-least-once delivery/redelivery can occur.
+
+Every message-driven handler must either:
+- make the semantic effect idempotent;
+- detect an already-applied semantic effect;
+- or enter explicit reconciliation when the external effect outcome is unknown.
+
+A queue/message ID can help transport deduplication but is not sufficient to replace the business idempotency key when the same intent can be resent through a different transport attempt/batch.
+
+## 12. Authorization semantics for durable jobs
 
 Do not use one vague rule such as “always re-check the original user's permission” for every queued job. Classify why the job exists.
 
@@ -160,7 +235,7 @@ A platform-critical command originates from Platform Admin Web, passes risk/step
 
 This classification prevents both unsafe stale-authority execution and the opposite error of cancelling valid committed consequences merely because a user was later suspended.
 
-## 10. External effect safety
+## 13. External effect safety
 
 For a side effect such as an external payment, webhook or remote provider action:
 
@@ -179,13 +254,24 @@ Third-party responses are untrusted inputs even when the provider is managed/wel
 - do not blindly follow redirects;
 - isolate malformed/unexpected responses from authoritative state transitions.
 
-## 11. Server concurrency
+## 14. Load isolation patterns
+
+Use patterns only where the problem exists:
+
+- **Bulkhead:** isolate expensive work classes/dependencies with bounded pools/concurrency; do not build a cell architecture by default.
+- **Queue load leveling:** buffer bursty async work; do not put low-latency authoritative transactions behind a queue merely for architectural symmetry.
+- **Competing consumers:** future Worker replicas can claim independent items; ordering stays per consistency key where required.
+- **Priority queue:** honor P0–P3/business priority while preserving fairness and aging.
+- **Circuit breaker:** add only for remote dependencies where sustained/slow failure makes retries harmful; do not wrap every local component.
+- **Claim check:** keep large files/diagnostic payloads outside queue messages and pass protected references.
+
+## 15. Server concurrency
 
 The application handles independent work in parallel. Correctness is scoped to the relevant aggregate/resource, not one global writer.
 
 Final correctness is enforced by the selected central store through transactions, constraints, optimistic concurrency and locking where appropriate.
 
-## 12. Platform-critical Worker controls
+## 16. Platform-critical Worker controls
 
 Pause/drain/resume/retry/quarantine/reconcile controls that can materially affect server operation are invoked only through Platform Admin Web and `/platform-admin/...` APIs.
 
@@ -194,7 +280,13 @@ Do not expose those controls through Workstation or ordinary tenant business end
 ## Source basis
 
 - OWASP API Security Top 10 2023
-- ASP.NET Core resource-based authorization
+- ASP.NET Core policy/resource-based authorization
 - Zanzibar authorization consistency lessons
+- Stripe idempotency article
+- AWS Builders' Library idempotent API article
+- Azure Architecture Center patterns, API design/implementation, background jobs and transient-fault guidance
 
-See `docs/review/SECURITY_AUTHORIZATION_SOURCE_REVIEW.md` for the detailed source mapping.
+See:
+- `docs/review/SECURITY_AUTHORIZATION_SOURCE_REVIEW.md`
+- `docs/review/RELIABILITY_API_AND_PATTERN_SOURCE_REVIEW.md`
+- `docs/api/API_CONTRACT_IDEMPOTENCY_AND_RETRY.md`
