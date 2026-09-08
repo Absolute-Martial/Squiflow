@@ -14,6 +14,7 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - `services/worker` remains a separate durable background executable and is created when durable background work is implemented.
 - **`SquiFlow.Guard` is a baseline Workstation companion process.** It owns desktop process supervision, bounded crash/hang recovery, update handoff/recovery, child/helper cleanup, and bounded diagnostic/resource evidence. It does not own business rules, authorization, sync semantics, or central DB access.
 - Printing is a Workstation device side effect. Other peripherals are requirement-driven.
+- Containerization is a deployment/runtime choice, not a reason to split modules into services or add sidecars/proxies/adapters. Container patterns are introduced only for a concrete deployment/coordination problem.
 
 ## Completeness versus minimalism
 
@@ -25,6 +26,7 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Do not introduce an interface merely because an implementation class exists or because mocking it is possible.
 - Generic `IRepository<T>`, `IUnitOfWork`, and one-interface-per-class conventions are not baseline.
 - An interface is justified when there is a concrete dependency-inversion/replacement boundary, including an already-planned near-term provider migration.
+- Cross-cutting behavior should be centralized when uniform enforcement is the requirement, but resource authorization and business/domain validity must not be pushed into one generic middleware layer merely for fewer files.
 
 ## Small-team tenant control
 
@@ -49,11 +51,13 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - OpenFGA tuples use opaque SquiFlow IDs rather than emails or other unnecessary PII.
 - Permission/relationship changes return success only after the authoritative OpenFGA change is known/applied; ambiguous external-write outcomes are reconciled rather than assumed successful.
 - `TenantAuthorizationRevision` remains SquiFlow evidence/versioning for effective authorization/configuration and Workstation snapshot freshness; it complements rather than replaces OpenFGA model/tuple state.
+- SquiFlow does not build a parallel password/OTP/MFA/passkey authentication stack. Authentication methods/credential policy belong to ZITADEL; SquiFlow owns OIDC/session binding, application step-up requirements, device/tenant mapping, and post-authentication authorization.
 
 ## Web and Workstation
 
 - Web is online-only for business operations in v0.0.15. No IndexedDB business replica, service-worker business sync, or browser offline mutation queue is baseline.
 - Valuable online forms may use explicit server-side drafts/autosave when justified.
+- Blazor Web App does not make Web application state magically stateless. If Interactive Server rendering is used, circuit/session state can live in server memory; high-value business state must still be persisted independently, and multi-node circuit/session behavior is an explicit deployment decision.
 - Workstation is the local-first/offline client.
 - Local Workstation success and server-authoritative acceptance are separate states (`LocalCommitted`, `PendingRemote`, `Authoritative`, `Conflict`, `Rejected`, `AuthorizationChanged`, `UpgradeRequired`).
 - SquiFlow adopts local-first interaction/durability, not a global CRDT or peer-authority model for payments, stock, credit, permissions, or other shared invariants.
@@ -63,20 +67,12 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Ordinary tenants use a pooled multi-tenant baseline with explicit tenant discriminators on tenant-owned authoritative data.
 - Authentication, authorization, and tenant isolation are separate concerns.
 - Schema-per-tenant, DB-per-tenant, queue-per-tenant, and deployment-per-tenant are not baseline.
-- Shared compute is still tenant-aware: expensive reports/documents/jobs/provider calls use bounded/fair per-tenant or work-class limits where needed so one tenant cannot consume the whole system.
 - PostgreSQL remains the strongest central reference candidate; if used, its proof includes RLS defense in depth and safe runtime-role/connection-pool behavior.
 - SQLite + WAL and libSQL remain Workstation-store candidates.
 - Exact central and local database products remain open until the relevant vertical-slice POCs close them.
-
-## Command/query and messaging shape
-
-- SquiFlow keeps command/query responsibility clear in code: a command expresses business intent and may mutate state; a query returns data and does not perform business mutation.
-- Material actions use task-oriented commands such as `ApproveQuote`, `RefundPayment`, or `AdjustInventory` rather than hiding every operation behind generic CRUD.
-- This **does not** require separate CQRS read/write databases, command/query microservices, or event sourcing. Read projections/materialized views are introduced only for an implemented query/load need.
-- A **job/command** is an instruction with an execution owner. An **event** is a fact that already happened. Do not blur the two.
-- Short authoritative business work remains synchronous when the caller needs a definitive result. After-commit consequences may use transactional outbox + Worker/event delivery.
-- For one durable background task, use queue/job semantics. Use pub/sub only when multiple independent consumers genuinely need the same committed fact. Use an event stream only when durable replay/independent offsets/history are proven requirements.
-- Kafka or another event-stream platform is not baseline merely because event streams are a valid pattern.
+- Database performance choices are measurement-driven. Indexes, caches and denormalization have write/freshness/consistency costs and are not introduced merely because they are common optimizations.
+- Database POCs/hot-path tests include representative growth/cardinality, query plans, tenant-aware indexes, write/import/sync cost, connection-pool behavior and storage/WAL/temp impact where applicable.
+- Redis, read replicas, sharding and denormalized read models are not baseline performance fixes without measured need.
 
 ## API, sync, and Worker correctness
 
@@ -84,13 +80,24 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Same idempotency key + changed intent is rejected.
 - Where one store owns mutation + idempotency receipt + outbox, they commit atomically.
 - At-least-once delivery/redelivery is assumed; effects are idempotent or explicitly reconcilable.
-- Duplicate defense is end-to-end: caller/producer retry, transport redelivery, and consumer/effect replay are distinct duplicate-entry points.
-- “Exactly once” is never claimed system-wide without naming and proving its scope; one ACID transaction may be exactly-once within that store while a distributed external effect remains retry/reconciliation based.
 - Retry is finite, classified, budgeted, and uses backoff/jitter/`Retry-After` where appropriate.
-- One dependency call path has an intentional retry owner; nested Workstation/API/application/Worker/provider retry loops must not multiply blindly.
 - Long-running HTTP work uses durable asynchronous status only when work is actually long-running; ordinary short business transactions remain synchronous.
-- Background work can be user-triggered, schedule-triggered, external-system-triggered, batch/volume-triggered, or platform-control work; the trigger type does not remove the need for durable state/failure ownership when the work matters.
 - Conflict handling is aggregate-specific; no global last-write-wins policy.
+- API cross-cutting concerns such as correlation/safe logging, authentication, generic limits, error shaping and coarse policy are enforced consistently through ASP.NET Core pipeline/policies/endpoint metadata where appropriate.
+- Every externally reachable endpoint must declare its audience/authentication/policy/limits or be an explicit reviewed public exception; resource authorization and domain validation still run at the correct deeper layer.
+
+## State placement and server statelessness
+
+- `Stateless Core API/Worker` means process memory is not the sole authoritative durable business state. It does not mean the product has no state.
+- Durable/shared state lives in the appropriate system: central DB, object storage, job/outbox store, ZITADEL/OpenFGA, configuration/backup, and the local Workstation DB for offline work.
+- Process-local caches/circuits/temporary state are allowed only with explicit loss/freshness semantics and cannot be correctness authority.
+- Stateless server compute does not imply high availability, automatic failover, transparent multi-node Web circuits, or zero downtime.
+
+## Event history versus event sourcing
+
+- SquiFlow keeps explicit append-only/immutable history where the domain requires it: payments/effects, stock movements, corrections/reversals, issued documents, privileged audit, and versioned rules/workflows/forms.
+- Transactional outbox events represent committed facts/consequences and do not make SquiFlow event-sourced.
+- Event sourcing is **not** the v0.0.15 authoritative persistence model. Revisit only if an implemented domain genuinely needs replay-derived authoritative state strongly enough to justify immutable-event schema/projection/rebuild complexity.
 
 ## Rules/workflow
 
@@ -129,8 +136,8 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - full browser offline sync;
 - generic repository/unit-of-work/one-interface-per-class abstractions;
 - Kafka, mandatory Redis, event-sourced/full-CQRS/Saga core architecture;
-- event-driven-everything or a generic broker/pub-sub layer before a real multi-consumer requirement;
 - global CRDTs;
 - microservice-per-module design;
+- container sidecar/proxy/leader/scatter-gather infrastructure without a concrete workload/deployment requirement;
 - per-tenant infrastructure by default;
 - advanced peripheral suite, MRP/wastage, specialized ETL/search, or SaaS billing engine without a current customer/commercial requirement.
