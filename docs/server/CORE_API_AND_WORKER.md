@@ -8,10 +8,9 @@
 
 It owns:
 - request pipeline;
-- ZITADEL-backed OIDC/session integration;
+- ZITADEL OIDC/session integration;
 - tenant/platform context resolution;
-- ASP.NET endpoint policy/authorization integration;
-- OpenFGA client integration for application relationship/permission checks;
+- ASP.NET/OpenFGA authorization integration;
 - input/schema validation;
 - application command/query dispatch;
 - rate limiting/admission control;
@@ -31,76 +30,81 @@ ZITADEL-authenticated actor/session
 → coarse ASP.NET endpoint/function policy
 → tenant-scoped resource lookup where practical
 → IAuthorizationService semantic requirement
-→ OpenFGA Check where role/relation/permission belongs in OpenFGA
-→ SquiFlow domain/workflow/state invariant validation
+→ OpenFGA relationship/permission check where applicable
+→ SquiFlow domain/workflow invariant validation
 → concurrency/version check
-→ execute transaction
+→ execute
 ```
 
-The route path is organizational, not authority.
+The endpoint path is organizational, not the security boundary.
 
-### Responsibility split
+ASP.NET Core policies/requirements are the framework integration primitive. OpenFGA is the selected application-authorization engine for relationship/permission decisions. Handlers must not depend on invocation order and must not perform business mutations as side effects.
 
-- **ZITADEL:** authentication/account identity/MFA/SSO/session-provider capability.
-- **OpenFGA:** application roles, tenant custom-role relationships, permissions/resource relationships.
-- **ASP.NET Core `IAuthorizationService`:** in-process semantic policy/requirement integration.
-- **SquiFlow domain/rules/workflow:** business validity and canonical state.
-- **Persistence:** tenant isolation, transaction/constraints/concurrency.
+Resource authorization is imperative when the decision requires the loaded resource. `IAuthorizationService` and typed authorization handlers are the Core API integration point.
 
-An OpenFGA `allow` cannot bypass wrong tenant scope, invalid workflow state, stock/payment invariant, or stale expected version.
+Do not bind arbitrary request JSON directly onto domain/persistence entities. Use explicit command/request DTOs and explicit response projections to prevent property-level over-posting/exposure.
 
-ASP.NET handlers must not depend on invocation order and must not mutate business state as an authorization side effect.
+## 3. Command/query responsibility
 
-Use explicit request DTOs and response projections; never bind arbitrary client JSON directly to persistence/domain entities.
+SquiFlow keeps a clear distinction between commands and queries without forcing a full CQRS deployment topology.
 
-## 3. OpenFGA dependency behavior
+```text
+Command
+→ expresses business intent
+→ may change authoritative state
+→ authorization/domain/concurrency/idempotency apply
 
-Production checks target the configured/pinned OpenFGA authorization model ID.
+Query
+→ returns information
+→ does not perform business mutation
+→ tenant/read authorization still applies
+```
 
-Authorization dependency failures are not permission grants:
-- explicit deny → authorization denied;
-- provider/network failure → dependency unavailable/fail-safe result according to operation class;
-- model mismatch/configuration error → operational/security fault, not fallback allow.
+Important business actions should be task-oriented, for example `ApproveQuote`, `RefundPayment`, or `AdjustInventory`, rather than hiding domain intent behind generic `Update`.
 
-For permission/relation changes, the Web/API uses the durable/reconcilable process owned by `docs/security/TENANT_PERMISSIONS.md`. Do not pretend OpenFGA tuple updates and SquiFlow DB/audit updates form one cross-system ACID transaction.
+This separation does **not** imply:
+- separate command/query databases;
+- separate command/query services;
+- event sourcing;
+- a read projection for every endpoint.
 
-Consistency mode is selected deliberately by risk. Mutation/revocation-sensitive checks may require stronger freshness than ordinary low-risk reads.
+Introduce read-optimized projections/materialized views only when an implemented workload justifies the extra freshness/rebuild/operational contract.
 
 ## 4. API security baseline
 
-Every API group is reviewed against applicable OWASP API Security Top 10 classes.
+Every API group is reviewed against the OWASP API Security Top 10 classes that apply.
 
-Required gates include:
-- object-level authorization for client-supplied resource identifiers;
+Required release gates include:
+- object-level authorization for every client-supplied resource identifier;
 - function-level authorization for normal/tenant-admin/platform-admin operations;
-- property-level allowlists for request/response contracts;
-- strong ZITADEL authentication/recovery/step-up abuse controls;
-- bounded request/upload/page/batch/resource budgets;
-- sensitive-business-flow controls;
-- SSRF controls before arbitrary webhook/remote-fetch URLs;
-- production security headers/CORS/cache/error policy;
-- generated endpoint/version inventory;
-- validation/timeouts/limits for third-party APIs including OpenFGA/ZITADEL/storage providers.
+- property-level allowlists for request and response contracts;
+- strong authentication/recovery/step-up abuse controls;
+- bounded request/upload/page/batch sizes and execution/resource budgets;
+- business-flow-specific abuse controls where automation can cause material harm;
+- SSRF controls before introducing arbitrary webhook/remote-fetch URLs;
+- production security headers, CORS/cache/error policy;
+- generated endpoint/version inventory and explicit retirement policy;
+- validation/timeouts/limits for data consumed from third-party APIs.
 
-An endpoint inventory is generated from executable metadata/OpenAPI; it is not a hand-maintained architecture CSV.
+An endpoint inventory is generated from executable endpoint metadata/OpenAPI in CI/release. It is not a hand-maintained architecture CSV.
 
 ## 5. API version/surface ownership
 
 Every externally reachable API surface declares:
-- audience: tenant Web, Workstation sync, client portal, tenant admin, platform admin, or integration;
+- audience: tenant Web, Workstation sync, client-client, tenant admin, platform admin or specific integration;
 - authentication method;
 - authorization policy family;
 - current version/compatibility rules;
 - owner/module;
 - retirement/deprecation policy.
 
-Development/debug/test endpoints are absent or inaccessible in production configuration.
+Development/debug/test endpoints are not simply hidden; they are absent or inaccessible in production configuration.
 
 ## 6. Synchronous versus asynchronous HTTP
 
 Keep ordinary short authoritative business transactions synchronous when the user needs a definitive result in the interactive request budget.
 
-Use asynchronous request-reply only for long-running/resource-heavy work:
+Use asynchronous request-reply for long-running/resource-heavy work:
 
 ```text
 POST
@@ -108,9 +112,10 @@ POST
 → durable operation accepted
 → 202 Accepted
    Location: /api/operations/{id}
+   Retry-After: ... where useful
 ```
 
-Operation states can include:
+The operation resource persists states such as:
 
 ```text
 Pending
@@ -121,47 +126,60 @@ Cancelled
 OutcomeUnknown
 ```
 
-Duplicate POST with the same semantic idempotency key returns the existing operation/status rather than creating duplicate work.
+A duplicate POST with the same semantic idempotency key returns the existing operation/status resource rather than creating another Worker item.
+
+Do not queue every command merely because a Worker exists.
 
 ## 7. API idempotency and retry
 
-Mutating commands that can be retried after uncertain outcome use caller-provided semantic idempotency keys.
+Mutating commands that can be retried after an uncertain outcome use caller-provided semantic idempotency keys.
+
+The server distinguishes:
 
 ```text
-same key + same intent      → same semantic result
-same key + different intent → reject mismatch
+same key + same intent
+→ same/semantically equivalent result
+
+same key + different intent
+→ validation/idempotency mismatch
 ```
 
-Where business mutation, receipt and outbox share one authoritative store, commit them together.
+Do not derive identity only by hashing request parameters; identical parameter sets can represent separate intentional operations.
 
-Retry is finite/classified:
-- retry transient conditions only;
+Where the business mutation, receipt and outbox share one authoritative store, commit them in one transaction.
+
+Retry policy is finite and failure-classified:
+- retry only transient conditions;
 - honor `Retry-After`;
-- per-attempt timeout;
-- backoff/jitter;
-- capped attempts/elapsed time/aggregate retry budget;
-- avoid retry multiplication;
-- never endlessly retry deterministic auth/domain/validation failures.
+- set per-attempt timeouts;
+- use backoff/jitter where appropriate;
+- cap attempts/elapsed time and aggregate retry budget;
+- choose an intentional retry owner per dependency call path;
+- avoid nested retry multiplication across Workstation/API/application/Worker/provider SDK layers;
+- never endlessly retry deterministic domain/auth/validation failures.
 
-OpenFGA/ZITADEL SDK retries must be included in the aggregate retry budget rather than stacking invisibly under application retries.
+Full details: `docs/api/API_CONTRACT_IDEMPOTENCY_AND_RETRY.md`.
 
 ## 8. Resource consumption/admission
 
-Bound:
-- body/upload/page/sync-batch sizes;
+Rate limiting is only one control.
+
+Also bound:
+- maximum body/upload sizes;
+- page/result limits;
+- sync batch count/bytes;
 - rule/form complexity;
 - document/image/report concurrency;
-- DB connections;
-- OpenFGA/ZITADEL/provider call concurrency;
-- endpoint deadlines where safe;
+- request/handler deadlines where safe;
+- outbound provider calls and paid-operation budgets;
 - per-tenant/noisy-neighbor consumption;
 - aggregate retry budget.
 
-Rate limiting alone is not enough for one expensive operation.
+Expensive work moves to the Worker rather than keeping request threads occupied indefinitely.
 
 ## 9. Worker
 
-`services/worker` is created when Phase 6 introduces real durable asynchronous work.
+`services/worker` executes durable asynchronous work that should not keep API requests open.
 
 Examples:
 - documents/reports;
@@ -171,9 +189,88 @@ Examples:
 - projection maintenance;
 - scheduled jobs;
 - rule/workflow snapshot distribution where asynchronous;
-- diagnostics packaging.
+- diagnostic packaging.
 
-## 10. Durable work lifecycle
+## 10. Background trigger taxonomy
+
+Background work can originate for different reasons. The trigger does not define the reliability contract by itself.
+
+```text
+User-triggered consequence
+  e.g. committed invoice schedules PDF/notification
+
+Scheduled occurrence
+  e.g. periodic report/reconciliation/maintenance
+
+External-system-triggered work
+  e.g. webhook/provider callback/file-arrival signal
+
+Batch/volume-triggered work
+  e.g. bounded import/rebuild/maintenance batch
+
+Platform control command
+  e.g. approved maintenance/reconciliation operation
+```
+
+Important scheduled work must not rely on “cron fired” as the only truth. The scheduler creates or claims a durable occurrence/job with a stable occurrence identity before the business effect executes.
+
+For scheduled jobs whose meaning depends on business time, define timezone/DST behavior explicitly. Duplicate scheduler firings must not silently create duplicate business effects.
+
+The first Worker implementation may use a simple durable database-backed job/schedule mechanism if it satisfies the actual workload. Do not introduce a distributed scheduler/broker merely because background-work architectures can grow into one.
+
+## 11. Command/job versus event
+
+Keep instruction and fact semantics distinct:
+
+```text
+Command / Job
+= please perform this intended work
+= has an execution owner and completion/failure semantics
+
+Event
+= this fact already happened
+= zero, one, or many consumers may react
+```
+
+Example:
+
+```text
+IssueInvoice command
+→ authoritative invoice transaction commits
+→ InvoiceIssued event/fact in transactional outbox
+→ independent consequences may generate PDF, notify customer, update a read projection
+```
+
+The asynchronous event does not make the invoice issuance itself eventually authoritative.
+
+Avoid hidden event choreography for flows that require one explicit business owner/state machine, especially money, stock, permissions, and other protected transitions.
+
+## 12. Messaging-pattern selection
+
+Use the simplest pattern matching the semantic need:
+
+### Queue / competing consumers
+Use when one durable work item should be processed by one worker path.
+
+Examples:
+- generate one PDF;
+- send one delivery attempt;
+- execute one reconciliation item.
+
+### Publish/subscribe
+Use only when several independent consumers genuinely need the same committed fact.
+
+A transactional outbox can create multiple durable deliveries without requiring a separate generic pub/sub platform in the first implementation.
+
+### Event stream
+Use only when consumers actually need durable replay/history/independent offsets or throughput/ordering characteristics that a normal job/outbox system cannot provide economically.
+
+Kafka/event-log infrastructure is not baseline.
+
+### Direct synchronous call
+Use when the caller needs the authoritative answer now and the work fits the bounded interactive budget.
+
+## 13. Durable work lifecycle
 
 ```text
 Pending
@@ -187,137 +284,122 @@ Alternative states:
 ```text
 RetryScheduled
 Failed
-Quarantined
+Quarantined/DLQ
 Cancelled
 OutcomeUnknown
 ```
 
-Claims have leases/ownership expiry; use fencing/generation where stale owners could cause unsafe duplicate effects.
+A claim has a lease/ownership expiry. Use fencing/claim generations for work where a stale previous owner could cause an unsafe duplicate effect.
 
-## 11. Worker loop requirements
+## 14. Worker loop requirements
 
 A process may run indefinitely. A loop may not spin indefinitely.
 
 Required:
-- bounded queues/concurrency;
-- tenant-aware fairness;
+- bounded queues;
+- bounded concurrency;
 - cancellation propagation;
 - event/signal wait rather than hot polling;
-- periodic reconciliation fallback;
-- deadline/no-progress detection;
+- periodic reconciliation as fallback;
+- deadline and no-progress detection;
 - graceful drain/shutdown;
-- retry classification + backoff/jitter;
+- retry classification with exponential backoff + jitter;
 - poison-work quarantine;
 - crash-loop protection;
-- queue age/oldest-item monitoring, not only depth;
-- priority with fairness/aging.
+- queue-age/oldest-item monitoring in addition to depth;
+- business priority classes with fairness/aging so lower-priority work cannot starve forever.
 
-## 12. Idempotent consumers
+## 15. Idempotent consumers and duplicate-entry points
 
-Assume at-least-once delivery/redelivery.
+Assume at-least-once delivery/redelivery can occur.
 
-Each handler must either:
-- make semantic effect idempotent;
-- detect already-applied effect;
-- or enter explicit reconciliation when external outcome is unknown.
+Every message-driven handler must either:
+- make the semantic effect idempotent;
+- detect an already-applied semantic effect;
+- or enter explicit reconciliation when the external effect outcome is unknown.
 
-Transport/message ID never replaces business idempotency identity when the same intent can be resent through another envelope.
+Duplicates can enter before the Worker as producer retries/republication, at the transport as redelivery, and inside the consumer when a crash occurs after the external/business effect but before acknowledgement.
 
-## 13. Authorization semantics for durable jobs
+A queue/message ID can help transport deduplication but is not sufficient to replace the business idempotency key when the same intent can be resent through a different transport attempt/batch.
 
-Do not reauthorize every queued job identically. Classify why it exists.
+Do not claim system-wide exactly-once because one broker or database offers a narrower exactly-once/transactional feature.
+
+## 16. Authorization semantics for durable jobs
+
+Do not use one vague rule such as “always re-check the original user's permission” for every queued job. Classify why the job exists.
 
 ### A. Committed business consequence
 
-Example: invoice issuance already committed and outbox schedules PDF generation.
+Example: an authorized invoice issuance transaction committed and its outbox schedules document generation.
 
-Worker executes the committed consequence under system authority, preserving original actor/correlation for audit. Later OpenFGA role revocation does not erase already committed business truth.
+The business decision is already authoritative. The Worker executes the committed consequence under system authority while retaining the original actor/correlation for audit. A later user-role revocation does not erase the already committed business fact.
 
 ### B. Deferred actor action
 
-Actual business effect is not yet committed. Re-check current ZITADEL/session state where applicable, OpenFGA authorization, and current domain state at execution when the action semantics require it.
+Example: a request queues an action whose actual business effect has **not** yet been authorized/committed and will occur later.
 
-If authority changed, return explicit `AuthorizationChanged`/review rather than perform the effect.
+Reauthorize the actor/current authority at execution when that is semantically required. If authority changed, produce an explicit authorization-changed/review result rather than silently performing the effect.
 
 ### C. Platform control-plane command
 
-A platform command originates from Platform Admin Web, passes ZITADEL authentication + platform authorization + risk/step-up/approval, then is persisted as an exact durable command. Worker executes that command under system execution authority.
+A platform-critical command originates from Platform Admin Web, passes risk/step-up/approval checks, and is persisted as a durable control-plane command/proposal. The Worker executes exactly that authorized command under system execution authority. It must not accept a second hidden set of control parameters from a Desktop or arbitrary job payload.
 
-No second hidden parameter set from Desktop/job payload is accepted.
+This classification prevents both unsafe stale-authority execution and the opposite error of cancelling valid committed consequences merely because a user was later suspended.
 
-## 14. External effect safety
+## 17. External effect safety
 
-For external payment/webhook/provider actions:
-1. before effect — cancellation may be safe;
+For a side effect such as an external payment, webhook or remote provider action:
+
+1. before effect — cancellation can be safe;
 2. request sent, response missing — `OutcomeUnknown`;
 3. provider confirms success, local completion write fails — reconcile using provider idempotency/reference;
-4. local completion committed — retry returns same semantic result.
+4. local completion committed — retry must return the same semantic result.
 
-Never infer cancellation undid an external effect.
+Never infer that cancellation undid an external effect.
 
-Third-party responses are untrusted:
-- validate schema/status;
-- bound size;
-- TLS;
-- timeout;
-- bounded redirects where applicable;
-- isolate malformed/unexpected response from authoritative state transitions.
+Third-party responses are untrusted inputs even when the provider is managed/well-known:
+- validate payload/schema;
+- bound response size;
+- use TLS;
+- set timeouts;
+- do not blindly follow redirects;
+- isolate malformed/unexpected responses from authoritative state transitions.
 
-## 15. Load isolation patterns
+## 18. Load isolation patterns
 
 Use patterns only where the problem exists:
-- bulkhead-style bounded work classes/dependencies;
-- queue load leveling for bursty async work;
-- competing consumers when multiple Worker replicas exist;
-- priority with fairness/aging;
-- circuit breaker only for dependencies where persistent failure makes retries harmful;
-- claim-check/reference for large files rather than queueing full binary payloads.
 
-Do not build a cell architecture, BFF fleet, or queue every transaction merely because those patterns exist.
+- **Bulkhead:** isolate expensive work classes/dependencies with bounded pools/concurrency; do not build a cell architecture by default.
+- **Queue load leveling:** buffer bursty async work; do not put low-latency authoritative transactions behind a queue merely for architectural symmetry.
+- **Competing consumers:** future Worker replicas can claim independent items; ordering stays per consistency key where required.
+- **Priority queue:** honor P0–P3/business priority while preserving fairness and aging.
+- **Circuit breaker:** add only for remote dependencies where sustained/slow failure makes retries harmful; do not wrap every local component.
+- **Claim check:** keep large files/diagnostic payloads outside queue messages and pass protected references.
 
-## 16. Server concurrency
+## 19. Server concurrency
 
-Independent work runs in parallel. Correctness is scoped to the relevant aggregate/resource, not one global writer.
+The application handles independent work in parallel. Correctness is scoped to the relevant aggregate/resource, not one global writer.
 
-Final correctness comes from the selected central store through transactions, constraints, optimistic concurrency and locking where required.
+Final correctness is enforced by the selected central store through transactions, constraints, optimistic concurrency and locking where appropriate.
 
-## 17. Platform-critical Worker controls
+## 20. Platform-critical Worker controls
 
-Pause/drain/resume/retry/quarantine/reconcile controls that materially affect server operation are invoked only through Platform Admin Web and privileged `/platform-admin/...` APIs during normal operation.
+Pause/drain/resume/retry/quarantine/reconcile controls that can materially affect server operation are invoked only through Platform Admin Web and `/platform-admin/...` APIs.
 
-Tenant Web/Workstation cannot turn ZITADEL login or tenant OpenFGA roles into platform operator authority.
-
-If the application control plane is down, infrastructure recovery uses the separate private runbook.
-
-## 18. Dependency degradation expectations
-
-### ZITADEL unavailable
-- existing server session behavior follows the selected session/revocation design;
-- new authentication/reauthentication/step-up may be unavailable;
-- never mint local fake identities to stay online.
-
-### OpenFGA unavailable
-- operations requiring current application authorization fail closed/degraded according to risk;
-- already committed business consequences can continue where they no longer require actor authorization;
-- never interpret provider error as `allowed=true`.
-
-### Guard unavailable
-- Workstation may continue running if healthy;
-- supervision/recovery is degraded and Guard should be restartable independently;
-- no business data becomes invalid merely because Guard process is down.
+Do not expose those controls through Workstation or ordinary tenant business endpoints.
 
 ## Source basis
 
-- ZITADEL OIDC documentation
-- OpenFGA current modeling/consistency/model-version guidance
 - OWASP API Security Top 10 2023
 - ASP.NET Core policy/resource-based authorization
-- Zanzibar consistency lessons
-- Stripe/AWS idempotency guidance
-- Azure API/background/transient-fault patterns
+- Zanzibar authorization consistency lessons
+- Stripe idempotency article
+- AWS Builders' Library idempotent API article
+- Azure Architecture Center patterns, API design/implementation, background jobs and transient-fault guidance
+- ByteByteGo CQRS/retry/event-driven/messaging/idempotency/background-work/multi-tenancy follow-up review
 
 See:
-- `docs/security/IDENTITY_AND_SESSIONS.md`
-- `docs/security/TENANT_PERMISSIONS.md`
 - `docs/review/SECURITY_AUTHORIZATION_SOURCE_REVIEW.md`
+- `docs/review/RELIABILITY_API_AND_PATTERN_SOURCE_REVIEW.md`
+- `docs/review/BYTEBYTEGO_DISTRIBUTED_SYSTEMS_SOURCE_REVIEW.md`
 - `docs/api/API_CONTRACT_IDEMPOTENCY_AND_RETRY.md`
