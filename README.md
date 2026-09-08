@@ -10,51 +10,65 @@ Start with [`MASTER_IMPLEMENTATION_PLAN.md`](MASTER_IMPLEMENTATION_PLAN.md).
 
 - C# / modern .NET.
 - Avalonia for the Windows Workstation.
-- Blazor Web App for tenant Web and the future separate Platform Admin Web.
+- Blazor Web App for tenant Web and future separate Platform Admin Web.
 - ASP.NET Core Core API.
-- Modular-monolith business code; network/process boundaries are added only when they solve a real deployment/fault/security problem.
+- Modular-monolith business code; network/process boundaries are added when they protect a real deployment/fault/security/recovery responsibility.
+- **SquiFlow.Guard** is a baseline Workstation companion for launch/supervision, bounded crash/hang recovery, update recovery, child/helper cleanup and diagnostic/resource evidence. It does not own business logic.
 - Small-team-first tenant model: Owner + Staff by default, with Owner-controlled granular permissions.
 - Tenant role/permission and rule/workflow/form administration is Web-only; Desktop consumes published authority/configuration and never grants it.
-- Platform-critical application controls belong to the separate Platform Admin surface when that surface is implemented.
+- **ZITADEL** is the selected identity/authentication platform.
+- **OpenFGA** is the selected application-authorization engine for roles/custom roles/assignments/resource relationships where applicable.
+- ASP.NET Core authorization integrates OpenFGA checks; SquiFlow domain/workflow/concurrency rules and DB tenant isolation remain separate.
+- Workstation login uses system-browser OIDC Authorization Code + PKCE against ZITADEL.
+- Pooled multi-tenancy is the ordinary baseline; tenant isolation is separate from authentication/OpenFGA authorization.
 - Workstation is local-first/offline; Web is online-only for business operations in v0.0.15.
-- Workstation login uses system-browser OpenID Connect Authorization Code + PKCE.
-- Pooled multi-tenancy is the ordinary baseline; tenant isolation is separate from authentication/authorization.
 - Retryable mutations use semantic idempotency keys; at-least-once delivery is handled by idempotent/reconcilable effects.
-- PostgreSQL is the strongest central reference candidate; SQLite + WAL and libSQL are Workstation-store candidates. Exact DB products remain open until their phase POCs.
+- PostgreSQL is the strongest central reference candidate; SQLite + WAL and libSQL are Workstation-store candidates. Exact DB products remain open until their POCs.
 - Currency is configurable/not hardcoded. v0.0.15 does not build a multi-currency/FX subsystem.
 - SquiFlow-native bounded rules/workflow remain in-process capabilities unless real isolation/scale proves otherwise.
-- **Primary bootstrap object storage:** private Hugging Face Storage Bucket, with the current private-storage envelope of about 100 GB treated as finite.
+- **Primary bootstrap object storage:** private Hugging Face Storage Bucket, current private-storage envelope about 100 GB.
+- **Object provider boundary:** `IObjectStore`, bootstrap implementation `HuggingFaceObjectStore`.
 - **Bootstrap off-site backup carrier:** private Kaggle Dataset containing encrypted opaque backup archives only.
-- Planned object/backup-provider migration trigger: the first paying customer, or earlier if capacity, privacy/compliance, reliability or restore requirements demand it.
+- **Backup provider boundary:** infrastructure-level `IBackupTarget`, bootstrap implementation `KaggleBackupTarget`.
+- Planned object/backup-provider migration trigger: first paying customer, or earlier if capacity/privacy/compliance/reliability/restore requirements demand it.
+- Backup covers all state required to reconstruct a usable deployment according to topology; it is not merely an application-row export.
 - Current server environment is lower-spec/desktop-class rack hardware; `stateless` does not mean automatic failover or zero downtime.
 - OpenTelemetry remains the provider-neutral telemetry boundary; New Relic + Aiven OpenSearch are current managed targets and Backtrace remains the crash-diagnostics direction.
 
-## Lean implementation rule
+## Complexity rule: disciplined completeness
 
-Do not create infrastructure or abstractions merely because they might become useful later.
+SquiFlow is not optimizing for the smallest number of files/processes/interfaces. It is optimizing for the smallest **correct** structure.
 
-In particular, v0.0.15 does **not** require:
+Keep a boundary when it protects a real capability or committed replacement:
 
 ```text
-SquiFlow.Guard
-one-interface-per-class
-IRepository<T> / IUnitOfWork
-provider-wrapper hierarchy
-packages/ or contracts/ dumping grounds
-an empty Worker project before Worker work exists
-an empty Platform Admin project before platform-control UI exists
+SquiFlow.Guard     process supervision/recovery
+IObjectStore       known near-term primary-storage migration
+IBackupTarget      known near-term backup-provider migration
+ZITADEL            identity/authentication
+OpenFGA            application authorization
 ```
 
-Start concrete and contained. Extract an interface/project/process only when a real dependency-inversion, multiple-production-implementation, stable wire/process contract, or fault-isolation need earns it.
+Avoid ceremony that does not protect anything:
+
+```text
+IRepository<T> / IUnitOfWork by default
+one-interface-per-class
+generic Manager → Service → Handler forwarding chains
+arbitrary helper processes
+empty projects/directories for future architecture
+```
+
+Minimalism must never remove required offline durability, recovery, authorization freshness, tenant isolation, backup restore, or edge-case handling.
 
 ## Documentation map
 
 ### Start here
 - [`MASTER_IMPLEMENTATION_PLAN.md`](MASTER_IMPLEMENTATION_PLAN.md) — current implementation plan.
-- [`docs/review/DECISION_AUDIT.md`](docs/review/DECISION_AUDIT.md) — current decision audit: KEEP / SIMPLIFY / DEFER / REMOVE / OPEN.
-- [`docs/decisions/CURRENT_DECISIONS.md`](docs/decisions/CURRENT_DECISIONS.md) — accepted current direction.
-- [`docs/decisions/OPEN_DECISIONS.md`](docs/decisions/OPEN_DECISIONS.md) — genuinely unresolved/load-bearing decisions.
-- [`docs/implementation/PHASES_AND_GATES.md`](docs/implementation/PHASES_AND_GATES.md) — sequential implementation order.
+- [`docs/review/DECISION_AUDIT.md`](docs/review/DECISION_AUDIT.md) — KEEP / SIMPLIFY / DEFER / REMOVE / OPEN / RESTORE decision audit.
+- [`docs/decisions/CURRENT_DECISIONS.md`](docs/decisions/CURRENT_DECISIONS.md) — accepted direction.
+- [`docs/decisions/OPEN_DECISIONS.md`](docs/decisions/OPEN_DECISIONS.md) — unresolved implementation details.
+- [`docs/implementation/PHASES_AND_GATES.md`](docs/implementation/PHASES_AND_GATES.md) — sequential implementation order and edge/failure gates.
 
 ### Architecture/runtime/operations
 - [`docs/architecture/REPOSITORY_STRUCTURE.md`](docs/architecture/REPOSITORY_STRUCTURE.md)
@@ -72,18 +86,19 @@ Start concrete and contained. Extract an interface/project/process only when a r
 
 ### Workstation/sync
 - [`docs/workstation/LOCAL_FIRST_DESKTOP.md`](docs/workstation/LOCAL_FIRST_DESKTOP.md)
+- [`docs/workstation/GUARD_AND_RECOVERY.md`](docs/workstation/GUARD_AND_RECOVERY.md)
 - [`docs/sync/SYNC_AND_AUTHORITY.md`](docs/sync/SYNC_AND_AUTHORITY.md)
 
 ### Security/admin/identity
-- [`docs/security/TENANT_PERMISSIONS.md`](docs/security/TENANT_PERMISSIONS.md)
-- [`docs/security/IDENTITY_AND_SESSIONS.md`](docs/security/IDENTITY_AND_SESSIONS.md)
+- [`docs/security/TENANT_PERMISSIONS.md`](docs/security/TENANT_PERMISSIONS.md) — OpenFGA authorization model/role boundary.
+- [`docs/security/IDENTITY_AND_SESSIONS.md`](docs/security/IDENTITY_AND_SESSIONS.md) — ZITADEL/OIDC/session/device boundary.
 - [`docs/admin/ADMIN_SURFACES.md`](docs/admin/ADMIN_SURFACES.md)
 
 ### Web/data/integrations
 - [`docs/web/WEB_RUNTIME_AND_STORAGE.md`](docs/web/WEB_RUNTIME_AND_STORAGE.md)
 - [`docs/web/CUSTOM_DOMAINS.md`](docs/web/CUSTOM_DOMAINS.md)
 - [`docs/data/PERSISTENCE_SELECTION.md`](docs/data/PERSISTENCE_SELECTION.md)
-- [`docs/data/FILES_AND_OBJECT_STORAGE.md`](docs/data/FILES_AND_OBJECT_STORAGE.md)
+- [`docs/data/FILES_AND_OBJECT_STORAGE.md`](docs/data/FILES_AND_OBJECT_STORAGE.md) — `IObjectStore`, `IBackupTarget`, Hugging Face/Kaggle bootstrap and migration.
 - [`docs/integrations/NOTIFICATIONS_AND_EXTERNAL_DELIVERY.md`](docs/integrations/NOTIFICATIONS_AND_EXTERNAL_DELIVERY.md)
 - [`docs/observability/OBSERVABILITY.md`](docs/observability/OBSERVABILITY.md)
 
