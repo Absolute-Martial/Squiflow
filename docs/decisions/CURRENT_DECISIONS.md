@@ -11,17 +11,34 @@
 - Tenant Settings/Admin lives in ordinary tenant Web; SquiFlow platform Admin Web is separate.
 - Platform-critical server/Worker/control-plane commands originate only from Platform Admin Web and privileged `/platform-admin/...` APIs.
 - Ordinary Desktop business changes continue through `/sync/...`; Web-only control-plane policy does not block normal Workstation synchronization.
-- Canonical browser identity authority; Workstation interactive login uses system-browser authorization-code + PKCE semantics.
+- Interactive authentication uses OpenID Connect; SquiFlow application authorization is separate from OIDC authentication.
+- Canonical configured SquiFlow issuer is the initial identity baseline; tenant custom domains are relying-party/application origins, not separate issuers.
+- Stable external account identity is `(issuer, subject)`; email is mutable profile data, not the account key.
+- Workstation interactive login uses system browser + Authorization Code + PKCE `S256`; no reusable client secret is embedded in the native app.
+- Exact native callback mechanism remains a Windows packaging/security POC; app-claimed HTTPS is preferred if proven, loopback IP callback is the fallback standards-based desktop option.
+- Dynamic OIDC Client Registration and the OpenID Native SSO for Mobile Apps draft are not baseline SquiFlow features.
+- High-risk admin/security actions can require OIDC step-up/recent authentication, but still require SquiFlow authorization afterward.
 - Tenant custom domains are supported with ownership verification, TLS lifecycle, audit and fallback.
 - Web business operation is **online-only in v0.0.15**. No IndexedDB business replica, service-worker sync, queued offline mutations or partial-offline business model is baseline.
 - Browser auth secrets are not stored in `localStorage`; `localStorage` is for harmless preferences only and `sessionStorage` for transient tab-local UI hints.
 - Workstation is the local-first/offline client. Local-permitted operations commit durably locally first and synchronize in the background.
 - Local Workstation commit and server-authoritative acceptance are distinct states.
 - SquiFlow adapts local-first principles incrementally; it does not adopt a global CRDT/peer-to-peer authority model for payments, inventory, permissions, credit or other shared invariants.
+- Server authorization has separate function-, resource/object-, property-, state/workflow- and concurrency layers where applicable.
+- ASP.NET Core `IAuthorizationService`/resource authorization handlers are the framework primitive for loaded-resource authorization; SquiFlow does not build a competing authorization runtime.
+- Tenant resource queries are constrained by authoritative tenant context before finer authorization wherever practical.
+- Request/response contracts use explicit DTO/projection allowlists rather than client JSON binding directly to persistence/domain entities.
+- Tenant authorization changes advance a monotonic `TenantAuthorizationRevision`; the authorization change, revision, audit and durable invalidation/outbox evidence commit atomically.
+- Initial server authorization favors authoritative checks over speculative permission caching. Any later authorization cache must be revision-aware.
+- Workstation effective-permission snapshots include the authorization revision but do not replace server authorization.
+- SquiFlow adopts Zanzibar's authorization-freshness lesson but **not** a Zanzibar service, global tuple graph, zookie protocol, Spanner/Leopard machinery or universal per-row ACL model.
+- API security release gates cover OWASP API object/function/property authorization, authentication/recovery abuse, resource consumption, sensitive flows, SSRF, security configuration, API inventory and unsafe third-party consumption.
+- API/version inventory is generated from executable endpoint metadata/OpenAPI in CI/release; manual CSV inventories are not architecture authority.
+- Durable Worker jobs distinguish already-committed business consequences from deferred actor actions and platform-control commands so permission revocation is handled semantically rather than with one blanket rule.
 - Central/local persistence product choices remain open; PostgreSQL/SQLite are reference candidates and libSQL is a real local-store candidate.
 - SquiFlow-native bounded rule architecture is baseline.
 - Workflow is continuation-first and versioned.
 - Client never receives central DB credentials and remains untrusted for server authority.
 - OpenTelemetry is permanent instrumentation; New Relic + Aiven OpenSearch current managed targets; Backtrace crash diagnostics direction.
 - Server infrastructure nodes are stateless/disposable for authoritative business state.
-- Kafka, YugabyteDB, mandatory Redis, full browser offline sync and a microservice-per-module model are not baseline dependencies.
+- Kafka, YugabyteDB, mandatory Redis, full browser offline sync, Zanzibar-style authorization service and a microservice-per-module model are not baseline dependencies.
