@@ -106,3 +106,31 @@ Do not log sensitive customer content by default.
 Rule evaluation is an application capability, not automatically a network service.
 
 Run it in-process in API/Worker/Workstation where appropriate. Extract a separate process/service only if measured CPU, fault isolation, security or independent deployment requirements justify it.
+
+## 10. Fact authority and local/offline evaluation
+
+A published RuleSet being available on the Workstation does **not** mean every rule can be decided authoritatively offline.
+
+Every fact family used by a rule must declare its authority/freshness class for the decision being made, conceptually:
+
+```text
+LocalSafe
+LocalProvisional
+ServerRequired
+```
+
+Examples:
+
+- locally entered order fields can be `LocalSafe` for draft validation;
+- a cached organization credit exposure can be `LocalProvisional` for offline guidance;
+- current shared inventory/credit/provider/security state can be `ServerRequired` for an authoritative effect.
+
+A RuleSet snapshot declares the fact schema/version and the application layer knows which result can be applied locally versus only shown provisionally.
+
+The Workstation must not turn stale centrally owned facts into authority merely because the rule evaluator returned a deterministic result.
+
+Server-authoritative commands re-evaluate or otherwise validate the applicable current rule/fact state before committing shared financial/stock/security effects.
+
+If a required fact is unavailable offline, return an explicit result such as `RequiresServerFact`/defined Unknown category rather than coercing a stale/missing value into a match.
+
+This rule-fact authority classification must align with the Workstation command authority classes in `docs/workstation/LOCAL_FIRST_DESKTOP.md` and with workflow transition eligibility.
