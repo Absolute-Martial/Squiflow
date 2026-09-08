@@ -224,14 +224,16 @@ The answer must be bounded and intentional.
 
 Never use an endless retry loop. Retry improves availability only when the failure is transient; indiscriminate retry can amplify latency/load and turn a dependency problem into a broader outage.
 
-## 11. HTTP method semantics
+## 11. HTTP method and semantic endpoint rules
 
 Use HTTP semantics where they naturally match the resource operation, but do not force complex business commands into generic CRUD shapes merely to look RESTful.
 
 - GET/HEAD do not produce business side effects.
 - PUT/DELETE are implemented idempotently when used.
-- POST business commands that can cause duplicate effects use SquiFlow idempotency semantics.
-- Explicit command resources/endpoints are valid for semantic transitions such as approval, refund, publication, reconciliation or administrative proposals.
+- POST is **not automatically retry-safe**; POST business commands that can duplicate effects use SquiFlow semantic idempotency.
+- PATCH is not assumed idempotent unless the particular contract explicitly proves it.
+- Ordinary resources use predictable noun-oriented paths where natural.
+- Explicit command/action subresources are valid for semantic transitions such as approval, refund, publication, reconciliation or administrative proposals.
 
 Examples:
 
@@ -272,11 +274,41 @@ Use:
 - tenant/permission scope before pagination;
 - cursor/keyset pagination where offset pagination becomes incorrect or expensive under large/changing datasets.
 
+Offset pagination is not mandatory merely because it is simple to explain. Choose the pagination contract that stays correct and performant for the actual query.
+
 Client-selected projections cannot expose fields the caller is not authorized to see.
 
-## 14. REST baseline and GraphQL boundary
+## 14. REST baseline without false REST-purity claims
 
-REST/task-oriented HTTP is the v0.0.15 baseline because SquiFlow controls its Web, Workstation, and Admin clients and benefits from explicit command/resource contracts, OpenAPI inventory, bounded request shapes, idempotency semantics, and straightforward route ownership.
+SquiFlow uses **REST/task-oriented HTTP as a pragmatic application API style** because it controls its Web, Workstation, and Admin clients and benefits from explicit command/resource contracts, OpenAPI inventory, bounded request shapes, idempotency semantics, and straightforward route ownership.
+
+SquiFlow does **not** claim every surface is a strict REST implementation.
+
+Classic REST properties remain useful where they help:
+- client/server separation;
+- predictable resource naming and HTTP semantics;
+- explicit cacheability;
+- layered edge/backend topology;
+- stateless business correctness in backend process memory: committed truth is not stored only in one request-process instance.
+
+But strict REST purity is not a product requirement. Tenant Web may use a server-backed browser session or Blazor Interactive Server circuit state; SquiFlow uses semantic action subresources for material transitions; many authoritative responses are intentionally non-cacheable; code-on-demand is not part of the business API contract.
+
+Do not weaken domain clarity, security, idempotency, or client compatibility merely to make the API look more formally RESTful.
+
+## 15. API versioning and compatibility
+
+Version compatibility is mandatory because Workstations can skip releases and independently deployed backends can roll at different times.
+
+Every public/long-lived surface has an explicit compatibility/retirement contract. The exact transport for API versioning (URI, header, media type, or a narrow combination) remains an implementation decision until the relevant phase proves which model best fits SquiFlow clients.
+
+Rules:
+- never silently reinterpret an old request as a materially different command;
+- additive-compatible changes are preferred where practical;
+- breaking changes have an explicit new version/compatibility path;
+- Workstation sync protocol/schema compatibility is checked before applying durable changes;
+- deprecated versions have a known retirement window and telemetry/inventory evidence before removal.
+
+## 16. GraphQL boundary
 
 Do not add GraphQL merely to reduce round trips or because clients can choose fields.
 
@@ -293,7 +325,7 @@ If GraphQL is ever introduced, it is a separately reviewed surface with:
 
 GraphQL Federation is not baseline while SquiFlow remains a modular-monolith business core with only a few justified backend executables.
 
-## 15. Rate limiting and admission
+## 17. Rate limiting and admission
 
 Rate limiting is a reliability/fairness control as well as an abuse control. It is separate from authentication and authorization.
 
@@ -316,7 +348,7 @@ HTTP rate limiting alone does not protect Worker/database/provider capacity. Que
 
 Do not create a separate rate-limiting service initially; use the appropriate edge/server/runtime controls until scale/topology proves another boundary is needed.
 
-## 16. API performance techniques and their limits
+## 18. API performance techniques and their limits
 
 Performance optimizations are selected from measurement, not enabled blindly.
 
@@ -337,7 +369,7 @@ Use normal provider pooling, but bound/max it from measured rack/database capaci
 
 Measure at least representative latency percentiles, throughput, query/dependency time, allocation/memory pressure, payload size, and pool wait under the real slice before adding another optimization layer.
 
-## 17. Long-running request-reply
+## 19. Long-running request-reply
 
 Long operations do not hold an HTTP request open indefinitely.
 
@@ -369,7 +401,7 @@ If completion creates a separate resource, the status resource can direct the ca
 
 Cancellation is only exposed when the underlying operation has a safe cancellation or compensation contract.
 
-## 18. Synchronous versus asynchronous threshold
+## 20. Synchronous versus asynchronous threshold
 
 Keep a command synchronous when its authoritative transaction/validation is expected to finish within the interactive request budget and the user needs the result immediately.
 
@@ -382,7 +414,21 @@ Use async request-reply when:
 
 Do not queue every command merely because a Worker exists.
 
-## 19. Problem details and error classification
+## 21. Network and edge contract
+
+Production external application traffic uses HTTPS/TLS. ZITADEL OIDC/OAuth flows also use HTTPS.
+
+The edge may negotiate HTTP/1.1, HTTP/2, or HTTP/3 with clients/backends where supported, but SquiFlow command/resource semantics do not depend on a particular HTTP transport version.
+
+A reverse proxy/API gateway may route traffic, terminate TLS, enforce request-size/WAF/private-access policy, and apply coarse rate limiting. It does not replace backend authentication/authorization/resource checks or make Admin API transit Core API.
+
+WebSocket/SignalR, when used for live UI/signal/wakeup behavior, is non-authoritative: durable business/sync truth remains in DB/outbox/state records.
+
+DNS/hostname information assists routing but is not tenant authority. SSH/private network access is infrastructure recovery/operations only, not a normal tenant business API.
+
+Do not introduce gRPC, MQTT, WebRTC, FTP/SFTP, or raw TCP/UDP as application protocols without a concrete workload that justifies their latency/streaming/device/compatibility characteristics.
+
+## 22. Problem details and error classification
 
 HTTP errors expose safe structured machine-readable results, preferably based on Problem Details semantics, with SquiFlow failure codes such as:
 
@@ -404,7 +450,7 @@ InternalDefect
 
 Internal stack traces/provider details stay out of ordinary client responses.
 
-## 20. API implementation gate
+## 23. API implementation gate
 
 A new mutating endpoint is incomplete until reviewers can answer:
 
@@ -427,3 +473,5 @@ A new mutating endpoint is incomplete until reviewers can answer:
 17. Which backend owns the route: Core API or Admin API?
 18. What audit/trace identifiers are recorded?
 19. What consistency/freshness contract does any returned derived data have?
+20. What API/protocol version compatibility applies to older Workstations/clients?
+21. Is this really an HTTP/network boundary, or should the responsibility stay an in-process module call?
