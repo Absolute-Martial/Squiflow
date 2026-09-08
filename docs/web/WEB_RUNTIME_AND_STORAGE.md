@@ -78,8 +78,29 @@ Use ordinary techniques only when useful:
 
 Do not preload the tenant database.
 
-## 6. Future offline evaluation
+## 6. Blazor state placement: `stateless` does not mean no state
+
+SquiFlow's goal of replaceable/stateless **server compute** must be interpreted carefully with Blazor Web App.
+
+If the chosen render mode uses Interactive Server, Blazor can maintain a per-user circuit in server memory. Component/scoped-service state in that circuit is process/node state, not durable business truth.
+
+Therefore:
+- do not store authoritative order/payment/permission/business state only in a Blazor circuit;
+- valuable user-authored work that must survive process/network loss uses an explicit server-side business draft/resource where justified;
+- losing a circuit may lose disposable UI state, but must not erase already committed business state;
+- process-local circuit/cache/session state cannot be treated as shared multi-node state unless the chosen hosting/session design actually provides that behavior;
+- do not claim transparent Web-node failover merely because the Core API/application layer is otherwise stateless.
+
+The exact Blazor render-mode/session/circuit topology is a Phase-1 implementation decision. If Interactive Server is selected for relevant surfaces, evaluate actual memory use, reconnect behavior, circuit persistence, deployment draining, and multi-node/session-affinity implications before promising seamless failover.
+
+This does **not** add Redis as a baseline. A distributed state/cache provider is selected only if the chosen Web topology actually requires one.
+
+## 7. Future offline evaluation
 
 Revisit browser offline behavior only after Workstation local-first/sync is production-proven and a real Web customer journey requires it.
 
 Any later proposal must justify the exact offline reads/commands plus quota/eviction, XSS exposure, multi-tab ownership, schema migration, long-offline compatibility, attachments and permission-revocation behavior.
+
+## Source note
+
+Current .NET 10 server-side Blazor guidance documents that Interactive Server is stateful, keeps user state in server-memory circuits, and may require deliberate persistence/session-affinity/distributed-state choices for multi-server scenarios. That framework behavior is why SquiFlow distinguishes stateless business/application correctness from transient Blazor circuit state.
