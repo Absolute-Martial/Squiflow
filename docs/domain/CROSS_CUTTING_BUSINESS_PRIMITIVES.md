@@ -2,140 +2,93 @@
 
 **Version:** v0.0.15
 
-These primitives are deliberately defined before broad business modules because getting them wrong creates inconsistent totals, dates, quantities, corrections and identifiers across Sales, Purchasing, Inventory and Finance.
+Keep only the cross-cutting rules that prevent expensive inconsistency across Sales, Purchasing, Inventory, Payments and Documents. Do not turn this document into a framework or a future accounting system.
 
-## 1. Money
+## 1. Money and currency — minimal baseline
 
-Do not represent money as an unqualified floating-point number.
+Do not hardcode one currency throughout business logic.
 
-A money value carries at least:
+The v0.0.15 requirement is simply:
 
 ```text
-amount
-currency
+Tenant.DefaultCurrencyCode
+
+Money/financial record:
+- Amount
+- CurrencyCode where historical meaning requires it
 ```
 
-Exact .NET/storage types remain provider/implementation choices, but rounding and precision are explicit by operation/currency policy.
+Practical rules:
+- tenant setup provides a default currency code;
+- new monetary records default from the tenant configuration;
+- issued/posted records retain the applicable currency code so changing the tenant default later does not reinterpret history;
+- use decimal/fixed-precision monetary storage appropriate to the selected .NET/database implementation;
+- define rounding where the first real pricing/payment slice actually needs it.
 
-Define separately:
-- unit price precision;
-- tax/discount calculation precision;
-- display precision;
-- settlement/rounding step;
-- how line rounding and document-total rounding reconcile.
+Do **not** implement now:
+- exchange-rate fetching;
+- FX conversion;
+- multi-currency documents/accounting;
+- gain/loss accounting;
+- mixed-currency settlement;
+- a currency service/provider abstraction;
+- a generic Money framework with unnecessary operator/helper layers.
 
-Do not silently change historical issued totals because a tenant later changes pricing/rounding configuration.
+If a paying/customer requirement needs multi-currency later, design that feature from its real workflow.
 
-## 2. Currency
+## 2. Quantity and unit
 
-Initial tenants may operate in one currency, but the model must not assume every amount in all time is implicitly one global currency.
+Do not assume every quantity is an integer.
 
-Before enabling multi-currency, define:
-- document currency;
-- settlement currency;
-- exchange-rate source/time/evidence;
-- gain/loss/accounting policy if needed;
-- whether mixed-currency allocation is allowed.
+The first inventory/order slice stores the quantity and the unit semantics actually used by that item/business. Add conversions only when a real item flow needs them.
 
-Multi-currency is not automatically a v0.0.15 feature; currency identity in the data model is the baseline safety requirement.
+Examples may include piece, sheet, length/area, roll, or non-stock service quantity, but these are business data/configuration rather than a reason to build a generic units engine.
 
-## 3. Quantity and unit
+This does not introduce MRP/BOM/wastage optimization.
 
-Stock/service quantities need an explicit unit/capability model.
+## 3. Time and business date
 
-Examples:
-- pieces;
-- sheets;
-- meters/feet;
-- square area;
-- rolls;
-- service/non-stock quantity.
+Keep a distinction between:
+- an authoritative event timestamp;
+- a tenant/business local date/timezone where the business meaning needs it;
+- a device-reported time while offline.
 
-Do not assume every quantity is an integer or that all units are freely convertible.
+Do not trust a Workstation clock as server authority.
 
-Conversions, rounding and minimum increments are defined per item/category when the business actually requires them.
+Use the framework/platform date-time types directly where appropriate; do not create a custom time abstraction unless a real deterministic boundary earns it.
 
-This does **not** introduce MRP/BOM/wastage optimization.
+## 4. IDs and document numbers
 
-## 4. Time and business date
+Internal identity and human/legal document numbers are different.
 
-Store authoritative instants in an unambiguous form and keep the relevant business timezone/context for user-facing dates/deadlines.
+An Order/Payment keeps a stable internal ID even if a displayed document number changes or is assigned later.
 
-Distinguish:
-- absolute event timestamp;
-- tenant/business local date;
-- due date without a time where applicable;
-- timezone used for scheduling/deadlines;
-- device-reported local clock, which is not server authority.
+Invoice/receipt numbering rules remain jurisdiction/product requirements and are not solved speculatively.
 
-Workstation offline creation can record device time for UX/evidence while server receipt/authoritative timestamps remain distinct.
+## 5. Corrections versus destructive edits
 
-DST/timezone changes and wrong device clocks are test cases.
+Once an issued/posted business fact has financial/stock/legal meaning, correct it explicitly with the aggregate-appropriate action such as revision, refund, reversal, adjustment or corrective document.
 
-## 5. Numbering and external references
+Do not silently overwrite history merely because the UI still displays an edit form.
 
-Internal IDs and human/legal document numbers are different.
+## 6. Duplicate Party/customer records
 
-Internal IDs should remain stable across sync/revisions. Invoice/quotation/receipt numbering policy can be tenant/jurisdiction-specific and may require server authority or controlled offline allocation.
+Do not enforce fragile global uniqueness on name/phone/email.
 
-Do not make a mutable display number the primary identity of an Order/Payment.
+If duplicate merge becomes necessary, it must preserve linked transaction history and audit which identity survived. A generalized fuzzy-matching/merge engine is not baseline.
 
-Exact invoice numbering/legal rules remain OPEN until jurisdiction requirements are chosen.
+## 7. Privacy/data lifecycle
 
-## 6. Corrections versus mutation
+Do not promise one universal delete/anonymize rule before the actual jurisdiction/product requirement is known.
 
-Once a document/payment/stock effect becomes issued/posted business truth, correction is represented explicitly rather than silently overwriting history.
+When a customer-data lifecycle is implemented, distinguish removable profile/contact data from business/financial records that must remain for legitimate historical reasons.
 
-Possible patterns include:
-- new revision;
-- reversal;
-- refund;
-- adjustment;
-- void/cancel before effect;
-- corrective document.
+## 8. Configuration changes do not rewrite history
 
-The exact mechanism is aggregate-specific.
+Pricing, currency default, workflow, form and numbering configuration can change over time. Issued/posted records retain enough applied values/version identity that later configuration does not silently alter historical truth.
 
-## 7. Party identity, duplicate detection and merge
+## 9. Implementation rule
 
-Customers/organizations can be entered twice, especially offline or by different Workstations.
+These concepts do not require one shared `Primitives` project, helper library, or interface hierarchy on day one.
 
-Do not enforce a fragile global uniqueness rule on name/phone/email.
-
-A future merge operation must preserve:
-- transaction history;
-- organization/program relationships;
-- external references;
-- audit of which records were merged;
-- conflict review for incompatible fields.
-
-Automatic duplicate suggestions can exist later; automatic destructive merge is not baseline.
-
-## 8. Privacy and data lifecycle
-
-Tenant-owned customer/contact data needs an explicit lifecycle:
-- active;
-- archived/inactive where useful;
-- retention requirements;
-- export/access policy;
-- deletion/anonymization where legally/product-required;
-- legal/business records that must remain immutable even if personal profile data is removed.
-
-Do not promise universal deletion semantics before jurisdictional obligations are known.
-
-## 9. Tenant configuration/version effect
-
-Pricing, rounding, workflow, form and numbering configuration is versioned when a historical transaction must remain explainable.
-
-A later configuration change does not retroactively alter the meaning of an issued document unless an explicit migration/correction is performed.
-
-## 10. Testing
-
-Property/invariant tests should cover:
-- rounding totals;
-- partial payment allocations;
-- refund cannot exceed remaining refundable amount unless policy explicitly supports it;
-- quantity never changes from a duplicate idempotent command;
-- timezone/date boundaries;
-- historical document remains stable after configuration change;
-- duplicate Party merge preserves linked transactions.
+Place the minimal concrete types with the first module that needs them and extract a shared project only when two real modules need the same stable implementation/contract.
