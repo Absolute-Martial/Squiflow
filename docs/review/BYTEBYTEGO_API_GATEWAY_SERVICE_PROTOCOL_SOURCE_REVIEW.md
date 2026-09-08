@@ -212,6 +212,66 @@ Do not add MQTT, WebRTC, FTP/SFTP, raw TCP/UDP, or gRPC merely because they are 
 
 ---
 
+## Questions applied to SquiFlow
+
+This review now follows the project-wide question rule in `docs/review/ARCHITECTURE_QUESTION_LEDGER.md`.
+
+### Source-explicit questions
+
+The public **data-sharing** article asks, in substance:
+- should multiple services connect to the same database;
+- should they exchange data through APIs/messages instead;
+- how should consistency, performance, fault tolerance and loose coupling be balanced?
+
+Applied answer for SquiFlow: Core API/Admin API/Worker may share the modular-monolith authoritative DB, but module/domain ownership still controls mutation rules. API/event-mediated ownership becomes the default only after a capability is genuinely extracted as an independent service. Consistency is selected per invariant, and Phase 6/10 verify host-failure behavior.
+
+The public **API-design** newsletter asks readers to identify the most common API design mistake and how to fix it.
+
+Applied answer for SquiFlow: the highest-risk mistake is a generic CRUD/transport endpoint that hides business intent, authorization, tenant scope, idempotency, concurrency, resource limits, and version compatibility. The fix is explicit task/resource contracts plus the API implementation gate.
+
+The public **REST** newsletter asks which REST constraint is most often overlooked.
+
+Applied answer for SquiFlow: do not choose one slogan. Ask all six constraints against the actual surface. Two especially easy SquiFlow mistakes are (1) confusing process statelessness with a system that has no sessions/circuits, and (2) failing to classify cacheability so stale protected state becomes authority.
+
+The public **network-protocol** newsletter asks which protocol failure would be most disruptive.
+
+Applied answer for SquiFlow: convert that into a failure matrix. DNS/TLS failures block online connectivity; ZITADEL failure affects login/step-up; OpenFGA failure must never become allow; time skew affects tokens/TLS/leases/schedules; WebSocket failure must lose no business truth; SSH/private-access failure affects recovery rather than tenant business correctness. The exact outage/degraded behaviors promoted from this question now live in `OPEN_DECISIONS.md`.
+
+### SquiFlow-derived questions from the paid/public-introduction articles
+
+For **API Gateway**:
+- Do we need a gateway product or just a simple reverse proxy/edge?
+- Which checks belong at the edge versus Core/Admin API?
+- Is the edge a single point of failure?
+- Can platform recovery still happen if the public edge is unavailable?
+- Does routing preserve Admin API independence from Core API?
+
+For **service-to-service communication**:
+- Is a network boundary actually required, or are both capabilities in-process modules?
+- Does the caller require an immediate authoritative result?
+- Can the consequence run after commit through durable work?
+- What happens when the peer times out after possibly performing an effect?
+- Who owns retries, and how many synchronous hops are on the user path?
+- Is ordering/fan-out/replay actually required?
+
+These are synthesis questions derived from the source trade-offs, not quoted source questions.
+
+### Needs discovered by asking the questions
+
+This question pass uncovered or promoted several concrete decisions that were easy to miss in a pattern-only review:
+- exact API/sync version-negotiation mechanism before skipped Workstation releases exist;
+- explicit edge failure/SPOF and private recovery-path test;
+- exact ZITADEL-outage behavior for existing sessions and step-up;
+- exact OpenFGA-outage/fail-closed or narrowly degraded behavior by operation risk;
+- endpoint-level cacheability classification rather than a vague `we use CDN/cache` statement;
+- DNS/TLS renewal/failure recovery;
+- acceptable clock-skew monitoring/tolerance;
+- WebSocket/SignalR, if ever used, remaining non-durable signal only.
+
+These are now promoted into `docs/decisions/OPEN_DECISIONS.md` and the question ledger rather than remaining hidden in this source review.
+
+---
+
 ## Combined result for v0.0.15
 
 KEEP/STRENGTHEN:
@@ -223,7 +283,8 @@ KEEP/STRENGTHEN:
 - semantic idempotency for retryable POST commands;
 - REST/task-oriented HTTP without false strict-REST claims;
 - HTTPS/TLS/OIDC as current external protocol baseline;
-- durable truth outside transient WebSocket/circuit/process memory.
+- durable truth outside transient WebSocket/circuit/process memory;
+- question-driven source review that promotes applicable unknowns into owned OPEN decisions/gates.
 
 DEFER/REJECT AS BASELINE:
 - gateway as authorization/domain authority;
