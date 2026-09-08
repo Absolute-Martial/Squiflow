@@ -1,0 +1,21 @@
+# Current Decisions — v0.0.15
+
+- C# / modern .NET application foundation.
+- ASP.NET Core Core API host.
+- Windows Workstation + Web primary product surfaces.
+- Modular monolith business architecture, with distinct Web/Admin/Desktop/API/Worker runtime boundaries.
+- Small-team-first tenant UX: Owner + Staff default templates.
+- Tenant Owner controls ordinary staff roles/permissions inside secure platform limits.
+- Tenant Settings/Admin lives in normal Web; platform Admin Web is separate.
+- Canonical browser identity authority; Workstation interactive login uses system-browser authorization-code + PKCE semantics.
+- Tenant custom domains are supported with ownership verification/TLS/audit/fallback.
+- Web is online-first with cached shell, selected drafts and selective future offline commands.
+- Browser auth secrets are not stored in localStorage.
+- Central/local persistence product choices remain open; PostgreSQL/SQLite are references and libSQL is a real local candidate.
+- SquiFlow-native bounded rule architecture is baseline.
+- Workflow is continuation-first and versioned.
+- Workstation remains strongest local-first/offline client.
+- Client does not receive central DB credentials and remains untrusted for server authority.
+- OpenTelemetry is permanent instrumentation; New Relic + Aiven OpenSearch current managed targets; Backtrace crash diagnostics direction.
+- Server infrastructure nodes are stateless/disposable for authoritative business state.
+- Kafka/YugabyteDB are not baseline dependencies.
