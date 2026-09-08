@@ -43,7 +43,31 @@ Instead:
 
 Containment is enough until migration is real.
 
-## 3. Pooled multi-tenant baseline
+## 3. Authoritative schema design
+
+The authoritative relational model starts normalized around real business identities and relationships because write correctness, understandable constraints, and maintainable evolution matter more than optimizing one screen prematurely.
+
+Examples of things that deserve explicit schema/constraints rather than generic blobs include:
+- payments/refunds/allocations;
+- inventory movements/adjustments;
+- tenant membership/role metadata;
+- issued documents/revisions;
+- orders/quotations and their state/version;
+- workflow/rule publication metadata.
+
+Do not use JSON/EAV/arbitrary tenant-specific DDL as a shortcut for core relational invariants. Bounded custom fields/forms may use an extensibility representation, but that does not redefine the core business schema per tenant.
+
+Denormalized/materialized read structures are allowed when a real query/report proves the value. Every such structure must declare:
+- authoritative source;
+- update/refresh mechanism;
+- freshness expectation;
+- rebuild/reconciliation path;
+- tenant/authorization scope;
+- behavior when the projection is stale or unavailable.
+
+A denormalized projection is reconstructable state, not a second independent business authority.
+
+## 4. Pooled multi-tenant baseline
 
 Tenant-owned central data uses explicit tenant scope/discriminator.
 
@@ -68,7 +92,41 @@ If PostgreSQL is used:
 
 RLS is defense in depth, not a replacement for application authorization.
 
-## 4. Physical durability
+## 5. Consistency policy
+
+Do not label the whole database/application as simply `strong` or `eventual`.
+
+The authoritative transactional write model must provide the consistency required by the business invariant being committed. Temporary disagreement is not acceptable where it can create unsafe effects such as:
+- duplicate/ambiguous payment authority;
+- shared stock/credit decisions;
+- tenant isolation;
+- current sensitive authorization;
+- unique issued-document/numbering truth;
+- expected-version workflow/business transitions.
+
+Eventual consistency is acceptable for explicitly derived/reconstructable state such as some reports/search projections/caches where stale-read behavior is visible/tolerated and the projection has a rebuild/reconciliation path.
+
+For asynchronous projection updates, handle duplicate and out-of-order delivery through stable source versions/sequence/effect identity as appropriate to that projection. Do not let late derived data overwrite newer authoritative meaning.
+
+## 6. Indexing policy
+
+Indexes are justified by a real query or invariant, not by column availability.
+
+For each important index, know what it protects and measure its cost to:
+- inserts/updates/deletes;
+- offline Workstation backlog synchronization;
+- imports/backfills;
+- WAL/log/storage growth;
+- migration/rebuild time;
+- memory/cache pressure.
+
+Tenant-scoped queries and tenant-local uniqueness commonly need tenant-aware index keys, but do not blindly prefix or index every field. Confirm index order/selectivity/cardinality with the real provider query plan.
+
+Avoid `index every filterable field`. Periodically review unused/redundant indexes when the real workload exists.
+
+Index selection should be tested against both normal small-tenant data and projected larger cardinalities so a design is not approved only because a 10K-row development database is fast.
+
+## 7. Physical durability
 
 Database `COMMIT` semantics do not by themselves prove recovery on the current rack.
 
@@ -84,7 +142,7 @@ UPS, ECC, RAID/ZFS, enterprise SSDs etc. are deployment choices derived from rea
 
 Owner: `docs/operations/DEPLOYMENT_CAPACITY_AND_RECOVERY.md`.
 
-## 5. Restore consistency
+## 8. Restore consistency
 
 Restore correctness can involve:
 - business records;
@@ -103,7 +161,7 @@ idempotency receipt lost
 
 Restore qualification must consider this relationship rather than checking only `database starts`.
 
-## 6. Connection/resource envelope
+## 9. Connection/resource envelope
 
 Measure the actual selected provider/driver rather than accepting framework defaults blindly:
 - normal/max pool size;
@@ -112,46 +170,11 @@ Measure the actual selected provider/driver rather than accepting framework defa
 - memory/disk/WAL/temp growth;
 - migration cost on actual hardware.
 
+Connection pooling is an efficiency technique, not permission for unbounded connections. A pooled connection must not retain Tenant A's tenant/RLS context when reused for Tenant B.
+
 Do not size pools/caches from available RAM alone.
 
-## 7. Database performance is a trade-off, not a checklist
-
-The database performance review reinforces a simple rule: every optimization has a cost somewhere else.
-
-Examples:
-- an index can reduce read latency while increasing write/import/storage cost;
-- a cache can reduce DB work while introducing stale-data/invalidation risk;
-- denormalization can reduce joins while making authoritative updates/reconciliation harder.
-
-Therefore performance qualification uses **measured workload evidence**, not a catalog of standard optimizations.
-
-For implemented hot paths, test at more than toy development cardinality. Record representative small data plus a larger projected/growth dataset appropriate to the business scenario.
-
-Measure where relevant:
-- actual query plan/index use;
-- latency distribution, not one warm best-case query;
-- tenant-scoped composite index effectiveness;
-- extra write cost after each proposed index;
-- sync/import/batch cost with the production index set;
-- RLS overhead if PostgreSQL is selected;
-- connection-pool wait/saturation;
-- lock/contention behavior;
-- WAL/temp/disk growth;
-- pagination behavior under concurrent inserts/updates;
-- cache hit/freshness/invalidation behavior if a cache is introduced.
-
-Do not automatically:
-- index every filter/sort column;
-- denormalize authoritative financial/order state;
-- add Redis because reads are slow;
-- add read replicas before query/schema/index work is measured;
-- shard before one central store's real limit has been demonstrated.
-
-For permissions, payments, stock, credit and other freshness-sensitive data, a faster stale cache is a correctness regression unless its revision/invalidation contract is proven.
-
-A query that is fast with a few thousand rows is not accepted as evidence that the same plan remains healthy after realistic growth.
-
-## 8. Future dedicated tenant placement
+## 10. Future dedicated tenant placement
 
 Application/business code should not assume a physical DB filename/connection belongs permanently to every tenant, but do not implement per-tenant DB routing/pools before a real residency/compliance/SLO customer requires them.
 
@@ -159,7 +182,7 @@ Schema-per-tenant and DB-per-tenant are not baseline.
 
 Owner: `docs/architecture/MULTI_TENANCY_ISOLATION.md`.
 
-## 9. Workstation local store — Phase 2 selection
+## 11. Workstation local store — Phase 2 selection
 
 A local candidate must prove the actual local-first requirements:
 - atomic business + outbox transaction;
@@ -176,15 +199,15 @@ SQLite + WAL is the mature reference candidate. libSQL is an explicit candidate.
 
 Server and Workstation may use different DB products without requiring a shared persistence interface.
 
-## 10. Selection evidence
+## 12. Selection evidence
 
 Record:
 - exact product/driver/version/config;
 - hardware/OS;
-- workload/data size;
+- workload/data size and projected cardinality;
+- representative query plans and index choices;
+- write/index overhead under sync/import-style bursts;
 - transaction/concurrency/isolation results;
-- query/index performance at the tested cardinalities;
-- write/import cost of the selected indexes;
 - resource measurements;
 - backup/recovery evidence;
 - known limitations;
