@@ -4,9 +4,9 @@
 
 ## Reading limitation
 
-The supplied ByteByteGo pages expose their title, introduction, and article scope publicly, but most detailed body sections are behind the publication paywall. This review records only what the accessible source text actually supports. It does not pretend the hidden paid sections were read. Where SquiFlow conclusions go beyond the visible source, they are explicitly labeled as SquiFlow synthesis and are checked against the already-reviewed Stripe/AWS/Azure/OWASP/OpenID/Zanzibar material.
+The supplied ByteByteGo pages expose their title, introduction, and article scope publicly, but most detailed body sections are behind the publication paywall. This review records only what the accessible source text actually supports. It does not pretend the hidden paid sections were read. Where SquiFlow conclusions go beyond the visible source, they are explicitly labeled as SquiFlow synthesis and are checked against already-reviewed first-party/standards material where relevant.
 
-Sources reviewed sequentially:
+## Batch 1 sources reviewed sequentially
 
 1. CQRS — https://blog.bytebytego.com/p/a-pattern-every-modern-developer
 2. Retry — https://blog.bytebytego.com/p/a-guide-to-retry-pattern-in-distributed
@@ -15,6 +15,16 @@ Sources reviewed sequentially:
 5. Idempotency/delivery/deduplication — https://blog.bytebytego.com/p/a-detailed-guide-to-idempotency-delivery
 6. Background work — https://blog.bytebytego.com/p/background-work-from-cron-jobs-to
 7. Multi-tenancy — https://blog.bytebytego.com/p/a-guide-to-multi-tenancy-benefits
+
+## Batch 2 sources reviewed sequentially
+
+8. Container design patterns — https://blog.bytebytego.com/p/container-design-patterns-for-distributed
+9. API cross-cutting concerns — https://blog.bytebytego.com/p/must-know-cross-cutting-concerns
+10. Database performance strategies — https://blog.bytebytego.com/p/database-performance-strategies-and
+11. API security — https://blog.bytebytego.com/p/how-to-implement-api-security
+12. Event sourcing — https://blog.bytebytego.com/p/event-sourcing-explained-benefits
+13. Stateless architecture — https://blog.bytebytego.com/p/stateless-architecture-benefits-and
+14. Authentication techniques — https://blog.bytebytego.com/p/top-authentication-techniques-to
 
 ---
 
@@ -146,7 +156,7 @@ Select the messaging shape from the actual semantic requirement:
 | Consumers need durable replay/history/independent offsets at meaningful scale | Event stream, only if proven |
 | Caller needs immediate authoritative answer | Direct synchronous API/application call |
 
-The queue article introduction uses simplified wording about work being processed “once and only once.” SquiFlow does **not** turn that phrase into a transport guarantee. The separate ByteByteGo idempotency article explicitly focuses on delivery semantics, duplicates, deduplication windows, and the boundaries of “exactly once.” SquiFlow therefore retains its current assumption:
+SquiFlow does **not** turn simplified queue wording into an end-to-end exactly-once transport guarantee. The separate ByteByteGo idempotency article explicitly focuses on delivery semantics, duplicates, deduplication windows, and the boundaries of “exactly once.” SquiFlow therefore retains:
 
 ```text
 transport/redelivery may duplicate
@@ -172,8 +182,6 @@ The article's public scope explicitly covers:
 - the limited/bounded meaning of “exactly once” in real systems.
 
 ### SquiFlow decision
-
-This strengthens the existing end-to-end model.
 
 Duplicate defense is not one table at one layer:
 
@@ -250,7 +258,7 @@ The article's public overview covers:
 
 ### SquiFlow decision
 
-This strongly confirms the existing pooled-by-default design rather than changing it.
+This confirms the existing pooled-by-default design rather than changing it.
 
 Current model remains:
 
@@ -270,39 +278,277 @@ Dedicated DB/object/worker/stack profiles remain future targeted isolation optio
 
 ---
 
-## Combined decision audit
+# Batch 2
 
-These seven articles do **not** justify a rewrite into CQRS microservices, event sourcing, Kafka, or a general event bus.
+## 8. Container design patterns for distributed systems
 
-They do justify keeping four distinctions extremely clear:
+### Source-supported points
+
+The public article frames containers as composable distributed-system building blocks rather than only packaging units. It says the article covers six patterns split between cooperation on one machine and coordination across multiple machines, and explicitly warns that the patterns are not rules; they are recurring answers to recurring problems.
+
+The public ByteByteGo text does not expose the detailed paid pattern sections, so this review does not attribute hidden pattern names/details to the article.
+
+### SquiFlow synthesis
+
+Containerization is a deployment/runtime tool, not a reason to create more application boundaries.
+
+Current implications:
+- `SquiFlow.Guard` is a Windows Workstation companion process, not a container sidecar pattern.
+- Core API and future Worker may be containerized for deployment if that helps the rack/deployment process, but container boundaries do not turn modules into services.
+- do not add a per-process proxy/adapter/sidecar merely because container patterns exist;
+- do not add leader election when database claims/leases/stable scheduler occurrences solve the actual coordination need;
+- Worker's durable work queue is justified by workload semantics, not by a container-pattern catalog;
+- scatter/gather-style distributed fan-out is deferred until an implemented report/search/batch workload proves it necessary.
+
+Existing Azure/Google pattern reviews remain the source for any specific sidecar/ambassador/adapter/leader/work-queue terminology; ByteByteGo's publicly visible text only supports the broader compositional/pattern-not-rule lesson.
+
+**Audit result: KEEP container deployment optional and problem-driven; no new container runtime components.**
+
+---
+
+## 9. Cross-cutting concerns in API development
+
+### Source-supported points
+
+The public article explicitly names authentication, logging, rate limiting, and input validation as concerns that apply across many routes and can be catastrophic when inconsistently applied. Its central point is uniform application across the API surface rather than endpoint-by-endpoint memory.
+
+### SquiFlow decision
+
+**ADOPT the uniformity requirement, not a giant middleware layer.**
+
+The Core API should centralize truly cross-cutting behavior through ASP.NET Core pipeline/policies/endpoint metadata where appropriate:
 
 ```text
-command/query responsibility
-synchronous authority vs asynchronous consequence
-queue vs pub/sub vs stream
-transport delivery vs semantic business effect
+request correlation / safe logging
+→ rate/admission limits
+→ authentication
+→ authoritative tenant/platform context
+→ coarse endpoint policy
+→ schema/input validation
+→ tenant-scoped resource loading
+→ OpenFGA/resource authorization
+→ domain/workflow/concurrency checks
+→ business execution
 ```
 
-They also reinforce that background work and multi-tenancy require explicit failure/resource ownership rather than merely fewer components.
+Important distinction:
+- authentication, safe error formatting, correlation, generic request limits and coarse policies are broadly cross-cutting;
+- resource authorization depends on the actual resource and often happens after load;
+- business invariants remain in domain/application code, not generic middleware;
+- health/public callbacks may legitimately use a different policy set but must be explicit exceptions rather than forgotten routes.
+
+SquiFlow should generate/test endpoint metadata so every reachable endpoint declares its audience/authentication/policy/limits or an explicit public exception.
+
+**Audit result: KEEP centralized cross-cutting enforcement + endpoint metadata completeness tests; REJECT one middleware that tries to own business authorization/validation.**
+
+---
+
+## 10. Database performance strategies and hidden costs
+
+### Source-supported points
+
+The article explicitly frames database optimization as trade-offs. Its public introduction gives three examples:
+- indexes improve reads but add write cost;
+- caching reduces database load but introduces stale data;
+- denormalization speeds some reads but makes updates harder.
+
+It also warns that a query that works on a small table can become slow after significant growth.
+
+### SquiFlow decision
+
+**ADOPT measurement-driven performance qualification.**
+
+The central/local database POCs must not be judged only on tiny development datasets.
+
+For implemented hot paths, test:
+- representative small data and projected larger cardinalities;
+- query plans and index usage;
+- tenant-scoped composite indexes;
+- write/import/sync cost after adding indexes;
+- RLS overhead if PostgreSQL is selected;
+- connection-pool wait/saturation;
+- temp/WAL/disk growth;
+- pagination behavior under changing/large data;
+- any cache's freshness and invalidation contract.
+
+Do not add an index because a column appears in a WHERE clause without checking write/storage cost. Do not denormalize authoritative business truth before a measured query requires it. Do not use cache for permissions/payments/stock unless its freshness contract preserves correctness.
+
+No sharding, Redis, read replica, or materialized-view platform is selected merely from theoretical future scale.
+
+**Audit result: KEEP relational-first hypothesis but strengthen performance evidence and growth tests.**
+
+---
+
+## 11. How to implement API security
+
+### Source-supported points
+
+The public article makes one particularly important distinction: an API can authenticate credentials correctly yet still be insecure if it does not authorize access to the specific requested resource. It frames API security as choosing multiple strategies according to threat/scenario rather than checking one security box.
+
+### SquiFlow decision
+
+This **confirms**, rather than replaces, the existing OWASP/ZITADEL/OpenFGA architecture:
+
+```text
+ZITADEL authentication
+≠ OpenFGA permission/resource authorization
+≠ TenantContext/data isolation
+≠ SquiFlow business/workflow validity
+```
+
+HTTPS, a valid token, or a valid OpenFGA relationship never by themselves prove that an arbitrary tenant resource may be read/changed.
+
+The existing API gate remains:
+- authenticate;
+- derive tenant context;
+- tenant-scope lookup;
+- coarse function authorization;
+- resource/property authorization;
+- validate business state/concurrency;
+- bound resource use;
+- audit/correlate important effects.
+
+No additional SquiFlow authentication or authorization framework is introduced.
+
+**Audit result: KEEP current layered API-security model.**
+
+---
+
+## 12. Event sourcing explained
+
+### Source-supported points
+
+The public article defines the motivation clearly: ordinary CRUD keeps current state but overwrites/deletes prior values, while event sourcing addresses systems that need to answer not only “what is the state?” but also “how did we get here?” It explicitly describes event sourcing as more demanding and says the article covers benefits and trade-offs.
+
+### SquiFlow decision
+
+**REJECT event sourcing as the v0.0.15 persistence baseline.**
+
+SquiFlow does need history in selected areas, but that does not require rebuilding every aggregate from an event stream.
+
+Current mechanisms remain:
+- authoritative current relational state;
+- immutable/append-only business records where the domain requires them (payments, stock movements, issued documents, corrections/reversals, etc.);
+- explicit audit/security history for privileged changes;
+- transactional outbox for post-commit integration/work;
+- versioned rules/workflows/forms.
+
+Important terminology rule:
+
+```text
+append-only audit/history
+or transactional outbox
+≠ event sourcing
+```
+
+Revisit event sourcing only if an implemented domain genuinely requires replay-derived authoritative state/time-travel semantics strongly enough to pay the event schema evolution, projection, rebuild, debugging, and operational costs.
+
+**Audit result: KEEP explicit history/audit; event sourcing remains deferred/rejected as baseline.**
+
+---
+
+## 13. Stateless architecture
+
+### Source-supported points
+
+The public article corrects a common misconception: stateless architecture does not mean the application has no state; it means state is moved elsewhere. Sessions, tokens, preferences and other application memory still exist, and the trade-off is about where that state lives and what relocation costs.
+
+### SquiFlow decision
+
+This materially clarifies the existing server wording.
+
+For SquiFlow:
+
+```text
+stateless Core API / Worker process
+= process memory is not the only authoritative durable business state
+```
+
+It does **not** mean:
+- the product has no sessions;
+- no caches exist;
+- no connection/circuit state exists;
+- every node can replace another transparently without shared dependencies/topology support;
+- Workstation/Guard are stateless.
+
+Authoritative/recoverable state belongs in the appropriate durable/shared systems: central DB, object storage, job/outbox store, ZITADEL, OpenFGA, backup/configuration, and the local Workstation DB for offline work.
+
+### Blazor-specific SquiFlow synthesis
+
+Current .NET 10 documentation states that Interactive Server Blazor is stateful and normally holds user state in a server-memory circuit. A lost/original server may make that in-memory circuit unavailable; distributed circuit persistence and/or session affinity can matter for multi-node hosting.
+
+Therefore SquiFlow must not claim Web nodes are transparently stateless until the chosen Blazor render/session mode is explicit. High-value business state still belongs in server-side business drafts/DB, not only component/circuit memory.
+
+**Audit result: KEEP stateless server-compute goal, but explicitly model where state actually lives and keep Blazor circuit topology OPEN until Phase 1.**
+
+---
+
+## 14. Authentication techniques
+
+### Source-supported points
+
+The public article frames authentication as both a security and UX concern and says developers must trade off security, scalability, and usability while defending against problems such as session hijacking, token theft and replay. It introduces multiple authentication techniques but the detailed paid comparison is not publicly visible.
+
+### SquiFlow decision
+
+Do **not** interpret “multiple authentication techniques” as a requirement for SquiFlow to implement its own collection of password/OTP/passkey/MFA/session stacks.
+
+ZITADEL remains the selected authentication platform and owns supported authentication methods, MFA/passkey/SSO policy, credential handling, and identity-provider functionality. SquiFlow owns:
+- OIDC integration;
+- session/application binding;
+- tenant/device mapping;
+- step-up requirements for risky application actions;
+- rate/abuse controls around SquiFlow-facing flows;
+- OpenFGA/application authorization after authentication.
+
+Workstation still uses system browser + Authorization Code + PKCE `S256`; it does not collect the user's primary password itself.
+
+Authentication-method expansion (for example passkeys or enterprise federation) is enabled/configured through the chosen identity platform only when the product/customer requirement justifies it.
+
+**Audit result: KEEP ZITADEL/OIDC boundary; do not build competing authentication mechanisms inside SquiFlow.**
+
+---
+
+## Combined decision audit after both batches
+
+The fourteen ByteByteGo articles do **not** justify a rewrite into CQRS microservices, event sourcing, Kafka, sidecar-heavy container architecture, distributed caches, sharding, or a home-grown identity platform.
+
+They strengthen these distinctions:
+
+```text
+command vs query
+command/job vs event
+queue vs pub/sub vs stream
+transport delivery vs semantic business effect
+authentication vs authorization vs tenant isolation
+stateless process vs durable/shared application state
+cross-cutting infrastructure vs resource/domain-specific logic
+performance optimization vs the cost it adds elsewhere
+```
 
 ### Result for v0.0.15
 
-KEEP:
-- task-oriented commands and separate read responsibility;
-- synchronous authoritative business transactions where appropriate;
-- transactional outbox;
-- durable Worker jobs;
-- finite classified retry;
-- semantic idempotency + consumer reconciliation;
-- pooled tenancy + tenant-aware resource limits;
-- Guard and other previously accepted correctness/recovery boundaries.
+KEEP / STRENGTHEN:
+- task-oriented command/query separation;
+- synchronous authoritative transactions where appropriate;
+- transactional outbox and durable Worker jobs;
+- finite classified retry and scoped idempotency;
+- pooled tenancy with tenant-aware resource limits;
+- centralized API cross-cutting enforcement plus explicit endpoint metadata;
+- ZITADEL authentication + OpenFGA authorization + SquiFlow domain/isolation separation;
+- measured DB/index/cache performance at realistic growth levels;
+- explicit durable state placement rather than vague “stateless” claims;
+- selective append-only audit/history without event-sourcing the product;
+- Guard and other accepted correctness/recovery boundaries.
 
-DEFER unless evidence appears:
+DEFER/REJECT unless evidence appears:
 - separate CQRS read/write databases;
-- event sourcing;
+- event sourcing as the authoritative persistence model;
 - event-driven-everything;
 - Kafka/event-stream infrastructure;
 - generic pub/sub broker;
-- distributed scheduler infrastructure beyond the first proven Worker requirement.
+- sidecar/ambassador/leader/scatter-gather infrastructure without a concrete deployment/workload problem;
+- Redis/sharding/denormalization/read replicas merely for hypothetical scale;
+- home-grown password/MFA/passkey authentication stack.
 
-The objective is not minimal component count. It is the smallest architecture that preserves the complete behavior each implemented slice actually requires.
+The objective remains disciplined completeness: remove accidental ceremony, never required correctness/recovery/security behavior.
