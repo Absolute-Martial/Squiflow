@@ -31,7 +31,15 @@ Start with [`MASTER_IMPLEMENTATION_PLAN.md`](MASTER_IMPLEMENTATION_PLAN.md).
 - Queue/job, pub/sub, event stream, and direct synchronous calls are treated as different tools selected from the real semantic need; Kafka/event-stream infrastructure is not baseline.
 - Retryable mutations use semantic idempotency keys; duplicate defense covers caller/producer retry, transport redelivery, and consumer/effect replay.
 - At-least-once delivery is handled by idempotent/reconcilable effects; system-wide `exactly once` is not claimed from one local transaction/broker feature.
+- **Consistency is selected per invariant**, not globally: payments/stock/credit/tenant isolation/current sensitive authorization use current/strong authority; caches/notifications/derived reports may be eventually updated only with explicit freshness/rebuild rules.
 - PostgreSQL is the strongest central reference candidate; SQLite + WAL and libSQL are Workstation-store candidates. Exact DB products remain open until their POCs.
+- Authoritative relational state is normalized first; denormalized/materialized read structures are derived optimizations with explicit source/freshness/rebuild contracts.
+- Database indexes are workload-driven and measured for both query benefit and write/WAL/storage/migration/sync cost.
+- **REST/task-oriented HTTP is the v0.0.15 API baseline.** GraphQL/GraphQL Federation are deferred until a real query-composition requirement proves them worthwhile.
+- Rate limiting/admission is multi-dimensional where required rather than one global RPS number; authorization and throttling are separate decisions.
+- Pagination, bounded connection pooling, selective caching/compression, and bounded async telemetry export are evidence-driven API performance techniques.
+- An edge reverse proxy/API-gateway capability may route/TLS/WAF/coarsely limit traffic, but it never replaces backend authorization and never collapses Admin API into Core API.
+- A service mesh is not baseline; revisit only if real east-west service traffic justifies the runtime/operational cost.
 - Currency is configurable/not hardcoded. v0.0.15 does not build a multi-currency/FX subsystem.
 - SquiFlow-native bounded rules/workflow remain in-process capabilities unless real isolation/scale proves otherwise.
 - **Primary bootstrap object storage:** private Hugging Face Storage Bucket, current private-storage envelope about 100 GB.
@@ -58,6 +66,8 @@ ZITADEL            identity/authentication
 OpenFGA            application authorization
 ```
 
+Apply clean-code/SOLID principles pragmatically: meaningful business names, cohesive responsibilities, explicit policy/config values, narrow provider interfaces, and contract-compatible replacements. Do not turn DRY/SOLID into helper/interface proliferation; small duplication is preferable to a wrong shared abstraction.
+
 Avoid ceremony that does not protect anything:
 
 ```text
@@ -68,7 +78,7 @@ arbitrary helper processes
 empty projects/directories for future architecture
 ```
 
-Minimalism must never remove required offline durability, recovery, authorization freshness, tenant isolation, backup restore, retry/idempotency guarantees, control-plane independence, or edge-case handling.
+Minimalism must never remove required offline durability, recovery, authorization freshness, tenant isolation, backup restore, retry/idempotency guarantees, control-plane independence, consistency/freshness behavior, or edge-case handling.
 
 ## Documentation map
 
@@ -117,6 +127,7 @@ Minimalism must never remove required offline durability, recovery, authorizatio
 - [`docs/review/SECURITY_AUTHORIZATION_SOURCE_REVIEW.md`](docs/review/SECURITY_AUTHORIZATION_SOURCE_REVIEW.md)
 - [`docs/review/RELIABILITY_API_AND_PATTERN_SOURCE_REVIEW.md`](docs/review/RELIABILITY_API_AND_PATTERN_SOURCE_REVIEW.md)
 - [`docs/review/BYTEBYTEGO_DISTRIBUTED_SYSTEMS_SOURCE_REVIEW.md`](docs/review/BYTEBYTEGO_DISTRIBUTED_SYSTEMS_SOURCE_REVIEW.md)
+- [`docs/review/BYTEBYTEGO_CODE_CONSISTENCY_DATA_API_SOURCE_REVIEW.md`](docs/review/BYTEBYTEGO_CODE_CONSISTENCY_DATA_API_SOURCE_REVIEW.md)
 - [`docs/review/CSV_AUDIT_AND_SOURCE_CLEANUP.md`](docs/review/CSV_AUDIT_AND_SOURCE_CLEANUP.md)
 
 ## Source-of-truth rule
