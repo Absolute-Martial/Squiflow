@@ -4,13 +4,13 @@
 
 ## 1. Core API
 
-`services/core-api` is the ASP.NET Core HTTP/composition host.
+`services/core-api` is the ASP.NET Core tenant/business HTTP/composition host.
 
 It owns:
-- request pipeline;
-- ZITADEL OIDC/session integration;
-- tenant/platform context resolution;
-- ASP.NET/OpenFGA authorization integration;
+- tenant/business request pipeline;
+- ZITADEL OIDC/session integration for tenant/business surfaces;
+- tenant context resolution;
+- ASP.NET/OpenFGA tenant/business authorization integration;
 - input/schema validation;
 - application command/query dispatch;
 - rate limiting/admission control;
@@ -20,9 +20,11 @@ It owns:
 
 It does not own business-domain implementation merely because the HTTP request arrives there. Business behavior belongs in modules/application code.
 
+**Core API does not host the Platform Admin/super-admin backend.** Platform Admin uses `services/admin-api`, a separate ASP.NET Core executable/deployment boundary owned by `docs/admin/ADMIN_SURFACES.md`.
+
 ## 2. Authorization pipeline
 
-For an existing resource:
+For an existing tenant/business resource:
 
 ```text
 ZITADEL-authenticated actor/session
@@ -43,6 +45,8 @@ ASP.NET Core policies/requirements are the framework integration primitive. Open
 Resource authorization is imperative when the decision requires the loaded resource. `IAuthorizationService` and typed authorization handlers are the Core API integration point.
 
 Do not bind arbitrary request JSON directly onto domain/persistence entities. Use explicit command/request DTOs and explicit response projections to prevent property-level over-posting/exposure.
+
+Platform/super-admin authorization follows the same framework principles in **Admin API**, but with separate platform policy/model scope. A tenant Core API session/role is never a shortcut to platform authority.
 
 ## 3. Command/query responsibility
 
@@ -76,13 +80,13 @@ Authentication, safe logging/correlation, generic rate/admission limits, safe er
 
 Do **not** respond to cross-cutting concerns by building one giant middleware that owns all business decisions.
 
-Correct split:
+Correct tenant/business split:
 
 ```text
 request/correlation + safe logging
 → generic request/rate/admission controls
 → authentication
-→ TenantContext/platform context resolution
+→ TenantContext resolution
 → coarse endpoint/function policy
 → input/schema validation
 → tenant-scoped resource loading
@@ -98,15 +102,17 @@ Every externally reachable endpoint must be classifiable by executable metadata/
 
 Health/liveness endpoints, OIDC callbacks, provider webhooks and other special routes can have different policies, but they are explicit exceptions with their own abuse/input/authenticity controls.
 
+Admin API has its own equivalent cross-cutting pipeline and endpoint inventory. Do not centralize platform control into Core API merely to reuse middleware.
+
 ## 5. API security baseline
 
 Every API group is reviewed against the OWASP API Security Top 10 classes that apply.
 
-Required release gates include:
+Required Core API release gates include:
 - object-level authorization for every client-supplied resource identifier;
-- function-level authorization for normal/tenant-admin/platform-admin operations;
+- function-level authorization for normal and tenant-admin operations;
 - property-level allowlists for request and response contracts;
-- strong authentication/recovery/step-up abuse controls;
+- strong authentication/recovery/step-up abuse controls where relevant;
 - bounded request/upload/page/batch sizes and execution/resource budgets;
 - business-flow-specific abuse controls where automation can cause material harm;
 - SSRF controls before introducing arbitrary webhook/remote-fetch URLs;
@@ -114,19 +120,23 @@ Required release gates include:
 - generated endpoint/version inventory and explicit retirement policy;
 - validation/timeouts/limits for data consumed from third-party APIs.
 
+Platform Admin API has a separate security inventory/gate for super-admin operations.
+
 A valid ZITADEL identity/token does not itself authorize a resource. A valid OpenFGA relation does not bypass TenantContext/data isolation or SquiFlow business state checks.
 
 An endpoint inventory is generated from executable endpoint metadata/OpenAPI in CI/release. It is not a hand-maintained architecture CSV.
 
 ## 6. API version/surface ownership
 
-Every externally reachable API surface declares:
-- audience: tenant Web, Workstation sync, client-client, tenant admin, platform admin or specific integration;
+Every externally reachable Core API surface declares:
+- audience: tenant Web, Workstation sync, client-client, tenant admin or specific integration;
 - authentication method;
 - authorization policy family;
 - current version/compatibility rules;
 - owner/module;
 - retirement/deprecation policy.
+
+Platform Admin endpoints are inventoried separately from `services/admin-api`.
 
 Development/debug/test endpoints are not simply hidden; they are absent or inaccessible in production configuration.
 
@@ -159,6 +169,8 @@ OutcomeUnknown
 A duplicate POST with the same semantic idempotency key returns the existing operation/status resource rather than creating another Worker item.
 
 Do not queue every command merely because a Worker exists.
+
+Admin API can use the same durable asynchronous pattern for platform-control work it owns, without proxying through Core API.
 
 ## 8. API idempotency and retry
 
@@ -207,6 +219,8 @@ Also bound:
 
 Expensive work moves to the Worker rather than keeping request threads occupied indefinitely.
 
+Admin API separately bounds platform-control and cross-tenant administrative workloads so they cannot accidentally saturate the business API path.
+
 ## 10. Worker
 
 `services/worker` executes durable asynchronous work that should not keep API requests open.
@@ -219,7 +233,8 @@ Examples:
 - projection maintenance;
 - scheduled jobs;
 - rule/workflow snapshot distribution where asynchronous;
-- diagnostic packaging.
+- diagnostic packaging;
+- authorized platform-control work submitted by Admin API.
 
 ## 11. Background trigger taxonomy
 
@@ -239,7 +254,7 @@ Batch/volume-triggered work
   e.g. bounded import/rebuild/maintenance batch
 
 Platform control command
-  e.g. approved maintenance/reconciliation operation
+  e.g. Admin API-approved maintenance/reconciliation operation
 ```
 
 Important scheduled work must not rely on “cron fired” as the only truth. The scheduler creates or claims a durable occurrence/job with a stable occurrence identity before the business effect executes.
@@ -374,7 +389,9 @@ Reauthorize the actor/current authority at execution when that is semantically r
 
 ### C. Platform control-plane command
 
-A platform-critical command originates from Platform Admin Web, passes risk/step-up/approval checks, and is persisted as a durable control-plane command/proposal. The Worker executes exactly that authorized command under system execution authority. It must not accept a second hidden set of control parameters from a Desktop or arbitrary job payload.
+A platform-critical command originates from Platform Admin Web **through Admin API**, passes platform authorization/risk/step-up/approval checks, and is persisted as a durable control-plane command/proposal. The Worker executes exactly that authorized command under system execution authority.
+
+Core API does not authorize or proxy these platform commands. The Worker must not accept a second hidden set of control parameters from a Desktop, tenant endpoint, or arbitrary job payload.
 
 This classification prevents both unsafe stale-authority execution and the opposite error of cancelling valid committed consequences merely because a user was later suspended.
 
@@ -418,9 +435,11 @@ The application handles independent work in parallel. Correctness is scoped to t
 
 Final correctness is enforced by the selected central store through transactions, constraints, optimistic concurrency and locking where appropriate.
 
+If Core API and Admin API both legitimately mutate shared state, they must use the same domain/application invariants and concurrency rules. Backend separation must not create two conflicting implementations of the same invariant.
+
 ## 21. Stateless server-process semantics
 
-`Stateless` for Core API/future Worker means their process memory is not the sole durable authority for business correctness.
+`Stateless` for Core API/Admin API/future Worker means their process memory is not the sole durable authority for business correctness.
 
 It does **not** mean SquiFlow has no state.
 
@@ -438,9 +457,18 @@ This also does not imply automatic failover or zero downtime. If Blazor Interact
 
 ## 22. Platform-critical Worker controls
 
-Pause/drain/resume/retry/quarantine/reconcile controls that can materially affect server operation are invoked only through Platform Admin Web and `/platform-admin/...` APIs.
+Pause/drain/resume/retry/quarantine/reconcile controls that can materially affect server operation are invoked only through:
 
-Do not expose those controls through Workstation or ordinary tenant business endpoints.
+```text
+Platform Admin Web
+→ services/admin-api
+→ authorized durable control command
+→ Worker/system execution
+```
+
+Do not expose those controls through Core API, Workstation, ordinary tenant endpoints, or tenant Settings.
+
+A Core API outage should not prevent an Admin API-owned platform-control operation whose own required dependencies remain healthy.
 
 ## Source basis
 
@@ -453,6 +481,8 @@ Do not expose those controls through Workstation or ordinary tenant business end
 - ByteByteGo CQRS/retry/event-driven/messaging/idempotency/background-work/multi-tenancy/container/cross-cutting/API-security/stateless follow-up review
 
 See:
+- `docs/admin/ADMIN_SURFACES.md`
+- `docs/architecture/CONTROL_PLANE_AND_DATA_PLANE.md`
 - `docs/review/SECURITY_AUTHORIZATION_SOURCE_REVIEW.md`
 - `docs/review/RELIABILITY_API_AND_PATTERN_SOURCE_REVIEW.md`
 - `docs/review/BYTEBYTEGO_DISTRIBUTED_SYSTEMS_SOURCE_REVIEW.md`
