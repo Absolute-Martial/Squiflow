@@ -22,7 +22,7 @@ real requirement / failure mode
 → add further layers only when evidence earns them
 ```
 
-A design is **not** better because it has fewer processes/interfaces if that simplification destroys recovery, provider replacement, authorization freshness, offline durability, retry safety, duplicate handling, or other accepted responsibilities.
+A design is **not** better because it has fewer processes/interfaces if that simplification destroys recovery, provider replacement, authorization freshness, offline durability, retry safety, duplicate handling, platform-control independence, or other accepted responsibilities.
 
 Likewise, a design is not better because it has more layers. Avoid forwarding-only Manager/Service/Helper/Repository hierarchies.
 
@@ -36,19 +36,41 @@ Accepted early runtime direction:
 apps/web                  Blazor Web App — tenant business Web + tenant Owner Settings
 apps/desktop/workstation  Avalonia — Windows Workstation
 apps/desktop/guard        Workstation supervision/recovery companion
-services/core-api         ASP.NET Core HTTP/composition host
+services/core-api         ASP.NET Core tenant/business HTTP/composition host
 ```
 
 Create later when their first real feature exists:
 
 ```text
-apps/admin-web            Blazor Web App — SquiFlow platform control plane
+apps/admin-web            Blazor Web App — SquiFlow platform/super-admin UI
+services/admin-api        ASP.NET Core — independent platform/super-admin backend
 services/worker           durable background execution
 ```
 
 Business capability code remains a modular monolith.
 
-Containerization may be used for server deployment where it helps packaging/operations, but container design patterns are not permission to create extra services, proxies, sidecars, leaders, or fan-out machinery without a concrete deployment/coordination problem.
+### Platform Admin backend separation
+
+Platform/super-admin control is a separate runtime/security/availability plane:
+
+```text
+apps/admin-web
+→ services/admin-api
+```
+
+`services/admin-api` is not a route group inside Core API and does not use Core API as its normal downstream execution dependency.
+
+Normal platform administration must not require:
+
+```text
+Admin Web → Admin API → Core API
+```
+
+Core API and Admin API may share reviewed libraries/modules and may intentionally share underlying infrastructure. The requirement is independent backend process/API ownership, deployment, authentication/authorization scope, health and restart lifecycle.
+
+A Core API outage must not automatically remove the Platform Admin application control surface. An Admin API outage must not block ordinary tenant business API work. Shared database/provider outages may still affect both where the requested operation depends on that shared infrastructure.
+
+Owner: `docs/admin/ADMIN_SURFACES.md` and `docs/architecture/CONTROL_PLANE_AND_DATA_PLANE.md`.
 
 ### Guard
 
@@ -92,7 +114,7 @@ Web-only tenant control-plane operations include:
 
 Desktop consumes published permissions/config but never grants them.
 
-Platform-critical application controls belong to the separate Platform Admin Web when that slice exists. If the application control plane itself is unavailable, infrastructure recovery uses a private runbook rather than a hidden business/Desktop endpoint.
+Tenant administration remains in the normal tenant Web and uses Core API tenant-admin operations. Platform-critical application controls belong to **Platform Admin Web → Admin API**, not Core API, when that slice exists. If the application control plane itself is unavailable, infrastructure recovery uses a private runbook rather than a hidden business/Desktop endpoint.
 
 Owners:
 - `docs/admin/ADMIN_SURFACES.md`
@@ -123,9 +145,9 @@ system browser
 
 No reusable native client secret and no central DB credentials on the Workstation.
 
-ZITADEL provides authentication/account/session/MFA/passkey/SSO/federation capability according to configuration. SquiFlow does not build a competing password/OTP/MFA/passkey stack; it owns OIDC integration, application session/device/tenant binding, step-up requirements, and post-authentication authorization.
+ZITADEL provides authentication/account/session/MFA/SSO capability; it does not become current business authorization truth simply because it can expose roles/claims.
 
-ZITADEL does not become current business authorization truth simply because it can expose roles/claims.
+Platform operators also authenticate through ZITADEL, but Admin API requires separate platform-level authorization and never treats a tenant session/role as super-admin authority.
 
 Open Phase-1 details include ZITADEL Cloud vs self-hosted, exact instance/project/application layout, tenant-organization mapping, Web session topology, and native callback choice.
 
@@ -147,7 +169,7 @@ OpenFGA
   roles / tenant-defined custom roles / assignments / resource relationships
 
 ASP.NET Core IAuthorizationService
-  application integration point for semantic requirements
+  host integration point for semantic requirements
 
 SquiFlow domain/workflow
   canonical state, business invariants, calculations, transitions
@@ -156,7 +178,7 @@ Database isolation
   tenant-scoped data access / provider defense in depth
 ```
 
-These layers are deliberately separate.
+Core API uses tenant/business policy scope. Admin API uses separate platform/super-admin policy scope. Tenant authority can never imply platform authority.
 
 Tenant-created custom roles are tuple/data changes, not a new OpenFGA model deployment per role. Stable SquiFlow permission relations live in a versioned authorization model, and production checks pin an explicit model ID.
 
@@ -180,8 +202,6 @@ Do not implement:
 - browser offline mutation/conflict engine.
 
 Selected valuable forms may use explicit online server-side drafts/autosave.
-
-Blazor Web App does not make all Web state stateless. If Interactive Server rendering is used, per-user circuit state can live in server memory. That state is transient runtime/UI state, not authoritative business state. Exact render-mode/circuit/session-affinity/distributed-state behavior is a Phase-1 decision before multi-node failover claims.
 
 Owner: `docs/web/WEB_RUNTIME_AND_STORAGE.md`.
 
@@ -244,7 +264,7 @@ Owner: `docs/architecture/MULTI_TENANCY_ISOLATION.md`.
 
 ---
 
-## 8. Command/query, API security, idempotency, and retry
+## 8. Command/query, API, idempotency, and retry
 
 SquiFlow adopts **command/query responsibility separation** without assuming full CQRS infrastructure.
 
@@ -257,10 +277,6 @@ Query
 ```
 
 Material actions remain task-oriented (`ApproveQuote`, `RefundPayment`, `AdjustInventory`). Separate read/write databases, event sourcing, or command/query microservices are added only if an implemented workload proves they are worth the extra consistency/operations contract.
-
-Cross-cutting API behavior is uniform where it truly spans endpoints: correlation/safe logging, authentication, generic rate/resource limits, safe error shaping, and coarse policy live in ASP.NET Core host/pipeline/endpoint metadata. Resource/OpenFGA authorization and domain/workflow/concurrency validation still run at the layer where the actual resource/state exists.
-
-Every externally reachable endpoint declares its audience/authentication/policy/limits or an explicit reviewed public exception. Authentication success alone is never resource authorization.
 
 Retryable mutations use caller-provided semantic idempotency keys.
 
@@ -277,9 +293,7 @@ Retry is finite/classified/budgeted, with an intentional retry owner for each re
 
 Long-running work uses durable async status only when genuinely long-running; ordinary short transactions stay synchronous.
 
-Owners:
-- `docs/server/CORE_API_AND_WORKER.md`
-- `docs/api/API_CONTRACT_IDEMPOTENCY_AND_RETRY.md`.
+Owner: `docs/api/API_CONTRACT_IDEMPOTENCY_AND_RETRY.md`.
 
 ---
 
@@ -305,7 +319,7 @@ Owner: `docs/sync/SYNC_AND_AUTHORITY.md`.
 
 ---
 
-## 10. Persistence — real provider first, measured optimization
+## 10. Persistence — real provider first, abstractions only where justified
 
 Exact DB products remain open until phase POCs:
 - PostgreSQL — strongest central reference candidate;
@@ -316,7 +330,7 @@ Do **not** create generic `IRepository<T>`, `IUnitOfWork`, or one-interface-per-
 
 Provider-specific DB code stays contained outside business/domain code. Extract interfaces only when an actual dependency/replacement boundary requires them.
 
-Database performance is a trade-off, not a checklist. Indexes can increase write/import cost; caches introduce freshness/invalidation risk; denormalization complicates authoritative updates. Hot-path POCs therefore measure realistic growth/cardinality, query plans, tenant-aware indexes, write/sync/import cost, pool contention and storage/WAL/temp impact before adding Redis/read replicas/sharding/denormalized views.
+Admin API and Core API may intentionally share the same authoritative database, but they must preserve the same invariants and transaction rules without making Admin API call Core API as a proxy.
 
 Owner: `docs/data/PERSISTENCE_SELECTION.md`.
 
@@ -484,6 +498,8 @@ Worker requirements include:
 - pause/drain/recovery;
 - `OutcomeUnknown` for ambiguous external effects.
 
+Platform Admin Web sends privileged Worker/control commands to **Admin API**, which persists/authorizes the exact command before Worker/system execution. Core API is not the platform-control proxy.
+
 No Kafka/event-stream infrastructure or generic pub/sub broker is baseline merely because those patterns exist.
 
 Notifications/webhooks use Core API/outbox/Worker boundaries first; no notification microservice baseline.
@@ -494,7 +510,7 @@ Owners:
 
 ---
 
-## 16. State placement, observability, and physical operations
+## 16. Observability and physical operations
 
 OpenTelemetry/OTLP is the telemetry boundary.
 
@@ -505,46 +521,27 @@ Current managed targets:
 
 Guard supplies bounded desktop lifecycle/crash/resource evidence into the support/diagnostic path.
 
+Core API and Admin API have independent health/readiness/deployment lifecycles. Their telemetry can correlate through shared IDs, but one backend's process failure must not be interpreted as the other backend being down.
+
 Telemetry failure cannot invalidate business transactions.
 
-Current server hardware is lower-spec/desktop-class rack equipment.
-
-`Stateless Core API/Worker` means process memory is not the only authoritative durable business state. State is relocated into the systems that own it: DB, object store, durable job/outbox state, ZITADEL/OpenFGA, configuration/session state where required, and the local Workstation DB for offline work. Process-local caches/circuits remain disposable/explicitly lossy.
-
-`Stateless` does not promise automatic failover, transparent Blazor circuit recovery, or zero downtime.
+Current server hardware is lower-spec/desktop-class rack equipment. `Stateless` means process memory is not authoritative; it does not promise automatic failover.
 
 Owner: `docs/operations/DEPLOYMENT_CAPACITY_AND_RECOVERY.md`.
 
 ---
 
-## 17. History/audit without event-sourcing the product
-
-SquiFlow needs explainable history in selected domains, but the baseline remains authoritative current relational state plus explicit immutable/append-only records where required.
-
-Examples:
-- payment/effect evidence;
-- stock movements;
-- corrections/reversals;
-- issued document revisions;
-- privileged security/admin audit;
-- versioned rule/workflow/form publication.
-
-Transactional outbox events and audit logs are **not** event sourcing. Event sourcing remains deferred unless a real domain requires replay-derived authoritative state strongly enough to justify event schema/projection/rebuild complexity.
-
----
-
-## 18. Verification
+## 17. Verification
 
 Keep tests focused on real correctness risks:
 - business/domain invariants;
 - real DB transaction/concurrency/isolation behavior;
-- DB hot-path performance at representative growth/cardinality and write/index cost;
 - Workstation local durability/restart;
 - Guard independent crash/hang/update recovery;
 - ZITADEL authentication/session flows;
 - OpenFGA model/tuple/custom-role/consistency/reconciliation behavior;
-- tenant/API authorization;
-- endpoint cross-cutting metadata/policy completeness;
+- tenant/Core API authorization;
+- **platform/Admin API authorization and Core-API-outage independence**;
 - idempotency/response loss across caller/transport/consumer boundaries;
 - retry amplification and retry-budget exhaustion;
 - sync conflict/long-offline;
@@ -558,18 +555,18 @@ Owner: `docs/testing/VERIFICATION_STRATEGY.md`.
 
 ---
 
-## 19. Sequential implementation plan
+## 18. Sequential implementation plan
 
 Default WIP limit: **one implementation phase**, but each phase must cover its defined edge/failure behavior before being called complete.
 
 ```text
 Phase 0  Web + Workstation + Guard + Core API skeleton, provider contracts, minimal CI
-Phase 1  ZITADEL identity + OpenFGA Owner/Staff/custom-role authorization + Web session/render-mode proof
+Phase 1  ZITADEL identity + OpenFGA Owner/Staff/custom-role authorization
 Phase 2  first local-first Workstation Customer/Order transaction + local DB + Guard recovery
-Phase 3  authoritative sync + central DB + pooled tenant isolation + idempotency + realistic DB performance proof
+Phase 3  authoritative sync + central DB + pooled tenant isolation + idempotency
 Phase 4  conflict/long-offline/resnapshot recovery
 Phase 5  one native rule + workflow + bounded dynamic form
-Phase 6  create Worker + Platform Admin Web; prove first real queue/schedule/event consequence
+Phase 6  create Worker + Platform Admin Web + independent Admin API; prove first platform-control and durable-work slice
 Phase 7  Hugging Face IObjectStore flow + documents/printing + Kaggle IBackupTarget restore proof
 Phase 8  API/observability/admin hardening
 Phase 9  payments/credit/inventory/correction hardening
@@ -580,7 +577,7 @@ Owner: `docs/implementation/PHASES_AND_GATES.md`.
 
 ---
 
-## 20. Explicit non-baseline work
+## 19. Explicit non-baseline work
 
 Do not add these now:
 - dedicated accessibility/a11y workstream or conformance program;
@@ -592,7 +589,6 @@ Do not add these now:
 - microservice-per-module architecture;
 - full CQRS/event sourcing/Saga core architecture;
 - event-driven-everything;
-- container sidecar/proxy/leader/scatter-gather infrastructure without a concrete need;
 - global CRDTs;
 - schema/database/deployment per tenant baseline;
 - multi-currency/FX subsystem;
@@ -601,12 +597,14 @@ Do not add these now:
 - generic ETL/search/SaaS billing infrastructure without a real requirement;
 - hundreds of placeholder files/projects.
 
-The accepted `IObjectStore`, `IBackupTarget`, Guard, ZITADEL, and OpenFGA boundaries are **not** examples of forbidden complexity: each has a concrete current or committed near-term responsibility.
+The accepted `IObjectStore`, `IBackupTarget`, Guard, ZITADEL, OpenFGA, and separate Admin API boundaries are **not** examples of forbidden complexity: each has a concrete current or committed near-term responsibility.
 
 ---
 
-## 21. Implementation-complete rule
+## 20. Implementation-complete rule
 
 A capability is complete when the concerns that materially apply to that capability are proven: user states/recovery, tenant/authority, validation/permission, transaction/idempotency/concurrency, local-vs-server authority, async/external-unknown behavior, resource/storage bounds, upgrade/restore implications, and relevant hostile tests.
+
+For platform administration this additionally includes proving that super-admin control uses Admin API directly and remains process-independent from Core API for the implemented operation.
 
 Do not force irrelevant checklist items onto tiny features, but do not waive required edge cases simply to keep the implementation visually minimal.
