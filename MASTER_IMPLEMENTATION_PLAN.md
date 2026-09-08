@@ -1,541 +1,514 @@
 # SquiFlow v0.0.15 — Master Implementation Plan
 
-**Status:** Current architecture and implementation baseline.
+**Status:** Current architecture/implementation baseline.  
+**Implementation state:** **pre-Phase-0** — the GitLab repository currently contains the curated architecture/planning baseline; the target `apps/`, `services/`, `modules/`, persistence adapters and executable tests/CI are not yet implementation evidence.
 
-This is the primary implementation document. Detailed docs under `docs/` explain the boundaries that need more depth. Historical generated inventories/review ledgers are not design authorities.
+This file is the high-level source of truth. Detailed semantics belong to the focused owner documents linked below; do not duplicate those contracts differently here.
 
-## 1. Product and runtime shape
+---
 
-SquiFlow is a C#/.NET multi-tenant business platform designed for very small teams first, while remaining expandable.
+## 1. Product/runtime boundaries
+
+SquiFlow is a C# / modern .NET multi-tenant business platform designed for small teams first while keeping a path to larger tenants.
+
+Accepted presentation/runtime direction:
 
 ```text
-apps/web            Tenant staff Web + tenant-owner Settings/Administration
-apps/admin-web      SquiFlow platform administration/control plane
-apps/desktop        Windows Workstation + Guard/on-demand helpers
+apps/web            Blazor Web App — tenant staff Web + tenant-owner Settings
+apps/admin-web      Blazor Web App — SquiFlow platform administration/control plane
+apps/desktop        Avalonia — Windows Workstation
 services/core-api   ASP.NET Core HTTP/composition host
-services/worker     Durable background execution
+services/worker     durable background execution
 ```
 
-Business modules remain a modular monolith. Web/Admin/Desktop/API/Worker are real runtime/deployment boundaries; modules are not automatically services.
+Business capability modules remain a **modular monolith**. Separate .NET projects are allowed where they provide a real dependency/build/process/provider/test boundary; they do not imply microservices.
 
-## 2. Small-team-first tenant model
+Target repository responsibilities are described in `docs/architecture/REPOSITORY_STRUCTURE.md`. Do not create empty projects merely to match a diagram.
 
-The normal tenant may simply be:
+---
+
+## 2. Small-team tenant/admin model
+
+A normal tenant may be only:
 
 ```text
 Owner
 └── Staff
 ```
 
-`Owner` and `Staff` are starting templates. The tenant Owner decides ordinary staff rights inside the tenant's purchased/enabled capabilities and SquiFlow's non-overridable security/domain limits.
+`Owner` and `Staff` are default templates, not fixed policy.
 
-The Owner can create roles, clone/edit templates, assign users, and optionally scope assignments to branch/program/own-assigned records where that has clear business meaning.
+The tenant Owner controls ordinary staff roles/permissions inside SquiFlow's entitlement/security ceiling. Permission/role changes, tenant rules/workflow/forms and other tenant control-plane configuration are **Web-only** through tenant Settings/Administration.
 
-The platform still prevents cross-tenant access, platform-operator privilege, unavailable entitlements, arbitrary code execution, direct database/root access, and bypass of protected financial/security invariants.
+The Desktop consumes effective permissions/configuration but cannot grant roles, publish workflow/rules or change platform/server controls.
 
-## 2A. Multi-tenancy isolation baseline
+SquiFlow Platform Admin Web is a separate privileged surface for platform tenants/entitlements, provider/runtime configuration, incidents, support/break-glass business controls and Worker/server control-plane commands.
 
-Isolation is treated as a spectrum rather than one forever-topology.
+Detailed ownership:
+- `docs/admin/ADMIN_SURFACES.md`
+- `docs/architecture/CONTROL_PLANE_AND_DATA_PLANE.md`
+- `docs/security/TENANT_PERMISSIONS.md`
 
-For ordinary v0.0.15 tenants the implementation target is **pooled compute + pooled authoritative data**:
+---
+
+## 3. Identity and session boundary
+
+Interactive authentication uses **OpenID Connect**. Application authorization is separate.
+
+Stable external identity is `(issuer, subject)`, not mutable email.
+
+Workstation interactive login uses:
+
+```text
+system browser
+→ Authorization Code
+→ PKCE S256
+→ validated native callback
+→ SquiFlow session/device context
+```
+
+No reusable native client secret and no central database credentials are stored on the Workstation.
+
+Exact OIDC provider, Web session implementation, native callback mechanism and some logout/step-up provider mappings remain phase-load-bearing implementation decisions.
+
+Owner: `docs/security/IDENTITY_AND_SESSIONS.md`.
+
+---
+
+## 4. Web runtime
+
+The Web application is **online-only for business operations in v0.0.15**.
+
+Do not implement:
+- IndexedDB business replica;
+- service-worker business synchronization;
+- browser offline mutation queue/conflict engine.
+
+Normal HTTP/CDN/static-asset caching is allowed. `localStorage` is for harmless preferences; authentication/business truth is not stored there.
+
+For long/valuable online forms, explicit **server-side drafts/autosave** are allowed when they prevent meaningful user-data loss. This does not introduce browser offline architecture.
+
+Owner: `docs/web/WEB_RUNTIME_AND_STORAGE.md`.
+
+---
+
+## 5. Windows Workstation is the local-first client
+
+For an explicitly offline-capable operation:
+
+```text
+user action
+→ local validation + compatible local rule/config facts
+→ one durable local business + outbox transaction
+→ immediate local result
+→ background synchronization
+→ server authoritative validation/acceptance/conflict
+```
+
+Local state is real user work, but authority is explicit:
+
+```text
+LocalCommitted
+PendingRemote
+Authoritative
+Conflict
+Rejected
+AuthorizationChanged
+UpgradeRequired
+```
+
+The local store is not "just a cache", but the server never trusts local tenant IDs/permissions as central authority.
+
+Owner: `docs/workstation/LOCAL_FIRST_DESKTOP.md`.
+
+### Guard and devices
+
+`SquiFlow.Guard` is a tiny supervision/recovery companion, not a business process. It assists bounded crash/restart/update/helper lifecycle and must not own business rules, ORM/business persistence, synchronization semantics or platform authority.
+
+**Printing is the baseline physical-device integration.** Printer/spooler/driver failure is a separate retryable side effect and never undoes committed business truth.
+
+Scanner/barcode/cash-drawer/other peripherals are added only when a real journey requires them.
+
+Owner: `docs/workstation/GUARD_AND_DEVICE_INTEGRATION.md`.
+
+---
+
+## 6. Multi-tenancy isolation
+
+Ordinary v0.0.15 tenants use a **pooled baseline**:
 
 ```text
 shared Web/API/Worker
 → authoritative TenantContext
-→ shared central schema/model
-→ TenantId on tenant-owned authoritative records
-→ provider-appropriate defense-in-depth isolation
+→ shared central relational model
+→ tenant discriminator on tenant-owned authoritative records
+→ provider-appropriate persistence defense in depth
 ```
 
-Authentication, application authorization and tenant isolation are separate concerns. A valid identity/role does not by itself prove that a resource belongs to the current tenant.
+Authentication, authorization and tenant isolation are different concerns.
 
-Tenant context is derived from authoritative SquiFlow membership/placement state, not trusted from a Workstation payload, browser header, custom-domain Host value or stale client snapshot.
+Tenant-owned repositories/queries are structurally tenant-scoped so isolation does not depend only on a remembered `WHERE TenantId = ...`.
 
-Tenant-owned repository/query contracts must be tenant-scoped so isolation does not depend on each developer remembering a filter. Lists, writes, reports, search, exports, Worker jobs, object metadata and read models must preserve tenant scope.
+Schema-per-tenant, database-per-tenant, physical queue-per-tenant and deployment-per-tenant are **not baseline**. Future dedicated data/stack placement is evidence-driven by residency/compliance/contract/SLO/customer-managed requirements.
 
-Schema-per-tenant, database-per-tenant, physical queue-per-tenant and full deployment-per-tenant are **not** baseline implementation targets.
+If PostgreSQL is used, its reference POC must prove Row-Level Security defense in depth, non-bypass runtime roles, read/write policy behavior and safe tenant context under connection pooling. PostgreSQL remains a candidate, not a silently selected provider.
 
-The architecture still leaves an evolution path:
+Owner: `docs/architecture/MULTI_TENANCY_ISOLATION.md`.
 
-```text
-pooled
-→ targeted dedicated resource / dedicated database
-→ dedicated stack
-```
+---
 
-only when residency, compliance, contractual isolation, noisy-neighbor, enterprise scale or customer-managed hosting requirements justify the added operational cost.
+## 7. Authorization
 
-Processing isolation is a separate axis from data isolation. Baseline Worker processing stays pooled but tenant-aware, bounded and fair; dedicated worker capacity can be introduced later for a tenant/tier when evidence requires it.
+Permission keys represent stable business actions, not screens/routes.
 
-If PostgreSQL is used as the central reference/selected provider, its pooled-storage POC must prove Row-Level Security as defense in depth with safe runtime roles, write-side checks and connection-pool tenant-context handling. This does not select PostgreSQL; any selected provider must prove an equivalent provider-appropriate isolation story.
-
-See `docs/architecture/MULTI_TENANCY_ISOLATION.md`.
-
-## 3. Permission ownership and where permissions are changed
-
-Permission **definitions** are stable server-side capabilities such as:
-
-```text
-customers.view
-customers.edit
-orders.create
-orders.edit
-orders.cancel
-orders.apply_manual_price
-orders.approve
-inventory.view
-inventory.adjust
-payments.record
-payments.refund
-quotes.create
-quotes.approve
-documents.print
-team.manage
-roles.manage
-domains.manage
-rules.manage
-workflow.manage
-```
-
-Permission/role assignment is a **Web control-plane operation only**:
-
-```text
-Tenant Owner Web Settings
-→ /tenant-admin/... API
-→ current-actor delegation check
-→ role/permission validation
-→ durable change
-→ session/authorization version update
-→ audit
-```
-
-The Workstation may read its effective permissions and react to revocation, but it never grants roles or permissions.
-
-Platform permissions/entitlements are changed only through `apps/admin-web` and `/platform-admin/...` APIs.
-
-Authorization for a business command combines:
+Server business authorization can combine:
 
 ```text
 authenticated actor
-+ tenant/platform scope
-+ permission
-+ resource scope
-+ canonical resource state
++ authoritative tenant/platform context
++ function permission
++ resource/object scope
++ sensitive property access
++ canonical business state
 + workflow transition guard
-+ risk tier/step-up when required
-+ concurrency/version check
++ step-up/risk requirement
++ expected version/concurrency
 ```
 
-A permission is not created for every status combination. Example: `orders.edit` may be granted while the domain still permits editing only in `Draft`.
+ASP.NET Core policy/requirements/`IAuthorizationService` are the runtime primitives; SquiFlow does not build a competing authorization service.
 
-## 4. Canonical state + tenant workflow stage
+Tenant authorization mutations advance a monotonic `TenantAuthorizationRevision` atomically with audit/outbox invalidation evidence so stale authorization caches/snapshots are detectable.
 
-Tenant workflow customization must not redefine protected system truth.
+Owner: `docs/security/TENANT_PERMISSIONS.md`.
+
+---
+
+## 8. API/idempotency/retry
+
+Retryable mutating operations use **caller-provided semantic idempotency keys**.
 
 ```text
-Canonical system state
-+
-Configurable tenant workflow stage
+same key + same business intent      → same/semantically equivalent result
+same key + materially changed intent → reject
 ```
 
-Example:
+Idempotency key, HTTP request ID, correlation ID, message ID and business entity ID are distinct.
+
+Where one authoritative store owns the mutation/receipt/outbox, commit them atomically.
+
+Retry is finite, classified, bounded, honors `Retry-After`, and uses backoff/jitter where appropriate. Do not stack independent retry loops into a retry storm.
+
+Long-running work uses durable asynchronous request-reply/status resources rather than holding HTTP requests forever. Ordinary short transactions remain synchronous.
+
+Owner: `docs/api/API_CONTRACT_IDEMPOTENCY_AND_RETRY.md`.
+
+---
+
+## 9. Synchronization
+
+Workstation synchronization uses durable local outbox truth; in-memory signaling only wakes work.
+
+Server path:
 
 ```text
-Order canonical state: Accepted
-Tenant stage: WaitingForDesignApproval
-```
-
-Tenant stages may describe how work proceeds. Canonical states protect payment, stock, financial, security and synchronization invariants.
-
-Creation/editing of tenant workflow stages is also Web administration only. The Desktop consumes the published/versioned workflow snapshot relevant to it.
-
-## 5. Web administration surfaces
-
-### Tenant administration — `apps/web`
-
-For a two-person business this is ordinary `Settings / Administration`, not an enterprise console.
-
-It owns the presentation for:
-- Team and invitations
-- Roles and permissions
-- Branch/program settings
-- Rules/workflow/forms
-- Custom domains/branding
-- Feature settings
-- Devices/workstations
-- Tenant-visible audit and configuration history
-
-### Platform administration — `apps/admin-web`
-
-For SquiFlow operators only:
-- tenants/subscriptions/entitlements
-- global/runtime configuration
-- provider configuration
-- incidents and health
-- platform security
-- support/break-glass operations
-- server/worker control-plane tasks
-
-The browser is never the authorization authority. Both surfaces call authoritative APIs.
-
-## 6. Critical server/control-plane tasks are Web-only
-
-Platform-critical commands must originate from `apps/admin-web`; they are not exposed through Desktop sync/business APIs.
-
-Examples:
-- pause/drain/resume a Worker workload class;
-- retry/quarantine/reconcile a privileged failed job;
-- rotate platform/provider secrets;
-- change deployment/runtime/resource policies;
-- change platform feature entitlements;
-- database/storage maintenance or restore workflows;
-- cross-tenant support operations;
-- platform domain/provider configuration.
-
-Flow:
-
-```text
-Platform Admin Web
-→ /platform-admin/... API
-→ permission + scope
-→ exact diff / risk classification
-→ step-up MFA / approval if required
-→ durable command/proposal
-→ Worker/control-plane execution where async
-→ verification
-→ audit
-```
-
-Desktop continues to send ordinary business changes through `/sync/...`; this Web-only rule is for the privileged server control plane, not normal business synchronization.
-
-## 7. ASP.NET Core API host
-
-`services/core-api` is the HTTP/composition host, conceptually similar to a separate Axum host project in Rust.
-
-It owns:
-- endpoint registration;
-- auth/session middleware;
-- rate limits/admission controls;
-- correlation;
-- health/readiness;
-- dependency composition.
-
-It does not own business/domain rules. Business operations live in application/domain modules.
-
-Suggested endpoint groups:
-
-```text
-/api/...
-/tenant-admin/...
-/platform-admin/...
-/sync/...
-/client/...
-```
-
-The URL is organizational, not the security boundary.
-
-## 8. Identity and Workstation login
-
-Use one canonical SquiFlow browser identity authority for Web, custom domains, Admin Web and native Workstation interactive login.
-
-```text
-Install Workstation
-→ launch
-→ open system browser
-→ SquiFlow identity login/MFA
-→ choose permitted tenant/workstation context
-→ device enrollment/approval if required
-→ one-time authorization callback
-→ Workstation exchanges code using PKCE
-→ local session/device credential
-→ bootstrap authorized configuration/rules/data
-```
-
-The Workstation does not collect the password as its primary login path and never receives central database credentials.
-
-## 9. Custom domains
-
-A tenant Owner with `domains.manage` may configure verified domains through Web Settings.
-
-```text
-Draft
-→ PendingVerification
-→ Verified
-→ CertificateProvisioning
-→ Active
-```
-
-Failure states include `VerificationFailed`, `CertificateFailed`, `Misconfigured`, `Suspended`, `Removing`, `Removed`.
-
-SquiFlow verifies ownership, handles TLS lifecycle, persists authoritative mapping centrally, audits changes and keeps a safe SquiFlow fallback domain unless deliberately disabled through a reviewed policy.
-
-Authentication still redirects through the canonical identity origin. Do not share one broad auth cookie across arbitrary customer-owned domains.
-
-## 10. Web is online-only for business operations in v0.0.15
-
-Do **not** implement partial/offline-first Web business behavior now.
-
-Current Web baseline:
-- requires network for business reads/writes;
-- may use normal browser/HTTP caching for static versioned assets;
-- may keep harmless UI preferences in `localStorage`;
-- may keep transient per-tab UI hints in `sessionStorage`;
-- keeps auth/session secrets out of `localStorage`;
-- does not use IndexedDB as a business-data store;
-- does not queue business mutations offline;
-- does not add a service-worker synchronization model.
-
-If the connection is lost, preserve only safe in-memory form state where practical, show a clear connectivity state, and require reconnect before committing business work.
-
-Offline Web/PWA business behavior is a **future evaluation**, not an implementation requirement for v0.0.15.
-
-## 11. Desktop is the local-first client
-
-The Workstation is where local-first principles belong.
-
-For operations allowed offline:
-
-```text
-UI command
-→ local validation + applicable local rule snapshot
-→ one local durable transaction
-     business state + outbox/change record
-→ immediate local result
-→ background synchronization when network exists
-```
-
-The network is not in the critical interaction path for those operations.
-
-However, SquiFlow is not a pure peer-to-peer document editor. Shared payments, stock, credit, permissions, platform configuration and other global invariants still require server authority.
-
-Therefore distinguish:
-- **LocalCommitted** — safely stored on this Workstation;
-- **PendingRemote** — waiting for remote synchronization/validation;
-- **Authoritative** — accepted by the server authority;
-- **Conflict/Rejected/UpgradeRequired** — requires recovery or user action.
-
-Never tell the user `Synced` or `Server accepted` merely because local storage succeeded.
-
-## 12. Local-first principles adapted to SquiFlow
-
-The Ink & Switch local-first paper is useful for the Desktop because it emphasizes instant local interaction, the network being optional, multi-device synchronization, longevity/user control and understandable history. It also explicitly notes that banking/e-commerce-like systems are well served by centralized authority. SquiFlow adopts the useful local-first UX/storage principles without making every business entity multi-master.
-
-Practical consequences:
-- local DB is the default read/write path for offline-permitted Workstation interaction;
-- local writes are durable before sync is attempted;
-- synchronization is background/recoverable;
-- change/sync history is visible enough to explain pending/conflicting work;
-- data export/backup to stable formats is part of user control/longevity;
-- no global CRDT requirement;
-- conflict policy remains aggregate-specific;
-- local tampering is assumed possible, so server authorization/validation still decides shared authority.
-
-## 13. Workstation local durability and synchronization
-
-The selected local store must prove:
-- atomic business + outbox transaction;
-- crash/power-loss recovery;
-- bounded resource use;
-- schema migration across skipped releases;
-- corruption detection/recovery;
-- durable attachment staging;
-- local backup/export policy;
-- long-offline behavior.
-
-Sync path:
-
-```text
-local durable change
-→ bounded upload batch
+bounded pending batch
 → authentication
-→ authoritative tenant derivation
-→ permission/business validation
+→ authoritative TenantContext
+→ current permission/resource/business/rule validation
 → idempotency/concurrency/conflict
 → central transaction
 → per-item result
 → durable local acknowledgement
 ```
 
-Remote changes and the remote cursor are applied atomically locally. Long-offline clients need upgrade/resnapshot/export/repair paths, never silent discard.
+Remote changes + cursor advance are one local transaction.
 
-## 14. Worker
+Conflict policy is aggregate-specific; there is no global last-write-wins or global CRDT model.
 
-Durable asynchronous work uses:
-- bounded queues/concurrency;
+Long-offline recovery preserves local pending work and can require reauth, upgrade, resnapshot, rebase/conflict review or export/repair.
+
+Owner: `docs/sync/SYNC_AND_AUTHORITY.md`.
+
+---
+
+## 10. Persistence products remain open, but implementation needs real adapters
+
+Central database and Workstation embedded database products remain OPEN architecture decisions until their POCs meet the required workload/failure/isolation gates.
+
+Current candidates:
+- PostgreSQL — strongest central reference candidate;
+- SQLite + WAL — mature local reference candidate;
+- libSQL — explicit local candidate.
+
+The implementation sequence closes the **initial adapter choice just in time** for the phase that requires it. An open long-term provider decision must not become an excuse to avoid implementing a real vertical slice.
+
+Owner: `docs/data/PERSISTENCE_SELECTION.md`.
+
+---
+
+## 11. Rules, workflow and dynamic forms
+
+SquiFlow owns a bounded tenant-safe native rule architecture:
+- typed fact schema;
+- safe structured representation, no arbitrary tenant C#/JS/SQL;
+- validation/complexity limits;
+- immutable versioned publication;
+- deterministic evaluation;
+- bounded decision trace;
+- server/Workstation compatibility.
+
+Local rule evaluation respects **fact authority/freshness**: `LocalSafe`, `LocalProvisional` and `ServerRequired` decisions cannot be mixed blindly.
+
+Workflow is continuation-first: every non-terminal state has an actor/discovery/action/deadline/reassignment/cancel-or-compensate/version/conflict/recovery story. Active instances are pinned to their definition version unless explicitly migrated.
+
+Phase 5 must implement one bounded/versioned dynamic form and its migration/version semantics; arbitrary HTML/script customization is not allowed.
+
+Owners:
+- `docs/rules/NATIVE_RULE_ENGINE.md`
+- `docs/workflow/WORKFLOW_DESIGN.md`
+- form details remain a Phase-5 open decision recorded in `OPEN_DECISIONS.md`.
+
+---
+
+## 12. Business-domain baseline
+
+The domain is practical small/medium business work, not a generic ERP checkbox set.
+
+Core model:
+
+```text
+Party
+→ Commercial Relationship / Account
+→ Business Context
+→ Transaction
+→ Workflow
+→ Settlement
+```
+
+Support practical walk-in/registered/organization/program/representative/credit scenarios, quotations/tenders, purchasing/suppliers, fulfillment, payments/corrections/refunds and pragmatic inventory.
+
+Do **not** baseline MRP, universal stock reservation, complex banner-roll wastage, universal lot/serial tracking or full procurement workflow without evidence.
+
+Shared primitives must be consistent across modules:
+- Money + currency identity + rounding policy;
+- Quantity + unit;
+- absolute time + tenant/business timezone/date;
+- internal ID versus human/legal document number;
+- explicit correction/reversal/revision rather than overwriting issued truth;
+- Party duplicate/merge and privacy/data-lifecycle semantics when required.
+
+Owners:
+- `docs/domain/BUSINESS_MODEL.md`
+- `docs/domain/CROSS_CUTTING_BUSINESS_PRIMITIVES.md`.
+
+---
+
+## 13. Files/object storage and the current 100 GB constraint
+
+Primary durable object storage holds retained business binary objects; DB stores tenant-owned metadata/reference/hash/version/lifecycle.
+
+The currently available object-storage envelope is approximately **100 GB** and must be treated as a real capacity limit.
+
+Do not mix all of these as unlimited retained data:
+- customer artwork;
+- issued/generated documents;
+- temporary exports;
+- diagnostics;
+- orphaned objects;
+- backups.
+
+Backups are a separate durability class and the primary business-object bucket is not assumed to be its own only backup.
+
+Before production, define storage usage monitoring, retention, warning/critical/hard admission behavior and a restore strategy. Do not silently delete retained customer objects to recover space.
+
+Owner: `docs/data/FILES_AND_OBJECT_STORAGE.md`.
+
+---
+
+## 14. Worker and external effects
+
+Durable Worker execution uses:
+- bounded concurrency/queues;
+- tenant-aware fairness/admission;
 - claims/leases/fencing where required;
-- idempotency;
+- idempotent/reconcilable effects;
 - retry classification/backoff;
-- checkpoints/progress;
 - no-progress detection;
-- pause/resume/drain;
-- crash-loop protection;
+- pause/drain/recovery;
 - quarantine/DLQ;
-- reconciliation for `OutcomeUnknown` external effects.
+- `OutcomeUnknown` for ambiguous external effects.
 
-Worker control is not a hidden Desktop feature. Platform-critical Worker controls are invoked only through Platform Admin Web.
+Queued work is classified as:
+- committed business consequence;
+- deferred actor action;
+- platform-control command.
 
-## 15. Persistence products remain open
+This determines whether later permission revocation changes execution authority.
 
-Central and local persistence requirements are decided; exact products are not.
+Owner: `docs/server/CORE_API_AND_WORKER.md`.
 
-- PostgreSQL is the strongest current central reference candidate.
-- SQLite + WAL is the mature local reference candidate.
-- libSQL is an explicit local-store candidate.
-- Server and Workstation do not need to use the same product.
+### Notifications/integrations
 
-Provider-specific reference projects do not silently close the decision. A central provider must also prove the pooled tenant-isolation requirements documented above and in `docs/data/PERSISTENCE_SELECTION.md`.
+Notifications/webhooks/external deliveries use existing Core API/outbox/Worker boundaries first. A separate notification service is not baseline.
 
-## 16. Rules and workflow
+Delivery failure normally does not rewrite already committed business truth. Webhooks require signing, replay protection, URL/SSRF controls, bounded retry/backpressure and secret rotation.
 
-SquiFlow owns the native bounded rule model, validation, scope/inheritance, immutable snapshots, evaluation contract, decision trace and publication lifecycle. External evaluators can be bounded adapters, not the tenant rule model.
+Owner: `docs/integrations/NOTIFICATIONS_AND_EXTERNAL_DELIVERY.md`.
 
-Workflow is continuation-first. Every non-terminal state answers who acts next, where they discover the work, what continues it, deadlines/escalation, cancellation/correction, concurrent actors, permission/version changes and recovery.
+---
 
-Rules/workflows are edited/published through Web administration. The Workstation consumes compatible effective snapshots and may evaluate allowed rules locally for offline UX.
-
-## 17. Files and object storage
-
-- local filesystem: temporary processing/cache/staging and unsynced local attachments;
-- durable server objects: object storage behind a provider-neutral abstraction;
-- business DB: metadata, references, hashes, lifecycle state;
-- repeated delivery: CDN/cache where useful;
-- no object store mounted as an ordinary authoritative filesystem.
-
-## 18. Observability
+## 15. Observability
 
 OpenTelemetry/OTLP is the provider-neutral instrumentation boundary.
 
 Current managed targets:
-- New Relic free service — metrics/traces/APM;
-- Aiven OpenSearch free service — searchable structured operational logs;
-- Backtrace — crash-oriented diagnostics.
+- New Relic — metrics/traces/APM;
+- Aiven OpenSearch — searchable structured operational logs;
+- Backtrace — crash diagnostics direction.
 
-Managed observability is intentionally relied upon. Telemetry export is still outside business transaction correctness.
+Managed/free tiers are **capacity-limited dependencies**, not infinite resources. Telemetry queues/spools/retries are bounded and provider quota/export failure cannot block business transaction correctness.
 
-## 19. Stateless infrastructure
+Authoritative security/business audit remains durable SquiFlow data when its history is part of correctness.
 
-Web/API/Worker nodes are disposable for authoritative business state. Durable state lives in the selected database/object storage/job records. Shared session/revocation/domain-routing state is durable/shared when required; node caches are reconstructable.
+Owner: `docs/observability/OBSERVABILITY.md`.
 
-A locally stateful Workstation does not make the server infrastructure stateful.
+---
 
-## 20. What we intentionally do not add now
+## 16. Physical deployment/operations reality
 
-Do not add complexity merely because it is technically possible:
-- no Kafka baseline;
-- no YugabyteDB baseline;
-- no mandatory Redis;
-- no microservice per module;
-- no full browser offline/PWA sync layer;
-- no CRDT global data model;
-- no generic per-row ACL engine;
-- no schema-per-tenant/database-per-tenant/deployment-per-tenant baseline;
-- no physical Worker queue/pool per tenant baseline;
-- no per-tenant cloud account/VPC machinery;
-- no separate Rule network service by default;
-- no generic `run SQL` / `mark job complete` admin controls;
-- no hundreds of placeholder projects/files to satisfy a documentation inventory.
+The current environment is owned lower-spec/desktop-class rack hardware, not an elastic cloud.
 
-## 21. Implementation sequence
+`Stateless/disposable server node` means process memory is not authoritative. It does **not** promise another node exists, automatic failover or zero downtime.
 
-Implement complete vertical journeys, not many parallel modules.
+Before production, capture actual CPU/RAM/disk/filesystem/network/node-role/SPOF inventory and qualify the real hardware.
 
-### Phase 0 — repository/runtime skeleton
-- `apps/web`, `apps/admin-web`, `apps/desktop`;
-- `services/core-api`, `services/worker`;
-- modules/packages/persistence abstractions;
-- error/result/execution-context contracts;
-- typed tenant context/isolation boundary;
-- architecture dependency tests.
+Durability/recovery testing includes power/restart/disk-full/restore behavior appropriate to the actual storage stack. UPS/power protection, independent backup target, RPO/RTO, break-glass private access and operator ownership are explicit deployment decisions.
 
-### Phase 1 — identity + small-tenant setup
-- browser identity flow;
-- Owner tenant creation/bootstrap;
-- invite one Staff user;
-- Web-only role/permission assignment;
-- authoritative tenant-context resolution;
-- Workstation browser-login/device enrollment.
+If Platform Admin/Core API is itself down, recovery uses a separate private infrastructure break-glass runbook. That path is not exposed through Desktop/business APIs.
 
-### Phase 2 — first local-first Workstation transaction
-- customer/walk-in + minimal order;
-- selected local store;
-- atomic local business + outbox write;
-- instant local UI;
-- restart/power-loss recovery.
+Owner: `docs/operations/DEPLOYMENT_CAPACITY_AND_RECOVERY.md`.
 
-### Phase 3 — authoritative sync + pooled tenant-isolation proof
-- one upload command end to end;
-- idempotency receipts;
-- tenant-scoped resource/data access;
-- provider-specific pooled isolation proof;
-- PostgreSQL RLS POC if PostgreSQL remains reference candidate;
-- cross-tenant read/write/report/job/connection-pool attacks;
-- response-loss retry;
-- remote change feed/cursor;
-- permission revocation while pending.
+---
 
-### Phase 4 — conflict/long-offline
-- concurrent edit;
-- stale version;
-- protocol/schema/rule-version mismatch;
-- resnapshot/export/repair.
+## 17. Accessibility and interaction quality
 
-### Phase 5 — native rules + workflow
-- one tenant rule;
-- one configurable workflow stage;
-- one approval transition;
-- publish through Web;
-- compatible Workstation snapshot.
+Accessibility is a **release-level requirement**, not deferred polish.
 
-### Phase 6 — Worker/control plane
-- durable job;
-- lease/retry/no-progress;
-- tenant-aware fair/admitted processing;
-- pause/drain/recovery from Platform Admin Web only;
-- unknown external-effect reconciliation.
+Core requirements include:
+- keyboard-complete operation;
+- predictable focus;
+- semantic labels/validation/status;
+- no color-only state;
+- scalable text/layout;
+- accessible dialogs/dynamic updates;
+- accessible communication of `LocalCommitted`, `PendingRemote`, `Conflict`, `OutcomeUnknown`, permission failures and high-risk admin diffs.
 
-### Phase 7 — files/documents/printing
-- local staging;
-- tenant-scoped object lifecycle;
-- printing failure separated from transaction truth;
-- helper isolation where justified.
+Tenant branding/dynamic forms cannot bypass this baseline.
 
-### Phase 8 — observability/admin hardening
-- OTel → New Relic/Aiven;
-- Backtrace;
-- tenant/platform audit;
-- noisy-tenant/resource evidence;
-- step-up MFA and exact-diff critical admin flows.
+Exact formal conformance/legal target remains OPEN until deployment/jurisdiction requirements are known.
 
-### Phase 9 — financial/stock hardening
-- payment outcome unknown;
-- refund/reversal;
-- inventory concurrency;
-- credit authority.
+Owner: `docs/ux/ACCESSIBILITY_AND_INTERACTION_QUALITY.md`.
 
-### Phase 10 — release/resource/recovery qualification
-- 8 GB single-node target;
-- Workstation resource budget;
-- update/version skew;
-- cross-tenant isolation release suite;
-- backup/restore;
-- failure-injection and long-running soak tests.
+---
 
-Only after this baseline is proven should broader business modules, multi-node HA, dedicated tenant placement or Web offline behavior expand.
+## 18. Verification strategy
 
-## 22. Definition of implementation-complete
+The prose attack cases are not enough.
 
-A capability is not complete until it answers:
-- user states and recovery;
-- owner/authority and durable source;
-- tenant/isolation scope where applicable;
-- validation and permission;
+Use layered verification:
+- domain/property tests;
+- application tests;
+- **real** persistence-adapter tests;
+- Workstation local-store tests;
+- ASP.NET Core API/authorization tests;
+- selected end-to-end journeys;
+- failure injection;
+- accessibility verification;
+- release qualification on the actual deployment hardware;
+- backup/restore drills.
+
+CI success must not imply hardware/restore qualification ran when it did not.
+
+Owner: `docs/testing/VERIFICATION_STRATEGY.md`.
+
+---
+
+## 19. Sequential implementation plan
+
+Implementation follows one vertical phase at a time with a default **WIP limit of 1 phase**.
+
+```text
+Phase 0  executable repository/runtime skeleton + CI + hardware inventory
+Phase 1  identity + Owner/Staff + Web-only permissions
+Phase 2  first local-first Workstation Customer/Order transaction + Guard skeleton
+Phase 3  authoritative sync + idempotency + pooled tenant isolation
+Phase 4  conflict/long-offline/backlog recovery
+Phase 5  native rule + workflow + one dynamic form
+Phase 6  Worker + long-running API + platform control plane/break-glass separation
+Phase 7  files/object capacity + documents + printer/device side effects
+Phase 8  API/observability/admin/accessibility hardening
+Phase 9  payments/credit/inventory/correction hardening
+Phase 10 actual-hardware release/resource/backup/restore qualification
+```
+
+The detailed deliver/attack/gate criteria and **phase-start decision gates** are owned by `docs/implementation/PHASES_AND_GATES.md`.
+
+### Planning stop rule
+
+Do not wait for every future enterprise decision to be solved.
+
+For each phase:
+1. close the decisions required to start that phase;
+2. implement the vertical slice;
+3. attack it with tests;
+4. measure actual behavior;
+5. update later architecture only when evidence changes an assumption.
+
+The current repository is now detailed enough to start **Phase 0**.
+
+---
+
+## 20. Deliberate non-baseline complexity
+
+Do not add these merely because architecture catalogs or future products might use them:
+
+- full browser offline/PWA business sync;
+- Kafka/event-log infrastructure;
+- mandatory Redis/shared cache;
+- microservice per module;
+- full CQRS/event sourcing/Saga core architecture;
+- global CRDT model;
+- generic Zanzibar-style relationship authorization service;
+- schema/database/deployment per tenant baseline;
+- physical queue/worker per tenant baseline;
+- sharding/multi-region active-active/deployment stamps;
+- advanced manufacturing/MRP/wastage;
+- advanced peripheral suite without customer journeys;
+- SaaS metering/billing engine before the commercial model requires it;
+- specialized import/ETL or search infrastructure before evidence requires it;
+- hundreds of placeholder files/projects to make documentation look complete.
+
+---
+
+## 21. Definition of implementation-complete
+
+A capability is incomplete until it answers, where applicable:
+
+- who uses it and all important UX states;
+- accessibility of the implemented journey;
+- authoritative owner/tenant/isolation scope;
+- permission/resource/property/domain validation;
 - transaction boundary;
 - idempotency/concurrency;
-- async work/crash recovery;
-- unknown external-effect handling;
-- user feedback/retry/cancel;
-- audit/telemetry;
-- resource limits/noisy-neighbor behavior;
-- upgrade/version skew;
-- backup/restore/deletion;
-- tests proving those behaviors.
+- local versus remote authority;
+- async work/crash/no-progress/external-unknown behavior;
+- retry/cancel/correction/recovery;
+- audit/telemetry/privacy;
+- storage/memory/CPU/network/resource bounds;
+- version skew/update/long-offline behavior;
+- capacity exhaustion/noisy-neighbor behavior;
+- backup/restore/deletion/retention;
+- physical deployment/recovery impact when relevant;
+- tests/failure injection proving the contract.
+
+If those answers only exist in discussion and not in the owning current document/executable tests, the implementation is not complete.
