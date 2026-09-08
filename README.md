@@ -15,6 +15,7 @@ Start with [`MASTER_IMPLEMENTATION_PLAN.md`](MASTER_IMPLEMENTATION_PLAN.md).
 - **Platform Admin uses a separate `services/admin-api` backend**, independent of Core API for normal super-admin/control-plane operations.
 - `apps/admin-web → services/admin-api`; Core API is not the normal downstream backend for platform administration.
 - Modular-monolith business code; network/process boundaries are added when they protect a real deployment/fault/security/recovery responsibility.
+- Ordinary business modules communicate in-process; HTTP/gRPC between modules is not baseline.
 - **SquiFlow.Guard** is a baseline Workstation companion for launch/supervision, bounded crash/hang recovery, update recovery, child/helper cleanup and diagnostic/resource evidence. It does not own business logic.
 - Small-team-first tenant model: Owner + Staff by default, with Owner-controlled granular permissions.
 - Tenant role/permission and rule/workflow/form administration is Web-only; Desktop consumes published authority/configuration and never grants it.
@@ -35,11 +36,18 @@ Start with [`MASTER_IMPLEMENTATION_PLAN.md`](MASTER_IMPLEMENTATION_PLAN.md).
 - PostgreSQL is the strongest central reference candidate; SQLite + WAL and libSQL are Workstation-store candidates. Exact DB products remain open until their POCs.
 - Authoritative relational state is normalized first; denormalized/materialized read structures are derived optimizations with explicit source/freshness/rebuild contracts.
 - Database indexes are workload-driven and measured for both query benefit and write/WAL/storage/migration/sync cost.
-- **REST/task-oriented HTTP is the v0.0.15 API baseline.** GraphQL/GraphQL Federation are deferred until a real query-composition requirement proves them worthwhile.
+- Core API, Admin API, and Worker may share the central DB as hosts of the same modular-monolith business core; shared access still has explicit module/data ownership and common invariants.
+- **REST/task-oriented HTTP is the v0.0.15 API baseline, without claiming strict REST purity.** Ordinary resources are resource-oriented; semantic command subresources remain valid for approvals/refunds/publications/etc.
+- POST is not automatically retry-safe; retryable POST commands depend on the SquiFlow semantic-idempotency contract.
+- API compatibility/versioning is mandatory for skipped Workstation releases and independently deployed backends.
+- GraphQL/GraphQL Federation are deferred until a real query-composition requirement proves them worthwhile.
 - Rate limiting/admission is multi-dimensional where required rather than one global RPS number; authorization and throttling are separate decisions.
 - Pagination, bounded connection pooling, selective caching/compression, and bounded async telemetry export are evidence-driven API performance techniques.
 - An edge reverse proxy/API-gateway capability may route/TLS/WAF/coarsely limit traffic, but it never replaces backend authorization and never collapses Admin API into Core API.
+- A heavyweight API-management product is not baseline until concrete management/routing requirements justify it.
 - A service mesh is not baseline; revisit only if real east-west service traffic justifies the runtime/operational cost.
+- Production external traffic uses HTTPS/TLS; ZITADEL uses OIDC/OAuth over HTTPS. HTTP/1.1/2/3 negotiation is transport detail, not business semantics.
+- WebSocket/SignalR, if used, is live signaling only; durable truth remains in DB/outbox/state. DNS/hostnames route traffic but are never tenant authority. SSH/private access is infrastructure operations only.
 - Currency is configurable/not hardcoded. v0.0.15 does not build a multi-currency/FX subsystem.
 - SquiFlow-native bounded rules/workflow remain in-process capabilities unless real isolation/scale proves otherwise.
 - **Primary bootstrap object storage:** private Hugging Face Storage Bucket, current private-storage envelope about 100 GB.
@@ -74,6 +82,7 @@ Avoid ceremony that does not protect anything:
 IRepository<T> / IUnitOfWork by default
 one-interface-per-class
 generic Manager → Service → Handler forwarding chains
+HTTP/gRPC between ordinary modules
 arbitrary helper processes
 empty projects/directories for future architecture
 ```
@@ -128,6 +137,7 @@ Minimalism must never remove required offline durability, recovery, authorizatio
 - [`docs/review/RELIABILITY_API_AND_PATTERN_SOURCE_REVIEW.md`](docs/review/RELIABILITY_API_AND_PATTERN_SOURCE_REVIEW.md)
 - [`docs/review/BYTEBYTEGO_DISTRIBUTED_SYSTEMS_SOURCE_REVIEW.md`](docs/review/BYTEBYTEGO_DISTRIBUTED_SYSTEMS_SOURCE_REVIEW.md)
 - [`docs/review/BYTEBYTEGO_CODE_CONSISTENCY_DATA_API_SOURCE_REVIEW.md`](docs/review/BYTEBYTEGO_CODE_CONSISTENCY_DATA_API_SOURCE_REVIEW.md)
+- [`docs/review/BYTEBYTEGO_API_GATEWAY_SERVICE_PROTOCOL_SOURCE_REVIEW.md`](docs/review/BYTEBYTEGO_API_GATEWAY_SERVICE_PROTOCOL_SOURCE_REVIEW.md)
 - [`docs/review/CSV_AUDIT_AND_SOURCE_CLEANUP.md`](docs/review/CSV_AUDIT_AND_SOURCE_CLEANUP.md)
 
 ## Source-of-truth rule
