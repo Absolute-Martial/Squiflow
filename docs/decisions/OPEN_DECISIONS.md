@@ -12,8 +12,9 @@ These are decisions that can materially affect the current implementation baseli
 - Exact session-revocation persistence/rotation strategy after identity-provider and multi-node session design is selected.
 - Whether the chosen identity provider supports/should enable Back-Channel Logout for SquiFlow Web sessions.
 - Exact authentication-context (`acr`) vocabulary/provider mapping for high-risk step-up operations.
-- Final Web/UI framework commitment where implementation evidence is still required.
 - Exact messaging/scheduling libraries after POC.
+
+Avalonia for Workstation and Blazor Web App for Web are current accepted presentation-framework decisions and are **not** open decisions.
 
 ## Authorization/product-control decisions
 
