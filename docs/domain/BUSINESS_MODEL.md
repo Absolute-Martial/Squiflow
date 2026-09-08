@@ -21,7 +21,22 @@ A Party can be an individual customer, organization, supplier, representative or
 
 A Business Context can include tenant, branch/location, program/project and Workstation where relevant.
 
-## 2. Customer scenarios
+## 2. Shared business primitives
+
+Sales, Purchasing, Inventory and Finance must not each invent incompatible representations for money, quantities, dates or corrections.
+
+Use the shared rules in `docs/domain/CROSS_CUTTING_BUSINESS_PRIMITIVES.md` for:
+- Money + currency identity + rounding;
+- Quantity + Unit;
+- absolute timestamp versus tenant/business date/timezone;
+- internal ID versus human/legal document numbering;
+- corrections/reversals/revisions;
+- Party duplicate/merge;
+- privacy/data-lifecycle concepts.
+
+Jurisdiction-specific tax/invoice numbering/privacy policy remains OPEN until the deployment/product market is selected.
+
+## 3. Customer scenarios
 
 Support:
 - walk-in / temporary customer;
@@ -30,7 +45,7 @@ Support:
 - organization with multiple programs/projects;
 - representative acting for an organization/program;
 - credit customer;
-- client-client/end-customer through the hosted portal.
+- client-client/end-customer through the hosted portal when that surface enters implementation scope.
 
 Typical small-shop flow:
 
@@ -44,7 +59,7 @@ walk-in customer
 
 Do not require a full account hierarchy for a simple walk-in sale.
 
-## 3. Organization/program billing
+## 4. Organization/program billing
 
 Organizations may have several programs/projects but settle at an aggregate organization/account level.
 
@@ -54,7 +69,7 @@ Support:
 - consolidated billing/reporting;
 - representative/contact relationships.
 
-## 4. Products/services and pricing
+## 5. Products/services and pricing
 
 SquiFlow supports products/services appropriate to the business rather than enforcing a `ready-made` versus `custom-design` split when the tenant's work does not use that distinction.
 
@@ -68,7 +83,9 @@ Examples:
 - owner/manual final price;
 - outsourced-printing price.
 
-## 5. Quotations/tenders
+Historical issued totals remain tied to the applicable pricing/rounding/configuration version; a later configuration change must not silently recompute old issued truth.
+
+## 6. Quotations/tenders
 
 Quotation support is not one simple quote state.
 
@@ -81,7 +98,7 @@ Support version/revision history and tenant-defined workflow where useful:
 
 Published/issued quotation versions should remain explainable/immutable rather than being silently overwritten.
 
-## 6. Printing and outsourced work
+## 7. Printing and outsourced work
 
 A realistic case is that the tenant's printer is unavailable or another printer/friend/supplier performs only the printing.
 
@@ -91,7 +108,9 @@ The Owner can determine the applicable resale/final price according to permissio
 
 This is not the same as introducing a full manufacturing/MRP subsystem.
 
-## 7. Suppliers and purchasing
+Local printer/spooler execution is a device side effect owned by `docs/workstation/GUARD_AND_DEVICE_INTEGRATION.md`; a print failure does not undo committed order/invoice truth.
+
+## 8. Suppliers and purchasing
 
 Suppliers may be contacted informally, including by phone, and may provide materials/services with partial payments.
 
@@ -105,7 +124,7 @@ Support practical supplier/purchase data:
 
 Do not require complex procurement workflow for every small purchase.
 
-## 8. Inventory scope
+## 9. Inventory scope
 
 Inventory is practical stock knowledge, not a full manufacturing system.
 
@@ -128,7 +147,7 @@ Do not introduce these unless a real tenant requires them:
 
 Banner/roll wastage can become a specialized future calculation if the business benefit justifies its complexity.
 
-## 9. Sales/order lifecycle
+## 10. Sales/order lifecycle
 
 Exact states vary by profile, but the model must distinguish draft work from posted/completed business history.
 
@@ -145,7 +164,7 @@ Required scenarios include:
 
 Do not implement posted financial/stock history as a mutable form that can simply be edited away.
 
-## 10. Payments/credit
+## 11. Payments/credit
 
 Payment status is richer than `Paid = true/false`.
 
@@ -161,7 +180,9 @@ Possible operational states:
 
 Credit uses current authoritative exposure for operations where exceeding a limit matters. Offline credit-related operations may be provisional or server-required depending on policy.
 
-## 11. Documents/files
+Money/currency/rounding/allocation semantics come from the cross-cutting primitive contract; a payment module may not invent a separate incompatible `double amount` model.
+
+## 12. Documents/files
 
 Business documents can include:
 - quotation/tender documents;
@@ -173,11 +194,13 @@ Business documents can include:
 
 Database stores business metadata/reference; durable bytes live in object storage or local pending/staging storage according to lifecycle.
 
-## 12. Client-client hosted Web
+The current ~100 GB primary object-storage envelope and retention/backup rules are owned by `docs/data/FILES_AND_OBJECT_STORAGE.md` and the deployment-capacity plan.
+
+## 13. Client-client hosted Web
 
 A SquiFlow tenant may expose a separate hosted/custom-domain portal to its own customers.
 
-This is not the same security surface as staff Web. Client-client tokens/routes can never be used as staff/operator authority.
+This is not the same security surface as staff Web. Client-client identity/tokens/routes can never be used as staff/operator authority.
 
 Potential capabilities are enabled per tenant, for example:
 - view/request quotation;
@@ -186,9 +209,28 @@ Potential capabilities are enabled per tenant, for example:
 - view permitted documents;
 - submit permitted information.
 
+The exact first portal scope and customer-account authentication model remain OPEN until this surface becomes an implementation slice.
+
+When implemented, it inherits the current Web rule: online-only business behavior unless a later decision explicitly changes it, plus the accessibility/security requirements for public/client-facing Web.
+
 Do not assume helpdesk/marketing automation is a core product requirement.
 
-## 13. Dynamic rules/workflow/forms
+## 14. Notifications and external integrations
+
+An order/workflow may need to tell a customer or staff member something, but this does not justify a communications platform by default.
+
+External email/SMS/webhook delivery is a consequence capability owned by `docs/integrations/NOTIFICATIONS_AND_EXTERNAL_DELIVERY.md`.
+
+For each journey ask:
+- is an in-app work inbox enough?;
+- which external channel is genuinely required?;
+- does delivery failure change business truth or only notification state?;
+- who can configure the channel/template?;
+- what consent/privacy/provider-cost rule applies?
+
+Initial channels remain requirement-driven.
+
+## 15. Dynamic rules/workflow/forms
 
 Tenant variation should be represented through bounded configuration:
 - required fields;
@@ -200,7 +242,27 @@ Tenant variation should be represented through bounded configuration:
 
 Hard tenant-isolation/security/domain invariants remain strongly typed and non-overridable.
 
-## 14. Small-business usability rule
+Dynamic form definitions are versioned/bounded data rather than arbitrary HTML/script. Phase 5 must prove one real form lifecycle, including what happens when an old draft/workflow instance references an older form definition.
+
+## 16. Import/onboarding existing business data
+
+Real customers may already have spreadsheets/legacy records.
+
+Do not build a generic ETL platform now, but do not ignore onboarding migration either.
+
+Before onboarding beyond manual entry becomes a requirement, decide the first supported path, for example a bounded CSV import with:
+- explicit template/schema version;
+- dry-run/validation report;
+- row-level errors;
+- duplicate/Party matching policy;
+- tenant scope;
+- idempotent/restartable import where practical;
+- audit/source evidence;
+- formula/CSV injection safety on exports/import previews.
+
+The first import scope remains OPEN and should be driven by actual customer onboarding data.
+
+## 17. Small-business usability rule
 
 The default experience must not require users to understand ERP terminology they do not need.
 
