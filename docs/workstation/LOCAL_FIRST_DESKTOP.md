@@ -4,52 +4,53 @@
 
 **Reference:** Ink & Switch, *Local-first software: You own your data, in spite of the cloud* (2019), https://www.inkandswitch.com/essay/local-first/
 
-## 1. What we adopt
+## 1. What SquiFlow adopts
 
-The local-first paper gives several principles that fit SquiFlow Workstation well:
-- fast interaction without waiting for network round trips;
-- useful operation when the network is unavailable;
+The Workstation should provide:
+- fast interaction without waiting for network round trips for explicitly local-capable work;
 - durable local work;
-- multi-device synchronization;
-- understandable change/history behavior;
-- user control/export/longevity;
-- installed native software as a stronger offline experience than a browser tab.
+- useful operation when the network is unavailable;
+- background synchronization;
+- understandable pending/conflict/history state;
+- export/recovery paths for user work.
 
-## 2. What we do not copy blindly
+SquiFlow does **not** copy a peer-to-peer document-editor authority model into payments, stock, credit, permissions or other centrally coordinated business facts.
 
-The paper itself distinguishes document/personal-data local-first software from banking/e-commerce-like systems that are well served by centralized authority.
+No global CRDT requirement exists.
 
-SquiFlow contains payments, shared inventory, credit, permissions, tenant security, workflow publication and other globally coordinated business facts.
+## 2. Baseline process model
 
-Therefore SquiFlow uses **local-first interaction and durability**, not unrestricted peer-to-peer/global multi-master authority.
+Start with one process:
 
-No global CRDT requirement is introduced.
+```text
+SquiFlow.Workstation
+```
 
-## 3. Workstation interaction rule
+Do not create an always-running Guard/supervisor/helper process during the baseline.
 
-For a business operation explicitly allowed offline:
+If a future updater, printer/native library, document parser or other component proves it can hang/crash/leak in a way that warrants process isolation, add one narrow process then. The problem must exist before the helper does.
+
+## 3. Local transaction rule
+
+For an operation explicitly allowed offline:
 
 ```text
 User action
 → local validation
-→ applicable immutable local rule/config snapshot
+→ applicable compatible local rule/config snapshot
 → one durable local transaction
-     business record/state + outbox/change record
+     business state + outbox/change record
 → immediate local UI update
 → background synchronization later
 ```
 
-The user should not wait for a server round trip before the locally permitted operation is safely stored.
+The durable local store, not an in-memory queue/channel, survives restart.
 
-`System.Threading.Channels` or another in-memory signal can wake synchronization, but the durable local store remains truth after a crash/restart.
+## 4. Local state versus server authority
 
-## 4. Local state is real state, but authority is explicit
+Local storage contains real user work, not disposable cache data.
 
-Do not call the local database “just a cache.” It contains real user work and must survive restart/offline operation.
-
-But do not call every local value globally authoritative either.
-
-Use explicit user/system states:
+Use explicit states such as:
 
 ```text
 LocalCommitted
@@ -57,50 +58,30 @@ PendingRemote
 Authoritative
 Conflict
 Rejected
+AuthorizationChanged
 UpgradeRequired
 ```
 
-Examples:
-- local draft/order capture may become `LocalCommitted` immediately;
-- a shared-stock reservation may remain provisional until server acceptance;
-- permissions are never granted by the local database;
-- payment/external effects may require online/server authority.
+Do not tell the user a server accepted something merely because the local transaction committed.
 
 ## 5. Authority classes
 
-Every command/aggregate defines one of these behavioral classes.
+### Local-capable
+May be completed locally and reconciled later, for example selected customer/order/quotation drafting operations after domain proof.
 
-### A. Local-capable / remotely reconciled
-User may perform the action offline; it is durably recorded and later synchronized.
+### Local-provisional
+Can continue locally but remote authority is still pending, for example an operation influenced by current shared credit/stock.
 
-Possible examples after domain proof:
-- customer/contact capture;
-- order drafting;
-- quotation drafting;
-- allowed local document/print preparation.
+### Server-required
+Unavailable offline because correctness requires current central authority, for example permission changes, many payment/provider effects, privileged refunds, and selected shared-stock/financial actions.
 
-### B. Local provisional
-User may continue offline, but SquiFlow must clearly show that remote authority is pending.
-
-Possible examples:
-- operations affected by current credit exposure;
-- operations affected by globally shared inventory;
-- some final issuance/numbering actions.
-
-### C. Server-required
-The action is unavailable offline because correctness depends on current shared authority.
-
-Examples include platform administration and may include payment/provider effects, privileged refunds, permission changes, critical stock operations or other domain-specific actions.
-
-Do not hide this distinction from the user.
+Each real command chooses deliberately; do not create a huge generic policy framework before commands exist.
 
 ## 6. Read path
 
-Where data is available locally, Workstation screens should read local state directly instead of waiting for the network.
+Where relevant data is local, Workstation screens read local state directly. Do not round-trip to the server after every local write merely to redisplay the same value.
 
-Remote synchronization can update local state in the background. UI state follows the local database/change notification model.
-
-Do not implement a UI that unnecessarily reloads the server after every local edit just to prove the local write happened.
+Remote synchronization updates local state in the background.
 
 ## 7. Sync path
 
@@ -109,122 +90,104 @@ LocalCommitted change
 → durable outbox
 → bounded batch
 → authenticated Sync API
-→ server tenant derivation + authorization
-→ business/rule/concurrency validation
+→ authoritative tenant + permission + business/rule/concurrency validation
 → idempotent central transaction
-→ per-item result/receipt
-→ local durable acknowledgement
+→ per-item result
+→ durable local acknowledgement
 ```
 
-Remote changes:
+Remote changes + cursor advancement commit together locally. Never advance the cursor before the changes are durably applied.
 
-```text
-server change feed/cursor
-→ authorized scoped changes
-→ local transaction: apply changes + advance cursor
-→ UI updates
-```
+## 8. Conflict policy
 
-Never advance the cursor independently from successful local apply.
-
-## 8. Conflict philosophy
-
-Do not assume one conflict algorithm fits everything.
+No one algorithm fits every aggregate.
 
 - Customer/profile: merge/version where safe.
 - Draft quotation: version/merge/manual review can be reasonable.
 - Published quotation: immutable revision.
 - Order: command + expected version.
-- Inventory: authoritative transactional operation; no generic last-write-wins.
-- Payment: immutable/idempotent event + reconciliation.
-- Permission/rules/workflow publication: server authority.
+- Inventory: authoritative transactional operation, no generic last-write-wins.
+- Payment: idempotent/immutable effect + reconciliation.
+- Permissions/rules/workflow publication: server authority.
 
-CRDTs may be evaluated later for a narrow genuinely collaborative document-like feature, not for the whole business database.
+## 9. Network behavior
 
-## 9. History and explainability
-
-A local-first user needs to understand what happened when remote changes arrive.
-
-At minimum expose:
-- pending sync count/state;
-- last successful sync;
-- rejected/conflicting operations needing attention;
-- operation/decision IDs useful for support;
-- whether the visible record is local pending or remotely accepted.
-
-For important collaborative/revisioned data, keep enough version/change history to explain changes without accumulating an unbounded CRDT history model.
-
-## 10. Network behavior
-
-Network is optional for local-capable operations.
-
-When network disappears:
-- do not continuously show blocking errors for every local action;
-- stop busy retry loops;
-- continue locally allowed work;
-- expose connectivity/sync state without dominating the UI;
+When offline:
+- continue local-capable work;
+- do not busy-loop retries;
+- show connectivity/sync state without blocking ordinary local interaction;
 - back off retries with jitter;
-- reconcile when connectivity returns.
+- explain why server-required actions need connectivity.
 
-For server-required operations, explain why the action needs connectivity instead of pretending it succeeded.
+## 10. Local disk/staging
 
-## 11. User control and longevity
+Bound local DB, pending attachment staging, temp data, logs/diagnostics and application-managed exports.
 
-Local-first principles also imply user agency.
+When disk space becomes low:
+- preserve committed local business work;
+- stop optional heavy new processing;
+- never delete unsynced business evidence just to recover space;
+- explain which SquiFlow-managed data is consuming space where practical.
 
-SquiFlow should support appropriate export/backup of business data/documents to stable formats such as JSON/CSV/PDF/images where business/security policy allows.
+## 11. Printing
 
-This does not mean raw central database access or bypassing tenant/security rules.
+Printing is a device side effect and begins inside the ordinary Workstation process using the supported Windows printing/spooler path.
 
-## 12. Security reality
+```text
+committed business document
+→ print request
+→ local printer/spooler
+→ success/failure/unknown physical output
+```
 
-A local-first Workstation means authorized business data exists on the device.
+Printer failure does not undo the sale/order/invoice. Retry and alternate-printer selection are separate actions.
+
+Do not claim physical paper output merely because the spooler accepted a job.
+
+Other hardware integrations are added only after a real customer journey requires them.
+
+## 12. Security/session reality
 
 Assume a determined local user can inspect/tamper with local storage.
 
 Therefore:
-- local storage is protected using OS secure-storage/data-at-rest mechanisms where appropriate;
-- secrets are minimized;
-- no central DB credentials exist locally;
-- local tenant IDs/permissions are not trusted by the server;
-- remote synchronization reauthenticates/re-authorizes material changes;
-- device revocation does not magically erase offline bytes already on a stolen device.
+- no central DB credentials are stored locally;
+- local tenant IDs/permissions are not server authority;
+- synchronization reauthenticates/reauthorizes material changes;
+- device/session expiry does not delete pending local business work;
+- a stolen/revoked device cannot be assumed to have had already-downloaded bytes remotely erased.
 
-## 13. Long-offline behavior
+Exact shared-Windows-profile/user-switch behavior remains an implementation decision before that scenario is supported.
 
-A Workstation may return after weeks/months with:
-- expired auth/device credentials;
-- old local schema;
-- old rule/config snapshot;
-- old sync protocol;
-- tombstones already compacted;
-- pending changes to entities that were deleted/merged remotely.
+## 13. Long-offline recovery
 
-Required recovery can be reauthentication, upgrade, scoped resnapshot, rebase/conflict review or export/repair.
+A Workstation can return with expired credentials, old schema/protocol/rules, compacted tombstones, or pending work against remotely changed/deleted data.
 
-Never silently discard local user work.
+Recovery may require reauthentication, upgrade, resnapshot, rebase/conflict review or export/repair.
+
+Never silently discard pending user work.
 
 ## 14. Resource behavior
 
-Local-first must not mean “keep everything in RAM.”
+Use durable storage and bounded in-memory work. Do not increase cache/worker count simply because more RAM/CPU is present.
 
-Use durable local storage, bounded in-memory caches, event-driven wakeups and triggered helpers.
+Avoid helper processes until actual process isolation is justified.
 
-The Workstation remains a guest on the customer's PC and does not expand workers/caches simply because RAM is available.
-
-## 15. Qualification tests
+## 15. Qualification cases
 
 Test at least:
-- power loss immediately after local commit;
-- lost in-memory wake signal;
-- app restart with pending outbox;
+- process termination immediately after local commit;
+- lost in-memory sync wake signal;
+- restart with pending outbox;
 - sleep/hibernate during sync;
+- disk full/low space;
 - days/months offline;
 - two Workstations editing overlapping data;
 - response lost after server commit;
 - permission revoked while local work is pending;
 - rule/protocol version changes while offline;
-- local database tamper/corruption;
-- 10k+ queued changes reconnecting;
+- local DB tamper/corruption;
+- large pending queue reconnecting;
 - large staged attachment;
-- wrong local clock/timezone.
+- wrong local clock/timezone;
+- printer unavailable/spooler error after business commit.
