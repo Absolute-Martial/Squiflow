@@ -2,221 +2,210 @@
 
 **Version:** v0.0.15
 
-SquiFlow's phase documents contain many attack cases, but those cases need an explicit test architecture so they do not remain prose-only requirements.
+SquiFlow uses the smallest test layer that can prove a real invariant. Do not create interfaces/mocks merely to increase unit-test count.
 
 ## 1. Test layers
 
-Use the smallest test layer that can prove the invariant.
-
 ### Domain/property tests
-For pure business rules and invariants:
-- money/rounding/allocation invariants;
+Use for pure logic that genuinely exists:
 - allowed state transitions;
-- rule-engine determinism;
-- permission/delegation logic without HTTP;
-- idempotency semantic comparison helpers;
-- quantity/unit calculations.
+- rule determinism;
+- permission/delegation logic;
+- idempotency semantic comparison;
+- quantity/rounding rules actually used by implemented features.
 
 ### Application tests
-For use cases with mocked or test adapters only where the boundary itself is not under test:
-- command validation;
-- authorization requirement composition;
-- workflow continuation;
-- outbox/job creation decisions.
+Use for use-case orchestration where a fake collaborator is useful and the collaborator's real behavior is not the subject of the test.
 
-### Persistence adapter tests
-Run against the real candidate database implementation, not an in-memory substitute, for:
+Do not invent an interface solely so every class can be mocked.
+
+### Real persistence-adapter tests
+Run the actual candidate/selected DB for behavior that cannot be trusted to an in-memory substitute:
 - transactions;
 - constraints;
-- concurrency;
-- claims/leases/fencing;
+- concurrency/locking;
+- claims/leases where implemented;
 - migrations;
 - tenant isolation/RLS where applicable;
-- idempotency receipt atomicity;
-- backup/restore primitives.
+- idempotency atomicity;
+- restart/recovery behavior that the provider exposes.
 
 ### Workstation local-store tests
-Run the actual candidate SQLite/libSQL adapter for:
+Run the actual SQLite/libSQL candidate/selection for:
 - atomic business + outbox writes;
-- restart/recovery;
-- lock contention;
+- restart recovery;
+- locking/busy behavior;
 - schema migration;
-- corruption/repair behavior;
-- long-offline queue persistence.
+- long-offline queue persistence;
+- corruption/repair behavior that can be reproduced safely.
 
 ### API/authorization tests
 Use the real ASP.NET Core pipeline for:
-- authentication/tenant-context boundary;
+- authentication/TenantContext;
 - function/resource/property authorization;
 - cross-tenant negative tests;
 - idempotency/retry;
-- Problem Details/error contracts;
+- error contracts;
 - request limits;
 - custom-domain/Host validation.
 
-### End-to-end journey tests
-Prove complete journeys across actual runtime boundaries only for important vertical slices, for example:
+### Selected end-to-end journeys
+Use only where crossing the real runtime boundaries is what needs proof, for example:
 
 ```text
-Web Owner grants Staff role
-→ Workstation refreshes effective permissions
-→ Staff creates local order offline
+Owner grants Staff permission in Web
+→ Staff signs in to Workstation
+→ creates local order
 → reconnects
 → Core API authorizes/syncs
-→ Worker creates a document
-→ printing fails then retries
+→ server accepts or explicitly conflicts
 ```
 
-Do not make every test an expensive full end-to-end test.
+Later phases extend this with Worker/object/printing only when those components exist.
 
-## 2. Architecture dependency tests
+## 2. Architecture tests
 
-Automate forbidden dependency rules such as:
+Test only real boundaries that exist.
 
-- Domain/Application must not depend on ASP.NET Core;
-- ordinary Web/Desktop must not depend on persistence-provider implementations;
-- Admin Web does not become a DB/SSH client;
-- provider-specific types do not leak into stable domain/application contracts;
-- Workstation does not reference platform-control-plane implementation;
-- Worker does not depend on presentation projects.
+Examples:
+- domain/application code does not depend on ASP.NET Core merely for convenience;
+- Web/Desktop do not directly become central DB clients;
+- provider-specific Hugging Face/DB types do not leak into business/domain records;
+- Workstation does not gain platform-control-plane authority;
+- future Worker must not depend on presentation projects.
 
-These tests make repository boundaries executable rather than diagram-only.
+Do not require architecture tests for placeholder projects that were never created.
 
 ## 3. Failure injection
 
-Happy-path tests are insufficient.
-
-Required failure classes include:
-
-### Local Workstation
-- abrupt process termination after local commit;
-- power-loss-equivalent/restart test appropriate to local DB;
-- disk full/low disk;
-- DB busy/locked;
+### Workstation
+- process termination after local commit;
+- restart with pending outbox;
+- disk full/low space;
+- local DB busy/locked;
 - lost in-memory sync wake signal;
 - sleep/hibernate during sync;
 - missing/changed staged attachment;
-- local data tamper/corruption;
-- months-old client returning.
+- old client returning after a long period;
+- printer/spooler failure when printing is implemented.
 
 ### Sync/API
 - server commits and response is lost;
 - duplicate same-key request;
-- same idempotency key with changed intent;
+- same key + changed intent;
 - partial sync batch failure;
 - stale expected version;
-- permission revoked while operation pending;
-- tenant ID/object ID tampering;
-- retry storm/thundering herd;
-- version/protocol mismatch.
+- permission revoked while pending;
+- tenant/object ID tampering;
+- retry storm;
+- protocol/version mismatch.
 
-### Worker
+### Worker — when Phase 6 exists
 - crash before effect;
-- crash after external effect but before completion persistence;
-- stale lease owner resumes;
-- no-progress/hung helper;
+- crash after external effect before completion persistence;
+- stale lease owner;
+- no-progress work;
 - repeated transient failure;
 - poison work/quarantine;
 - pause/drain/restart;
-- priority starvation attempt.
+- priority starvation.
 
-### Data/object storage
-- DB succeeds/object fails;
-- object succeeds/metadata fails;
-- restore DB without matching object version;
-- object capacity near hard limit;
-- network interruption mid-upload;
-- backup restore onto replacement hardware.
+### Hugging Face object storage — when Phase 7 exists
+- upload succeeds/metadata fails;
+- metadata succeeds/object missing;
+- capacity approaches limit;
+- upload interrupted;
+- cross-tenant object reference;
+- object hash mismatch.
+
+### Kaggle backup — when Phase 7/10 exists
+- encrypted artifact upload succeeds but local record fails;
+- remote artifact missing/corrupt;
+- checksum mismatch;
+- wrong/missing decryption key;
+- download succeeds but restore fails;
+- raw readable customer data accidentally selected for direct upload (must be rejected by backup tooling/process).
 
 ### Identity/security
 - wrong issuer/audience;
-- expired/replayed login transaction;
-- PKCE mismatch;
-- open redirect;
-- cross-tenant BOLA/BFLA/property attack;
+- PKCE/state/replay/open-redirect attack;
 - stale authorization revision;
 - custom Host/domain confusion;
-- session revoked while form/action is open.
+- cross-tenant BOLA/BFLA/property attack;
+- session revoked during an operation.
 
-## 4. Hardware/resource qualification
+## 4. Actual hardware qualification
 
-Benchmarks run on the actual deployment class, not only a developer laptop/CI runner.
+Run relevant benchmarks/failure tests on the actual lower-spec deployment class, not only a developer laptop/CI runner.
 
-Measure at least:
-- API latency under constrained CPU/RAM;
-- DB pool saturation;
-- Worker backlog age;
-- document/image helper peak RSS and release after work;
+Measure as needed:
+- Core API latency under constrained CPU/RAM;
+- DB pool/resource saturation;
 - Workstation idle/active resource use;
-- object transfer bandwidth;
-- disk utilization/free-space behavior;
-- restart/recovery time.
+- local/object transfer bandwidth;
+- disk/free-space behavior;
+- restart/recovery time;
+- future Worker backlog age when Worker exists.
 
-A benchmark result records hardware/OS/database version/configuration so it is reproducible.
+Record hardware/OS/DB/configuration with the result.
 
-## 5. Accessibility verification
+## 5. Test data and tenant safety
 
-Use the requirements in `docs/ux/ACCESSIBILITY_AND_INTERACTION_QUALITY.md`.
-
-Automated checks are supplemented by keyboard, focus, screen-reader/manual smoke and state/error tests on core journeys.
-
-## 6. Test data and tenant safety
-
-Test fixtures deliberately include at least Tenant A and Tenant B so cross-tenant failures can be attacked.
+Use synthetic test data. Include at least Tenant A and Tenant B for tenant-isolation attacks.
 
 Do not use production customer data in normal CI/test environments.
 
-Synthetic fixtures include:
-- small two-user tenant;
+Useful fixtures can include:
+- Owner + Staff tenant;
 - organization/program tenant;
-- large-data/noisy tenant;
+- noisy/large tenant;
 - long-offline Workstation;
 - conflicting concurrent actors.
 
-## 7. Migration and compatibility matrix
+## 6. Migration/compatibility
 
-Test supported upgrade paths rather than only latest-to-latest.
-
-Cover the supported window for:
+Test the supported upgrade window for what actually exists:
 - central DB schema;
-- local Workstation schema;
-- API/sync protocol;
-- durable message envelopes;
-- rule/workflow/config snapshots;
-- Web/Admin/API rolling compatibility where independent deploys occur.
+- Workstation local schema;
+- API/sync contract;
+- durable messages once Worker exists;
+- rule/workflow/form snapshots once Phase 5 exists.
 
-Skipped Workstation releases are a specific test case.
+Skipped Workstation releases are a specific case.
 
-## 8. Restore verification
+## 7. Backup restore proof
 
-Backup tests are incomplete until restore proves:
+An encrypted Kaggle upload is not enough.
 
-- application can start;
+A restore proof checks:
+- backup artifact downloads;
+- checksum verifies;
+- key material is available;
+- archive decrypts;
+- DB/application state restores;
+- object metadata/bytes reconcile for the backed-up scope;
 - tenant isolation still holds;
-- DB/object references reconcile;
-- idempotency/job state does not accidentally recreate completed effects;
-- secrets/config needed for recovery are available through the intended process;
-- audit/history remains explainable according to retention policy.
+- idempotency/job state does not recreate completed effects unexpectedly.
 
-## 9. CI versus qualification
+Before the first paying customer, this proof must be real, not prose.
 
-Not every hostile hardware test belongs in every commit pipeline.
+## 8. CI versus release qualification
 
 Use:
-- fast deterministic tests on every merge;
-- adapter/integration tests in CI when practical;
-- scheduled/nightly failure/load tests;
-- release qualification on actual deployment hardware;
-- manual restore/security/accessibility exercises where automation cannot prove the behavior.
+- fast deterministic tests on merge;
+- real adapter/integration tests in CI where practical;
+- scheduled failure/load tests only when useful;
+- actual-hardware/recovery/backup restore qualification before production.
 
-CI status must not imply that hardware/recovery qualification was run if it was not.
+CI success must not imply a physical/restore test ran when it did not.
 
-## 10. Definition of a testable requirement
+## 9. Testability rule
 
-A requirement is incomplete if it cannot state:
-
+A requirement is testable when it can state:
 1. observable expected outcome;
 2. failure/attack input;
-3. authoritative component under test;
-4. cleanup/recovery expected afterward;
-5. whether it is merge-CI, scheduled, release-qualification or manual evidence.
+3. authoritative component being exercised;
+4. required recovery/cleanup;
+5. where evidence runs: merge CI, real adapter, scheduled, actual hardware, or manual restore/runbook exercise.
+
+Testing should drive confidence, not an interface/helper hierarchy.
