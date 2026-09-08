@@ -7,20 +7,20 @@
 `services/core-api` is the ASP.NET Core tenant/business HTTP/composition host.
 
 It owns:
-- tenant/business request pipeline;
+- request pipeline;
 - ZITADEL OIDC/session integration for tenant/business surfaces;
 - tenant context resolution;
-- ASP.NET/OpenFGA tenant/business authorization integration;
+- ASP.NET/OpenFGA tenant authorization integration;
 - input/schema validation;
 - application command/query dispatch;
-- rate limiting/admission control;
+- tenant/business rate limiting/admission control;
 - health/readiness;
 - correlation/trace context;
 - dependency composition.
 
-It does not own business-domain implementation merely because the HTTP request arrives there. Business behavior belongs in modules/application code.
+It does **not** host the Platform Admin API. Platform/super-admin HTTP operations belong to the independently deployable `services/admin-api` described in `docs/admin/ADMIN_SURFACES.md` and `docs/architecture/CONTROL_PLANE_AND_DATA_PLANE.md`.
 
-**Core API does not host the Platform Admin/super-admin backend.** Platform Admin uses `services/admin-api`, a separate ASP.NET Core executable/deployment boundary owned by `docs/admin/ADMIN_SURFACES.md`.
+Core API does not own business-domain implementation merely because the HTTP request arrives there. Business behavior belongs in modules/application code.
 
 ## 2. Authorization pipeline
 
@@ -42,11 +42,9 @@ The endpoint path is organizational, not the security boundary.
 
 ASP.NET Core policies/requirements are the framework integration primitive. OpenFGA is the selected application-authorization engine for relationship/permission decisions. Handlers must not depend on invocation order and must not perform business mutations as side effects.
 
-Resource authorization is imperative when the decision requires the loaded resource. `IAuthorizationService` and typed authorization handlers are the Core API integration point.
+Resource authorization is imperative when the decision requires the loaded resource. `IAuthorizationService` and typed authorization handlers are the server integration point.
 
 Do not bind arbitrary request JSON directly onto domain/persistence entities. Use explicit command/request DTOs and explicit response projections to prevent property-level over-posting/exposure.
-
-Platform/super-admin authorization follows the same framework principles in **Admin API**, but with separate platform policy/model scope. A tenant Core API session/role is never a shortcut to platform authority.
 
 ## 3. Command/query responsibility
 
@@ -80,13 +78,13 @@ Authentication, safe logging/correlation, generic rate/admission limits, safe er
 
 Do **not** respond to cross-cutting concerns by building one giant middleware that owns all business decisions.
 
-Correct tenant/business split:
+Correct split:
 
 ```text
 request/correlation + safe logging
 → generic request/rate/admission controls
 → authentication
-→ TenantContext resolution
+→ TenantContext/platform context resolution
 → coarse endpoint/function policy
 → input/schema validation
 → tenant-scoped resource loading
@@ -102,17 +100,15 @@ Every externally reachable endpoint must be classifiable by executable metadata/
 
 Health/liveness endpoints, OIDC callbacks, provider webhooks and other special routes can have different policies, but they are explicit exceptions with their own abuse/input/authenticity controls.
 
-Admin API has its own equivalent cross-cutting pipeline and endpoint inventory. Do not centralize platform control into Core API merely to reuse middleware.
-
 ## 5. API security baseline
 
 Every API group is reviewed against the OWASP API Security Top 10 classes that apply.
 
-Required Core API release gates include:
+Required release gates include:
 - object-level authorization for every client-supplied resource identifier;
-- function-level authorization for normal and tenant-admin operations;
+- function-level authorization for normal/tenant-admin/platform-admin operations;
 - property-level allowlists for request and response contracts;
-- strong authentication/recovery/step-up abuse controls where relevant;
+- strong authentication/recovery/step-up abuse controls;
 - bounded request/upload/page/batch sizes and execution/resource budgets;
 - business-flow-specific abuse controls where automation can cause material harm;
 - SSRF controls before introducing arbitrary webhook/remote-fetch URLs;
@@ -120,25 +116,24 @@ Required Core API release gates include:
 - generated endpoint/version inventory and explicit retirement policy;
 - validation/timeouts/limits for data consumed from third-party APIs.
 
-Platform Admin API has a separate security inventory/gate for super-admin operations.
-
 A valid ZITADEL identity/token does not itself authorize a resource. A valid OpenFGA relation does not bypass TenantContext/data isolation or SquiFlow business state checks.
 
 An endpoint inventory is generated from executable endpoint metadata/OpenAPI in CI/release. It is not a hand-maintained architecture CSV.
 
 ## 6. API version/surface ownership
 
-Every externally reachable Core API surface declares:
-- audience: tenant Web, Workstation sync, client-client, tenant admin or specific integration;
+Every externally reachable API surface declares:
+- owning backend: Core API or Admin API;
+- audience: tenant Web, Workstation sync, client-client, tenant admin, platform admin or specific integration;
 - authentication method;
 - authorization policy family;
 - current version/compatibility rules;
 - owner/module;
 - retirement/deprecation policy.
 
-Platform Admin endpoints are inventoried separately from `services/admin-api`.
-
 Development/debug/test endpoints are not simply hidden; they are absent or inaccessible in production configuration.
+
+REST/task-oriented HTTP is the baseline. GraphQL/Federation are not added unless a real read-composition problem proves their extra query-cost/authorization/cache/schema complexity is worthwhile.
 
 ## 7. Synchronous versus asynchronous HTTP
 
@@ -170,8 +165,6 @@ A duplicate POST with the same semantic idempotency key returns the existing ope
 
 Do not queue every command merely because a Worker exists.
 
-Admin API can use the same durable asynchronous pattern for platform-control work it owns, without proxying through Core API.
-
 ## 8. API idempotency and retry
 
 Mutating commands that can be retried after an uncertain outcome use caller-provided semantic idempotency keys.
@@ -202,9 +195,20 @@ Retry policy is finite and failure-classified:
 
 Full details: `docs/api/API_CONTRACT_IDEMPOTENCY_AND_RETRY.md`.
 
-## 9. Resource consumption/admission
+## 9. Rate limiting, admission, and resource consumption
 
-Rate limiting is only one control.
+Rate limiting is only one control and is separate from authorization.
+
+A caller can be authorized but temporarily throttled because tenant/system/provider capacity says `not now`.
+
+Rate/admission dimensions can include:
+- unauthenticated/IP/network source for public/login/recovery abuse;
+- account/device;
+- tenant;
+- route/operation class;
+- expensive report/document/import/upload;
+- downstream paid/provider budget;
+- platform-admin operations on Admin API.
 
 Also bound:
 - maximum body/upload sizes;
@@ -217,11 +221,24 @@ Also bound:
 - per-tenant/noisy-neighbor consumption;
 - aggregate retry budget.
 
+Use `429`/`Retry-After` for temporary HTTP throttling where applicable. Background work still needs its own bounded admission/concurrency/fairness; an edge or HTTP limiter does not protect every downstream resource by itself.
+
 Expensive work moves to the Worker rather than keeping request threads occupied indefinitely.
 
-Admin API separately bounds platform-control and cross-tenant administrative workloads so they cannot accidentally saturate the business API path.
+## 10. API performance without correctness regression
 
-## 10. Worker
+Common techniques such as pagination, caching, compression, asynchronous telemetry export, and connection pooling are used selectively after measurement.
+
+Rules:
+- large collections are paginated/bounded;
+- a cache must declare its freshness and cannot become permission/payment/stock/credit authority;
+- telemetry/log export may buffer asynchronously only with bounded backpressure/drop behavior; authoritative audit is separate;
+- compress sufficiently large compressible payloads, not already-compressed media or unbounded bodies;
+- DB connection pools are bounded from measured DB/rack capacity and must not leak tenant/RLS context between reused connections.
+
+Measure representative latency percentiles, throughput, dependency/query time, allocation/memory, payload size, and pool wait before adding another performance layer.
+
+## 11. Worker
 
 `services/worker` executes durable asynchronous work that should not keep API requests open.
 
@@ -233,10 +250,9 @@ Examples:
 - projection maintenance;
 - scheduled jobs;
 - rule/workflow snapshot distribution where asynchronous;
-- diagnostic packaging;
-- authorized platform-control work submitted by Admin API.
+- diagnostic packaging.
 
-## 11. Background trigger taxonomy
+## 12. Background trigger taxonomy
 
 Background work can originate for different reasons. The trigger does not define the reliability contract by itself.
 
@@ -254,7 +270,7 @@ Batch/volume-triggered work
   e.g. bounded import/rebuild/maintenance batch
 
 Platform control command
-  e.g. Admin API-approved maintenance/reconciliation operation
+  e.g. approved maintenance/reconciliation operation
 ```
 
 Important scheduled work must not rely on “cron fired” as the only truth. The scheduler creates or claims a durable occurrence/job with a stable occurrence identity before the business effect executes.
@@ -263,7 +279,7 @@ For scheduled jobs whose meaning depends on business time, define timezone/DST b
 
 The first Worker implementation may use a simple durable database-backed job/schedule mechanism if it satisfies the actual workload. Do not introduce a distributed scheduler/broker merely because background-work architectures can grow into one.
 
-## 12. Command/job versus event
+## 13. Command/job versus event
 
 Keep instruction and fact semantics distinct:
 
@@ -292,7 +308,25 @@ Avoid hidden event choreography for flows that require one explicit business own
 
 Transactional outbox/audit/history is not the same thing as event sourcing. Current relational state remains authoritative unless a future explicit event-sourcing decision changes that for a demonstrated domain.
 
-## 13. Messaging-pattern selection
+## 14. Eventual/derived consistency boundary
+
+SquiFlow does not make the whole product eventually consistent.
+
+Eventually updated consumers/projections are acceptable only where temporary disagreement is safe and the contract is explicit.
+
+Each derived projection/consumer should define:
+- authoritative source;
+- source version/sequence/effect identity as needed;
+- duplicate/out-of-order handling;
+- freshness evidence where material;
+- rebuild/reconciliation behavior;
+- what happens when propagation stalls.
+
+Late/out-of-order derived messages must not overwrite a newer business meaning. A stale report/search/cache result cannot become current stock, credit, payment, tenant-isolation, or authorization authority.
+
+Workstation `LocalCommitted`/`PendingRemote` remains a distinct local-first authority model, not a vague claim that the central business system will “eventually become consistent.”
+
+## 15. Messaging-pattern selection
 
 Use the simplest pattern matching the semantic need:
 
@@ -317,7 +351,7 @@ Kafka/event-log infrastructure is not baseline.
 ### Direct synchronous call
 Use when the caller needs the authoritative answer now and the work fits the bounded interactive budget.
 
-## 14. Durable work lifecycle
+## 16. Durable work lifecycle
 
 ```text
 Pending
@@ -338,7 +372,7 @@ OutcomeUnknown
 
 A claim has a lease/ownership expiry. Use fencing/claim generations for work where a stale previous owner could cause an unsafe duplicate effect.
 
-## 15. Worker loop requirements
+## 17. Worker loop requirements
 
 A process may run indefinitely. A loop may not spin indefinitely.
 
@@ -356,7 +390,7 @@ Required:
 - queue-age/oldest-item monitoring in addition to depth;
 - business priority classes with fairness/aging so lower-priority work cannot starve forever.
 
-## 16. Idempotent consumers and duplicate-entry points
+## 18. Idempotent consumers and duplicate-entry points
 
 Assume at-least-once delivery/redelivery can occur.
 
@@ -371,7 +405,7 @@ A queue/message ID can help transport deduplication but is not sufficient to rep
 
 Do not claim system-wide exactly-once because one broker or database offers a narrower exactly-once/transactional feature.
 
-## 17. Authorization semantics for durable jobs
+## 19. Authorization semantics for durable jobs
 
 Do not use one vague rule such as “always re-check the original user's permission” for every queued job. Classify why the job exists.
 
@@ -389,13 +423,11 @@ Reauthorize the actor/current authority at execution when that is semantically r
 
 ### C. Platform control-plane command
 
-A platform-critical command originates from Platform Admin Web **through Admin API**, passes platform authorization/risk/step-up/approval checks, and is persisted as a durable control-plane command/proposal. The Worker executes exactly that authorized command under system execution authority.
-
-Core API does not authorize or proxy these platform commands. The Worker must not accept a second hidden set of control parameters from a Desktop, tenant endpoint, or arbitrary job payload.
+A platform-critical command originates from Platform Admin Web through **Admin API**, passes risk/step-up/approval checks, and is persisted as a durable control-plane command/proposal. The Worker executes exactly that authorized command under system execution authority. It must not accept a second hidden set of control parameters from Desktop, Core API business routes, or arbitrary job payload.
 
 This classification prevents both unsafe stale-authority execution and the opposite error of cancelling valid committed consequences merely because a user was later suspended.
 
-## 18. External effect safety
+## 20. External effect safety
 
 For a side effect such as an external payment, webhook or remote provider action:
 
@@ -414,7 +446,7 @@ Third-party responses are untrusted inputs even when the provider is managed/wel
 - do not blindly follow redirects;
 - isolate malformed/unexpected responses from authoritative state transitions.
 
-## 19. Load isolation and container/distributed patterns
+## 21. Load isolation and container/distributed patterns
 
 Use patterns only where the problem exists:
 
@@ -429,15 +461,29 @@ Container design patterns do not become automatic runtime architecture. Do not a
 
 `SquiFlow.Guard` is a native Windows supervision/recovery boundary, not evidence that server components should follow a sidecar-everywhere model.
 
-## 20. Server concurrency
+## 22. Edge gateway versus service mesh
+
+An edge reverse proxy/API-gateway capability may be useful for north-south concerns such as:
+- TLS termination;
+- hostname/custom-domain routing;
+- request-size limits;
+- WAF/private-access policy;
+- coarse public/admin exposure;
+- coarse rate limiting.
+
+That gateway is not the business authorization engine. Core API/Admin API still authenticate/authorize/validate resources and state independently.
+
+A shared edge may route to both Core API and Admin API, but it must not reintroduce a runtime dependency where Admin API calls through Core API. Platform Admin remains an independent backend/security/availability plane.
+
+A service mesh is **not baseline**. Revisit only if independently deployed east-west traffic grows enough that service mTLS, traffic policy, discovery, and distributed observability cannot be handled reliably/economically by the simpler topology.
+
+## 23. Server concurrency
 
 The application handles independent work in parallel. Correctness is scoped to the relevant aggregate/resource, not one global writer.
 
 Final correctness is enforced by the selected central store through transactions, constraints, optimistic concurrency and locking where appropriate.
 
-If Core API and Admin API both legitimately mutate shared state, they must use the same domain/application invariants and concurrency rules. Backend separation must not create two conflicting implementations of the same invariant.
-
-## 21. Stateless server-process semantics
+## 24. Stateless server-process semantics
 
 `Stateless` for Core API/Admin API/future Worker means their process memory is not the sole durable authority for business correctness.
 
@@ -455,20 +501,11 @@ Process-local cache/circuit/temporary state is permitted only with explicit loss
 
 This also does not imply automatic failover or zero downtime. If Blazor Interactive Server is used, Web circuits themselves are stateful and require an explicit circuit/session topology before multi-node failover claims are made.
 
-## 22. Platform-critical Worker controls
+## 25. Platform-critical Worker controls
 
-Pause/drain/resume/retry/quarantine/reconcile controls that can materially affect server operation are invoked only through:
+Pause/drain/resume/retry/quarantine/reconcile controls that can materially affect server operation are invoked through Platform Admin Web → **Admin API**. They are not Core API routes.
 
-```text
-Platform Admin Web
-→ services/admin-api
-→ authorized durable control command
-→ Worker/system execution
-```
-
-Do not expose those controls through Core API, Workstation, ordinary tenant endpoints, or tenant Settings.
-
-A Core API outage should not prevent an Admin API-owned platform-control operation whose own required dependencies remain healthy.
+Do not expose those controls through Workstation, ordinary tenant Web, `/sync`, or Core API business/tenant-admin endpoints.
 
 ## Source basis
 
@@ -478,12 +515,11 @@ A Core API outage should not prevent an Admin API-owned platform-control operati
 - Stripe idempotency article
 - AWS Builders' Library idempotent API article
 - Azure Architecture Center patterns, API design/implementation, background jobs and transient-fault guidance
-- ByteByteGo CQRS/retry/event-driven/messaging/idempotency/background-work/multi-tenancy/container/cross-cutting/API-security/stateless follow-up review
+- ByteByteGo CQRS/retry/event-driven/messaging/idempotency/background-work/multi-tenancy/container/cross-cutting/API-security/stateless/clean-code/eventual-consistency/gateway-mesh/schema/indexing/API-performance/SOLID/rate-limiting/GraphQL follow-up reviews
 
 See:
-- `docs/admin/ADMIN_SURFACES.md`
-- `docs/architecture/CONTROL_PLANE_AND_DATA_PLANE.md`
 - `docs/review/SECURITY_AUTHORIZATION_SOURCE_REVIEW.md`
 - `docs/review/RELIABILITY_API_AND_PATTERN_SOURCE_REVIEW.md`
 - `docs/review/BYTEBYTEGO_DISTRIBUTED_SYSTEMS_SOURCE_REVIEW.md`
+- `docs/review/BYTEBYTEGO_CODE_CONSISTENCY_DATA_API_SOURCE_REVIEW.md`
 - `docs/api/API_CONTRACT_IDEMPOTENCY_AND_RETRY.md`
