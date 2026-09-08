@@ -16,9 +16,9 @@ For each phase:
 ## Phase-start decisions
 
 - **Phase 0:** ZITADEL/OpenFGA are selected; no final central/local DB is required yet. Create the real Guard and the two already-justified provider contracts (`IObjectStore`, `IBackupTarget`) without scaffolding unrelated abstractions.
-- **Phase 1:** close ZITADEL Cloud vs self-hosted, instance/project/application layout, first OpenFGA store/model, model-ID rollout, and initial consistency/reconciliation policy.
+- **Phase 1:** close ZITADEL Cloud vs self-hosted, instance/project/application layout, first OpenFGA store/model, model-ID rollout, initial consistency/reconciliation policy, and Blazor render/circuit/session topology.
 - **Phase 2:** choose the Workstation local DB after the smallest SQLite/libSQL proof needed for a real local transaction.
-- **Phase 3:** choose the initial central DB implementation capable of authoritative transaction + pooled isolation proof.
+- **Phase 3:** choose the initial central DB implementation capable of authoritative transaction + pooled isolation + normalized schema/index/query-plan proof.
 - **Phase 6:** create `apps/admin-web`, **independent `services/admin-api`**, and `services/worker` only when their first real control/durable-work slice exists. Choose only the background mechanism required by that workload.
 - **Phase 7:** use private Hugging Face through `IObjectStore` and encrypted private Kaggle through `IBackupTarget`.
 - **Before paying-customer production:** actual rack inventory/recovery, backup restore proof, provisional RPO/RTO, operator/break-glass access, printer support, and provider migration readiness must be known honestly.
@@ -48,6 +48,7 @@ Do not create yet:
 - Worker;
 - generic repository/unit-of-work hierarchy;
 - one interface per class/provider API;
+- GraphQL/service-mesh/event-bus infrastructure;
 - dozens of empty modules/projects.
 
 Deliver:
@@ -59,6 +60,7 @@ Deliver:
 - typed TenantContext boundary;
 - `IObjectStore` and `IBackupTarget` contracts using SquiFlow-owned types only;
 - architecture tests preventing provider SDK types from leaking into business/domain code;
+- basic code-quality conventions: meaningful business names, no magic business/config values, no forwarding-only helper/interface chains;
 - minimal rack hardware inventory.
 
 Attack:
@@ -66,14 +68,16 @@ Attack:
 - Guard exits while Workstation survives;
 - both are terminated and restarted;
 - incompatible Guard/Workstation protocol version;
-- provider implementation accidentally leaks Hugging Face/Kaggle types into a business contract.
+- provider implementation accidentally leaks Hugging Face/Kaggle types into a business contract;
+- a proposed SOLID/clean-code refactor creates an interface/helper with no real responsibility or replacement boundary.
 
 Gate:
 - Web, Workstation, Guard and Core API build/run;
 - Guard failure does not corrupt local business state;
 - Guard can observe/recover Workstation process failure without owning business logic;
 - `IObjectStore`/`IBackupTarget` are narrow enough to implement a second adapter later without mirroring whole third-party SDKs;
-- Admin Web/Admin API/Worker remain documented future boundaries without empty placeholder projects.
+- Admin Web/Admin API/Worker remain documented future boundaries without empty placeholder projects;
+- no architecture-style abstraction exists solely to satisfy a pattern slogan.
 
 ---
 
@@ -92,13 +96,15 @@ Deliver:
 - Web-only role/permission assignment;
 - ASP.NET Core semantic authorization requirement invoking OpenFGA;
 - `TenantAuthorizationRevision` snapshot/audit correlation;
-- durable/reconcilable authorization-change operation spanning SquiFlow DB/audit state and OpenFGA tuple write.
+- durable/reconcilable authorization-change operation spanning SquiFlow DB/audit state and OpenFGA tuple write;
+- chosen Blazor render/circuit/session state-placement model with known reconnect/memory behavior.
 
 Do not:
 - trust ZITADEL token roles as current SquiFlow authorization truth;
 - let Desktop write OpenFGA tuples;
 - equate a ZITADEL organization claim directly with SquiFlow TenantContext without server verification;
-- put workflow/payment/stock arithmetic into OpenFGA.
+- put workflow/payment/stock arithmetic into OpenFGA;
+- rely on transient Blazor circuit memory to preserve valuable business drafts.
 
 Attack:
 - expired/duplicate invitation;
@@ -112,14 +118,16 @@ Attack:
 - request accidentally uses latest OpenFGA model instead of pinned model ID;
 - stale/low-consistency authorization result immediately after a change;
 - Desktop attempts permission change;
-- PII accidentally used in tuple IDs.
+- PII accidentally used in tuple IDs;
+- Web circuit/server restart during valuable draft editing.
 
 Gate:
 - ZITADEL authenticates; OpenFGA authorizes; SquiFlow tenant/domain checks remain independent;
 - role/grant UI reports applied only when intended OpenFGA state is known applied;
 - ambiguous tuple writes have reconciliation, not guesswork;
 - custom role does not require new authorization model deployment;
-- no embedded reusable Workstation client secret.
+- no embedded reusable Workstation client secret;
+- durable business work does not depend solely on process-local Blazor circuit state.
 
 ---
 
@@ -151,7 +159,8 @@ Gate:
 - local work survives all process lifecycle failures covered by the selected local DB durability contract;
 - Guard recovery never deletes/rewrites pending business work;
 - Guard resource use is measured but functionality is not removed to meet an arbitrary tiny footprint;
-- no network dependency for explicitly local-capable work.
+- no network dependency for explicitly local-capable work;
+- UI clearly distinguishes local/pending state from server-authoritative state instead of calling it vaguely “eventually consistent.”
 
 ---
 
@@ -168,11 +177,16 @@ Deliver:
 - explicit request/response contracts;
 - expected-version concurrency;
 - selected central DB adapter;
+- normalized authoritative schema for the implemented Customer/Order slice;
+- bounded custom/extensible fields kept separate from core relational invariants;
 - pooled tenant discriminator and provider-appropriate isolation proof;
 - PostgreSQL RLS proof if PostgreSQL is selected;
 - atomic business mutation + idempotency receipt + outbox where one store owns them;
 - remote change feed + cursor;
-- finite retry/backoff with an intentional retry owner for each remote path.
+- finite retry/backoff with an intentional retry owner for each remote path;
+- actual query-plan/index proof at current and projected larger cardinalities;
+- measured write/WAL/storage/migration impact of the selected indexes;
+- explicit consistency classification for authoritative versus derived state.
 
 Attack:
 - response lost after commit;
@@ -181,16 +195,23 @@ Attack:
 - cross-tenant object/list/write attempt;
 - valid OpenFGA permission but wrong TenantId/resource query;
 - permission revoked while local operation pending;
-- connection reused across tenants;
+- connection reused across tenants, including RLS/session-context leakage;
 - partial batch failure;
-- retry amplification across Workstation/API/provider layers.
+- retry amplification across Workstation/API/provider layers;
+- query that is fast at 10K rows but degrades at projected cardinality;
+- over-indexed schema causing unacceptable sync/import/write cost;
+- stale derived projection accidentally used as current authority;
+- out-of-order derived update overwrites a newer projection state.
 
 Gate:
 - no duplicate semantic effect;
 - no cross-tenant leakage even if authorization relation exists incorrectly;
 - stale Workstation permission snapshot is not server authority;
 - central DB behavior proven against the real adapter;
-- no system-wide `exactly once` claim is made from one local transaction guarantee.
+- authoritative schema is not denormalized/EAV/JSON merely for UI convenience;
+- each important index has a named query/invariant and measured cost;
+- derived state has explicit source/freshness/rebuild semantics;
+- no system-wide `exactly once` or `eventually consistent` claim is made from one narrower mechanism.
 
 ---
 
@@ -276,6 +297,8 @@ Deliver:
 - idempotent/reconcilable consumer behavior;
 - private infrastructure break-glass path when Admin API itself is unavailable.
 
+A shared edge reverse proxy/gateway may route Core API and Admin API separately. It must not make Admin API transit Core API. Do not add a service mesh unless real east-west service topology proves the need.
+
 Platform-control flow:
 
 ```text
@@ -318,7 +341,8 @@ Gate:
 - no platform/super-admin endpoint exists on Core API;
 - shared DB/domain invariants are identical across Core API and Admin API where both legitimately touch the same state;
 - no generic force-success/mark-complete control;
-- break-glass is infrastructure recovery, not hidden tenant API.
+- break-glass is infrastructure recovery, not hidden tenant API;
+- no service-mesh/gateway component exists unless its current responsibility is concrete and measured.
 
 ---
 
@@ -355,27 +379,38 @@ Gate:
 
 ---
 
-## Phase 8 — API/observability/admin hardening
+## Phase 8 — API/performance/rate/observability/admin hardening
 
 Deliver only hardening relevant to implemented surfaces:
 - OpenTelemetry correlation across Core API/Admin API/Worker;
 - New Relic + Aiven OpenSearch export;
 - Backtrace path where applicable;
 - Guard lifecycle/crash/resource evidence correlation;
-- bounded telemetry queues/spools;
-- tenant/platform audit;
+- bounded telemetry queues/spools with explicit loss/backpressure behavior;
+- tenant/platform audit stored independently of lossy operational logs where required;
 - high-risk exact-diff/step-up Admin API flows actually implemented;
 - generated endpoint inventories for Core API and Admin API separately;
 - production CORS/cache/error/header policies;
 - SSRF-safe outbound HTTP;
 - dependency timeout/retry budgets;
-- liveness/readiness/functional health per backend.
+- liveness/readiness/functional health per backend;
+- layered rate/admission policy for login/recovery, account/device, tenant, route/work class, expensive provider actions, and Admin API as applicable;
+- stable `429`/`Retry-After` behavior and client backoff;
+- measured API performance baseline using pagination, bounded connection pooling, selective cache/compression only where justified;
+- REST remains the baseline; no GraphQL surface unless an implemented client has already demonstrated the query-composition requirement and its authorization/query-cost design has been reviewed.
 
 Attack:
 - applicable OWASP API cases;
 - telemetry quota/export failure;
+- async log buffer saturation;
 - retry storm;
+- rate-limit bypass by changing route/identity dimensions;
+- authorized tenant attempts to monopolize expensive work;
+- client ignores `Retry-After`;
 - noisy tenant;
+- cache returns stale protected authority;
+- pool exhaustion/tenant-context reuse;
+- compression/buffering creates disproportionate CPU/memory usage;
 - sensitive content in logs/Guard diagnostics;
 - OpenFGA or ZITADEL degraded/unavailable and resulting fail-closed/degraded behavior;
 - Core API overload while Admin API still needs emergency application-control capability;
@@ -385,7 +420,10 @@ Gate:
 - telemetry failure does not affect committed business truth;
 - auth/authorization dependency failures never become accidental allow;
 - Core API and Admin API have separate privileged-surface inventories;
-- no undocumented privileged endpoint.
+- rate/admission controls are bounded/fair without being one arbitrary global limit;
+- performance improvements have measured benefit and do not weaken freshness/authority/resource bounds;
+- no undocumented privileged endpoint;
+- no GraphQL/service-mesh/cache layer exists only because it is a common architecture pattern.
 
 ---
 
@@ -406,9 +444,14 @@ Attack:
 - duplicate refund/webhook;
 - concurrent last-stock sale;
 - stale offline credit;
+- stale derived projection used as current credit/stock truth;
 - permission revoked just before sensitive action;
 - OpenFGA allowed but business invariant denies;
 - currency/rounding edge cases of supported model.
+
+Gate:
+- payment/credit/stock correctness never depends on a merely eventual cache/projection;
+- ambiguous external effects enter reconciliation rather than guessed success/failure.
 
 ---
 
@@ -449,6 +492,10 @@ Do not spend baseline work on:
 - generic pub/sub/event-bus infrastructure without a real multi-consumer requirement;
 - event-driven-everything;
 - full CQRS/event sourcing/Saga;
+- eventual-consistency-everywhere;
+- GraphQL/GraphQL Federation;
+- service mesh;
+- denormalized authoritative core schema;
 - global CRDTs;
 - per-tenant schema/database/queue/stack by default;
 - multi-currency/FX system;
