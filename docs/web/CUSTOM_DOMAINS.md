@@ -14,81 +14,59 @@ Draft
 → Active
 ```
 
-Additional states can include:
+Additional states can include `VerificationFailed`, `CertificateFailed`, `Misconfigured`, `Suspended`, `Removing`, and `Removed`.
 
-```text
-VerificationFailed
-CertificateFailed
-Misconfigured
-Suspended
-Removing
-Removed
-```
-
-A domain is not usable merely because an Owner typed it into a form.
+A hostname is not usable merely because an Owner typed it into a form.
 
 ## 2. Required controls
 
-- DNS/ownership verification before serving tenant content.
-- Hostname normalization/validation and unique tenant ownership.
+- DNS/ownership verification before tenant content is served.
+- Hostname normalization and unique tenant ownership.
 - TLS provisioning/renewal.
 - Durable authoritative domain mapping.
-- Edge/node routing caches are reconstructable derivatives.
+- Reconstructable edge/routing cache.
 - Drift/renewal monitoring.
 - Audit for add/verify/activate/suspend/remove.
 - Safe SquiFlow fallback domain to reduce lockout after DNS mistakes.
-- Domain explicitly maps to Staff Web, Client Portal, or another supported surface.
-- Branding is controlled data; arbitrary script/HTML injection is not permitted.
+- Explicit mapping to Staff Web, Client Portal, or another supported surface.
 
 ## 3. Host header is not tenant authority
 
-A request `Host` value is client/network input, not proof of tenant authority.
+`Host`/forwarded-host input is not proof of tenant authority.
 
-The trusted edge/Core API maps only a validated host to an **authoritative active SquiFlow domain registration**, then resolves tenant/application context. Unknown/unregistered hosts fail closed.
-
-Forwarded-host/proxy headers are accepted only from configured trusted proxy boundaries.
+Only a validated host matching an active SquiFlow domain registration can establish the requested application/tenant routing context. Forwarded headers are trusted only from configured proxy boundaries.
 
 ## 4. Identity callback integration
 
-Interactive authentication uses the canonical SquiFlow identity authority.
+Interactive login still uses the canonical SquiFlow identity authority.
 
-Custom-domain activation and allowed login callback origins are tied to the verified domain registration. Do not accept arbitrary return URLs/origins merely because they are syntactically valid HTTPS domains.
+Allowed callback origins are tied to verified/active domain registration. Do not accept arbitrary return URLs merely because they are valid HTTPS addresses.
 
-On suspension/removal/reassignment, disable/retire the associated callback/domain mapping before another tenant can claim the hostname.
+On suspension/removal/reassignment, retire the related callback/domain mapping before the hostname can be assigned elsewhere.
 
-## 5. Removal and anti-takeover behavior
+## 5. Removal/anti-takeover behavior
 
-Domain removal is a lifecycle operation, not an immediate string delete.
-
-Required behavior:
-- stop new tenant routing/callback use according to the removal state;
-- remove/expire edge routing and certificate bindings safely;
+Domain removal is a lifecycle operation:
+- stop new tenant routing/callback use according to state;
+- remove/expire routing and certificate bindings safely;
 - retain enough audit/history to explain prior ownership;
-- prevent a previous tenant's cached/configured callback from becoming valid for a later owner;
-- require fresh ownership verification before a hostname is assigned to another tenant;
-- keep the SquiFlow fallback domain available according to policy.
+- require fresh ownership verification before reassignment;
+- keep the safe SquiFlow fallback according to policy.
 
-This protects against abandoned DNS/custom-domain takeover and stale identity callback mappings.
+## 6. Branding safety
 
-## 6. Branding and accessibility
+Branding is bounded configuration such as logo/theme/text values.
 
-Tenant branding cannot bypass `docs/ux/ACCESSIBILITY_AND_INTERACTION_QUALITY.md`.
+Do not allow arbitrary script/HTML or unrestricted CSS that can break application/security behavior. Keep a safe fallback theme and validate uploaded branding assets through the normal file-security path.
 
-Do not allow arbitrary CSS/script that can destroy keyboard focus, labels/navigation or security boundaries. Theme/color/logo choices use bounded configuration with safe fallback behavior; exact formal contrast thresholds follow the selected accessibility conformance target.
+Do not create a general theming/plugin framework before a real customer customization requirement earns it.
 
 ## 7. Client portal boundary
 
-A domain mapped to a Client Portal does not gain Staff Web authority.
+A domain mapped to a Client Portal never gains Staff Web authority.
 
-When the client-client portal is implemented, it gets its own authentication/audience/authorization tests and public/client-facing accessibility/security gate. The exact portal account/auth model remains OPEN until that slice is scheduled.
+When the client-client portal is actually implemented, it receives its own authentication/audience/authorization tests. Exact portal account/auth behavior remains OPEN until that slice is scheduled.
 
 ## 8. Failure/recovery UX
 
-Tenant Settings should explain:
-- what DNS record/challenge is expected;
-- current verification/certificate/routing state;
-- last safe check/error category;
-- whether the SquiFlow fallback domain still works;
-- retry/remove/escalate options.
-
-Do not present `Active` while certificate/routing verification is incomplete or known-broken.
+Tenant Settings should explain the current DNS verification/certificate/routing state and give safe retry/remove/fallback actions. Do not present `Active` while known certificate/routing verification is incomplete or broken.
