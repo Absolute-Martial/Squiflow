@@ -31,7 +31,7 @@ BEGIN LOCAL TRANSACTION
 COMMIT
 ```
 
-If power is lost after commit, both exist. If commit fails, neither becomes successful business state.
+If the local database says commit succeeded, both business change and outbox are present according to the selected local-store durability contract. If commit fails, neither becomes successful business state.
 
 An in-memory Channel/signal may wake the sync loop but is never the durable queue.
 
@@ -56,7 +56,7 @@ select bounded pending batch
 → send authenticated SyncBatch
 → deduplicate/idempotency receipt
 → authorize each semantic operation
-→ validate current business state/rules
+→ validate current business/rule/fact state
 → apply central transaction
 → record receipt/change feed
 → return per-item result
@@ -65,13 +65,28 @@ select bounded pending batch
 
 Prefer per-item results unless a group of changes is intentionally one business atomic unit.
 
-## 5. Response-loss case
+Batch limits are bounded by both **item count and encoded bytes**. A batch that is cheap in row count can still be too expensive if payloads are large.
+
+## 5. Semantic sync versus attachment transfer
+
+Large file transfer must not starve small business synchronization.
+
+Separate enough scheduling/resource budget that:
+- semantic operation batches remain responsive;
+- attachment uploads/downloads use bounded concurrent transfers;
+- provider/rack bandwidth limits are respected;
+- large transfers can resume/retry where supported;
+- transfer backlog/age is observable.
+
+The business outbox can reference staged attachment metadata rather than embedding giant file bytes in the semantic sync envelope.
+
+## 6. Response-loss case
 
 The server may commit and the network may fail before the client sees the response.
 
-Retrying the same semantic operation must return `AlreadyApplied`/the previous result through a stable idempotency key rather than create a duplicate order/payment/etc.
+Retrying the same semantic operation must return `AlreadyApplied`/the previous semantic result through a stable idempotency key rather than create a duplicate order/payment/etc.
 
-## 6. Remote changes
+## 7. Remote changes
 
 ```text
 request changes after cursor
@@ -84,7 +99,9 @@ request changes after cursor
 
 Never advance the cursor independently of durable local apply.
 
-## 7. Conflict policy is per aggregate
+Remote batches are bounded. If the local disk cannot safely stage/apply the next batch, stop before corrupting/losing already durable local work and surface a storage-recovery state.
+
+## 8. Conflict policy is per aggregate
 
 - Customer/contact: merge/version where safe.
 - Product/catalog: server-authoritative/versioned as appropriate.
@@ -97,13 +114,49 @@ Never advance the cursor independently of durable local apply.
 - Rules/workflow/permissions: server-published authority.
 - Attachments: immutable object identity + metadata version.
 
-## 8. Permission changes while offline
+## 9. Permission/rule changes while offline
 
-Permission grants are Web-only. A Workstation may still hold a stale local permission snapshot while offline.
+Permission grants and rule/workflow publication are Web-only. A Workstation may hold stale local snapshots while offline.
 
-When it reconnects, the server reauthorizes pending operations. If authority was revoked, return an explicit `AuthorizationChanged`/review result and preserve the local evidence rather than silently discard it.
+On reconnect, the server reauthorizes/revalidates pending operations. If authority or required current facts changed, return an explicit `AuthorizationChanged`, `Conflict`, `RequiresServerFact` or equivalent review result and preserve the local evidence rather than silently discarding it.
 
-## 9. Long-offline recovery
+The Workstation permission/rule snapshot version is context/evidence, not a server capability token.
+
+## 10. Supported offline window, tombstones and compaction
+
+`Can be offline for months` is not implementable unless the server defines how long change/tombstone history remains sufficient for incremental catch-up.
+
+The sync protocol therefore declares a supported incremental-history window based on actual retention/capacity policy.
+
+If the Workstation cursor is older than retained safe history, the server returns an explicit resnapshot/upgrade recovery requirement rather than pretending incremental sync is complete.
+
+Do not silently drop deletion/merge evidence because tombstones were compacted.
+
+Exact retention duration is a deployment/product decision based on expected offline behavior and storage cost; do not invent a forever-retention guarantee.
+
+## 11. Resnapshot/rebase recovery
+
+A resnapshot is not `delete local DB and download server state` when unsynced local work exists.
+
+Recovery flow must conceptually preserve:
+- pending local semantic operations;
+- staged/unsynced attachment references;
+- local evidence needed for conflict review;
+- user/account/device identity needed to reassociate the local store safely.
+
+Then:
+
+```text
+preserve/export pending local intent
+→ obtain authorized current server snapshot
+→ rebuild/upgrade local authoritative mirror
+→ rebase/review pending local operations
+→ resume synchronization
+```
+
+Exact implementation can be optimized later, but silent local-work deletion is prohibited.
+
+## 12. Long-offline recovery
 
 A client may return after weeks/months with:
 - expired user/device credentials;
@@ -113,18 +166,58 @@ A client may return after weeks/months with:
 - compacted tombstones;
 - remotely deleted/merged entities;
 - large outbox;
-- missing staged attachment.
+- missing staged attachment;
+- insufficient local disk for the current snapshot.
 
 Recovery can be reauth, upgrade, resnapshot, rebase, conflict review or export/repair.
 
 Never silently delete pending user work.
 
-## 10. Backpressure
+## 13. Local capacity and outbox growth
+
+The local outbox/staging area is durable but **bounded by real customer disk capacity**.
+
+Track at least:
+- pending item count;
+- encoded bytes where useful;
+- oldest pending age;
+- staged attachment bytes;
+- local DB file size/free space;
+- retry/conflict items requiring user action.
+
+When space is low:
+- preserve already committed work;
+- stop accepting optional large files/work before total disk exhaustion;
+- allow export/support recovery;
+- do not discard old unsynced work simply to shrink the queue.
+
+Owner for device/disk behavior: `docs/workstation/GUARD_AND_DEVICE_INTEGRATION.md`.
+
+## 14. Backpressure and constrained-site bandwidth
 
 When reconnecting many clients or large backlogs:
 - bounded batch count/bytes;
-- Retry-After/backoff;
+- `Retry-After`/backoff;
 - exponential backoff + jitter;
 - tenant/device fairness;
 - server admission control;
+- DB connection/work budget;
+- network transfer budget;
 - no tight reconnect loop.
+
+Do not let all Workstations come online after an outage and create synchronized retry traffic that overwhelms the lower-spec rack/uplink.
+
+## 15. Sync observability/support
+
+Expose enough safe evidence for user/support to distinguish:
+- offline/network issue;
+- pending but healthy backlog;
+- server throttling;
+- authentication/device problem;
+- authorization changed;
+- business conflict;
+- protocol/upgrade required;
+- local storage low/full;
+- attachment missing/transfer stalled.
+
+Important measures include oldest pending age and last successful **semantic** sync, not only a green connectivity icon.
