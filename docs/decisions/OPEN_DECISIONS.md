@@ -4,9 +4,10 @@ These are decisions that can materially affect the current implementation baseli
 
 ## Phase-load-bearing technical decisions
 
-- Final central transactional database after the Phase-3 workload/isolation/transaction proof.
+- Final central transactional database after the Phase-3 workload/isolation/transaction/performance proof.
 - Final Workstation embedded database after the Phase-2 SQLite versus libSQL proof.
 - **ZITADEL is selected**; open implementation choices are Cloud versus self-hosted deployment, exact instance/project/application layout, service-account scopes, Web session pattern, and tenant-organization mapping after Phase-1 proof.
+- Exact Blazor Web App render-mode/session topology for tenant Web and future Admin Web, including whether Interactive Server is used on each surface and what that implies for circuit memory, reconnect, draining, session affinity, distributed circuit/session persistence, and multi-node behavior. This decision must not silently introduce Redis or claim transparent failover without evidence.
 - Exact native Workstation callback mechanism after Windows packaging/security POC: app-claimed HTTPS if reliable, otherwise standards-compliant loopback IP callback.
 - Exact session-revocation persistence/rotation strategy around ZITADEL and SquiFlow Web sessions.
 - Whether/where ZITADEL Back-Channel Logout is enabled for SquiFlow Web sessions.
@@ -108,7 +109,9 @@ Open only if a real requirement appears:
 - Dynamic OpenID Connect Client Registration;
 - OpenID Connect Native SSO for Mobile Apps as a Windows login mechanism;
 - schema-per-tenant/database-per-tenant/deployment-per-tenant baseline;
+- event sourcing as the authoritative persistence model;
 - full SaaS metering/billing engine;
 - advanced peripheral suite;
 - specialized import/ETL platform;
-- Kafka/event-log infrastructure, mandatory Redis, global CRDT model, sharding, or active-active multi-region without a measured requirement.
+- Kafka/event-log infrastructure, mandatory Redis, global CRDT model, sharding, or active-active multi-region without a measured requirement;
+- container sidecar/proxy/leader/scatter-gather patterns without a concrete deployment or workload problem.
