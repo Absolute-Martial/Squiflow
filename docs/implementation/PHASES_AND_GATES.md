@@ -4,6 +4,8 @@
 
 Implementation is sequential. Default WIP limit: **one phase**.
 
+The WIP rule limits parallel unfinished work; it does **not** reduce the depth of the current phase. A phase is not complete until the edge/failure/recovery behaviors that materially belong to it are proven.
+
 For each phase:
 1. close only the decisions required to start it;
 2. implement one complete vertical slice;
@@ -11,118 +13,144 @@ For each phase:
 4. measure real behavior;
 5. revise later assumptions only when evidence changes them.
 
-Do not turn future architecture into Phase-0 scaffolding.
-
 ## Phase-start decisions
 
-- **Phase 0:** no final DB, Worker, Admin Web, provider abstraction hierarchy or helper process is required.
-- **Phase 1:** choose/configure the initial OIDC/session implementation needed by the identity slice.
+- **Phase 0:** ZITADEL/OpenFGA are selected; no final central/local DB is required yet. Create the real Guard and the two already-justified provider contracts (`IObjectStore`, `IBackupTarget`) without scaffolding unrelated abstractions.
+- **Phase 1:** close ZITADEL Cloud vs self-hosted, instance/project/application layout, first OpenFGA store/model, model-ID rollout, and initial consistency/reconciliation policy.
 - **Phase 2:** choose the Workstation local DB after the smallest SQLite/libSQL proof needed for a real local transaction.
-- **Phase 3:** choose the initial central DB implementation/reference capable of proving the authoritative transaction + pooled isolation slice.
+- **Phase 3:** choose the initial central DB implementation capable of authoritative transaction + pooled isolation proof.
 - **Phase 6:** choose only the background scheduling/messaging mechanism required by the first durable Worker workload.
-- **Phase 7:** use the concrete bootstrap providers already chosen: private Hugging Face Storage Bucket + encrypted private Kaggle backup artifact path.
-- **Before paying-customer production:** actual rack inventory/recovery, backup restore proof, provisional RPO/RTO, operator/break-glass access, printer support, and storage migration readiness must be known honestly.
+- **Phase 7:** use private Hugging Face through `IObjectStore` and encrypted private Kaggle through `IBackupTarget`.
+- **Before paying-customer production:** actual rack inventory/recovery, backup restore proof, provisional RPO/RTO, operator/break-glass access, printer support, and provider migration readiness must be known honestly.
 
 ---
 
-## Phase 0 — smallest executable skeleton
+## Phase 0 — executable boundaries, not placeholder architecture
 
-Create only:
+Create:
 
 ```text
-apps/web          Blazor Web App
-apps/desktop      Avalonia Workstation
-services/core-api ASP.NET Core
-modules/          only first-slice modules
-infrastructure/   only current concrete integrations
- tests/ deploy/ docs/
+apps/web
+apps/desktop/workstation
+apps/desktop/guard
+services/core-api
+modules/                 only first-slice capabilities
+infrastructure/storage/  IObjectStore + HuggingFaceObjectStore shell/contract
+infrastructure/backup/   IBackupTarget + KaggleBackupTarget shell/contract
+infrastructure/identity/ ZITADEL integration boundary
+infrastructure/authorization/ OpenFGA integration boundary
+tests/ deploy/ docs/
 ```
+
+Do not create yet:
+- Worker;
+- Platform Admin Web;
+- generic repository/unit-of-work hierarchy;
+- one interface per class/provider API;
+- dozens of empty modules/projects.
 
 Deliver:
 - solution/build structure;
-- basic CI;
-- minimal error/result/execution context needed by the first slice;
-- typed authoritative tenant-context boundary;
-- architecture tests for real dependency boundaries that exist;
-- basic executable health endpoint;
+- CI;
+- Web/Workstation/Guard/Core API launchable skeletons;
+- Guard launches/supervises Workstation and records bounded lifecycle evidence;
+- basic health endpoint;
+- typed TenantContext boundary;
+- `IObjectStore` and `IBackupTarget` contracts using SquiFlow-owned types only;
+- architecture tests preventing provider SDK types from leaking into business/domain code;
 - minimal rack hardware inventory.
 
-Do **not** create yet:
-- `apps/admin-web`;
-- `services/worker`;
-- Guard/helper process;
-- generic repository/unit-of-work projects;
-- `packages/`, `contracts/`, `persistence/abstractions/` merely to match diagrams.
+Attack:
+- Workstation process exits unexpectedly while Guard survives;
+- Guard exits while Workstation survives;
+- both are terminated and restarted;
+- incompatible Guard/Workstation protocol version;
+- provider implementation accidentally leaks Hugging Face/Kaggle types into a business contract.
 
 Gate:
-- Web, Workstation and Core API build/run;
-- CI runs useful fast tests;
-- no provider type leaks into business/domain code where it does not belong;
-- no empty future projects were scaffolded.
+- Web, Workstation, Guard and Core API build/run;
+- Guard failure does not corrupt local business state;
+- Guard can observe/recover Workstation process failure without owning business logic;
+- `IObjectStore`/`IBackupTarget` are narrow enough to implement a second adapter later without mirroring whole third-party SDKs;
+- no empty future project tree exists.
 
 ---
 
-## Phase 1 — identity + smallest tenant
+## Phase 1 — ZITADEL identity + OpenFGA smallest tenant
 
 Deliver:
-- canonical OIDC login;
+- configured ZITADEL OIDC applications for tenant Web and Workstation;
 - Owner tenant bootstrap;
 - invite one Staff user;
-- Web-only role/permission assignment;
 - `(issuer, subject)` account mapping;
-- Workstation system-browser Authorization Code + PKCE `S256` login;
-- device enrollment/session context;
-- authoritative membership → TenantContext resolution;
-- effective permissions + `TenantAuthorizationRevision`;
-- ASP.NET Core authorization requirements for the first real resource/action.
+- Workstation system-browser Authorization Code + PKCE `S256` login/device enrollment;
+- authoritative SquiFlow membership → TenantContext resolution;
+- first OpenFGA store and pinned authorization model ID;
+- Owner/Staff relations;
+- one tenant-defined custom role flow using tuples rather than model redeployment;
+- Web-only role/permission assignment;
+- ASP.NET Core semantic authorization requirement invoking OpenFGA;
+- `TenantAuthorizationRevision` snapshot/audit correlation;
+- durable/reconcilable authorization-change operation spanning SquiFlow DB/audit state and OpenFGA tuple write.
+
+Do not:
+- trust ZITADEL token roles as current SquiFlow authorization truth;
+- let Desktop write OpenFGA tuples;
+- equate a ZITADEL organization claim directly with SquiFlow TenantContext without server verification;
+- put workflow/payment/stock arithmetic into OpenFGA.
 
 Attack:
 - expired/duplicate invitation;
 - forged/wrong issuer/audience token;
 - PKCE/state/redirect tampering;
 - client supplies another TenantId;
-- custom-domain/Host confusion;
 - Owner revokes Staff while Staff is logged in;
-- Desktop attempts to change permissions.
+- tenant custom role created/edited;
+- OpenFGA tuple write succeeds but SquiFlow completion persistence crashes;
+- retry after ambiguous authorization-change outcome;
+- request accidentally uses latest OpenFGA model instead of pinned model ID;
+- stale/low-consistency authorization result immediately after a change;
+- Desktop attempts permission change;
+- PII accidentally used in tuple IDs.
 
 Gate:
-- Web is the only tenant permission-management surface;
-- OIDC identity never substitutes for current SquiFlow authorization/tenant isolation;
-- no embedded reusable Workstation secret.
+- ZITADEL authenticates; OpenFGA authorizes; SquiFlow tenant/domain checks remain independent;
+- role/grant UI reports applied only when intended OpenFGA state is known applied;
+- ambiguous tuple writes have reconciliation, not guesswork;
+- custom role does not require new authorization model deployment;
+- no embedded reusable Workstation client secret.
 
 ---
 
-## Phase 2 — first local-first Customer/Order slice
+## Phase 2 — first local-first Customer/Order slice + Guard recovery
 
 Deliver:
 - minimal Customer/walk-in + Order journey;
 - selected local DB;
 - one atomic local business + outbox transaction;
-- instant local UI result;
-- restart recovery;
-- stable semantic idempotency key per local operation;
-- tenant default currency code used by the first monetary field rather than a hardcoded currency;
-- monetary record keeps the applied currency code where it matters historically;
-- ordinary Windows printing path only if this first slice needs printing.
-
-Do **not** add:
-- Guard/helper process;
-- generic Money/FX framework;
-- generic repository/unit-of-work interface hierarchy.
+- immediate local UI result;
+- stable semantic idempotency key;
+- tenant default currency code used rather than a hardcoded currency;
+- monetary record retains applied currency code where historical meaning requires it;
+- Guard heartbeat/lifecycle integration, bounded restart/backoff, safe-start path, and update-handoff contract skeleton;
+- normal Windows printing path only if this first journey actually prints.
 
 Attack:
-- process termination after commit;
-- lost in-memory sync wakeup;
+- Workstation process termination after durable local commit;
+- Guard restarts Workstation;
+- repeated startup crash reaches restart budget/safe mode instead of looping forever;
+- Guard itself crashes and later restarts;
+- sleep/hibernate/clock jump during heartbeat;
 - disk full/DB locked;
-- duplicate local scheduling;
+- lost in-memory sync wakeup;
 - sign-out/restart with pending work;
-- wrong local clock;
-- printer unavailable after a committed business transaction where printing is used.
+- printer unavailable after committed transaction.
 
 Gate:
-- committed local work survives restart;
-- no network dependency for the explicitly local-capable operation;
-- currency is configuration/data, not hardcoded application behavior.
+- local work survives all process lifecycle failures covered by the selected local DB durability contract;
+- Guard recovery never deletes/rewrites pending business work;
+- Guard resource use is measured but functionality is not removed to meet an arbitrary tiny footprint;
+- no network dependency for explicitly local-capable work.
 
 ---
 
@@ -130,35 +158,37 @@ Gate:
 
 Deliver:
 - bounded sync upload;
-- per-item semantic idempotency;
-- authoritative tenant derivation;
+- semantic idempotency;
+- ZITADEL-authenticated server session/device identity;
+- authoritative TenantContext;
 - tenant-scoped resource lookup;
-- resource/action authorization;
+- OpenFGA permission/resource check where applicable;
+- separate domain/workflow/state validation;
 - explicit request/response contracts;
 - expected-version concurrency;
-- central DB adapter selected for this slice;
-- pooled tenant discriminator;
-- provider-appropriate isolation proof;
-- PostgreSQL RLS proof if PostgreSQL is used;
-- atomic business mutation + receipt + outbox where one store owns them;
+- selected central DB adapter;
+- pooled tenant discriminator and provider-appropriate isolation proof;
+- PostgreSQL RLS proof if PostgreSQL is selected;
+- atomic business mutation + idempotency receipt + outbox where one store owns them;
 - remote change feed + cursor;
 - finite retry/backoff.
 
 Attack:
-- response lost after server commit;
+- response lost after commit;
 - duplicate same-intent command;
 - same key + changed intent;
 - cross-tenant object/list/write attempt;
+- valid OpenFGA permission but wrong TenantId/resource query;
+- permission revoked while local operation pending;
 - connection reused across tenants;
-- permission revoked while local operation is pending;
 - partial batch failure;
 - retry amplification.
 
 Gate:
 - no duplicate effect;
-- no cross-tenant leakage;
+- no cross-tenant leakage even if authorization relation exists incorrectly;
 - stale Workstation permission snapshot is not server authority;
-- central DB behavior is proven with the real adapter, not an in-memory substitute.
+- central DB behavior proven against the real adapter.
 
 ---
 
@@ -166,23 +196,26 @@ Gate:
 
 Deliver:
 - one real aggregate conflict UX;
-- protocol/schema version negotiation;
+- protocol/schema/model compatibility checks;
 - reauth/upgrade/resnapshot/rebase path;
 - preservation of pending local intent;
-- tombstone/change-history retention policy for the supported offline window;
-- large-backlog transfer policy.
+- tombstone/change-history retention policy;
+- large-backlog transfer policy;
+- refreshed OpenFGA-derived effective permission snapshot after reconnect.
 
 Attack:
 - weeks/months offline;
 - old protocol/schema/rules/permissions;
+- OpenFGA role revoked while client offline;
 - deleted/merged remote entity;
 - large pending backlog;
 - slow connection;
-- local disk nearly full during recovery.
+- local disk nearly full.
 
 Gate:
 - no silent pending-work deletion;
-- client older than retained incremental history gets explicit resnapshot/rebase rather than fake success.
+- client older than retained incremental history gets explicit recovery;
+- old local permissions never bypass current server OpenFGA/domain authorization.
 
 ---
 
@@ -190,31 +223,30 @@ Gate:
 
 Deliver:
 - one bounded tenant rule;
-- fact-authority classification for that rule;
+- fact-authority classification;
 - one configurable workflow stage/transition;
 - one bounded versioned form;
 - Web-only authoring/publication;
-- immutable compatible snapshot to Workstation/API;
+- immutable compatible snapshot;
 - decision trace;
-- one semantic authorization requirement for the transition.
+- one semantic authorization requirement whose permission side is OpenFGA-backed and whose state/transition side is SquiFlow-owned.
 
 Attack:
 - invalid/conflicting rule;
 - stale central fact used offline;
-- form/workflow definition changes while old instances exist;
-- stage retired/renamed;
-- approver permission revoked;
-- simultaneous conflicting transitions;
+- definition changes with active old instances;
+- approver permission revoked in OpenFGA;
+- simultaneous transitions;
 - two-person approval deadlock.
 
 Gate:
-- previous published version survives failed publication;
-- old instances remain explainable;
-- local evaluation cannot make server-required facts authoritative.
+- authorization and workflow/domain validity remain separate;
+- previous published definition survives failed publication;
+- old instances remain explainable.
 
 ---
 
-## Phase 6 — create Worker + Platform Admin only when needed
+## Phase 6 — Worker + Platform Admin when their first real jobs exist
 
 Now create:
 
@@ -223,104 +255,93 @@ services/worker
 apps/admin-web
 ```
 
-because this phase introduces their first real jobs/control flows.
-
 Deliver:
 - durable job/outbox consumption;
 - claims/leases where needed;
-- idempotent/reconcilable effects;
 - bounded concurrency/fairness;
 - retry/no-progress/quarantine;
 - one real long-running `202 Accepted` operation if justified;
-- Platform Admin controls for the implemented Worker/control case;
-- private infrastructure recovery runbook for app/control-plane outage;
-- first external notification/webhook only if the complete journey needs one.
+- Platform Admin controls for implemented Worker/runtime controls;
+- ZITADEL authentication + separate platform OpenFGA/application authorization model/scope as designed for platform operators;
+- private infrastructure break-glass path when app control plane is unavailable.
 
 Attack:
 - Worker crash before/after external effect;
 - stale lease owner;
-- repeated retry;
 - `OutcomeUnknown`;
-- one tenant flooding expensive work;
-- normal user guessing platform-admin endpoint;
+- one tenant flooding work;
+- normal tenant user reaches platform route;
+- ZITADEL-authenticated tenant user has no platform OpenFGA authority;
 - Admin Web/Core API unavailable during recovery.
 
 Gate:
-- no generic force-success/mark-complete controls;
-- application control is Platform-Admin-Web only during normal operation;
-- private recovery path is not a tenant/Desktop API.
+- no generic force-success/mark-complete;
+- tenant authorization cannot become platform authority;
+- break-glass is infrastructure recovery, not hidden tenant API.
 
 ---
 
-## Phase 7 — Hugging Face files + documents + printing + Kaggle backup proof
+## Phase 7 — provider-bound files, documents, printing, backup restore
 
 Deliver:
-- private Hugging Face Storage Bucket integration contained in infrastructure code;
-- object metadata/key/hash/lifecycle in business DB;
-- ~100 GB capacity measurement/admission behavior;
-- local attachment staging and upload/retry;
-- immutable/versioned application object keys for historical/issued objects;
-- document generation needed by the implemented journey;
-- in-process Windows printing path;
-- encrypted opaque Kaggle backup artifact upload/download proof.
-
-Do **not** create `IObjectStorage` merely because migration is planned. Extract a migration seam only when the paid-provider migration begins or another real implementation coexists.
-
-Kaggle backup flow:
-
-```text
-required state
-→ package/compress locally
-→ authenticated encryption locally
-→ opaque .sqfbak + checksum
-→ private Kaggle Dataset version
-→ download + verify
-→ restore test
-```
+- `HuggingFaceObjectStore : IObjectStore` complete adapter;
+- object metadata/key/hash/lifecycle in DB;
+- capacity measurement/admission behavior for current ~100 GB envelope;
+- attachment staging/upload/retry;
+- immutable/versioned application object keys;
+- document generation for implemented journeys;
+- printing path;
+- `KaggleBackupTarget : IBackupTarget` complete adapter;
+- backup orchestrator collecting all currently required recovery state, not just application rows;
+- encrypted opaque backup upload/download/restore proof.
 
 Attack:
 - object succeeds/metadata fails;
 - metadata exists/object missing;
 - cross-tenant object reference;
 - storage nears hard capacity;
-- large upload interrupted;
+- upload interrupted;
 - printer/spooler failure after commit;
-- Kaggle backup corrupt/missing/wrong key;
-- raw customer data accidentally selected for direct Kaggle upload.
+- Kaggle artifact corrupt/missing/wrong key;
+- raw data accidentally selected for direct provider upload;
+- second fake/test adapter proves interface is not accidentally Hugging-Face/Kaggle-shaped.
 
 Gate:
-- no silent deletion of retained business objects;
-- raw readable customer backups never go to Kaggle;
-- one encrypted off-site backup can actually be restored;
-- large transfer does not starve ordinary sync/API traffic.
+- business code has no direct Hugging Face/Kaggle dependency;
+- one encrypted off-site backup actually restores usable SquiFlow state;
+- interface abstractions do not hide provider-specific failures that must surface to operations;
+- large transfer does not starve normal sync/API traffic.
 
 ---
 
 ## Phase 8 — API/observability/admin hardening
 
-Deliver only the hardening relevant to implemented surfaces:
+Deliver only hardening relevant to implemented surfaces:
 - OpenTelemetry correlation;
 - New Relic + Aiven OpenSearch export;
 - Backtrace path where applicable;
+- Guard lifecycle/crash/resource evidence correlation;
 - bounded telemetry queues/spools;
 - tenant/platform audit;
 - high-risk exact-diff/step-up admin flows actually implemented;
 - generated endpoint inventory;
 - production CORS/cache/error/header policies;
-- SSRF-safe outbound HTTP before user-configured remote URLs;
+- SSRF-safe outbound HTTP;
 - dependency timeout/retry budgets;
 - liveness/readiness/functional health.
 
 Attack:
-- applicable OWASP API authorization/resource/SSRF/resource-consumption cases;
+- applicable OWASP API cases;
 - telemetry quota/export failure;
 - retry storm;
 - noisy tenant;
-- sensitive content in logs/diagnostics.
+- sensitive content in logs/Guard diagnostics;
+- OpenFGA or ZITADEL degraded/unavailable and resulting fail-closed/degraded behavior.
 
 Gate:
 - telemetry failure does not affect committed business truth;
-- no undocumented privileged production endpoint.
+- auth/authorization dependency failures never become accidental allow;
+- no undocumented privileged endpoint.
 
 ---
 
@@ -332,40 +353,43 @@ Deliver:
 - refund/reversal/correction;
 - inventory concurrency policy;
 - credit authority;
-- owner/manual price permission/audit;
-- use of the minimal shared currency/quantity/time semantics rather than hardcoded/ad-hoc values.
-
-Do not add FX/multi-currency behavior unless the implemented customer journey requires it.
+- Owner/manual price permission/audit;
+- OpenFGA permission + SquiFlow state/invariant checks for sensitive actions;
+- minimal currency/quantity/time semantics without hardcoding.
 
 Attack:
 - charge succeeds/response lost;
 - duplicate refund/webhook;
 - concurrent last-stock sale;
 - stale offline credit;
-- currency/rounding edge cases of the supported single-currency-per-record model;
-- permission revoked before deferred sensitive action.
+- permission revoked just before sensitive action;
+- OpenFGA allowed but business invariant denies;
+- currency/rounding edge cases of supported model.
 
 ---
 
-## Phase 10 — paying-customer production qualification
+## Phase 10 — paying-customer production qualification and provider migration readiness
 
 Deliver/prove:
 - actual rack resource tests;
+- Workstation + Guard soak/recovery tests;
 - node/SPOF inventory;
 - restart/disk-full/recovery behavior;
-- installer/update/rollback;
+- installer/update/rollback including Guard/Workstation compatibility;
 - backup restore onto replacement environment;
-- encrypted Kaggle backup key recovery;
+- encrypted backup key recovery;
 - Hugging Face object integrity/capacity report;
+- ZITADEL/OpenFGA deployment backup/reprovision procedure appropriate to managed/self-hosted choice;
 - provisional/final RPO/RTO;
 - private recovery runbook exercise;
 - operator ownership;
-- migration readiness from Hugging Face/Kaggle bootstrap storage to purpose-built paid providers.
+- new paid `IObjectStore`/`IBackupTarget` adapter readiness.
 
 Gate:
-- do not accept a paying customer while the system still depends on an untested backup restore;
-- planned storage migration occurs at the first paying customer, or earlier when constraints already require it;
-- no HA/zero-downtime claim without a topology that actually proves it.
+- do not accept a paying customer while backup restore is untested;
+- migrate bootstrap storage at the first paying customer or earlier when constraints require it;
+- no HA/zero-downtime claim without proven topology;
+- no simplification is accepted if it removes a core recovery/security/offline behavior already relied on by the product.
 
 ---
 
@@ -373,13 +397,12 @@ Gate:
 
 Do not spend baseline work on:
 - dedicated accessibility/a11y program;
-- Guard/supervisor/helper process without proven isolation need;
-- generic repository/unit-of-work/provider abstractions;
+- generic repository/unit-of-work/one-interface-per-class abstractions;
+- arbitrary additional helper processes beyond Guard without a specific need;
 - browser offline/PWA business sync;
 - Kafka/mandatory Redis;
 - full CQRS/event sourcing/Saga;
 - global CRDTs;
-- Zanzibar-style authorization service;
 - per-tenant schema/database/queue/stack by default;
 - multi-currency/FX system;
 - advanced peripheral suite;
