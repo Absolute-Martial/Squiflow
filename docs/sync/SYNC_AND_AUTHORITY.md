@@ -4,21 +4,21 @@
 
 ## 1. Trust model
 
-The Workstation is trusted as a user tool but **not** as a server authority.
+The Workstation is trusted as a user tool but **not** as server authority.
 
-Assume a local user can inspect or modify local storage, requests and configuration.
+Assume a local user can inspect/modify local storage, requests and configuration.
 
 Therefore the server independently performs:
-- authentication;
-- authoritative tenant derivation;
-- authorization;
+- ZITADEL-backed authentication/session/device validation;
+- authoritative SquiFlow TenantContext derivation;
+- current OpenFGA authorization;
 - schema/input validation;
-- business/rule validation;
+- business/rule/workflow validation;
 - idempotency;
 - concurrency/conflict checks;
 - central transaction.
 
-The Workstation never receives central database credentials.
+The Workstation never receives central DB credentials and never writes OpenFGA tuples.
 
 ## 2. Durable local transaction
 
@@ -31,15 +31,15 @@ BEGIN LOCAL TRANSACTION
 COMMIT
 ```
 
-If the local database says commit succeeded, both business change and outbox are present according to the selected local-store durability contract. If commit fails, neither becomes successful business state.
+If local commit succeeds, both business state and outbox exist according to the selected local-store durability contract. If commit fails, neither becomes successful local business state.
 
-An in-memory Channel/signal may wake the sync loop but is never the durable queue.
+An in-memory Channel/signal can wake sync but is never the durable queue.
+
+Guard may restart the Workstation after failure, but sync recovery always comes from this durable local state rather than Guard memory.
 
 ## 3. Local status versus remote authority
 
-A local save must not be confused with server acceptance.
-
-Use explicit states such as:
+Use explicit states:
 - `LocalCommitted`;
 - `PendingRemote`;
 - `Authoritative`;
@@ -49,44 +49,98 @@ Use explicit states such as:
 - `AuthorizationChanged`;
 - `UpgradeRequired`.
 
+A local save is not server acceptance.
+
 ## 4. Upload flow
 
 ```text
 select bounded pending batch
 → send authenticated SyncBatch
+→ validate ZITADEL-backed session/device context
+→ derive authoritative TenantContext
 → deduplicate/idempotency receipt
-→ authorize each semantic operation
-→ validate current business/rule/fact state
+→ authorize each semantic operation through current OpenFGA/SquiFlow authorization path
+→ validate current business/rule/workflow/fact state
 → apply central transaction
 → record receipt/change feed
 → return per-item result
 → persist result locally
 ```
 
-Prefer per-item results unless a group of changes is intentionally one business atomic unit.
+Prefer per-item results unless a group is intentionally one atomic business operation.
 
-Batch limits are bounded by both **item count and encoded bytes**. A batch that is cheap in row count can still be too expensive if payloads are large.
+Batch limits are bounded by item count **and encoded bytes**.
 
-## 5. Semantic sync versus attachment transfer
+## 5. Authorization snapshot versus current OpenFGA state
 
-Large file transfer must not starve small business synchronization.
+The Workstation may keep an effective permission snapshot for local UX/offline eligibility.
 
-Separate enough scheduling/resource budget that:
+It can include:
+- SquiFlow `TenantAuthorizationRevision`;
+- relevant OpenFGA authorization-model context/version identifier for diagnostics/compatibility;
+- effective local permission summary used by UX.
+
+It is never a server capability token.
+
+On reconnect the server checks current OpenFGA authorization again. A local snapshot cannot override:
+- revoked role/relationship;
+- removed tenant membership;
+- changed entitlement;
+- changed resource relationship;
+- platform/tenant isolation boundary.
+
+## 6. Permission change while offline
+
+Example:
+
+```text
+Staff creates local order offline under permission snapshot R17
+Owner removes orders.create via Web
+OpenFGA revocation applies
+TenantAuthorizationRevision becomes R18
+Staff reconnects
+```
+
+The server must not accept the operation simply because the old snapshot was valid when the local action was created.
+
+Return `AuthorizationChanged`/review according to the command semantics while preserving the local user intent/evidence. The user may need an Owner/authorized actor to recreate/approve the action online rather than silently losing it.
+
+## 7. OpenFGA dependency failure during sync
+
+Distinguish:
+- explicit OpenFGA deny;
+- OpenFGA provider unavailable/timeout;
+- authorization model/config mismatch;
+- ambiguous/reconciliation state after a role mutation.
+
+Provider failure must not become `allowed=true`.
+
+For ordinary actor-authorized pending commands, inability to obtain the required current authorization results in retryable/degraded/fail-closed behavior, not a guessed permission result.
+
+Already committed business consequences are a different Worker concern and do not use this actor-command rule blindly.
+
+## 8. Semantic sync versus attachment transfer
+
+Large file transfer must not starve small business sync.
+
+Use separate enough scheduling/resource limits that:
 - semantic operation batches remain responsive;
-- attachment uploads/downloads use bounded concurrent transfers;
-- provider/rack bandwidth limits are respected;
-- large transfers can resume/retry where supported;
+- attachment transfers use bounded concurrency;
+- provider/rack bandwidth is respected;
+- large transfers resume/retry where supported;
 - transfer backlog/age is observable.
 
-The business outbox can reference staged attachment metadata rather than embedding giant file bytes in the semantic sync envelope.
+The business outbox references staged attachment metadata rather than embedding giant file bytes.
 
-## 6. Response-loss case
+Server-side retained object transfer goes through the `IObjectStore` boundary; the Workstation does not depend on Hugging Face-specific APIs.
 
-The server may commit and the network may fail before the client sees the response.
+## 9. Response-loss case
 
-Retrying the same semantic operation must return `AlreadyApplied`/the previous semantic result through a stable idempotency key rather than create a duplicate order/payment/etc.
+The server can commit and lose the response.
 
-## 7. Remote changes
+Retrying the same semantic operation with the same idempotency key returns `AlreadyApplied`/the previous semantic result rather than duplicating the order/payment/etc.
+
+## 10. Remote changes
 
 ```text
 request changes after cursor
@@ -97,127 +151,125 @@ request changes after cursor
 → commit
 ```
 
-Never advance the cursor independently of durable local apply.
+Never advance cursor independently of durable local apply.
 
-Remote batches are bounded. If the local disk cannot safely stage/apply the next batch, stop before corrupting/losing already durable local work and surface a storage-recovery state.
+If local disk cannot safely stage/apply the next batch, stop before corrupting already durable local work and surface storage recovery state.
 
-## 8. Conflict policy is per aggregate
+## 11. Conflict policy is per aggregate
 
 - Customer/contact: merge/version where safe.
 - Product/catalog: server-authoritative/versioned as appropriate.
-- Inventory: transactional authoritative operation; no generic last-write-wins.
+- Inventory: transactional authoritative operation; no global LWW.
 - Order: command + expected version.
 - Payment: immutable/idempotent effect + reconciliation.
 - Credit: current authoritative exposure.
 - Quotation draft: version/merge/manual review may be supported.
 - Published quotation: immutable revision.
-- Rules/workflow/permissions: server-published authority.
+- Roles/permissions: OpenFGA/server authority.
+- Rules/workflow publication: server authority.
 - Attachments: immutable object identity + metadata version.
 
-## 9. Permission/rule changes while offline
+## 12. Rules/facts while offline
 
-Permission grants and rule/workflow publication are Web-only. A Workstation may hold stale local snapshots while offline.
+Rule/workflow snapshots can be stale just like permissions.
 
-On reconnect, the server reauthorizes/revalidates pending operations. If authority or required current facts changed, return an explicit `AuthorizationChanged`, `Conflict`, `RequiresServerFact` or equivalent review result and preserve the local evidence rather than silently discarding it.
+On reconnect the server revalidates current required rule/workflow/fact state. If a rule requires a `ServerRequired` fact such as current shared credit/stock/security context, the offline result cannot become authoritative merely because local evaluation once succeeded.
 
-The Workstation permission/rule snapshot version is context/evidence, not a server capability token.
+## 13. Supported offline window, tombstones and compaction
 
-## 10. Supported offline window, tombstones and compaction
+The protocol declares a supported incremental-history window based on actual retention/capacity policy.
 
-`Can be offline for months` is not implementable unless the server defines how long change/tombstone history remains sufficient for incremental catch-up.
-
-The sync protocol therefore declares a supported incremental-history window based on actual retention/capacity policy.
-
-If the Workstation cursor is older than retained safe history, the server returns an explicit resnapshot/upgrade recovery requirement rather than pretending incremental sync is complete.
+If cursor is older than retained safe history, return explicit resnapshot/upgrade recovery rather than pretending incremental sync is complete.
 
 Do not silently drop deletion/merge evidence because tombstones were compacted.
 
-Exact retention duration is a deployment/product decision based on expected offline behavior and storage cost; do not invent a forever-retention guarantee.
+Exact retention duration is a product/deployment decision; do not promise forever history by default.
 
-## 11. Resnapshot/rebase recovery
+## 14. Resnapshot/rebase recovery
 
 A resnapshot is not `delete local DB and download server state` when unsynced local work exists.
 
-Recovery flow must conceptually preserve:
+Preserve:
 - pending local semantic operations;
 - staged/unsynced attachment references;
-- local evidence needed for conflict review;
-- user/account/device identity needed to reassociate the local store safely.
+- conflict-review evidence;
+- account/device/store identity needed to reassociate safely.
 
 Then:
 
 ```text
 preserve/export pending local intent
+→ ZITADEL reauthentication if needed
 → obtain authorized current server snapshot
+→ refresh current OpenFGA-derived effective permissions
 → rebuild/upgrade local authoritative mirror
 → rebase/review pending local operations
-→ resume synchronization
+→ resume sync
 ```
 
-Exact implementation can be optimized later, but silent local-work deletion is prohibited.
+Silent local-work deletion is prohibited.
 
-## 12. Long-offline recovery
+## 15. Long-offline recovery
 
-A client may return after weeks/months with:
-- expired user/device credentials;
-- old protocol;
-- old local schema;
+A client may return with:
+- expired ZITADEL/session/device credentials;
+- old protocol/local schema;
+- old OpenFGA permission snapshot/model context;
 - old rule/config snapshot;
 - compacted tombstones;
 - remotely deleted/merged entities;
 - large outbox;
 - missing staged attachment;
-- insufficient local disk for the current snapshot.
+- insufficient local disk.
 
 Recovery can be reauth, upgrade, resnapshot, rebase, conflict review or export/repair.
 
 Never silently delete pending user work.
 
-## 13. Local capacity and outbox growth
+## 16. Local capacity and Guard interaction
 
-The local outbox/staging area is durable but **bounded by real customer disk capacity**.
-
-Track at least:
-- pending item count;
-- encoded bytes where useful;
-- oldest pending age;
+Track:
+- pending item count/bytes/oldest age;
 - staged attachment bytes;
-- local DB file size/free space;
-- retry/conflict items requiring user action.
+- local DB size/free space;
+- retry/conflict items requiring user action;
+- Workstation/Guard diagnostic/update temp usage where application-controlled.
 
 When space is low:
 - preserve already committed work;
-- stop accepting optional large files/work before total disk exhaustion;
+- stop optional large files/work before total disk exhaustion;
 - allow export/support recovery;
-- do not discard old unsynced work simply to shrink the queue.
+- never discard old unsynced work merely to shrink the queue.
 
-Workstation device/disk behavior is owned by `docs/workstation/LOCAL_FIRST_DESKTOP.md`.
+Guard can surface/recover process lifecycle and local resource pressure, but it does not delete business outbox rows or acknowledge sync results.
 
-## 14. Backpressure and constrained-site bandwidth
+## 17. Backpressure and constrained bandwidth
 
-When reconnecting many clients or large backlogs:
+When reconnecting many clients/large backlogs:
 - bounded batch count/bytes;
-- `Retry-After`/backoff;
-- exponential backoff + jitter;
+- `Retry-After`/backoff/jitter;
 - tenant/device fairness;
 - server admission control;
-- DB connection/work budget;
+- DB work budget;
+- OpenFGA/ZITADEL dependency-call budgets;
 - network transfer budget;
 - no tight reconnect loop.
 
-Do not let all Workstations come online after an outage and create synchronized retry traffic that overwhelms the lower-spec rack/uplink.
+Do not let clients reconnect after an outage and overwhelm the lower-spec rack or security dependencies.
 
-## 15. Sync observability/support
+## 18. Sync observability/support
 
-Expose enough safe evidence for user/support to distinguish:
+Expose enough safe evidence to distinguish:
 - offline/network issue;
-- pending but healthy backlog;
+- Guard/Workstation process recovery issue;
+- pending healthy backlog;
 - server throttling;
-- authentication/device problem;
-- authorization changed;
+- ZITADEL authentication/device issue;
+- OpenFGA authorization deny/unavailable/model mismatch;
+- `AuthorizationChanged` after revocation;
 - business conflict;
 - protocol/upgrade required;
 - local storage low/full;
-- attachment missing/transfer stalled.
+- attachment transfer stalled.
 
-Important measures include oldest pending age and last successful **semantic** sync, not only a green connectivity icon.
+Important measures include oldest pending age and last successful **semantic** sync, not only connectivity state.
