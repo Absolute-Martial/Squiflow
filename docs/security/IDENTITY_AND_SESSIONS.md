@@ -19,7 +19,32 @@ Current official references:
 - https://zitadel.com/docs/guides/integrate/login/oidc/login-users
 - https://zitadel.com/docs/guides/solution-scenarios/b2b
 
-## 2. Protocol boundary
+## 2. Authentication techniques belong to the identity platform
+
+The authentication-techniques review reinforces that authentication choices trade security, usability and operational complexity and must address threats such as session/token theft and replay.
+
+SquiFlow therefore does **not** implement a parallel collection of password, OTP, authenticator, passkey, MFA, SSO or federation mechanisms inside the application merely because multiple techniques exist.
+
+Responsibility split:
+
+```text
+ZITADEL
+→ credential/authentication methods
+→ MFA/passkey/SSO/federation capability and policy
+→ identity-provider security/recovery features
+
+SquiFlow
+→ standards-based OIDC integration
+→ application session binding
+→ device + tenant membership mapping
+→ risky-operation step-up requirement
+→ rate/abuse controls around SquiFlow flows
+→ OpenFGA + domain authorization after authentication
+```
+
+When a customer later requires a different authentication factor or enterprise federation, first evaluate/configure the selected identity platform rather than adding another SquiFlow credential database/protocol.
+
+## 3. Protocol boundary
 
 OpenID Connect answers:
 - which configured ZITADEL issuer authenticated this user;
@@ -31,7 +56,7 @@ It does **not** answer whether the user currently has `payments.refund`, may acc
 
 Do not copy long-lived application permission truth into an ID Token and trust it until expiry. Authentication freshness and application-authorization freshness are different problems.
 
-## 3. Stable account identity
+## 4. Stable account identity
 
 Stable external identity is:
 
@@ -45,7 +70,7 @@ Validate tokens through the standards-compliant .NET/ZITADEL OIDC integration, i
 
 If UserInfo is used, its `sub` must match the authenticated token subject.
 
-## 4. ZITADEL organization mapping is deliberate
+## 5. ZITADEL organization mapping is deliberate
 
 ZITADEL Organizations are designed for B2B/multi-tenant identity scenarios, but SquiFlow must not silently equate ZITADEL organization identity with SquiFlow business tenancy before the POC proves the lifecycle works for:
 - an Owner + Staff tenant;
@@ -58,7 +83,7 @@ The likely direction is to use ZITADEL organization capability where it gives us
 
 `ZITADEL OrganizationId` or an OIDC claim is never by itself permission to access a SquiFlow tenant's business records.
 
-## 5. Workstation interactive login
+## 6. Workstation interactive login
 
 The Workstation is a public native client and has no reusable embedded client secret.
 
@@ -89,7 +114,7 @@ Prefer an OS/app-claimed HTTPS callback if Windows packaging proves it reliable 
 
 Otherwise use a standards-compatible loopback IP callback with an ephemeral port, listener active only for the login transaction, then closed.
 
-## 6. User, tenant membership, device, and local installation are separate
+## 7. User, tenant membership, device, and local installation are separate
 
 Conceptually distinguish:
 - **ZITADEL account identity** — authenticated `(issuer, subject)`;
@@ -102,7 +127,7 @@ Do not collapse these into one token or row.
 
 A ZITADEL login can succeed while SquiFlow membership is suspended. A device can be revoked while a Web account remains usable. Expired login credentials never make unsynced local business data safe to delete.
 
-## 7. Device lifecycle
+## 8. Device lifecycle
 
 Conceptual states:
 
@@ -124,7 +149,7 @@ Required semantics:
 - suspicious/repeated enrollment/recovery is audited/rate-limited;
 - server resolves current membership/OpenFGA authorization again for material commands.
 
-## 8. Web and custom domains
+## 9. Web and custom domains
 
 Custom-domain Web applications redirect to the configured canonical ZITADEL identity origin/issuer, then return only to pre-registered/validated SquiFlow callback origins.
 
@@ -135,17 +160,19 @@ Do not:
 
 Custom-domain activation and callback registration remain tied to verified domain ownership.
 
-## 9. Sessions
+## 10. Sessions
 
 Authentication, SquiFlow tenant membership, device posture, OpenFGA permission, resource scope, and domain validity are separate checks.
 
-For Web, favor hardened server-managed/browser sessions where practical. Exact cookie/session topology remains a Phase-1 implementation detail.
+For Web, favor hardened server-managed/browser sessions where practical. Exact cookie/session and Blazor render/circuit topology remains a Phase-1 implementation detail.
 
 Session revocation state must be shared/durable if multi-node behavior requires it; do not depend on one API process's memory.
 
+If Interactive Server Blazor is used, its circuit state is transient Web runtime state and does not become the authoritative account/permission/business store. Valuable Web forms use explicit server-side drafts when their recovery requirement justifies persistence beyond one circuit.
+
 For valuable Web forms, a server-side draft may survive browser/session interruption; reauthentication then reauthorizes current access before edit/submit.
 
-## 10. Step-up authentication
+## 11. Step-up authentication
 
 Use ZITADEL/OIDC mechanisms for recent or stronger authentication on high-risk operations rather than inventing a SquiFlow password-confirmation protocol.
 
@@ -158,7 +185,7 @@ Examples:
 
 Step-up proves authentication strength/recency. OpenFGA + SquiFlow application/domain authorization still run afterward.
 
-## 11. Logout is multiple operations
+## 12. Logout is multiple operations
 
 Distinguish:
 1. clear/lock the local Web/Workstation application session;
@@ -170,7 +197,7 @@ A Workstation sign-out does not claim every browser/device identity-provider ses
 
 Signing out/revoking credentials does not erase unsynced local business work.
 
-## 12. Owner/bootstrap/recovery
+## 13. Owner/bootstrap/recovery
 
 Ordinary role editing must not strand a tenant with no recoverable Owner-level administration.
 
@@ -178,13 +205,13 @@ Owner transfer/removal is guarded, Web-only, audited, and can require ZITADEL st
 
 If the only Owner is unavailable, recovery is a support/security process with strong ownership evidence. Support cannot silently assign itself permanent OpenFGA/tenant authority.
 
-## 13. Service-to-service ZITADEL access
+## 14. Service-to-service ZITADEL access
 
 Where SquiFlow Core API must manage ZITADEL users/organizations/configuration, use a dedicated least-privilege service account/client according to ZITADEL's supported API authentication methods.
 
 Do not give ordinary runtime code blanket instance-owner authority merely because it is convenient. Separate identity-provisioning permissions from platform break-glass infrastructure credentials.
 
-## 14. Cloud versus self-hosted remains open
+## 15. Cloud versus self-hosted remains open
 
 ZITADEL product selection is accepted. Deployment mode is still an implementation/operations decision:
 - ZITADEL Cloud reduces infrastructure burden;
@@ -192,7 +219,7 @@ ZITADEL product selection is accepted. Deployment mode is still an implementatio
 
 Do not accidentally self-host it on the small rack simply because self-hosting exists; decide from resource/availability/privacy requirements during Phase 1.
 
-## 15. Local secret/data-at-rest boundary
+## 16. Local secret/data-at-rest boundary
 
 Use supported Windows secure-storage/data-protection mechanisms for local credentials where appropriate; do not invent encryption with a hardcoded application key.
 
@@ -205,3 +232,4 @@ Exact local at-rest mechanism remains a Windows POC.
 - OpenID Connect specifications: https://openid.net/wg/connect/specifications/
 - OAuth 2.0 for Native Apps (RFC 8252)
 - OAuth 2.0 Security Best Current Practice (RFC 9700)
+- ByteByteGo authentication-techniques follow-up review: `docs/review/BYTEBYTEGO_DISTRIBUTED_SYSTEMS_SOURCE_REVIEW.md`
