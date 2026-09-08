@@ -21,8 +21,13 @@ Start with [`MASTER_IMPLEMENTATION_PLAN.md`](MASTER_IMPLEMENTATION_PLAN.md).
 - ASP.NET Core authorization integrates OpenFGA checks; SquiFlow domain/workflow/concurrency rules and DB tenant isolation remain separate.
 - Workstation login uses system-browser OIDC Authorization Code + PKCE against ZITADEL.
 - Pooled multi-tenancy is the ordinary baseline; tenant isolation is separate from authentication/OpenFGA authorization.
+- Shared compute is still tenant-aware: expensive jobs/reports/provider work use bounded/fair limits where needed to prevent noisy-neighbor takeover.
 - Workstation is local-first/offline; Web is online-only for business operations in v0.0.15.
-- Retryable mutations use semantic idempotency keys; at-least-once delivery is handled by idempotent/reconcilable effects.
+- Commands and queries have separate responsibilities in code, but separate CQRS databases/services/event sourcing are not baseline.
+- Short authoritative work remains synchronous; after-commit consequences may use transactional outbox + Worker.
+- Queue/job, pub/sub, event stream, and direct synchronous calls are treated as different tools selected from the real semantic need; Kafka/event-stream infrastructure is not baseline.
+- Retryable mutations use semantic idempotency keys; duplicate defense covers caller/producer retry, transport redelivery, and consumer/effect replay.
+- At-least-once delivery is handled by idempotent/reconcilable effects; system-wide `exactly once` is not claimed from one local transaction/broker feature.
 - PostgreSQL is the strongest central reference candidate; SQLite + WAL and libSQL are Workstation-store candidates. Exact DB products remain open until their POCs.
 - Currency is configurable/not hardcoded. v0.0.15 does not build a multi-currency/FX subsystem.
 - SquiFlow-native bounded rules/workflow remain in-process capabilities unless real isolation/scale proves otherwise.
@@ -59,7 +64,7 @@ arbitrary helper processes
 empty projects/directories for future architecture
 ```
 
-Minimalism must never remove required offline durability, recovery, authorization freshness, tenant isolation, backup restore, or edge-case handling.
+Minimalism must never remove required offline durability, recovery, authorization freshness, tenant isolation, backup restore, retry/idempotency guarantees, or edge-case handling.
 
 ## Documentation map
 
@@ -107,6 +112,7 @@ Minimalism must never remove required offline durability, recovery, authorizatio
 - [`docs/review/SKEPTICAL_IMPLEMENTATION_GATES.md`](docs/review/SKEPTICAL_IMPLEMENTATION_GATES.md)
 - [`docs/review/SECURITY_AUTHORIZATION_SOURCE_REVIEW.md`](docs/review/SECURITY_AUTHORIZATION_SOURCE_REVIEW.md)
 - [`docs/review/RELIABILITY_API_AND_PATTERN_SOURCE_REVIEW.md`](docs/review/RELIABILITY_API_AND_PATTERN_SOURCE_REVIEW.md)
+- [`docs/review/BYTEBYTEGO_DISTRIBUTED_SYSTEMS_SOURCE_REVIEW.md`](docs/review/BYTEBYTEGO_DISTRIBUTED_SYSTEMS_SOURCE_REVIEW.md)
 - [`docs/review/CSV_AUDIT_AND_SOURCE_CLEANUP.md`](docs/review/CSV_AUDIT_AND_SOURCE_CLEANUP.md)
 
 ## Source-of-truth rule
