@@ -133,7 +133,7 @@ Every externally reachable API surface declares:
 
 Development/debug/test endpoints are not simply hidden; they are absent or inaccessible in production configuration.
 
-REST/task-oriented HTTP is the baseline. GraphQL/Federation are not added unless a real read-composition problem proves their extra query-cost/authorization/cache/schema complexity is worthwhile.
+REST/task-oriented HTTP is the baseline, but SquiFlow does not claim strict REST purity. GraphQL/Federation are not added unless a real read-composition problem proves their extra query-cost/authorization/cache/schema complexity is worthwhile.
 
 ## 7. Synchronous versus asynchronous HTTP
 
@@ -461,7 +461,38 @@ Container design patterns do not become automatic runtime architecture. Do not a
 
 `SquiFlow.Guard` is a native Windows supervision/recovery boundary, not evidence that server components should follow a sidecar-everywhere model.
 
-## 22. Edge gateway versus service mesh
+## 22. Service-to-service communication and data ownership
+
+SquiFlow distinguishes **module communication** from **service communication**.
+
+Inside one runtime host, business modules communicate in-process. Do not create HTTP/gRPC calls between modules merely to imitate a service architecture.
+
+At a real process/service boundary, choose communication from the semantics:
+
+```text
+immediate authoritative answer needed
+→ synchronous request/response
+
+long-running/after-commit consequence
+→ durable Worker/job/outbox
+
+multiple real consumers of one committed fact
+→ durable fan-out/pub-sub when proven
+```
+
+Avoid long synchronous chains such as:
+
+```text
+client → Core API → service A → service B → service C
+```
+
+when the same business operation can stay one in-process application/transactional flow. Every network hop adds timeout, retry, partial-failure, versioning, authorization, observability, and deployment obligations.
+
+Core API, Admin API, and Worker can legitimately share the same central database because they are runtime hosts of the same modular-monolith business core. Shared access still requires explicit module/data ownership and common invariants. One host must not use ad-hoc SQL to bypass another module's business rules merely because the table is reachable.
+
+If a future capability is extracted into a genuinely independent service, its authoritative data ownership becomes explicit and other services should use stable APIs/events/read models rather than directly modifying its private tables.
+
+## 23. Edge gateway versus service mesh
 
 An edge reverse proxy/API-gateway capability may be useful for north-south concerns such as:
 - TLS termination;
@@ -469,21 +500,38 @@ An edge reverse proxy/API-gateway capability may be useful for north-south conce
 - request-size limits;
 - WAF/private-access policy;
 - coarse public/admin exposure;
-- coarse rate limiting.
+- coarse rate limiting;
+- transport/protocol negotiation and edge observability where supported.
 
 That gateway is not the business authorization engine. Core API/Admin API still authenticate/authorize/validate resources and state independently.
 
 A shared edge may route to both Core API and Admin API, but it must not reintroduce a runtime dependency where Admin API calls through Core API. Platform Admin remains an independent backend/security/availability plane.
 
+Do not adopt a heavyweight API-management product merely because gateways can also offer payload transformation, analytics, version management, or authorization. Add only the edge capabilities SquiFlow actually needs and can operate on the owned deployment.
+
 A service mesh is **not baseline**. Revisit only if independently deployed east-west traffic grows enough that service mTLS, traffic policy, discovery, and distributed observability cannot be handled reliably/economically by the simpler topology.
 
-## 23. Server concurrency
+## 24. Network protocol boundaries
+
+Current production protocol direction:
+- external Web/Core API/Admin API/Workstation sync traffic uses HTTPS/TLS;
+- ZITADEL uses OIDC/OAuth over HTTPS;
+- HTTP/1.1, HTTP/2, or HTTP/3 may be negotiated by client/edge/server where supported, but application semantics do not depend on one transport version;
+- DNS/hostnames are routing inputs, never tenant authority by themselves;
+- WebSocket/SignalR, if used, carries live UI/signal/wakeup information only; durable business/sync truth remains DB/outbox/state records;
+- SSH/private network access is infrastructure operations/recovery only, not a normal tenant business channel.
+
+Time synchronization is operationally important for TLS/token validity, leases, schedules, and diagnostics. Where correctness cannot tolerate wall-clock ambiguity, use explicit versions, sequence/occurrence IDs, or monotonic/fencing evidence instead of trusting timestamps alone.
+
+Do not add gRPC, MQTT, WebRTC, FTP/SFTP, or raw TCP/UDP as application protocols without a concrete latency/streaming/device/transport/compatibility requirement.
+
+## 25. Server concurrency
 
 The application handles independent work in parallel. Correctness is scoped to the relevant aggregate/resource, not one global writer.
 
 Final correctness is enforced by the selected central store through transactions, constraints, optimistic concurrency and locking where appropriate.
 
-## 24. Stateless server-process semantics
+## 26. Stateless server-process semantics
 
 `Stateless` for Core API/Admin API/future Worker means their process memory is not the sole durable authority for business correctness.
 
@@ -501,7 +549,7 @@ Process-local cache/circuit/temporary state is permitted only with explicit loss
 
 This also does not imply automatic failover or zero downtime. If Blazor Interactive Server is used, Web circuits themselves are stateful and require an explicit circuit/session topology before multi-node failover claims are made.
 
-## 25. Platform-critical Worker controls
+## 27. Platform-critical Worker controls
 
 Pause/drain/resume/retry/quarantine/reconcile controls that can materially affect server operation are invoked through Platform Admin Web → **Admin API**. They are not Core API routes.
 
@@ -515,11 +563,12 @@ Do not expose those controls through Workstation, ordinary tenant Web, `/sync`, 
 - Stripe idempotency article
 - AWS Builders' Library idempotent API article
 - Azure Architecture Center patterns, API design/implementation, background jobs and transient-fault guidance
-- ByteByteGo CQRS/retry/event-driven/messaging/idempotency/background-work/multi-tenancy/container/cross-cutting/API-security/stateless/clean-code/eventual-consistency/gateway-mesh/schema/indexing/API-performance/SOLID/rate-limiting/GraphQL follow-up reviews
+- ByteByteGo CQRS/retry/event-driven/messaging/idempotency/background-work/multi-tenancy/container/cross-cutting/API-security/stateless/clean-code/eventual-consistency/gateway-mesh/schema/indexing/API-performance/SOLID/rate-limiting/GraphQL/API-gateway/service-communication/data-sharing/API-design/REST/network-protocol follow-up reviews
 
 See:
 - `docs/review/SECURITY_AUTHORIZATION_SOURCE_REVIEW.md`
 - `docs/review/RELIABILITY_API_AND_PATTERN_SOURCE_REVIEW.md`
 - `docs/review/BYTEBYTEGO_DISTRIBUTED_SYSTEMS_SOURCE_REVIEW.md`
 - `docs/review/BYTEBYTEGO_CODE_CONSISTENCY_DATA_API_SOURCE_REVIEW.md`
+- `docs/review/BYTEBYTEGO_API_GATEWAY_SERVICE_PROTOCOL_SOURCE_REVIEW.md`
 - `docs/api/API_CONTRACT_IDEMPOTENCY_AND_RETRY.md`
