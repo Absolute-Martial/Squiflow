@@ -8,12 +8,11 @@ Tenant Owner/delegated settings live in the ordinary authenticated **Blazor Web 
 
 For a two-person customer this should feel like ordinary Settings, not a separate enterprise console.
 
-Includes:
+Includes only as implemented:
 - Team and invitations;
 - Roles/permission assignments;
 - Branch/program setup;
-- Rules/workflow/stage/forms publication;
-- Custom fields/forms;
+- Rules/workflow/forms;
 - Custom domains/branding;
 - Feature settings;
 - Devices/workstations;
@@ -21,91 +20,64 @@ Includes:
 
 Backend contract uses explicit `/tenant-admin/...` APIs and authoritative server authorization.
 
-### Web-only rule
-
-Tenant role/permission assignment, workflow/rule/form publication and other tenant control-plane changes are initiated only from Web administration. The Desktop can consume effective configuration/permissions but cannot modify them.
+Tenant role/permission assignment, workflow/rule/form publication and other tenant control-plane changes are initiated only from Web administration. Desktop consumes the result but cannot modify it.
 
 ## 2. Platform administration
 
-`apps/admin-web` is a separate **Blazor Web App/security surface** for SquiFlow operators:
+`apps/admin-web` is a separate future Blazor Web App/security surface for SquiFlow operators.
+
+Do **not** create that project in Phase 0. Create it in Phase 6 when the first real platform-control/Admin journey exists.
+
+Potential responsibilities as they become real:
 - tenants/subscriptions/entitlements;
-- platform feature/configuration changes;
+- platform feature/config changes;
 - runtime health/incidents;
 - provider configuration;
-- platform security;
 - support/break-glass **application** operations;
-- privileged Worker/server control-plane actions.
+- privileged Worker/server application controls.
 
 Backend contract uses `/platform-admin/...` policies.
 
-## 3. Critical server tasks are Platform-Admin-Web only during normal operation
+## 3. Critical server tasks during normal operation
 
-Examples:
-- pause/drain/resume Worker classes;
-- retry/quarantine/reconcile privileged failed jobs;
-- rotate platform/provider application secrets through an approved flow;
-- modify resource/deployment/runtime policies exposed as supported application controls;
-- database/storage maintenance or restore orchestration where the application is healthy enough to coordinate it;
-- global provider/domain configuration;
-- cross-tenant support actions.
+When Platform Admin exists, supported application-level controls such as Worker pause/drain/retry/quarantine, provider config and cross-tenant support operations are exposed there rather than through Desktop, `/sync`, ordinary `/api`, or tenant Settings.
 
-These are not exposed through Desktop, `/sync/...`, ordinary `/api/...`, or tenant Owner settings unless a specific tenant-scoped operation is intentionally designed there.
+Do not create generic `run SQL`, `set anything`, `force success`, or `mark payment/job complete` controls.
 
 ## 4. Application control plane is not infrastructure recovery
 
-`Platform Admin Web only` cannot mean the platform is unrecoverable when Admin Web/Core API is itself down.
+If Admin Web/Core API itself is unavailable, recovery cannot depend on it.
 
-Keep a separate **private infrastructure break-glass plane** for recovery tasks that cannot pass through the application, for example:
-- restart/redeploy a failed process/node;
-- repair enough network/configuration for Core API/Admin Web to boot;
-- replace failed physical hardware;
-- restore the DB when the application cannot start;
-- recover a secret/config dependency required to start the app.
+A separate private infrastructure runbook may be used for:
+- restart/redeploy;
+- node replacement;
+- DB recovery required for app startup;
+- network/config repair required to bring the app back.
 
-This path:
-- is private and least privilege;
-- uses the selected infrastructure-access mechanism/runbook;
-- is unavailable to tenant users/Workstations;
-- is not a second hidden business/admin API;
-- records recovery/operator evidence where feasible;
-- returns normal control to Platform Admin as soon as the application is healthy.
+This is not a second hidden business API and is never exposed to tenant users or Workstations.
 
 Owner: `docs/operations/DEPLOYMENT_CAPACITY_AND_RECOVERY.md`.
 
-## 5. Safety workflow
+## 5. High-risk application operations
 
-The browser is never the authorization authority.
-
-High-risk application operations use:
+For high-risk operations actually implemented, use only the controls justified by the risk:
 
 ```text
-Draft/Proposal
+proposal/current state
 → validate
-→ exact material diff
-→ risk classification
-→ step-up MFA / approval where required
-→ execute or enqueue durable command
-→ verify outcome
+→ show material diff
+→ step-up/approval where required
+→ execute/enqueue
+→ verify
 → audit
-→ rollback/correction where possible
 ```
 
-A user must distinguish a proposed change from an active one.
+Do not require enterprise approval workflows for ordinary low-risk tenant settings.
 
-Do not provide generic `run SQL`, `set any config`, `force success`, or `mark payment/job complete` controls.
+A hidden/disabled button is UX only; API/application authorization remains authoritative.
 
-## 6. Accessible administration
+## 6. Device/workstation lifecycle
 
-High-risk control must remain operable and reviewable without depending on color/mouse-only interaction.
+Tenant Settings may manage enrollment visibility, revocation/suspension, friendly name and supported device policy.
 
-Material diffs expose structured before/after values and consequences to keyboard/screen-reader users. Focus/validation/approval state follows `docs/ux/ACCESSIBILITY_AND_INTERACTION_QUALITY.md`.
-
-A disabled/hidden button is not authorization; API/application authorization remains authoritative.
-
-## 7. Device/workstation lifecycle boundary
-
-Tenant Settings can manage supported device/workstation lifecycle data such as enrollment visibility, revocation/suspension, friendly name and policy.
-
-Device identity and user membership are different concerns. Revoking a user does not necessarily destroy a device record; revoking a device does not erase already stored offline bytes.
-
-Exact credential rotation/re-enrollment implementation is owned by identity/device implementation and remains a Phase-1 design detail, not a reason for Desktop to become an administration authority.
+User membership and device identity are separate. Revoking a user does not necessarily delete a device record, and revoking a device does not erase bytes already stored offline.
