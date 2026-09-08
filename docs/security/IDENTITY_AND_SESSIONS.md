@@ -26,7 +26,7 @@ Do not use email address as the stable account primary key. Email, display name 
 
 Validate ID Tokens using the chosen standards-compliant OIDC implementation, including issuer, audience, signature/algorithm, expiry and transaction-bound values such as nonce when used.
 
-If UserInfo is used, its `sub` must match the authenticated ID Token subject before accepting the returned profile claims.
+If UserInfo is used, its `sub` must match the authenticated ID Token subject before accepting returned profile claims.
 
 ## 3. Canonical issuer baseline
 
@@ -83,7 +83,43 @@ Otherwise a loopback callback is acceptable for desktop native apps:
 
 The OpenID Native SSO for Mobile Apps implementer's draft is not the Workstation architecture.
 
-## 5. Web and custom domains
+## 5. User, membership, device and local installation are separate identities
+
+Do not collapse all Workstation identity into one token/row.
+
+Conceptually distinguish:
+- **Account/User** — the OIDC-authenticated SquiFlow person;
+- **TenantMembership** — that person's current authority in a tenant;
+- **Device/Workstation enrollment** — an approved installation/device identity/policy;
+- **Local installation/store identity** — the local durable data store and synchronization state.
+
+A user may leave a tenant while the device remains enrolled for another user. A device may be revoked while the user's Web membership remains valid. Expired user authentication does not make local unsynced business bytes safe to delete.
+
+## 6. Device lifecycle
+
+Device lifecycle needs explicit states/evidence rather than an eternal token:
+
+```text
+PendingEnrollment
+Active
+Suspended
+Revoked
+CredentialExpired/RotationRequired
+ReenrollmentRequired
+Retired
+```
+
+Exact credential format/rotation mechanism remains an implementation choice after the identity/local-secure-storage POC.
+
+Required semantics:
+- enrollment binds the device to permitted tenant/workstation context;
+- credentials are revocable/rotatable without deleting local business data;
+- a stolen/revoked device cannot regain server authority merely from a stale local permission snapshot;
+- re-enrollment does not create duplicate device identity silently;
+- suspicious/repeated enrollment/recovery is audited/rate limited;
+- server derives current membership/tenant scope independently on material commands.
+
+## 7. Web and custom domains
 
 A custom-domain Web application redirects to the canonical SquiFlow identity authority, authenticates there, then returns only to a pre-registered/validated callback and establishes its own application session.
 
@@ -94,17 +130,34 @@ Do not:
 
 Custom-domain activation and identity callback registration must be tied to the verified domain lifecycle.
 
-## 6. Sessions
+## 8. Sessions
 
 Authentication, tenant membership, device posture, capability permission and resource scope are separate proofs.
 
 A valid session is not authorization for every action.
 
-For Web, the current baseline favors a hardened server-managed/browser session pattern where practical; the exact cookie/BFF/session implementation remains open. Authentication/session secrets are not stored in `localStorage`.
+For Web, the baseline favors a hardened server-managed/browser session pattern where practical; the exact cookie/BFF/session implementation remains OPEN. Authentication/session secrets are not stored in `localStorage`.
 
 Session revocation/shared state must be durable/shared if multi-node behavior requires it; it cannot rely on one API node's process memory.
 
-## 7. Step-up authentication
+For long/valuable Web forms, session expiry should preserve a server-side draft where the journey explicitly supports one; reauthentication then reauthorizes current access before editing/submitting.
+
+## 9. Shared Windows PC/user switching
+
+A Windows installation can contain tenant business data independently of the currently authenticated user session.
+
+The product must explicitly choose whether multiple SquiFlow users sharing one Windows OS profile is supported. Until that is proven, do not assume switching SquiFlow accounts within one profile is safe merely because OIDC login succeeded.
+
+Tests/policy must cover:
+- User B cannot inherit User A's authenticated session/token;
+- transient UI/form context is cleared or safely re-bound;
+- locally durable tenant data is exposed only according to the supported workstation/device model;
+- sign-out locks/clears credentials without deleting pending durable business work;
+- Windows account/profile boundaries and local data-at-rest protection are documented for the supported configuration.
+
+The exact supported shared-profile policy remains OPEN in `docs/decisions/OPEN_DECISIONS.md`.
+
+## 10. Step-up authentication
 
 Sensitive operations can require recent/strong authentication rather than trusting an old browser session forever.
 
@@ -113,17 +166,17 @@ Examples:
 - MFA/security recovery changes;
 - high-risk platform configuration;
 - secret rotation;
-- break-glass/support actions.
+- break-glass/support application actions.
 
 Use OIDC mechanisms such as `max_age`, resulting `auth_time`, and supported authentication-context (`acr`) semantics rather than inventing a SquiFlow password-confirmation protocol.
 
 Step-up proves recent authentication. The operation still requires SquiFlow authorization afterward.
 
-## 8. Logout is multiple operations
+## 11. Logout is multiple operations
 
 Treat these separately:
 
-1. clear the local Web/Workstation application session;
+1. clear/lock the local Web/Workstation application session;
 2. revoke/terminate SquiFlow server session or refresh capability according to the chosen session model;
 3. optionally initiate logout at the OIDC Provider using RP-Initiated Logout;
 4. if supported by the chosen provider, use Back-Channel Logout to invalidate matching Web sessions after a validated Logout Token.
@@ -132,7 +185,9 @@ A local Workstation `Sign out` must not pretend that it necessarily terminated e
 
 Back-channel logout endpoints validate the signed logout token, issuer, audience, lifetime/event claims and target session/subject before changing session state.
 
-## 9. Authorization freshness is separate from token lifetime
+Signing out/revoking credentials does **not** silently erase unsynced local business work.
+
+## 12. Authorization freshness is separate from token lifetime
 
 Long-lived application permissions are not copied into an ID Token and treated as permanent truth.
 
@@ -144,6 +199,26 @@ This is especially important for:
 - Owner transfer;
 - entitlement removal;
 - role-definition changes.
+
+## 13. Owner/bootstrap/recovery boundary
+
+Ordinary role editing must not strand a tenant with no recoverable administrative path.
+
+Owner transfer/removal is a guarded Web operation with step-up/audit as required.
+
+If the only tenant Owner becomes unavailable and no authorized delegate can recover access, recovery is a **support/security process**, not a hidden role bypass. The eventual procedure must establish strong account/tenant ownership evidence, be time-bound/audited, and never let ordinary support staff silently grant themselves permanent tenant authority.
+
+The exact customer-support identity-proof procedure is a product/security decision before public production; Phase 1 must at least prevent accidental removal of the last recoverable Owner.
+
+## 14. Local secret/data-at-rest boundary
+
+The Workstation will retain some authorized business data locally by design.
+
+Use supported Windows secure-storage/data-protection mechanisms for secrets/credentials where appropriate; do not invent application encryption with a hard-coded key.
+
+Exact local at-rest/credential storage mechanism remains OPEN until Windows packaging/user-profile/device model is proven.
+
+Local encryption/protection reduces opportunistic exposure but does not make a customer-controlled/tampered device a trusted server authority.
 
 ## Source basis
 
