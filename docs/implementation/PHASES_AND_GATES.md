@@ -16,10 +16,10 @@ For each phase:
 ## Phase-start decisions
 
 - **Phase 0:** ZITADEL/OpenFGA are selected; no final central/local DB is required yet. Create the real Guard and the two already-justified provider contracts (`IObjectStore`, `IBackupTarget`) without scaffolding unrelated abstractions.
-- **Phase 1:** close ZITADEL Cloud vs self-hosted, instance/project/application layout, first OpenFGA store/model, model-ID rollout, initial consistency/reconciliation policy, and the first Blazor render/session/circuit topology required by tenant Web.
+- **Phase 1:** close ZITADEL Cloud vs self-hosted, instance/project/application layout, first OpenFGA store/model, model-ID rollout, and initial consistency/reconciliation policy.
 - **Phase 2:** choose the Workstation local DB after the smallest SQLite/libSQL proof needed for a real local transaction.
-- **Phase 3:** choose the initial central DB implementation capable of authoritative transaction + pooled isolation + realistic growth/performance proof.
-- **Phase 6:** choose only the background mechanism required by the first durable Worker workload. Decide from the real semantic need (single durable job, scheduled occurrence, multi-consumer event, or replayable stream); do not select a broker/event platform first and search for a use case afterward.
+- **Phase 3:** choose the initial central DB implementation capable of authoritative transaction + pooled isolation proof.
+- **Phase 6:** create `apps/admin-web`, **independent `services/admin-api`**, and `services/worker` only when their first real control/durable-work slice exists. Choose only the background mechanism required by that workload.
 - **Phase 7:** use private Hugging Face through `IObjectStore` and encrypted private Kaggle through `IBackupTarget`.
 - **Before paying-customer production:** actual rack inventory/recovery, backup restore proof, provisional RPO/RTO, operator/break-glass access, printer support, and provider migration readiness must be known honestly.
 
@@ -43,11 +43,11 @@ tests/ deploy/ docs/
 ```
 
 Do not create yet:
+- `apps/admin-web`;
+- `services/admin-api`;
 - Worker;
-- Platform Admin Web;
 - generic repository/unit-of-work hierarchy;
 - one interface per class/provider API;
-- container sidecars/proxies/adapters merely because the server may be containerized;
 - dozens of empty modules/projects.
 
 Deliver:
@@ -58,7 +58,6 @@ Deliver:
 - basic health endpoint;
 - typed TenantContext boundary;
 - `IObjectStore` and `IBackupTarget` contracts using SquiFlow-owned types only;
-- basic endpoint metadata/audience convention for the Core API so later business routes cannot appear unclassified accidentally;
 - architecture tests preventing provider SDK types from leaking into business/domain code;
 - minimal rack hardware inventory.
 
@@ -67,20 +66,18 @@ Attack:
 - Guard exits while Workstation survives;
 - both are terminated and restarted;
 - incompatible Guard/Workstation protocol version;
-- provider implementation accidentally leaks Hugging Face/Kaggle types into a business contract;
-- a test endpoint is added without the expected audience/security metadata and CI catches it.
+- provider implementation accidentally leaks Hugging Face/Kaggle types into a business contract.
 
 Gate:
 - Web, Workstation, Guard and Core API build/run;
 - Guard failure does not corrupt local business state;
 - Guard can observe/recover Workstation process failure without owning business logic;
 - `IObjectStore`/`IBackupTarget` are narrow enough to implement a second adapter later without mirroring whole third-party SDKs;
-- endpoint-classification convention is executable/testable rather than a wiki promise;
-- no empty future project tree exists.
+- Admin Web/Admin API/Worker remain documented future boundaries without empty placeholder projects.
 
 ---
 
-## Phase 1 — ZITADEL identity + OpenFGA smallest tenant + Web state topology
+## Phase 1 — ZITADEL identity + OpenFGA smallest tenant
 
 Deliver:
 - configured ZITADEL OIDC applications for tenant Web and Workstation;
@@ -95,17 +92,13 @@ Deliver:
 - Web-only role/permission assignment;
 - ASP.NET Core semantic authorization requirement invoking OpenFGA;
 - `TenantAuthorizationRevision` snapshot/audit correlation;
-- durable/reconcilable authorization-change operation spanning SquiFlow DB/audit state and OpenFGA tuple write;
-- explicit first Web render/session design: which surfaces use static/Interactive Server/other supported Blazor mode, where session/circuit state lives, and what is deliberately transient versus durable;
-- if Interactive Server is used, measured circuit memory/reconnect behavior and an explicit single-node versus future multi-node/session-affinity/distributed-state position.
+- durable/reconcilable authorization-change operation spanning SquiFlow DB/audit state and OpenFGA tuple write.
 
 Do not:
 - trust ZITADEL token roles as current SquiFlow authorization truth;
 - let Desktop write OpenFGA tuples;
 - equate a ZITADEL organization claim directly with SquiFlow TenantContext without server verification;
-- put workflow/payment/stock arithmetic into OpenFGA;
-- implement a SquiFlow password/OTP/MFA/passkey stack alongside ZITADEL;
-- store valuable business truth only in a Blazor circuit.
+- put workflow/payment/stock arithmetic into OpenFGA.
 
 Attack:
 - expired/duplicate invitation;
@@ -119,17 +112,14 @@ Attack:
 - request accidentally uses latest OpenFGA model instead of pinned model ID;
 - stale/low-consistency authorization result immediately after a change;
 - Desktop attempts permission change;
-- PII accidentally used in tuple IDs;
-- Web circuit/process loss while a valuable draft exists;
-- server restart proves committed business state survives even if disposable circuit/UI state does not.
+- PII accidentally used in tuple IDs.
 
 Gate:
 - ZITADEL authenticates; OpenFGA authorizes; SquiFlow tenant/domain checks remain independent;
 - role/grant UI reports applied only when intended OpenFGA state is known applied;
 - ambiguous tuple writes have reconciliation, not guesswork;
 - custom role does not require new authorization model deployment;
-- no embedded reusable Workstation client secret;
-- Web state placement is explicit and does not claim stateless/multi-node behavior the selected Blazor mode does not provide.
+- no embedded reusable Workstation client secret.
 
 ---
 
@@ -165,7 +155,7 @@ Gate:
 
 ---
 
-## Phase 3 — authoritative sync + central DB + pooled isolation + growth proof
+## Phase 3 — authoritative sync + central DB + pooled isolation
 
 Deliver:
 - bounded sync upload;
@@ -182,13 +172,7 @@ Deliver:
 - PostgreSQL RLS proof if PostgreSQL is selected;
 - atomic business mutation + idempotency receipt + outbox where one store owns them;
 - remote change feed + cursor;
-- finite retry/backoff with an intentional retry owner for each remote path;
-- representative small-data and projected larger-cardinality performance evidence for implemented hot paths;
-- query-plan/index evidence, including tenant-aware composite indexes;
-- measured write/import/sync cost of the chosen indexes;
-- connection-pool wait/saturation and WAL/temp/disk behavior on the actual server class.
-
-Do not add Redis/read replicas/denormalized read models/sharding just because one development query is slow; fix/query/index/measure first and record the trade-off.
+- finite retry/backoff with an intentional retry owner for each remote path.
 
 Attack:
 - response lost after commit;
@@ -199,18 +183,14 @@ Attack:
 - permission revoked while local operation pending;
 - connection reused across tenants;
 - partial batch failure;
-- retry amplification across Workstation/API/provider layers;
-- hot query tested at realistic larger cardinality rather than only tiny fixtures;
-- new index improves reads but pushes write/sync/import latency or disk growth beyond the accepted envelope;
-- stale cache proposal is rejected for a correctness-sensitive path unless freshness/invalidation is proven.
+- retry amplification across Workstation/API/provider layers.
 
 Gate:
 - no duplicate semantic effect;
 - no cross-tenant leakage even if authorization relation exists incorrectly;
 - stale Workstation permission snapshot is not server authority;
 - central DB behavior proven against the real adapter;
-- no system-wide `exactly once` claim is made from one local transaction guarantee;
-- performance evidence includes both read benefit and write/resource cost at the tested growth level.
+- no system-wide `exactly once` claim is made from one local transaction guarantee.
 
 ---
 
@@ -268,53 +248,77 @@ Gate:
 
 ---
 
-## Phase 6 — Worker + Platform Admin when their first real jobs exist
+## Phase 6 — independent Platform Admin backend + Worker
 
 Now create:
 
 ```text
-services/worker
 apps/admin-web
+services/admin-api
+services/worker
 ```
 
 Deliver:
+- Platform Admin Web using **Admin API directly**;
+- Admin API as a separate ASP.NET Core executable/composition/deployment boundary;
+- no ordinary runtime dependency from Admin API to Core API;
+- separate platform authentication/session validation and platform OpenFGA authorization scope;
+- Admin API health/readiness, service credentials, endpoint inventory, rate/admission limits and audit/correlation;
+- first real platform-control journey owned end-to-end by Admin API;
 - first real background workload classified by trigger: user consequence, schedule, external system, batch/volume, or platform control;
 - explicit message semantics: command/job versus committed event;
 - the simplest durable execution pattern matching that workload;
 - durable job/outbox consumption;
 - if scheduled, a durable schedule occurrence identity/state before execution rather than `cron fired` as the only truth;
-- if multiple consumers genuinely need one fact, explicit durable fan-out; otherwise do not add pub/sub;
 - claims/leases where needed;
 - bounded concurrency/fairness;
 - retry/no-progress/quarantine;
-- idempotent/reconcilable consumer behavior for producer retry, transport redelivery, and consumer crash after effect;
-- one real long-running `202 Accepted` operation if justified;
-- Platform Admin controls for implemented Worker/runtime controls;
-- ZITADEL authentication + separate platform OpenFGA/application authorization model/scope as designed for platform operators;
-- private infrastructure break-glass path when app control plane is unavailable.
+- idempotent/reconcilable consumer behavior;
+- private infrastructure break-glass path when Admin API itself is unavailable.
 
-Do not add Kafka/event streaming unless this phase proves an actual requirement for replay/history/independent consumer offsets that the normal durable job/outbox approach cannot satisfy.
+Platform-control flow:
+
+```text
+Admin Web
+→ Admin API
+→ ZITADEL platform session/step-up as required
+→ platform OpenFGA authorization
+→ exact diff/version/risk checks
+→ durable platform command/proposal
+→ Worker/system/provider execution if needed
+→ verify
+→ audit
+```
+
+Do **not** implement normal platform administration as:
+
+```text
+Admin Web → Admin API → Core API
+```
+
+and do not keep privileged `/platform-admin/...` endpoints on Core API as a compatibility bypass.
 
 Attack:
-- same job produced twice after response loss;
-- duplicate schedule firing;
-- Worker crash before effect;
-- Worker crash after effect but before acknowledgement;
+- Core API stopped while Admin API remains healthy;
+- Admin API stopped while Core API remains healthy;
+- Admin API accidentally proxies a platform command through Core API;
+- normal tenant user reaches Admin API;
+- tenant OpenFGA role is incorrectly treated as platform authority;
+- Admin API and Core API race on shared state and violate a common invariant;
+- Worker crash before/after external effect;
 - stale lease owner;
+- duplicate schedule firing;
 - repeated transport redelivery;
-- `OutcomeUnknown`;
 - one tenant flooding work;
-- lower-priority work starvation;
-- normal tenant user reaches platform route;
-- ZITADEL-authenticated tenant user has no platform OpenFGA authority;
-- Admin Web/Core API unavailable during recovery.
+- Admin Web/Admin API unavailable during recovery.
 
 Gate:
-- no generic force-success/mark-complete;
-- tenant authorization cannot become platform authority;
-- break-glass is infrastructure recovery, not hidden tenant API;
-- one queue/broker feature is not described as end-to-end exactly-once;
-- event/pub-sub/stream infrastructure exists only if the first real workload proves the matching semantic need.
+- a real platform-admin operation succeeds while Core API is intentionally unavailable, provided its own underlying dependencies are healthy;
+- ordinary tenant business API operation remains possible while Admin API is intentionally unavailable;
+- no platform/super-admin endpoint exists on Core API;
+- shared DB/domain invariants are identical across Core API and Admin API where both legitimately touch the same state;
+- no generic force-success/mark-complete control;
+- break-glass is infrastructure recovery, not hidden tenant API.
 
 ---
 
@@ -354,34 +358,34 @@ Gate:
 ## Phase 8 — API/observability/admin hardening
 
 Deliver only hardening relevant to implemented surfaces:
-- OpenTelemetry correlation;
+- OpenTelemetry correlation across Core API/Admin API/Worker;
 - New Relic + Aiven OpenSearch export;
 - Backtrace path where applicable;
 - Guard lifecycle/crash/resource evidence correlation;
 - bounded telemetry queues/spools;
 - tenant/platform audit;
-- high-risk exact-diff/step-up admin flows actually implemented;
-- generated endpoint inventory including audience/authentication/policy/owner/version/limits metadata;
+- high-risk exact-diff/step-up Admin API flows actually implemented;
+- generated endpoint inventories for Core API and Admin API separately;
 - production CORS/cache/error/header policies;
 - SSRF-safe outbound HTTP;
 - dependency timeout/retry budgets;
-- liveness/readiness/functional health.
+- liveness/readiness/functional health per backend.
 
 Attack:
-- an accidental business/admin endpoint has missing/incorrect cross-cutting policy metadata;
-- valid authentication but missing resource authorization;
 - applicable OWASP API cases;
 - telemetry quota/export failure;
 - retry storm;
 - noisy tenant;
 - sensitive content in logs/Guard diagnostics;
-- OpenFGA or ZITADEL degraded/unavailable and resulting fail-closed/degraded behavior.
+- OpenFGA or ZITADEL degraded/unavailable and resulting fail-closed/degraded behavior;
+- Core API overload while Admin API still needs emergency application-control capability;
+- Admin API compromise attempt cannot pivot into tenant business authority without explicit platform operation path.
 
 Gate:
 - telemetry failure does not affect committed business truth;
 - auth/authorization dependency failures never become accidental allow;
-- no undocumented/unclassified privileged production endpoint;
-- centralized cross-cutting behavior has not swallowed resource/domain-specific authorization/validation into generic middleware.
+- Core API and Admin API have separate privileged-surface inventories;
+- no undocumented privileged endpoint.
 
 ---
 
@@ -413,6 +417,7 @@ Attack:
 Deliver/prove:
 - actual rack resource tests;
 - Workstation + Guard soak/recovery tests;
+- Core API/Admin API independent deployment/restart test;
 - node/SPOF inventory;
 - restart/disk-full/recovery behavior;
 - installer/update/rollback including Guard/Workstation compatibility;
@@ -429,7 +434,7 @@ Gate:
 - do not accept a paying customer while backup restore is untested;
 - migrate bootstrap storage at the first paying customer or earlier when constraints require it;
 - no HA/zero-downtime claim without proven topology;
-- no simplification is accepted if it removes a core recovery/security/offline behavior already relied on by the product.
+- no simplification is accepted if it removes a core recovery/security/offline/control-plane behavior already relied on by the product.
 
 ---
 
@@ -444,7 +449,6 @@ Do not spend baseline work on:
 - generic pub/sub/event-bus infrastructure without a real multi-consumer requirement;
 - event-driven-everything;
 - full CQRS/event sourcing/Saga;
-- container sidecar/proxy/leader/scatter-gather patterns without a concrete deployment/workload need;
 - global CRDTs;
 - per-tenant schema/database/queue/stack by default;
 - multi-currency/FX system;
