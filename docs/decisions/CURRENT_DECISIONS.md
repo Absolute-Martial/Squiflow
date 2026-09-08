@@ -1,85 +1,112 @@
 # Current Decisions — v0.0.15
 
-- C# / modern .NET application foundation.
-- ASP.NET Core Core API host.
-- **Avalonia** is the current Windows Workstation UI framework.
-- **Blazor Web App** is the current Web presentation foundation; tenant Web and Platform Admin remain separate projects/security surfaces even when they use the same presentation technology.
-- Windows Workstation + hosted Web are primary user surfaces.
-- Modular monolith business architecture with distinct Web/Admin/Desktop/API/Worker runtime boundaries.
-- Small-team-first tenant UX: `Owner` + `Staff` default templates.
-- Tenant Owner controls ordinary staff roles/permissions inside secure platform and entitlement limits.
-- Permission/role assignment is performed through Web administration only; Desktop can consume effective permissions but never grant them.
-- Tenant workflow/rule/stage editing and publication is performed through Web administration only.
-- Tenant Settings/Admin lives in ordinary tenant Web; SquiFlow platform Admin Web is separate.
-- Platform-critical server/Worker/control-plane commands originate only from Platform Admin Web and privileged `/platform-admin/...` APIs during normal operation.
-- If the application control plane itself is unavailable, infrastructure recovery uses a separate private break-glass/runbook path; it is not exposed as a hidden Desktop/business API.
-- Ordinary Desktop business changes continue through `/sync/...`; Web-only control-plane policy does not block normal Workstation synchronization.
-- Interactive authentication uses OpenID Connect; SquiFlow application authorization is separate from OIDC authentication.
-- Canonical configured SquiFlow issuer is the initial identity baseline; tenant custom domains are relying-party/application origins, not separate issuers.
-- Stable external account identity is `(issuer, subject)`; email is mutable profile data, not the account key.
-- Workstation interactive login uses system browser + Authorization Code + PKCE `S256`; no reusable client secret is embedded in the native app.
-- Exact native callback mechanism remains a Windows packaging/security POC; app-claimed HTTPS is preferred if proven, loopback IP callback is the fallback standards-based desktop option.
-- Dynamic OIDC Client Registration and the OpenID Native SSO for Mobile Apps draft are not baseline SquiFlow features.
-- High-risk admin/security actions can require OIDC step-up/recent authentication, but still require SquiFlow authorization afterward.
-- Tenant custom domains are supported with ownership verification, TLS lifecycle, audit and fallback.
-- Web business operation is **online-only in v0.0.15**. No IndexedDB business replica, service-worker sync, queued offline mutations or partial-offline business model is baseline.
-- Browser auth secrets are not stored in `localStorage`; `localStorage` is for harmless preferences only and `sessionStorage` for transient tab-local UI hints.
-- Valuable online Web forms may use explicit server-side drafts/autosave when the journey justifies it; this does not introduce browser offline synchronization.
-- Workstation is the local-first/offline client. Local-permitted operations commit durably locally first and synchronize in the background.
-- Local Workstation commit and server-authoritative acceptance are distinct states.
-- SquiFlow adapts local-first principles incrementally; it does not adopt a global CRDT/peer-to-peer authority model for payments, inventory, permissions, credit or other shared invariants.
-- `SquiFlow.Guard` is a tiny Workstation supervision/recovery companion only; it does not own business rules, ORM/business persistence, sync semantics, Worker scheduling or platform authority.
-- Printing is the baseline physical-device integration. Printer/spooler/driver failure is a retryable device side effect and never rewrites an already committed sale/order/invoice.
-- Other peripherals such as scanners/barcode readers/cash drawers are requirement-driven and are not baseline merely because similar retail products support them.
-- Server authorization has separate function-, resource/object-, property-, state/workflow- and concurrency layers where applicable.
-- ASP.NET Core `IAuthorizationService`/policy/requirement/resource authorization handlers are the framework primitive; SquiFlow does not build a competing authorization runtime.
-- Multiple requirements inside one policy are treated as AND; handlers must not rely on invocation order or perform business side effects.
-- Tenant resource queries are constrained by authoritative tenant context before finer authorization wherever practical.
-- Request/response contracts use explicit DTO/projection allowlists rather than client JSON binding directly to persistence/domain entities.
-- Tenant authorization changes advance a monotonic `TenantAuthorizationRevision`; the authorization change, revision, audit and durable invalidation/outbox evidence commit atomically.
-- Initial server authorization favors authoritative checks over speculative permission caching. Any later authorization cache must be revision-aware.
-- Workstation effective-permission snapshots include the authorization revision but do not replace server authorization.
-- SquiFlow adopts Zanzibar's authorization-freshness lesson but **not** a Zanzibar service, global tuple graph, zookie protocol, Spanner/Leopard machinery or universal per-row ACL model.
-- API security release gates cover OWASP API object/function/property authorization, authentication/recovery abuse, resource consumption, sensitive flows, SSRF, security configuration, API inventory and unsafe third-party consumption.
-- API/version inventory is generated from executable endpoint metadata/OpenAPI in CI/release; manual CSV inventories are not architecture authority.
-- Retryable mutating commands whose duplicate execution could cause a meaningful effect use caller-provided semantic idempotency keys.
-- A semantic idempotency key is separate from HTTP request ID, correlation ID, message ID and business entity ID.
-- Same idempotency key + same semantic intent returns the same/semantically equivalent result or operation status; same key + materially different parameters is rejected.
-- Where one authoritative store owns both, the idempotency receipt and business mutation/outbox are committed atomically.
-- At-least-once message/Worker delivery is assumed; consumers/effects are idempotent or explicitly reconcilable.
-- Retry is limited to transient failures, uses finite attempt/elapsed-time budgets, honors `Retry-After`, and uses backoff/jitter as appropriate. Nested retry storms and endless retry loops are prohibited.
-- Long-running HTTP operations use durable asynchronous request-reply/status resources rather than keeping request threads open indefinitely.
-- Ordinary short authoritative business transactions remain synchronous; SquiFlow does not queue every command merely because a Worker exists.
-- API collection reads have server-enforced bounds/pagination; client-selected field projections cannot bypass property-level authorization.
-- ETags/`If-Match` may expose optimistic concurrency to HTTP clients while the domain version remains the correctness boundary.
-- Full HATEOAS is not a baseline requirement.
-- Durable Worker jobs distinguish already-committed business consequences from deferred actor actions and platform-control commands so permission revocation is handled semantically rather than with one blanket rule.
-- Notifications/webhooks/external delivery use the existing Core API/outbox/Worker boundaries first; no separate notification microservice is baseline.
-- External notification failure normally does not roll back already committed business truth; provider effects use explicit idempotency/retry/`OutcomeUnknown` semantics where needed.
-- Cloud architecture patterns are selected only when their problem statement matches a measured/current SquiFlow constraint; the Azure pattern catalog is not an implementation backlog.
-- Current selective pattern use includes async request-reply, bulkhead-style workload isolation, health endpoints, idempotent consumers, bounded priority/load-leveling queues, retry/throttling, selected compensation, and narrowly scoped signed object access when justified.
-- Full CQRS, event sourcing, Saga-based core architecture, per-frontend BFF services, sharding, leader election, deployment stamps and active-active multi-region are deferred until a concrete workload requirement justifies their costs.
-- Cache-aside/local caches are optional measured optimizations; shared Redis is not baseline and caches are never authoritative.
-- Ordinary tenants use a **pooled multi-tenant baseline**: shared application compute and a shared authoritative schema/model with explicit tenant discriminators on tenant-owned data.
-- Authentication, application authorization and tenant isolation are separate concerns; a valid role or token never substitutes for tenant-resource isolation.
-- Tenant isolation mechanics must be centralized/shared enough that correctness does not depend on every developer manually remembering a tenant filter.
-- Schema-per-tenant, database-per-tenant and deployment-per-tenant are not baseline implementation targets.
-- SquiFlow supports an evolution path toward targeted dedicated resources, dedicated databases or fully dedicated stacks when residency, compliance, contractual isolation, noisy-neighbor or enterprise/customer-managed requirements justify them.
-- Processing isolation is independent of data isolation. Baseline Worker execution is pooled but tenant-aware, bounded and fair; one physical queue/worker pool per tenant is not baseline.
-- Tenant placement/isolation-profile changes are Platform Admin/control-plane operations, not Desktop or ordinary tenant settings.
-- If PostgreSQL is used as the central reference/selected provider, the pooled-isolation POC must prove PostgreSQL RLS as defense in depth, including non-`BYPASSRLS` runtime credentials, table-owner behavior, write-side checks and safe connection-pool tenant context.
-- RLS does not close the central database choice; any selected central provider must prove a provider-appropriate pooled isolation mechanism and cross-tenant negative tests.
-- Central/local persistence product choices remain open; PostgreSQL/SQLite are reference candidates and libSQL is a real local-store candidate.
-- The current deployment must be qualified against the actual lower-spec desktop-class rack hardware; `stateless/disposable` server compute does not claim automatic failover or zero downtime.
-- The current approximately 100 GB object-storage allocation is a real capacity envelope. Business objects, temporary exports/diagnostics and backups require explicit storage classes/retention; the primary object store is not assumed to be its own only backup.
-- Server/Workstation resource use is bounded by explicit budgets and measurements; available CPU/RAM is headroom, not permission for unbounded worker/cache growth.
-- Accessibility is a release-level requirement across Web/Admin/Workstation and later client portal: keyboard operation, focus, semantic labels/status/validation, non-color-only state, scalable text and accessible dynamic state are baseline quality requirements. Exact formal legal/conformance target remains open.
-- Test architecture includes domain/application tests, real persistence-adapter tests, Workstation store tests, API/authorization tests, selected end-to-end journeys, failure injection, accessibility checks and release qualification on actual deployment hardware.
-- Money/currency identity, quantity/unit, time/timezone, document numbering identity and correction/version semantics are shared business primitives and must not be re-invented independently in each module.
-- SquiFlow-native bounded rule architecture is baseline; local rule evaluation must respect fact authority/freshness and cannot make stale centrally owned facts authoritative offline.
+This file records accepted direction only. Detailed reasoning and changes from the decision audit live in `docs/review/DECISION_AUDIT.md`.
+
+## Product and runtime
+
+- C# / modern .NET is the application foundation.
+- ASP.NET Core is the Core API host.
+- Avalonia is the Windows Workstation UI framework.
+- Blazor Web App is the tenant Web presentation foundation and the future Platform Admin Web presentation foundation.
+- The business core is a modular monolith. A module does not become a service merely because it has a name.
+- `apps/web`, `apps/desktop`, and `services/core-api` are the first executable boundaries needed by the early vertical slices.
+- `apps/admin-web` remains a separate future platform-control-plane executable, but its project is not created until a platform-admin slice needs it.
+- `services/worker` remains a separate future durable background executable, but its project is not created until durable background work is implemented.
+- There is **no baseline `SquiFlow.Guard` process**. Start with one Workstation process. Add a helper/supervisor process only after a concrete updater/native-library/crash-isolation requirement proves that process isolation is worth its lifecycle cost.
+- Printing is a Workstation device side effect. Other peripherals are requirement-driven.
+
+## Complexity and code-shape rule
+
+- Do not create empty projects/directories to match an architecture diagram.
+- Do not create generic helper/manager/service layers that only forward calls.
+- Do not introduce an interface merely because an implementation class exists or because mocking it is possible.
+- Generic `IRepository<T>`, `IUnitOfWork`, provider-neutral wrapper layers, and one-interface-per-class conventions are **not baseline**.
+- Prefer concrete framework/provider integrations contained inside the appropriate infrastructure/application boundary. Introduce an interface only when a real dependency-inversion, multiple-live-implementation, process/wire-contract, or replacement need earns it.
+- Provider portability means provider details do not leak throughout business code; it does **not** require speculative abstraction layers before the first provider is implemented.
+
+## Small-team tenant control
+
+- `Owner` + `Staff` are the default small-team role templates.
+- Tenant Owner controls ordinary staff permissions inside SquiFlow security/entitlement limits.
+- Role/permission assignment and tenant rule/workflow/form publication are Web-only tenant-administration operations.
+- Tenant administration lives in the normal tenant Web Settings/Administration area.
+- Platform-critical application controls are available only through the separate Platform Admin Web during normal operation.
+- Desktop never grants permissions or changes platform control-plane state.
+
+## Identity and authorization
+
+- Interactive authentication uses OpenID Connect; application authorization remains SquiFlow-owned.
+- Stable external account identity is `(issuer, subject)`, not email.
+- Workstation login uses the system browser + Authorization Code + PKCE `S256`; no reusable native client secret or central DB credential is embedded in the Workstation.
+- ASP.NET Core policy/requirements/`IAuthorizationService` are the authorization runtime primitives; SquiFlow does not build a competing authorization service.
+- Authorization separates function, tenant/resource, sensitive-property, domain/workflow-state, and concurrency checks where applicable.
+- Permission changes advance `TenantAuthorizationRevision`; Workstation permission snapshots never replace authoritative server reauthorization.
+
+## Web and Workstation
+
+- Web is online-only for business operations in v0.0.15. No IndexedDB business replica, service-worker business sync, or browser offline mutation queue is baseline.
+- Valuable online forms may use explicit server-side drafts/autosave when justified.
+- Workstation is the local-first/offline client.
+- Local Workstation success and server-authoritative acceptance are separate states (`LocalCommitted`, `PendingRemote`, `Authoritative`, `Conflict`, `Rejected`, `AuthorizationChanged`, `UpgradeRequired`).
+- SquiFlow adopts local-first interaction/durability, not a global CRDT or peer-authority model for payments, stock, credit, permissions, or other shared invariants.
+
+## Multi-tenancy and persistence
+
+- Ordinary tenants use a pooled multi-tenant baseline with explicit tenant discriminators on tenant-owned authoritative data.
+- Authentication, authorization, and tenant isolation are separate concerns.
+- Schema-per-tenant, DB-per-tenant, queue-per-tenant, and deployment-per-tenant are not baseline.
+- PostgreSQL remains the strongest central reference candidate; if used, its proof includes RLS defense in depth and safe runtime-role/connection-pool behavior.
+- SQLite + WAL and libSQL remain Workstation-store candidates.
+- Exact central and local database products remain open until the relevant vertical-slice POCs close them.
+
+## API, sync, and Worker correctness
+
+- Retryable mutating operations use caller-provided semantic idempotency keys.
+- Same idempotency key + changed intent is rejected.
+- Where one store owns mutation + idempotency receipt + outbox, they commit atomically.
+- At-least-once delivery/redelivery is assumed; effects are idempotent or explicitly reconcilable.
+- Retry is finite, classified, budgeted, and uses backoff/jitter/`Retry-After` where appropriate.
+- Long-running HTTP work uses durable asynchronous status only when work is actually long-running; ordinary short business transactions remain synchronous.
+- Conflict handling is aggregate-specific; no global last-write-wins policy.
+
+## Rules/workflow
+
+- SquiFlow owns the bounded native rule model; arbitrary tenant C#/JS/SQL is not allowed.
+- Rules/workflows are edited/published through Web administration and distributed as immutable/versioned compatible snapshots.
+- Workstation local rule evaluation cannot turn stale server-owned facts into authoritative financial/stock/security decisions.
 - Workflow is continuation-first and versioned.
-- Client never receives central DB credentials and remains untrusted for server authority.
-- OpenTelemetry is permanent instrumentation; New Relic + Aiven OpenSearch current managed targets; Backtrace crash diagnostics direction.
-- Managed/free observability providers are capacity-limited dependencies; telemetry buffers/spools are bounded and quota exhaustion cannot block business transaction correctness.
-- Server infrastructure nodes are stateless/disposable for authoritative business state, but physical recovery/failover capability is whatever has actually been deployed and tested.
-- Kafka, YugabyteDB, mandatory Redis, full browser offline sync, Zanzibar-style authorization service and a microservice-per-module model are not baseline dependencies.
+
+## Money/currency
+
+- Currency is **not hardcoded** in application logic.
+- A tenant has a configurable default currency code and monetary records that need historical meaning retain the applicable currency code.
+- v0.0.15 does **not** add a multi-currency ledger, exchange-rate service, FX conversion engine, gain/loss accounting, or currency-provider abstraction.
+- If a real multi-currency customer requirement appears, that is a later feature decision.
+
+## Object storage and backups
+
+- The current bootstrap primary object store is a **private Hugging Face Storage Bucket**, with the currently available private-storage envelope of about **100 GB** treated as a real limit.
+- Hugging Face is a bootstrap provider, not a permanent architecture commitment. The planned migration trigger is the first paying customer; migrate earlier if capacity, rate limits, reliability, contractual, privacy, compliance, or operational requirements demand it.
+- Application business records store object metadata/ownership/hash/lifecycle; retained/issued objects use application-level immutable/versioned keys even though the bucket itself is mutable.
+- The current bootstrap off-site backup target is a **private Kaggle Dataset** containing only encrypted opaque backup archives, never raw customer tables/files.
+- Kaggle backup use is temporary. The first paying customer is the planned trigger to move to a purpose-built paid backup/storage arrangement, or earlier if capacity/security/restore requirements demand it.
+- Backups are not considered valid until download + integrity verification + restore has been proven.
+
+## Operations and observability
+
+- Current server hardware is lower-spec/desktop-class rack hardware; `stateless` does not imply automatic failover or zero downtime.
+- Resource use is explicitly bounded; spare CPU/RAM is headroom rather than permission for caches/workers to grow without limit.
+- OpenTelemetry/OTLP is the instrumentation boundary. New Relic + Aiven OpenSearch are current managed targets and Backtrace remains the crash-diagnostics direction.
+- Telemetry-provider failure/quota exhaustion cannot block business transaction correctness.
+
+## Explicitly not baseline
+
+- formal accessibility/a11y work as a separate v0.0.15 project/gate;
+- full browser offline sync;
+- Guard/supervisor/helper process without a proven need;
+- generic repository/unit-of-work/provider-wrapper abstractions;
+- Kafka, mandatory Redis, event-sourced/full-CQRS/Saga core architecture;
+- global CRDTs or Zanzibar-style authorization service;
+- microservice-per-module design;
+- per-tenant infrastructure by default;
+- advanced peripheral suite, MRP/wastage, specialized ETL/search, or SaaS billing engine without a current customer/commercial requirement.
