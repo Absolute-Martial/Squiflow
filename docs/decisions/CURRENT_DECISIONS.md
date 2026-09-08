@@ -26,6 +26,8 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Do not introduce an interface merely because an implementation class exists or because mocking it is possible.
 - Generic `IRepository<T>`, `IUnitOfWork`, and one-interface-per-class conventions are not baseline.
 - An interface is justified when there is a concrete dependency-inversion/replacement boundary, including an already-planned near-term provider migration.
+- Clean-code/SOLID principles are design-review guidance, not reasons to create ceremonial layers. Prefer meaningful business names, cohesive responsibilities, shallow/readable control flow, and explicit policy/config values; tolerate small duplication when the alternative is a wrong generic abstraction.
+- Liskov/interface-segregation implications apply to accepted provider seams: replacement adapters must honor the same SquiFlow contract and interfaces stay narrower than the third-party SDKs they hide.
 
 ## Small-team tenant control
 
@@ -59,6 +61,7 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Workstation is the local-first/offline client.
 - Local Workstation success and server-authoritative acceptance are separate states (`LocalCommitted`, `PendingRemote`, `Authoritative`, `Conflict`, `Rejected`, `AuthorizationChanged`, `UpgradeRequired`).
 - SquiFlow adopts local-first interaction/durability, not a global CRDT or peer-authority model for payments, stock, credit, permissions, or other shared invariants.
+- Local-first synchronization is not described as generic eventual consistency: users can see whether work is only local/pending or centrally authoritative.
 
 ## Multi-tenancy and persistence
 
@@ -68,9 +71,22 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - PostgreSQL remains the strongest central reference candidate; if used, its proof includes RLS defense in depth and safe runtime-role/connection-pool behavior.
 - SQLite + WAL and libSQL remain Workstation-store candidates.
 - Exact central and local database products remain open until the relevant vertical-slice POCs close them.
+- Authoritative relational data is normalized around real business identities/relationships first. Denormalized/materialized read structures are derived optimizations with explicit source, freshness, rebuild, tenant-scope, and failure contracts.
+- Core business invariants are not hidden in arbitrary JSON/EAV or tenant-specific DDL merely to avoid schema design. Bounded custom fields/forms are a separate extensibility concern.
+- Indexes are workload-driven: each important index/constraint must protect a real query/invariant and its write, storage, WAL, migration, and sync/import costs are measured. “Index every filterable column” is not baseline.
+- Tenant-local uniqueness and hot tenant-scoped queries use tenant-aware keys/indexes where appropriate, but index shape is confirmed by actual query plans/cardinality rather than a mechanical prefix rule.
+
+## Consistency model
+
+- SquiFlow does not choose one consistency model for the whole product.
+- Current/strong authority is required where temporary disagreement can create unsafe business effects, including sensitive authorization, tenant isolation, shared stock/credit decisions, payment/refund authority, unique issued-document truth, and expected-version state transitions.
+- Eventual/derived consistency is acceptable for consequences such as notifications, telemetry, non-authoritative caches, and read/search/report projections when their freshness and rebuild behavior are explicit.
+- An eventually updated projection declares its authoritative source, freshness/version evidence where material, duplicate/out-of-order handling, and reconciliation/rebuild path.
+- Stale derived data must not silently become current authority for permissions, payment, stock, credit, or another protected invariant.
 
 ## API, sync, and Worker correctness
 
+- REST/task-oriented HTTP is the v0.0.15 application API baseline. GraphQL and GraphQL Federation are deferred until a real client/query-composition requirement justifies their query-cost, authorization, caching, schema, and N+1 complexity.
 - Retryable mutating operations use caller-provided semantic idempotency keys.
 - Same idempotency key + changed intent is rejected.
 - Where one store owns mutation + idempotency receipt + outbox, they commit atomically.
@@ -78,6 +94,17 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Retry is finite, classified, budgeted, and uses backoff/jitter/`Retry-After` where appropriate.
 - Long-running HTTP work uses durable asynchronous status only when work is actually long-running; ordinary short business transactions remain synchronous.
 - Conflict handling is aggregate-specific; no global last-write-wins policy.
+- Large collection APIs are paginated/bounded. Connection pools are bounded/measured and must not leak tenant-scoped DB context across reused connections.
+- Caching, response compression, and asynchronous telemetry logging are selective performance techniques, not default correctness mechanisms. Security/business audit is not allowed to exist only in a lossy async log buffer.
+- Rate limiting/admission is multi-dimensional where needed (IP/unauthenticated abuse, account/device, tenant, endpoint/work class, expensive provider action, platform admin, downstream budget). Authorization and throttling are separate decisions.
+- Temporary HTTP throttling uses stable errors and `429`/`Retry-After` where applicable; clients back off rather than amplify overload.
+
+## Network edge and service-to-service traffic
+
+- An edge reverse proxy/API-gateway capability may terminate TLS, route hostnames, enforce request-size/WAF/access policy, and apply coarse rate limiting when the deployment needs it.
+- Edge/gateway controls do not replace Core API or Admin API authentication, OpenFGA authorization, TenantContext isolation, domain validation, or operation-specific admission.
+- Core API and Admin API remain independent backend/runtime planes even when one edge technology routes to both; Admin API does not route through Core API.
+- A service mesh is not baseline. Revisit only if independently deployed east-west service traffic becomes large/complex enough that mTLS, discovery, traffic policy, and distributed observability justify the added runtime/operational cost.
 
 ## Rules/workflow
 
@@ -117,6 +144,10 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - full browser offline sync;
 - generic repository/unit-of-work/one-interface-per-class abstractions;
 - Kafka, mandatory Redis, event-sourced/full-CQRS/Saga core architecture;
+- GraphQL/GraphQL Federation;
+- service mesh;
+- eventual-consistency-everywhere;
+- denormalized authoritative core schema;
 - global CRDTs;
 - microservice-per-module design;
 - per-tenant infrastructure by default;
