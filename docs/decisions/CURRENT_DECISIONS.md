@@ -9,7 +9,8 @@
 - Permission/role assignment is performed through Web administration only; Desktop can consume effective permissions but never grant them.
 - Tenant workflow/rule/stage editing and publication is performed through Web administration only.
 - Tenant Settings/Admin lives in ordinary tenant Web; SquiFlow platform Admin Web is separate.
-- Platform-critical server/Worker/control-plane commands originate only from Platform Admin Web and privileged `/platform-admin/...` APIs.
+- Platform-critical server/Worker/control-plane commands originate only from Platform Admin Web and privileged `/platform-admin/...` APIs during normal operation.
+- If the application control plane itself is unavailable, infrastructure recovery uses a separate private break-glass/runbook path; it is not exposed as a hidden Desktop/business API.
 - Ordinary Desktop business changes continue through `/sync/...`; Web-only control-plane policy does not block normal Workstation synchronization.
 - Interactive authentication uses OpenID Connect; SquiFlow application authorization is separate from OIDC authentication.
 - Canonical configured SquiFlow issuer is the initial identity baseline; tenant custom domains are relying-party/application origins, not separate issuers.
@@ -21,9 +22,13 @@
 - Tenant custom domains are supported with ownership verification, TLS lifecycle, audit and fallback.
 - Web business operation is **online-only in v0.0.15**. No IndexedDB business replica, service-worker sync, queued offline mutations or partial-offline business model is baseline.
 - Browser auth secrets are not stored in `localStorage`; `localStorage` is for harmless preferences only and `sessionStorage` for transient tab-local UI hints.
+- Valuable online Web forms may use explicit server-side drafts/autosave when the journey justifies it; this does not introduce browser offline synchronization.
 - Workstation is the local-first/offline client. Local-permitted operations commit durably locally first and synchronize in the background.
 - Local Workstation commit and server-authoritative acceptance are distinct states.
 - SquiFlow adapts local-first principles incrementally; it does not adopt a global CRDT/peer-to-peer authority model for payments, inventory, permissions, credit or other shared invariants.
+- `SquiFlow.Guard` is a tiny Workstation supervision/recovery companion only; it does not own business rules, ORM/business persistence, sync semantics, Worker scheduling or platform authority.
+- Printing is the baseline physical-device integration. Printer/spooler/driver failure is a retryable device side effect and never rewrites an already committed sale/order/invoice.
+- Other peripherals such as scanners/barcode readers/cash drawers are requirement-driven and are not baseline merely because similar retail products support them.
 - Server authorization has separate function-, resource/object-, property-, state/workflow- and concurrency layers where applicable.
 - ASP.NET Core `IAuthorizationService`/policy/requirement/resource authorization handlers are the framework primitive; SquiFlow does not build a competing authorization runtime.
 - Multiple requirements inside one policy are treated as AND; handlers must not rely on invocation order or perform business side effects.
@@ -47,6 +52,8 @@
 - ETags/`If-Match` may expose optimistic concurrency to HTTP clients while the domain version remains the correctness boundary.
 - Full HATEOAS is not a baseline requirement.
 - Durable Worker jobs distinguish already-committed business consequences from deferred actor actions and platform-control commands so permission revocation is handled semantically rather than with one blanket rule.
+- Notifications/webhooks/external delivery use the existing Core API/outbox/Worker boundaries first; no separate notification microservice is baseline.
+- External notification failure normally does not roll back already committed business truth; provider effects use explicit idempotency/retry/`OutcomeUnknown` semantics where needed.
 - Cloud architecture patterns are selected only when their problem statement matches a measured/current SquiFlow constraint; the Azure pattern catalog is not an implementation backlog.
 - Current selective pattern use includes async request-reply, bulkhead-style workload isolation, health endpoints, idempotent consumers, bounded priority/load-leveling queues, retry/throttling, selected compensation, and narrowly scoped signed object access when justified.
 - Full CQRS, event sourcing, Saga-based core architecture, per-frontend BFF services, sharding, leader election, deployment stamps and active-active multi-region are deferred until a concrete workload requirement justifies their costs.
@@ -61,9 +68,16 @@
 - If PostgreSQL is used as the central reference/selected provider, the pooled-isolation POC must prove PostgreSQL RLS as defense in depth, including non-`BYPASSRLS` runtime credentials, table-owner behavior, write-side checks and safe connection-pool tenant context.
 - RLS does not close the central database choice; any selected central provider must prove a provider-appropriate pooled isolation mechanism and cross-tenant negative tests.
 - Central/local persistence product choices remain open; PostgreSQL/SQLite are reference candidates and libSQL is a real local-store candidate.
-- SquiFlow-native bounded rule architecture is baseline.
+- The current deployment must be qualified against the actual lower-spec desktop-class rack hardware; `stateless/disposable` server compute does not claim automatic failover or zero downtime.
+- The current approximately 100 GB object-storage allocation is a real capacity envelope. Business objects, temporary exports/diagnostics and backups require explicit storage classes/retention; the primary object store is not assumed to be its own only backup.
+- Server/Workstation resource use is bounded by explicit budgets and measurements; available CPU/RAM is headroom, not permission for unbounded worker/cache growth.
+- Accessibility is a release-level requirement across Web/Admin/Workstation and later client portal: keyboard operation, focus, semantic labels/status/validation, non-color-only state, scalable text and accessible dynamic state are baseline quality requirements. Exact formal legal/conformance target remains open.
+- Test architecture includes domain/application tests, real persistence-adapter tests, Workstation store tests, API/authorization tests, selected end-to-end journeys, failure injection, accessibility checks and release qualification on actual deployment hardware.
+- Money/currency identity, quantity/unit, time/timezone, document numbering identity and correction/version semantics are shared business primitives and must not be re-invented independently in each module.
+- SquiFlow-native bounded rule architecture is baseline; local rule evaluation must respect fact authority/freshness and cannot make stale centrally owned facts authoritative offline.
 - Workflow is continuation-first and versioned.
 - Client never receives central DB credentials and remains untrusted for server authority.
 - OpenTelemetry is permanent instrumentation; New Relic + Aiven OpenSearch current managed targets; Backtrace crash diagnostics direction.
-- Server infrastructure nodes are stateless/disposable for authoritative business state.
+- Managed/free observability providers are capacity-limited dependencies; telemetry buffers/spools are bounded and quota exhaustion cannot block business transaction correctness.
+- Server infrastructure nodes are stateless/disposable for authoritative business state, but physical recovery/failover capability is whatever has actually been deployed and tested.
 - Kafka, YugabyteDB, mandatory Redis, full browser offline sync, Zanzibar-style authorization service and a microservice-per-module model are not baseline dependencies.
