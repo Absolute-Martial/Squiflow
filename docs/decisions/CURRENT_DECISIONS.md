@@ -2,6 +2,8 @@
 
 - C# / modern .NET application foundation.
 - ASP.NET Core Core API host.
+- **Avalonia** is the current Windows Workstation UI framework.
+- **Blazor Web App** is the current Web presentation foundation; tenant Web and Platform Admin remain separate projects/security surfaces even when they use the same presentation technology.
 - Windows Workstation + hosted Web are primary user surfaces.
 - Modular monolith business architecture with distinct Web/Admin/Desktop/API/Worker runtime boundaries.
 - Small-team-first tenant UX: `Owner` + `Staff` default templates.
