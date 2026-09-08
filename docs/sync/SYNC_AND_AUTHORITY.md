@@ -191,7 +191,7 @@ When space is low:
 - allow export/support recovery;
 - do not discard old unsynced work simply to shrink the queue.
 
-Owner for device/disk behavior: `docs/workstation/GUARD_AND_DEVICE_INTEGRATION.md`.
+Workstation device/disk behavior is owned by `docs/workstation/LOCAL_FIRST_DESKTOP.md`.
 
 ## 14. Backpressure and constrained-site bandwidth
 
