@@ -18,7 +18,7 @@ For each phase:
 - **Phase 0:** ZITADEL/OpenFGA are selected; no final central/local DB is required yet. Create the real Guard and the two already-justified provider contracts (`IObjectStore`, `IBackupTarget`) without scaffolding unrelated abstractions.
 - **Phase 1:** close ZITADEL Cloud vs self-hosted, instance/project/application layout, first OpenFGA store/model, model-ID rollout, initial consistency/reconciliation policy, and Blazor render/circuit/session topology.
 - **Phase 2:** choose the Workstation local DB after the smallest SQLite/libSQL proof needed for a real local transaction.
-- **Phase 3:** choose the initial central DB implementation capable of authoritative transaction + pooled isolation + normalized schema/index/query-plan proof.
+- **Phase 3:** choose the initial central DB implementation capable of authoritative transaction + pooled isolation + normalized schema/index/query-plan proof, and close the first concrete API/sync compatibility versioning mechanism required by Workstation/server skew.
 - **Phase 6:** create `apps/admin-web`, **independent `services/admin-api`**, and `services/worker` only when their first real control/durable-work slice exists. Choose only the background mechanism required by that workload.
 - **Phase 7:** use private Hugging Face through `IObjectStore` and encrypted private Kaggle through `IBackupTarget`.
 - **Before paying-customer production:** actual rack inventory/recovery, backup restore proof, provisional RPO/RTO, operator/break-glass access, printer support, and provider migration readiness must be known honestly.
@@ -49,6 +49,7 @@ Do not create yet:
 - generic repository/unit-of-work hierarchy;
 - one interface per class/provider API;
 - GraphQL/service-mesh/event-bus infrastructure;
+- HTTP/gRPC endpoints between ordinary business modules;
 - dozens of empty modules/projects.
 
 Deliver:
@@ -60,6 +61,7 @@ Deliver:
 - typed TenantContext boundary;
 - `IObjectStore` and `IBackupTarget` contracts using SquiFlow-owned types only;
 - architecture tests preventing provider SDK types from leaking into business/domain code;
+- architecture test/convention that ordinary modules remain in-process rather than becoming accidental HTTP services;
 - basic code-quality conventions: meaningful business names, no magic business/config values, no forwarding-only helper/interface chains;
 - minimal rack hardware inventory.
 
@@ -69,7 +71,8 @@ Attack:
 - both are terminated and restarted;
 - incompatible Guard/Workstation protocol version;
 - provider implementation accidentally leaks Hugging Face/Kaggle types into a business contract;
-- a proposed SOLID/clean-code refactor creates an interface/helper with no real responsibility or replacement boundary.
+- a proposed SOLID/clean-code refactor creates an interface/helper with no real responsibility or replacement boundary;
+- a developer proposes HTTP/gRPC between two modules that run in the same host without a real process/security/fault boundary.
 
 Gate:
 - Web, Workstation, Guard and Core API build/run;
@@ -77,7 +80,7 @@ Gate:
 - Guard can observe/recover Workstation process failure without owning business logic;
 - `IObjectStore`/`IBackupTarget` are narrow enough to implement a second adapter later without mirroring whole third-party SDKs;
 - Admin Web/Admin API/Worker remain documented future boundaries without empty placeholder projects;
-- no architecture-style abstraction exists solely to satisfy a pattern slogan.
+- no architecture-style abstraction/network hop exists solely to satisfy a pattern slogan.
 
 ---
 
@@ -186,11 +189,14 @@ Deliver:
 - finite retry/backoff with an intentional retry owner for each remote path;
 - actual query-plan/index proof at current and projected larger cardinalities;
 - measured write/WAL/storage/migration impact of the selected indexes;
-- explicit consistency classification for authoritative versus derived state.
+- explicit consistency classification for authoritative versus derived state;
+- first explicit API/sync protocol compatibility/version contract for Workstation/server skew;
+- REST/task-oriented resource/command shape without pretending every semantic transition is generic CRUD.
 
 Attack:
 - response lost after commit;
-- duplicate same-intent command from caller retry;
+- duplicate same-intent POST command from caller retry;
+- POST without an idempotency contract incorrectly treated as retry-safe;
 - same key + changed intent;
 - cross-tenant object/list/write attempt;
 - valid OpenFGA permission but wrong TenantId/resource query;
@@ -201,7 +207,9 @@ Attack:
 - query that is fast at 10K rows but degrades at projected cardinality;
 - over-indexed schema causing unacceptable sync/import/write cost;
 - stale derived projection accidentally used as current authority;
-- out-of-order derived update overwrites a newer projection state.
+- out-of-order derived update overwrites a newer projection state;
+- older Workstation sends a supported old protocol version;
+- unsupported/breaking protocol version is silently interpreted as the latest contract.
 
 Gate:
 - no duplicate semantic effect;
@@ -211,7 +219,8 @@ Gate:
 - authoritative schema is not denormalized/EAV/JSON merely for UI convenience;
 - each important index has a named query/invariant and measured cost;
 - derived state has explicit source/freshness/rebuild semantics;
-- no system-wide `exactly once` or `eventually consistent` claim is made from one narrower mechanism.
+- compatible old client requests are handled deliberately and unsupported versions fail explicitly;
+- no system-wide `exactly once`, `eventually consistent`, or `strictly RESTful` claim is made from one narrower mechanism.
 
 ---
 
@@ -295,6 +304,7 @@ Deliver:
 - bounded concurrency/fairness;
 - retry/no-progress/quarantine;
 - idempotent/reconcilable consumer behavior;
+- explicit shared-module/data ownership rules for any state touched by both Core API and Admin API;
 - private infrastructure break-glass path when Admin API itself is unavailable.
 
 A shared edge reverse proxy/gateway may route Core API and Admin API separately. It must not make Admin API transit Core API. Do not add a service mesh unless real east-west service topology proves the need.
@@ -328,6 +338,8 @@ Attack:
 - normal tenant user reaches Admin API;
 - tenant OpenFGA role is incorrectly treated as platform authority;
 - Admin API and Core API race on shared state and violate a common invariant;
+- one host bypasses a shared business module with ad-hoc SQL against a reachable table;
+- a synchronous internal call chain is introduced where an in-process/shared-module or durable async path should own the behavior;
 - Worker crash before/after external effect;
 - stale lease owner;
 - duplicate schedule firing;
@@ -340,6 +352,7 @@ Gate:
 - ordinary tenant business API operation remains possible while Admin API is intentionally unavailable;
 - no platform/super-admin endpoint exists on Core API;
 - shared DB/domain invariants are identical across Core API and Admin API where both legitimately touch the same state;
+- runtime-process separation has not accidentally become microservice/database-per-service ceremony;
 - no generic force-success/mark-complete control;
 - break-glass is infrastructure recovery, not hidden tenant API;
 - no service-mesh/gateway component exists unless its current responsibility is concrete and measured.
@@ -379,7 +392,7 @@ Gate:
 
 ---
 
-## Phase 8 — API/performance/rate/observability/admin hardening
+## Phase 8 — API/performance/rate/network/observability/admin hardening
 
 Deliver only hardening relevant to implemented surfaces:
 - OpenTelemetry correlation across Core API/Admin API/Worker;
@@ -397,6 +410,9 @@ Deliver only hardening relevant to implemented surfaces:
 - layered rate/admission policy for login/recovery, account/device, tenant, route/work class, expensive provider actions, and Admin API as applicable;
 - stable `429`/`Retry-After` behavior and client backoff;
 - measured API performance baseline using pagination, bounded connection pooling, selective cache/compression only where justified;
+- HTTPS/TLS production routing with direct edge routes to Core API and Admin API;
+- HTTP transport-version negotiation treated as infrastructure behavior, not business semantics;
+- WebSocket/SignalR, if used, kept non-authoritative;
 - REST remains the baseline; no GraphQL surface unless an implemented client has already demonstrated the query-composition requirement and its authorization/query-cost design has been reviewed.
 
 Attack:
@@ -411,6 +427,11 @@ Attack:
 - cache returns stale protected authority;
 - pool exhaustion/tenant-context reuse;
 - compression/buffering creates disproportionate CPU/memory usage;
+- edge routes platform traffic through Core API instead of directly to Admin API;
+- edge/gateway authentication causes backend authorization to be skipped;
+- WebSocket/live signal lost after commit and system still recovers from durable state;
+- DNS/custom-host manipulation attempts to change TenantContext;
+- clock skew affects token/lease/schedule behavior;
 - sensitive content in logs/Guard diagnostics;
 - OpenFGA or ZITADEL degraded/unavailable and resulting fail-closed/degraded behavior;
 - Core API overload while Admin API still needs emergency application-control capability;
@@ -422,8 +443,10 @@ Gate:
 - Core API and Admin API have separate privileged-surface inventories;
 - rate/admission controls are bounded/fair without being one arbitrary global limit;
 - performance improvements have measured benefit and do not weaken freshness/authority/resource bounds;
+- edge/gateway routing preserves backend ownership and does not become business authority;
+- durable correctness does not depend on WebSocket/circuit/transient network state;
 - no undocumented privileged endpoint;
-- no GraphQL/service-mesh/cache layer exists only because it is a common architecture pattern.
+- no GraphQL/service-mesh/gRPC/cache/gateway-management layer exists only because it is a common architecture pattern.
 
 ---
 
@@ -495,6 +518,10 @@ Do not spend baseline work on:
 - eventual-consistency-everywhere;
 - GraphQL/GraphQL Federation;
 - service mesh;
+- API-management platform selected before need;
+- HTTP/gRPC between ordinary modules;
+- database-per-service for the current modular monolith;
+- MQTT/WebRTC/FTP/SFTP/raw TCP/UDP/gRPC without a concrete workload;
 - denormalized authoritative core schema;
 - global CRDTs;
 - per-tenant schema/database/queue/stack by default;
