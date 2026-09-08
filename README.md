@@ -9,6 +9,9 @@ The GitLab repository is intentionally curated: it keeps the current implementat
 ## Current baseline
 
 - Small-team-first tenant model: Owner + Staff by default, with tenant-owned granular permissions.
+- Ordinary tenants use pooled shared application compute + pooled authoritative tenant data with explicit tenant discriminators; dedicated data/stack isolation is an evidence-driven future profile rather than the baseline.
+- Authentication, authorization and tenant isolation are separate concerns; tenant isolation is designed so correctness does not depend only on manually remembered query filters.
+- PostgreSQL remains a central reference candidate, not a selection; if used, its pooled-isolation POC must prove Row-Level Security and safe connection-pool/runtime-role behavior.
 - Role/permission assignment is Web-only through tenant administration.
 - Tenant rules/workflow/stages are authored/published through Web administration.
 - Platform-critical server/Worker/control-plane actions are Web-only through the separate Platform Admin application.
@@ -26,7 +29,7 @@ The GitLab repository is intentionally curated: it keeps the current implementat
 - SquiFlow-native bounded rule engine is baseline.
 - OpenTelemetry remains provider-neutral instrumentation; New Relic + Aiven OpenSearch are current managed observability targets; Backtrace is the crash-diagnostics direction.
 - Server application nodes remain stateless/disposable for authoritative business state.
-- Full CQRS/event sourcing/Saga/BFF/sharding/leader-election/multi-region patterns are not baseline merely because they exist in architecture catalogs.
+- Full CQRS/event sourcing/Saga/BFF/sharding/leader-election/multi-region and per-tenant infrastructure are not baseline merely because architecture catalogs support them.
 
 ## Documentation map
 
@@ -39,6 +42,7 @@ The GitLab repository is intentionally curated: it keeps the current implementat
 ### Architecture/runtime
 - [`docs/architecture/REPOSITORY_STRUCTURE.md`](docs/architecture/REPOSITORY_STRUCTURE.md)
 - [`docs/architecture/CONTROL_PLANE_AND_DATA_PLANE.md`](docs/architecture/CONTROL_PLANE_AND_DATA_PLANE.md)
+- [`docs/architecture/MULTI_TENANCY_ISOLATION.md`](docs/architecture/MULTI_TENANCY_ISOLATION.md)
 - [`docs/server/CORE_API_AND_WORKER.md`](docs/server/CORE_API_AND_WORKER.md)
 - [`docs/api/API_CONTRACT_IDEMPOTENCY_AND_RETRY.md`](docs/api/API_CONTRACT_IDEMPOTENCY_AND_RETRY.md)
 
