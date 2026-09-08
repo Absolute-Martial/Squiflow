@@ -4,59 +4,74 @@
 
 ## 1. Current state
 
-The repository is still pre-Phase-0. Do not scaffold the full future architecture before the first vertical slice needs it.
+The repository is still pre-Phase-0. Do not scaffold every future module, but do not remove accepted runtime/recovery boundaries merely to make the tree smaller.
 
-The first executable structure can be deliberately small:
+The initial target shape is intentionally compact but functionally complete enough for early slices:
 
 ```text
 SquiFlow/
 ├── apps/
-│   ├── web/          # Blazor tenant Web + tenant Settings/Admin
-│   └── desktop/      # Avalonia Windows Workstation
+│   ├── web/              # Blazor tenant Web + tenant Settings/Admin
+│   └── desktop/
+│       ├── workstation/  # Avalonia local-first Workstation
+│       └── guard/        # Workstation supervision/recovery companion
 ├── services/
-│   └── core-api/     # ASP.NET Core HTTP/composition host
-├── modules/          # only modules needed by implemented slices
-├── infrastructure/   # only concrete providers/integrations currently used
+│   └── core-api/         # ASP.NET Core HTTP/composition host
+├── modules/              # only modules required by implemented slices
+├── infrastructure/
+│   ├── storage/          # IObjectStore + HuggingFaceObjectStore
+│   ├── backup/           # IBackupTarget + KaggleBackupTarget
+│   ├── identity/         # ZITADEL integration
+│   └── authorization/    # OpenFGA integration
 ├── tests/
 ├── deploy/
 └── docs/
 ```
 
-Create these later only when their first real feature exists:
+Create later when their first real feature exists:
 
 ```text
-apps/admin-web/       # when platform-control UI is implemented
-services/worker/      # when durable background work is implemented
+apps/admin-web/           # platform-control UI
+services/worker/          # durable background work
 ```
 
-## 2. Do not pre-create abstraction directories
+This tree still does not authorize hundreds of placeholder files or empty module projects.
 
-The following are **not required directories** in the initial repository:
+## 2. Minimal structure must not mean incomplete behavior
+
+Use the smallest structure that preserves all accepted responsibilities.
+
+Bad simplification:
 
 ```text
-packages/
-contracts/
-persistence/abstractions/
-helpers/
-benchmarks/
-tools/
-build/
-dev/
+remove Guard because one process looks simpler
+remove storage interface even though provider migration is already committed
+collapse authorization into token roles and lose current resource checks
 ```
 
-Any of them may appear later if real code gives them a clear responsibility. Their presence in an old architecture tree is not an instruction to scaffold them.
+Good simplification:
+
+```text
+keep Guard but do not add GuardManager → GuardService → GuardCoordinator forwarding layers
+keep IObjectStore because provider replacement is planned, but do not create one interface per SDK type
+keep OpenFGA integration, but keep workflow/financial invariants in normal domain code
+```
+
+The goal is **low accidental complexity, not low capability**.
 
 ## 3. Project creation rule
 
-A new project earns its existence only for a real boundary such as:
+A separate project/executable earns its existence for a real boundary such as:
 - independently built/deployed executable;
 - security/fault/process isolation;
-- dependency direction that cannot remain clear inside the current project;
+- dependency direction that materially protects the codebase;
 - stable wire/inter-process/plugin contract;
-- active provider migration/dual implementation where a separate adapter project materially helps;
-- a benchmark/test harness that genuinely needs a separate executable/project.
+- active/committed provider migration or multiple implementations;
+- benchmark/test harness that genuinely needs its own executable.
 
-Do not create a project because a noun exists in the domain model.
+`SquiFlow.Guard` passes this test because it must observe/recover Workstation process failure from outside that process.
+
+`IObjectStore` and `IBackupTarget` pass the abstraction test because provider replacement at the first paying customer is already planned.
 
 ## 4. Interface/abstraction rule
 
@@ -68,55 +83,63 @@ IUnitOfWork
 IManager
 IHelper
 IService for every Service
-one interface per concrete provider class
+one interface per concrete class
 ```
 
-Use concrete implementations until an actual inversion/replacement/process boundary requires abstraction.
+But do create a narrow interface when there is a real replacement/inversion boundary.
 
-Testing alone does not justify wrapping every framework/provider API in a custom interface. When transaction/locking/provider behavior matters, test the real adapter.
+Current justified provider interfaces:
 
-Provider details still stay localized. For example, Hugging Face storage calls belong in infrastructure code and provider-specific types do not leak into business records. Localization is enough until migration begins.
+```text
+IObjectStore
+  └── HuggingFaceObjectStore
+
+IBackupTarget
+  └── KaggleBackupTarget
+```
+
+Later paid providers implement the same contracts during migration.
+
+The interfaces should reflect SquiFlow semantics and stay narrow; they should not mirror every method/feature in Hugging Face/Kaggle APIs.
+
+A separate `persistence/abstractions` or `packages/` project is still not required merely because two interfaces exist. They can live in coherent infrastructure namespaces until code/dependency growth earns a separate assembly.
 
 ## 5. Runtime boundaries
 
-Accepted runtime direction remains:
+Accepted runtime direction:
 - tenant Web;
 - Windows Workstation;
+- Workstation Guard;
 - Core API;
 - future Platform Admin Web;
 - future Worker.
 
-The last two are architectural runtime boundaries, not Phase-0 project requirements.
-
 Business modules remain modular-monolith code and do not automatically become network services.
 
-## 6. Web/control-plane separation
+## 6. Identity/authorization integrations
 
-- Tenant Web owns ordinary tenant business Web plus tenant Owner Settings/Administration.
-- Future Platform Admin Web is a separate SquiFlow-operator surface.
-- Workstation is a local-first business client and never becomes a tenant/platform permission editor or platform control plane.
+- ZITADEL is the identity/authentication provider boundary.
+- OpenFGA is the application-authorization engine boundary.
+- Core API remains the only business server composition/authorization boundary for ordinary Web/Workstation actions.
+- Web/Desktop do not call OpenFGA as a way to bypass server business authorization.
+- Provider SDK/client types stay in `infrastructure/identity` and `infrastructure/authorization` rather than leaking into domain records.
 
-Using Blazor for tenant Web and future Platform Admin Web does not merge their authorization/audience boundaries.
+ASP.NET Core `IAuthorizationService` remains the API-facing integration primitive; OpenFGA is invoked behind the semantic authorization path where appropriate.
 
-## 7. Workstation process model
+## 7. Workstation Guard process
 
-Baseline is one process:
+`apps/desktop/guard` is a real executable boundary because process supervision cannot reliably be owned solely by the process being supervised.
 
-```text
-SquiFlow.Workstation
-```
+Guard owns launch/supervision, bounded restart/hang recovery, update handoff/recovery, child process cleanup, and bounded diagnostic/resource evidence. See `docs/workstation/GUARD_AND_RECOVERY.md`.
 
-There is no always-running Guard/helper process requirement.
-
-If a future updater/native library/driver proves it can hang/crash/leak in a way that warrants process isolation, add one narrow helper then. Do not design its project before the problem exists.
-
-Printing starts through the normal Workstation/Windows printing path. Printer failure remains separate from committed business truth.
+Do not put business rules, OpenFGA authorization, sync semantics or central DB access in Guard.
 
 ## 8. Phase-0 proof
 
-Phase 0 should prove only what the early slices need:
-- Web, Workstation and Core API build/run;
+Phase 0 should prove:
+- Web, Workstation, Guard and Core API build/run;
+- Guard can launch/supervise Workstation and survive an independent Workstation crash without corrupting local data;
 - basic CI exists;
-- forbidden dependency directions are tested where real projects exist;
-- tenant context/security boundaries can be implemented without provider leakage into business code;
-- no empty placeholder projects/directories were created for future architecture.
+- provider-specific Hugging Face/Kaggle/ZITADEL/OpenFGA types do not leak into domain/business models;
+- `IObjectStore` and `IBackupTarget` compile as narrow provider seams without generic interface proliferation;
+- no empty Worker/Admin/module/provider projects exist solely to complete a diagram.
