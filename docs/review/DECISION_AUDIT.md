@@ -39,11 +39,54 @@ A component is not allowed to become functionally weak merely to satisfy a minim
 | Avalonia Workstation | KEEP | Current Windows desktop decision. |
 | Blazor Web App | KEEP | Tenant Web and future Platform Admin presentation decision. |
 | Modular monolith business core | KEEP | Fits team/product scale and keeps network boundaries limited. |
-| Core API executable | KEEP | Real HTTP/security/composition boundary. |
+| Core API executable | KEEP | Real tenant/business HTTP/security/composition boundary. |
+| **Admin API executable** | **RESTORE / KEEP** | Super-admin/control-plane backend must be independent of Core API availability/security surface. Hosting it as Core API routes would couple privileged control to the tenant data plane. |
 | Worker executable | KEEP, create when needed | Real deployment/failure boundary once durable background work exists. |
 | Platform Admin Web | KEEP, create when needed | Real privileged presentation/control boundary. |
 | `SquiFlow.Guard` | **RESTORE / KEEP** | Process supervision, crash/hang recovery, update handoff and evidence require an external companion boundary. Removing it would weaken the Workstation. |
 | Arbitrary helper processes | DEFER | Only a specific native/heavy/driver problem earns another process. |
+
+### Platform Admin backend correction
+
+The earlier baseline had a separate Admin Web but still treated `/platform-admin/...` as part of Core API. That does not satisfy the intended control-plane independence.
+
+Current accepted runtime is:
+
+```text
+Tenant Web / Workstation
+→ Core API
+
+Platform Admin Web
+→ Admin API
+```
+
+not:
+
+```text
+Platform Admin Web
+→ Core API /platform-admin/...
+```
+
+and not:
+
+```text
+Platform Admin Web
+→ Admin API
+→ Core API
+```
+
+for ordinary platform-control work.
+
+The reason is concrete, not stylistic:
+- Core API can be unhealthy/overloaded while operators still need the application control plane;
+- privileged platform endpoints should not enlarge the tenant/business API attack surface;
+- Admin API needs separate platform authentication/authorization/service credentials/health/deployment lifecycle;
+- tenant authority must never become platform authority by route confusion;
+- restarting/deploying Admin API should not require restarting Core API, and vice versa.
+
+Shared libraries and underlying infrastructure are still allowed. Independence means no runtime dependency on the Core API process for normal platform administration, not impossible independence from the same central DB/provider when an operation genuinely requires it.
+
+**Audit result: RESTORE / KEEP separate `services/admin-api`.** Create it with Admin Web in Phase 6, not as an empty Phase-0 project.
 
 ### Guard correction
 
@@ -137,6 +180,8 @@ ASP.NET Core authorization integration
 SquiFlow     workflow/domain/business invariants
 DB           tenant data isolation
 ```
+
+Core API uses tenant/business authorization scope. Admin API uses separate platform/super-admin scope. Reusing the same OpenFGA technology does not mean reusing tenant roles as platform authority.
 
 OpenFGA's custom-role model is a good fit because tenant-created roles are represented as tuples/data rather than requiring authorization-model redeployment for each role instance.
 
@@ -234,6 +279,9 @@ Keep tests for:
 - transaction/idempotency correctness;
 - local DB crash/restart/long-offline;
 - Guard crash/hang/update recovery;
+- Admin API platform authorization and Core-API-outage independence;
+- Core API tenant operation while Admin API is unavailable;
+- shared invariant correctness where Admin API and Core API legitimately touch common state;
 - `IObjectStore` adapter contract and migration proof;
 - `IBackupTarget` encrypted artifact download/restore;
 - resource bounds and actual deployment behavior.
@@ -247,13 +295,15 @@ One focused document owns each detailed topic. Review docs never override curren
 Current owners include:
 - identity/session → `docs/security/IDENTITY_AND_SESSIONS.md`;
 - authorization → `docs/security/TENANT_PERMISSIONS.md`;
+- platform admin/control backend → `docs/admin/ADMIN_SURFACES.md`;
+- control-plane/data-plane split → `docs/architecture/CONTROL_PLANE_AND_DATA_PLANE.md`;
 - object/backup provider boundaries → `docs/data/FILES_AND_OBJECT_STORAGE.md`;
 - Guard → `docs/workstation/GUARD_AND_RECOVERY.md`;
 - local-first Workstation → `docs/workstation/LOCAL_FIRST_DESKTOP.md`.
 
 ## 12. Corrected implementation shape
 
-The early implementation is still compact, but includes the boundaries already justified by required behavior or committed migration:
+The early implementation is still compact, but includes only boundaries already justified by required behavior or committed migration:
 
 ```text
 SquiFlow/
@@ -275,7 +325,15 @@ SquiFlow/
 └── docs/
 ```
 
-Worker/Admin remain later because their first real workload/UI still occurs later.
+When Phase 6 begins, add together because their first real use exists:
+
+```text
+apps/admin-web/
+services/admin-api/
+services/worker/
+```
+
+Admin API is not a placeholder microservice; it is the independent platform-control backend required by the super-admin boundary.
 
 ## 13. Audit conclusion
 
@@ -286,6 +344,6 @@ remove unnecessary ceremony
 without removing required responsibility
 ```
 
-Specifically, v0.0.15 now treats Guard, `IObjectStore`, `IBackupTarget`, ZITADEL, and OpenFGA as justified boundaries. Generic repositories, forwarding services, arbitrary helper processes, and unrelated provider interfaces remain rejected.
+Specifically, v0.0.15 treats Guard, separate Admin API, `IObjectStore`, `IBackupTarget`, ZITADEL, and OpenFGA as justified boundaries. Generic repositories, forwarding services, arbitrary helper processes, and unrelated provider interfaces remain rejected.
 
 The implementation should begin, but every phase must prove the edge/failure behavior that makes SquiFlow's core abilities real rather than merely produce the smallest possible happy-path codebase.
