@@ -9,20 +9,22 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Avalonia is the Windows Workstation UI framework.
 - Blazor Web App is the tenant Web presentation foundation and the future Platform Admin Web presentation foundation.
 - The business core is a modular monolith. A module does not become a service merely because it has a name.
-- `apps/web`, `apps/desktop`, and `services/core-api` are the first executable boundaries needed by the early vertical slices.
-- `apps/admin-web` remains a separate future platform-control-plane executable, but its project is not created until a platform-admin slice needs it.
-- `services/worker` remains a separate future durable background executable, but its project is not created until durable background work is implemented.
-- There is **no baseline `SquiFlow.Guard` process**. Start with one Workstation process. Add a helper/supervisor process only after a concrete updater/native-library/crash-isolation requirement proves that process isolation is worth its lifecycle cost.
+- `apps/web`, `apps/desktop`, and `services/core-api` are early executable boundaries.
+- `apps/admin-web` remains a separate platform-control-plane executable and is created when the platform-admin slice needs it.
+- `services/worker` remains a separate durable background executable and is created when durable background work is implemented.
+- **`SquiFlow.Guard` is a baseline Workstation companion process.** It owns desktop process supervision, bounded crash/hang recovery, update handoff/recovery, child/helper cleanup, and bounded diagnostic/resource evidence. It does not own business rules, authorization, sync semantics, or central DB access.
 - Printing is a Workstation device side effect. Other peripherals are requirement-driven.
 
-## Complexity and code-shape rule
+## Completeness versus minimalism
 
+- The architecture minimizes unnecessary **layers/components**, not required behavior.
+- A component must still fully cover its accepted success, failure, recovery, security, and resource responsibilities.
+- Do not remove a real boundary or edge-case capability merely to reduce project/interface/process count.
 - Do not create empty projects/directories to match an architecture diagram.
 - Do not create generic helper/manager/service layers that only forward calls.
 - Do not introduce an interface merely because an implementation class exists or because mocking it is possible.
-- Generic `IRepository<T>`, `IUnitOfWork`, provider-neutral wrapper layers, and one-interface-per-class conventions are **not baseline**.
-- Prefer concrete framework/provider integrations contained inside the appropriate infrastructure/application boundary. Introduce an interface only when a real dependency-inversion, multiple-live-implementation, process/wire-contract, or replacement need earns it.
-- Provider portability means provider details do not leak throughout business code; it does **not** require speculative abstraction layers before the first provider is implemented.
+- Generic `IRepository<T>`, `IUnitOfWork`, and one-interface-per-class conventions are not baseline.
+- An interface is justified when there is a concrete dependency-inversion/replacement boundary, including an already-planned near-term provider migration.
 
 ## Small-team tenant control
 
@@ -33,14 +35,20 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Platform-critical application controls are available only through the separate Platform Admin Web during normal operation.
 - Desktop never grants permissions or changes platform control-plane state.
 
-## Identity and authorization
+## Identity and authorization stack
 
-- Interactive authentication uses OpenID Connect; application authorization remains SquiFlow-owned.
-- Stable external account identity is `(issuer, subject)`, not email.
-- Workstation login uses the system browser + Authorization Code + PKCE `S256`; no reusable native client secret or central DB credential is embedded in the Workstation.
-- ASP.NET Core policy/requirements/`IAuthorizationService` are the authorization runtime primitives; SquiFlow does not build a competing authorization service.
-- Authorization separates function, tenant/resource, sensitive-property, domain/workflow-state, and concurrency checks where applicable.
-- Permission changes advance `TenantAuthorizationRevision`; Workstation permission snapshots never replace authoritative server reauthorization.
+- **ZITADEL is the current identity/authentication platform choice** for interactive authentication, account/session/MFA/SSO capability, using standards-based OpenID Connect/OAuth integration.
+- Workstation login uses ZITADEL through the system browser + Authorization Code + PKCE `S256`; no reusable native client secret or central DB credential is embedded in the Workstation.
+- Stable external account identity remains `(issuer, subject)`, not email.
+- **OpenFGA is the current application-authorization engine choice** for tenant roles, tenant-defined custom roles, role assignments, stable permissions/relations, and resource relationship checks where applicable.
+- ZITADEL authentication and OpenFGA application authorization are separate concerns. ZITADEL role/token claims are not treated as current SquiFlow business authorization truth.
+- ASP.NET Core policy/requirements/`IAuthorizationService` remain the Core API integration point: handlers/policies invoke OpenFGA where a relationship/permission decision belongs there, then SquiFlow domain/workflow/concurrency rules still run separately.
+- OpenFGA does not replace database tenant isolation, business state validation, workflow guards, idempotency, or concurrency checks.
+- OpenFGA production calls pin an explicit authorization model ID; model migrations are versioned/controlled rather than silently using whatever model is newest.
+- Tenant-created custom role instances/assignments are data/tuples, not a new OpenFGA authorization-model deployment for every role edit.
+- OpenFGA tuples use opaque SquiFlow IDs rather than emails or other unnecessary PII.
+- Permission/relationship changes return success only after the authoritative OpenFGA change is known/applied; ambiguous external-write outcomes are reconciled rather than assumed successful.
+- `TenantAuthorizationRevision` remains SquiFlow evidence/versioning for effective authorization/configuration and Workstation snapshot freshness; it complements rather than replaces OpenFGA model/tuple state.
 
 ## Web and Workstation
 
@@ -78,18 +86,18 @@ This file records accepted direction only. Detailed reasoning and changes from t
 
 ## Money/currency
 
-- Currency is **not hardcoded** in application logic.
+- Currency is not hardcoded in application logic.
 - A tenant has a configurable default currency code and monetary records that need historical meaning retain the applicable currency code.
-- v0.0.15 does **not** add a multi-currency ledger, exchange-rate service, FX conversion engine, gain/loss accounting, or currency-provider abstraction.
-- If a real multi-currency customer requirement appears, that is a later feature decision.
+- v0.0.15 does not add a multi-currency ledger, exchange-rate service, FX conversion engine, gain/loss accounting, or currency-provider abstraction.
 
 ## Object storage and backups
 
 - The current bootstrap primary object store is a **private Hugging Face Storage Bucket**, with the currently available private-storage envelope of about **100 GB** treated as a real limit.
-- Hugging Face is a bootstrap provider, not a permanent architecture commitment. The planned migration trigger is the first paying customer; migrate earlier if capacity, rate limits, reliability, contractual, privacy, compliance, or operational requirements demand it.
-- Application business records store object metadata/ownership/hash/lifecycle; retained/issued objects use application-level immutable/versioned keys even though the bucket itself is mutable.
+- Because primary object storage is already planned to change at the first paying customer, a narrow **`IObjectStore`** provider boundary is baseline. `HuggingFaceObjectStore` is the bootstrap implementation; provider SDK types do not leak into business/domain contracts.
 - The current bootstrap off-site backup target is a **private Kaggle Dataset** containing only encrypted opaque backup archives, never raw customer tables/files.
-- Kaggle backup use is temporary. The first paying customer is the planned trigger to move to a purpose-built paid backup/storage arrangement, or earlier if capacity/security/restore requirements demand it.
+- Backup destination access uses a separate infrastructure-level **`IBackupTarget`** boundary. `KaggleBackupTarget` is the bootstrap implementation.
+- Backup is an infrastructure recovery concern, not only an application feature: the recoverable set must include all state needed to reconstruct a usable SquiFlow deployment, according to the selected deployment topology.
+- Hugging Face/Kaggle are temporary. The first paying customer is the planned trigger to move to purpose-built paid primary/backup providers, or earlier if constraints demand it.
 - Backups are not considered valid until download + integrity verification + restore has been proven.
 
 ## Operations and observability
@@ -97,16 +105,16 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Current server hardware is lower-spec/desktop-class rack hardware; `stateless` does not imply automatic failover or zero downtime.
 - Resource use is explicitly bounded; spare CPU/RAM is headroom rather than permission for caches/workers to grow without limit.
 - OpenTelemetry/OTLP is the instrumentation boundary. New Relic + Aiven OpenSearch are current managed targets and Backtrace remains the crash-diagnostics direction.
+- Guard contributes bounded Workstation lifecycle/crash/resource evidence into diagnostics without becoming business authority.
 - Telemetry-provider failure/quota exhaustion cannot block business transaction correctness.
 
 ## Explicitly not baseline
 
 - formal accessibility/a11y work as a separate v0.0.15 project/gate;
 - full browser offline sync;
-- Guard/supervisor/helper process without a proven need;
-- generic repository/unit-of-work/provider-wrapper abstractions;
+- generic repository/unit-of-work/one-interface-per-class abstractions;
 - Kafka, mandatory Redis, event-sourced/full-CQRS/Saga core architecture;
-- global CRDTs or Zanzibar-style authorization service;
+- global CRDTs;
 - microservice-per-module design;
 - per-tenant infrastructure by default;
 - advanced peripheral suite, MRP/wastage, specialized ETL/search, or SaaS billing engine without a current customer/commercial requirement.
