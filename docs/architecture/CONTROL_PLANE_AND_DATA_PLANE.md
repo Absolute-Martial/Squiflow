@@ -146,7 +146,8 @@ An edge reverse proxy or API-gateway capability may route north-south traffic to
 - public/private exposure policy;
 - request-size limits;
 - WAF/DDoS controls where provided;
-- coarse rate limiting.
+- coarse rate limiting;
+- transport/protocol negotiation and edge observability where supported.
 
 A shared edge does **not** collapse the application planes.
 
@@ -158,7 +159,7 @@ edge
 └── private/platform routes → Admin API
 ```
 
-Invalid normal topology:
+Invalid normal topologies:
 
 ```text
 edge
@@ -166,7 +167,11 @@ edge
 → Admin API
 ```
 
-or:
+```text
+edge
+→ generic gateway business handler
+→ decides tenant/platform authorization
+```
 
 ```text
 edge authorization
@@ -175,7 +180,17 @@ edge authorization
 
 Core API/Admin API still independently authenticate/authorize, validate resource scope/state, enforce operation-specific admission, and emit their own audit/health evidence.
 
+The edge should not be selected as a heavyweight API-management platform before a concrete need exists. Gateway features such as payload transformation, analytics, version management, or authentication are used only where they improve the real deployment without duplicating or weakening backend authority.
+
 A service mesh is not baseline. SquiFlow does not currently have enough independently deployed east-west services to justify the memory/network/failure/operations cost. Revisit only when real service-to-service topology makes mTLS, discovery, traffic policy, and distributed observability materially difficult without one.
+
+## Service/data-sharing implication
+
+Core API, Admin API, and Worker are runtime hosts around the same modular-monolith business core. Their separate processes do not automatically make them independent microservices with private databases.
+
+They may intentionally share the authoritative central DB, but they must preserve explicit module/data ownership and the same domain/transaction invariants. A host must not bypass a module's rules through ad-hoc direct SQL merely because a table is physically reachable.
+
+If a capability is later extracted into a truly independent service, its data ownership and communication contract must be designed explicitly at that time.
 
 ## Resource-based authorization
 
@@ -192,6 +207,8 @@ Tenant Web, Platform Admin Web and Desktop do not talk directly to PostgreSQL/se
 Platform Admin Web talks to Admin API. Admin API may invoke narrowly authorized provider/control-plane integrations as part of an audited application operation.
 
 Infrastructure/root operations remain a separate private infrastructure plane when they truly require OS/container/database administrator access or when Admin API itself is unavailable.
+
+SSH/private-network access belongs to that infrastructure plane and is not a normal application protocol.
 
 ## API inventory and retirement
 
