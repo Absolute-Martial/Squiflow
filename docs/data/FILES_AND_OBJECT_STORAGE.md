@@ -1,192 +1,230 @@
-# Files, Object Storage, and Local Staging
+# Files, Object Storage, and Backup Bootstrap
 
 **Version:** v0.0.15
 
-## 1. Storage classes
+## 1. Current bootstrap providers
+
+The current bootstrap storage arrangement is concrete rather than hypothetical:
+
+- **Primary business object storage:** private Hugging Face Storage Bucket.
+- **Current private-storage envelope:** approximately **100 GB**.
+- **Off-site backup carrier:** private Kaggle Dataset containing only encrypted opaque backup artifacts.
+
+This is intended for the pre-paying-customer bootstrap stage. The planned migration trigger is the first paying customer, or earlier if capacity, privacy/compliance, reliability, rate limits, contractual support, or restore requirements make the bootstrap providers unsuitable.
+
+Do not describe the current Hugging Face allocation as generic AWS `S3`. Hugging Face Storage Buckets expose S3-like/S3-compatible access, but Hugging Face is the current provider.
+
+## 2. Storage classes
 
 ### Workstation/local filesystem
 Use for:
-- temporary processing;
-- cache;
-- local diagnostics staging;
+- local database;
 - unsynced/pending attachments;
-- import/export staging.
+- bounded temporary processing/cache;
+- import/export staging explicitly controlled by the user/application.
 
 ### Server node filesystem
-Use only for disposable temp/cache/processing/diagnostic staging.
+Use only for bounded disposable temp/processing/staging.
 
-### Primary durable object storage
+### Hugging Face private Storage Bucket
 Use for retained business binary objects such as:
 - customer artwork;
 - generated/issued documents;
 - retained attachments;
 - product/profile images.
 
-Temporary exports and diagnostic archives can also use object storage **only under explicit retention/capacity policy**.
-
-### Backup storage
-Backup copies are a separate durability class. Do not assume the primary business-object bucket is also its own only backup merely because it is remote/object storage.
-
-The final independent backup target is an OPEN deployment decision.
+Temporary exports/diagnostic bundles may use it only with explicit short retention when needed.
 
 ### Business database
-Stores metadata/reference:
-- object ID/key;
+Stores metadata/reference such as:
+- object key;
 - tenant/resource ownership;
 - content type;
 - size/hash;
-- version;
-- lifecycle state;
-- retention/storage class;
+- version/lifecycle state;
 - business relationship.
 
-Do not mount object storage as if it were the application's authoritative ordinary filesystem.
+The database, not the bucket pathname alone, decides which tenant/business record owns an object.
 
-## 2. Current capacity reality
+## 3. No speculative storage interface hierarchy
 
-The currently available object-storage envelope is approximately **100 GB**.
+Do **not** create `IObjectStorage`, `IStorageProvider`, one-interface-per-provider, or a provider-neutral storage project solely because migration is expected later.
 
-Treat that as a planning constraint, not unlimited cloud capacity.
+For the bootstrap implementation:
+- keep Hugging Face SDK/S3-compatible calls localized in infrastructure code;
+- keep Hugging Face-specific types out of domain/business records;
+- expose application operations in business language (attach file, fetch authorized object, retire object) rather than leaking provider SDK calls through modules;
+- when the paid-provider migration actually begins, extract/replace the narrow seam needed by the migration.
 
-Before production, track at least:
-- total bytes/objects;
-- bytes by tenant where applicable;
-- bytes by object class;
-- growth rate;
-- orphan/GC-candidate bytes;
-- expiring temporary export/diagnostic bytes.
+Provider portability is achieved first through containment, not speculative interfaces.
 
-Define configurable warning/critical/hard-admission thresholds after measuring realistic customer artwork/document sizes. Do not invent arbitrary percentages in the architecture.
+## 4. Immutable business-object behavior over a mutable bucket
 
-When capacity is constrained, protect retained business objects first. Expire only data whose retention policy already permits deletion; never silently delete customer files or unsynced Workstation attachments to recover capacity.
+Hugging Face Storage Buckets are mutable/non-versioned storage, so SquiFlow must protect historical business meaning itself.
 
-See `docs/operations/DEPLOYMENT_CAPACITY_AND_RECOVERY.md`.
+For issued/retained/versioned objects:
+- use immutable/versioned application keys;
+- do not silently overwrite bytes behind an issued document reference;
+- store size/hash/version metadata;
+- replacing an asset creates a new object reference when historical identity matters.
 
-## 3. Upload lifecycle
+A mutable bucket capability is not permission to mutate issued business history.
+
+## 5. Upload lifecycle
 
 ```text
 authorize
-→ validate type/size/content
+→ validate size/type/path
 → stage/stream
-→ upload object
+→ upload
 → verify size/hash
 → commit metadata/reference
 → publish availability
 ```
 
-Handle both failure windows:
-- object succeeded, metadata failed → orphan reconciliation/garbage collection;
-- metadata exists, object missing → unavailable/corrupt state and repair workflow.
+Handle both asymmetric failure windows:
+- object upload succeeds, DB metadata fails → orphan reconciliation;
+- DB reference exists, object missing/corrupt → explicit unavailable/repair state.
 
-Large transfers should stream rather than load whole files into RAM. Resumable/multipart upload is used when provider/file-size/network evidence justifies it.
+Do not load large customer artwork wholly into RAM merely for convenience.
 
-## 4. File/content security
+## 6. Capacity is real
 
-Do not trust filename extension or client-provided content type as proof of file content.
+Treat the current ~100 GB Hugging Face private-storage envelope as finite.
 
-Depending on the file class and supported processing path, enforce:
-- allowlisted types where appropriate;
-- maximum compressed and expanded size;
-- decompression-bomb/resource limits;
-- safe filename/path handling;
-- metadata stripping/normalization where required;
-- quarantine/scanning before risky server-side processing when the threat model justifies it;
-- no execution of uploaded customer files as application code.
+Track at least:
+- total stored bytes;
+- retained business bytes;
+- temporary/expiring bytes;
+- orphan/GC-candidate bytes;
+- bytes by tenant when useful;
+- recent growth rate.
 
-A suspicious/unsupported file is a validation/quarantine result, not a reason to let a native helper parse arbitrary bytes without limits.
+Do not invent thresholds in architecture before measuring real file sizes. But the application/operations path must be able to warn and eventually reject optional new large work before the account limit is hit.
 
-## 5. Immutable/versioned keys
+Never silently delete retained customer objects to make room.
 
-Prefer immutable/versioned/content-hash-style object identities for assets/documents where appropriate.
+## 7. File/content safety
 
-Updating a profile/product image should create a new object reference rather than silently replacing bytes behind a long-lived cache key.
+Client filename/content type is not proof of actual content.
 
-## 6. CDN/cache
+Where applicable:
+- bound upload and expanded/decompressed size;
+- sanitize paths/names;
+- do not execute uploaded customer content as code;
+- isolate/limit risky parsers if one is eventually required;
+- unsupported/suspicious input fails validation rather than receiving unlimited native processing.
 
-CDN/node cache is derived/rebuildable and never the master copy.
-
-Use it to reduce repeated object-store reads/egress for hot assets.
-
-Authenticated/private tenant objects require an explicit authorization/cache policy; do not accidentally make private files publicly cacheable.
-
-## 7. Provider neutrality
-
-SquiFlow code depends on a storage abstraction/policy rather than scattered B2/MEGA/S3/provider calls.
-
-Provider choice/tiering remains a current evaluation decision and should consider:
-- access frequency;
-- retention;
-- egress economics;
-- latency/region;
-- durability/security;
-- available capacity/quota;
-- backup/restore needs;
-- current contractual/compliance requirements.
-
-The current ~100 GB allocation is a deployment envelope, not a permanent provider architecture decision.
+Do not create a helper process until a real parser/driver proves process isolation is needed.
 
 ## 8. Workstation attachment sync
 
-Large local attachments can be referenced from the local outbox without duplicating the entire binary into the local database.
+Large local attachments stay as files plus durable metadata rather than being duplicated inside the local DB.
 
-Required local metadata includes enough to detect:
-- file missing;
-- file changed since queueing;
+Track enough to detect:
+- local file missing/changed;
 - upload already completed;
 - server metadata accepted;
 - retry/resume status.
 
-Do not mark the business attachment authoritative until the required durable object + metadata lifecycle completes.
+A large file transfer must not starve small semantic synchronization operations.
 
-Attachment transfer is scheduled separately enough that one giant file cannot starve small semantic sync operations.
+## 9. Printing
 
-## 9. Local/server staging limits
+Printing is a Workstation side effect, not business truth.
 
-Both Workstation and server staging areas are bounded.
+```text
+committed invoice/order
+→ print request
+→ Windows printer/spooler path
+→ success/failure/unknown physical output
+```
 
-Track:
-- bytes in use;
-- age;
-- owning operation/tenant where applicable;
-- whether data is safe to discard;
-- whether data is unsynced business evidence.
+Printer failure does not roll back the committed business transaction. Retry or alternate-printer action is separate.
 
-A cleanup process can remove expired disposable temp files, but must never classify an unsynced attachment as disposable merely because it is old.
+Start in-process with the normal Windows printing path. A native/helper process is added only if actual driver/library behavior proves isolation is necessary.
 
-Low-space behavior should stop optional new heavy work before the disk becomes completely full and explain the problem to the user/operator.
+## 10. Kaggle backup bootstrap
 
-## 10. Printing
+Kaggle is used as a temporary off-site backup carrier, not as the live object store and not as a permanent production backup architecture.
 
-Printing is a side effect, not business truth.
+### Never upload raw customer data to Kaggle as normal dataset files
 
-If an invoice/order commits but the printer fails/out-of-paper/driver crashes, the transaction remains committed and the print attempt remains separately retryable.
+Kaggle Datasets can process uploaded files, including unpacking recognized archives and analyzing tabular data. Therefore do not upload:
+- raw DB dumps;
+- CSV exports containing customer/business data;
+- unencrypted object directories;
+- ordinary ZIP/TAR archives containing readable customer data.
 
-The device/process boundary is defined in `docs/workstation/GUARD_AND_DEVICE_INTEGRATION.md`.
+### Backup representation
 
-## 11. Deletion/retention
+Create the backup locally and encrypt it before Kaggle sees it:
 
-Logical business deletion/reference removal and physical object deletion are separate.
+```text
+central DB dump
++ required configuration/metadata
++ selected object snapshot/manifest
+→ package/compress locally
+→ authenticated encryption locally
+→ opaque backup file (for example `.sqfbak`)
+→ checksum/hash
+→ upload as a private Kaggle Dataset version
+→ verify by downloading/checking hash
+→ periodically restore-test
+```
 
-Physical garbage collection must respect:
-- active references;
-- retention/legal policy;
-- backup/restore strategy;
-- immutable issued documents;
-- sync/offline references where applicable;
-- supported long-offline window/tombstone policy.
+Keep backup encryption/recovery key material outside Kaggle and make sure it is itself recoverable.
 
-A Workstation returning after a supported offline interval must not find a required referenced object physically purged solely because central GC ignored offline retention semantics.
+The exact backup set can begin small while there is no paying customer, but it must expand to include every piece of state required for a real restore before production use.
 
-## 12. Restore/reconciliation
+## 11. Kaggle capacity/retention reality
 
-Restore planning must account for object/database version skew.
+Current Kaggle documentation describes:
+- private datasets;
+- dataset versioning/API/CLI upload/download;
+- a 200 GB per-dataset limit;
+- a 200 GB maximum private-dataset allocation.
+
+Treat this as another finite bootstrap constraint, not an unlimited backup service.
+
+Retain only the backup versions that fit the chosen bootstrap retention policy and keep at least one known-restorable off-site version. Move to purpose-built paid backup storage at the first paying customer or earlier if limits/requirements demand it.
+
+## 12. Backup is valid only after restore
+
+`upload succeeded` is not a backup proof.
 
 Test:
-- DB restored to a point before/after an object upload;
-- object store restored independently from DB;
-- idempotent re-upload/relink where safe;
-- missing immutable issued document;
-- orphan objects after restore;
-- object version/hash verification.
+- remote artifact can be downloaded;
+- checksum matches;
+- encryption key/recovery material is available;
+- DB can restore;
+- object metadata/bytes can reconcile;
+- tenant isolation remains intact;
+- idempotency/job state does not recreate completed effects unexpectedly.
 
-Primary object storage, metadata DB and backup copies form one recovery story even though they are separate systems.
+## 13. Deletion/retention
+
+Logical business deletion and physical object deletion are separate.
+
+Physical deletion respects:
+- active references;
+- issued/immutable document history;
+- applicable retention;
+- supported long-offline Workstation behavior;
+- backup/recovery needs.
+
+Do not build a generic lifecycle framework before the first real retention rules exist.
+
+## 14. Post-paying-customer migration
+
+The migration target/provider is deliberately not selected now.
+
+When migration is triggered:
+1. choose paid primary object and backup providers from real workload/compliance requirements;
+2. copy objects while preserving keys/hashes/tenant metadata;
+3. verify counts/hashes and authorized reads;
+4. switch the contained infrastructure integration;
+5. keep rollback/read-only access long enough to verify;
+6. perform a full restore drill on the new backup path.
+
+The business/domain model should not need rewriting merely because the storage provider changes.
