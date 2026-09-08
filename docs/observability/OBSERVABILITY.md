@@ -4,152 +4,129 @@
 
 ## 1. Stable instrumentation boundary
 
-OpenTelemetry/OTLP is the stable provider-neutral instrumentation boundary.
+OpenTelemetry/OTLP is the stable instrumentation boundary.
 
 Current managed targets:
-- New Relic free service for metrics, distributed traces and APM.
-- Aiven OpenSearch free service for searchable structured operational logs.
+- New Relic for metrics, distributed traces and APM;
+- Aiven OpenSearch for searchable structured operational logs;
 - Backtrace for crash-oriented diagnostics where appropriate.
 
-Managed observability is intentionally relied upon. SquiFlow does not reimplement those services merely because providers can theoretically have outages.
+Managed observability is intentionally relied upon. Business transaction correctness remains independent from telemetry export.
 
-Business transaction correctness remains independent from telemetry export.
+## 2. Managed/free tiers are finite
 
-## 2. Free/managed tiers are capacity-limited dependencies
+Do not treat current free tiers as unlimited/permanent infrastructure.
 
-Do not treat a provider's current free tier as unlimited or permanent infrastructure.
-
-Before production, record and periodically verify for each selected provider:
+Periodically verify for each selected provider:
 - ingest/quota limits;
-- retention period;
-- alerting limits;
-- account/project limits;
+- retention;
+- alerting/account/project limits;
 - region/residency where relevant;
-- export/API access needed for incident investigation;
+- export/API access needed for incidents;
 - behavior after quota exhaustion;
-- current contractual/privacy requirements.
+- applicable privacy/contractual requirements.
 
-If a free-tier limit changes, that is an operational/configuration event, not a reason for application transactions to fail.
-
-The exact current provider limits are deployment/vendor data and should not be copied into architecture as timeless constants.
+Exact current provider quotas belong to deployment/vendor data rather than timeless architecture constants.
 
 ## 3. Bounded telemetry behavior
 
-Telemetry uses bounded queues/buffers/sampling and may degrade/drop according to policy rather than blocking committed business operations.
+Telemetry uses bounded queues/buffers/sampling and may degrade/drop rather than blocking committed business operations.
 
 Bound:
 - in-process telemetry buffer;
-- local log/spool disk usage;
+- local log/spool disk use;
 - batch size;
 - retry duration/attempts;
-- crash dump/diagnostic bundle size;
-- high-cardinality labels/attributes.
+- crash/diagnostic bundle size;
+- high-cardinality attributes.
 
-When export is unavailable or quota is exhausted:
-- keep authoritative audit/business state intact;
+If export is unavailable/quota exhausted:
+- keep business/audit truth intact;
 - degrade telemetry according to policy;
-- surface exporter/quota health to Platform Admin;
+- expose exporter/quota health to the operator/Admin surface when implemented;
 - do not busy-loop or fill local disk indefinitely.
 
 ## 4. Authoritative audit is separate
 
-Authoritative security/business audit remains in SquiFlow's durable data model where transactional integrity is required.
+Where history is part of product correctness, keep it in SquiFlow durable state rather than only an external log provider.
 
-A managed log provider is not the only copy of:
-- permission/role changes;
-- Owner transfer;
-- high-risk platform-admin actions;
-- payment/refund/reversal evidence;
-- rule/workflow publication;
-- other business/security events whose history is part of product correctness.
+Examples can include permission/Owner changes, high-risk platform actions, payment/refund/reversal evidence and rule/workflow publication.
 
 ## 5. Tenant/privacy isolation
 
 Telemetry is another multi-tenant data path.
 
 Required:
-- TenantId/context only where useful and safe;
-- no customer file/content/body/free-form notes by default;
-- secrets/tokens/passwords never logged;
-- sensitive identifiers minimized/pseudonymized where possible;
+- tenant/context attributes only where useful/safe;
+- no customer file/body/free-form content by default;
+- never log secrets/tokens/passwords;
+- minimize/pseudonymize sensitive identifiers where practical;
 - tenant-scoped diagnostics/support views cannot leak another tenant;
-- crash dumps/attachments have stricter access/retention than normal metrics;
-- custom-domain/HTTP headers are redacted/allowlisted where they can carry secrets/private data.
-
-Cross-tenant negative tests include logs, diagnostics and support tooling, not only the business database.
+- crash/diagnostic artifacts have bounded access/retention.
 
 ## 6. Root-cause-oriented signals
 
 Do not stop at `logs exist`.
 
-Important operational paths should correlate:
+Correlate important paths as they are implemented:
 
 ```text
-User/OperationId
-→ API request
+operation/request
+→ API
 → tenant/resource/action
 → DB transaction/idempotency
-→ outbox/job
-→ Worker attempt
-→ external provider/object/helper
+→ outbox/Worker when present
+→ external provider/object/native work when present
 → final result/reconciliation
 ```
 
-Useful metrics include:
+Useful measures can include:
 - request rate/error/latency by safe work class;
-- DB pool usage/wait/saturation;
-- Worker queue depth **and oldest age**;
-- retry volume and retry budget exhaustion;
+- DB pool use/wait/saturation;
+- future Worker queue depth + oldest age;
+- retry volume/budget exhaustion;
 - sync pending/conflict/rejection age;
-- rule evaluation latency/failures;
 - object storage usage/capacity trend;
-- object transfer backlog/bandwidth;
-- Workstation/Guard crash/resource anomalies;
+- transfer backlog/bandwidth;
+- Workstation crash/resource anomalies;
 - telemetry exporter drop/quota state.
+
+Do not implement every metric before its component exists.
 
 ## 7. Health semantics
 
 Separate:
-- liveness: should the process be restarted?;
+- liveness: should the process restart?;
 - readiness: should it receive new traffic/work?;
-- dependency/degraded health: what capability is impaired?;
-- business/support diagnostics: what does an operator need to investigate?
+- degraded capability/dependency health;
+- privileged operator diagnosis.
 
-Do not expose privileged dependency details on a public unauthenticated health endpoint.
+Do not expose privileged dependency details on public health endpoints.
 
 ## 8. Support-facing diagnosis
 
-For important failure classes, support/admin surfaces should aim to show:
+For important implemented failure classes, aim for:
 
 ```text
 symptom
 → correlated evidence
 → likely failure class
-→ confidence/unknowns
-→ safe recovery/retry/reconciliation action
+→ unknowns/confidence
+→ safe recovery/retry/reconciliation
 ```
 
-Examples include:
-- payment `OutcomeUnknown`;
-- Worker lease/no-progress failure;
-- sync `AuthorizationChanged`;
-- object metadata/object mismatch;
-- rule publication failure;
-- storage capacity pressure;
-- printer/helper crash.
+Examples eventually include payment `OutcomeUnknown`, sync `AuthorizationChanged`, object metadata mismatch, rule publication failure, storage pressure and printing/device failures.
 
-Self-healing is limited to deterministic low-risk recovery. Do not auto-correct ambiguous money/stock/security/rule state merely because telemetry suggests a likely cause.
+Do not auto-correct ambiguous money/stock/security state merely because telemetry suggests a likely cause.
 
-## 9. Deployment qualification
+## 9. Qualification
 
-Observability qualification includes:
-- provider unavailable;
-- provider quota exhausted;
-- local telemetry spool full/near limit;
-- redaction test;
-- tenant-isolation diagnostic test;
-- trace context survives API → outbox → Worker;
-- crash report size/access/retention test;
-- alert reaches the actual operator/owner defined by the operations model.
+As relevant, test:
+- provider unavailable/quota exhausted;
+- local telemetry spool near/full;
+- secret/customer-data redaction;
+- cross-tenant diagnostic isolation;
+- trace context across runtime boundaries that actually exist;
+- alert reaches the real operator defined by the deployment model.
 
-See `docs/operations/DEPLOYMENT_CAPACITY_AND_RECOVERY.md` for physical capacity/operations ownership.
+See `docs/operations/DEPLOYMENT_CAPACITY_AND_RECOVERY.md`.
