@@ -2,210 +2,262 @@
 
 **Version:** v0.0.15
 
-SquiFlow uses the smallest test layer that can prove a real invariant. Do not create interfaces/mocks merely to increase unit-test count.
+SquiFlow uses the smallest test layer that can prove a real invariant. Lean architecture does **not** mean shallow testing: edge/failure behavior that protects core capability remains required.
 
 ## 1. Test layers
 
 ### Domain/property tests
-Use for pure logic that genuinely exists:
+Use for pure invariants such as:
+- money/rounding/allocation;
 - allowed state transitions;
 - rule determinism;
-- permission/delegation logic;
-- idempotency semantic comparison;
-- quantity/rounding rules actually used by implemented features.
+- quantity/unit calculations;
+- semantic idempotency comparison.
 
 ### Application tests
-Use for use-case orchestration where a fake collaborator is useful and the collaborator's real behavior is not the subject of the test.
-
-Do not invent an interface solely so every class can be mocked.
+Use for command validation, workflow continuation, authorization composition around mocked external decisions only where the external integration itself is not under test.
 
 ### Real persistence-adapter tests
-Run the actual candidate/selected DB for behavior that cannot be trusted to an in-memory substitute:
-- transactions;
-- constraints;
+Use the real candidate DB for:
+- transactions/constraints;
 - concurrency/locking;
-- claims/leases where implemented;
-- migrations;
 - tenant isolation/RLS where applicable;
 - idempotency atomicity;
-- restart/recovery behavior that the provider exposes.
+- claims/leases when Worker exists;
+- migrations/recovery.
 
 ### Workstation local-store tests
-Run the actual SQLite/libSQL candidate/selection for:
-- atomic business + outbox writes;
-- restart recovery;
-- locking/busy behavior;
+Use the actual SQLite/libSQL candidate for:
+- atomic business + outbox commit;
+- restart/recovery;
+- lock contention;
 - schema migration;
+- corruption/repair behavior;
 - long-offline queue persistence;
-- corruption/repair behavior that can be reproduced safely.
+- disk-full behavior.
+
+### ZITADEL identity integration tests
+Cover:
+- OIDC discovery/issuer/audience validation;
+- Web login/session establishment;
+- Workstation Authorization Code + PKCE;
+- redirect/state/nonce failure;
+- account subject stability when email changes;
+- session/revocation/logout behavior chosen for deployment;
+- service-account least privilege for ZITADEL management APIs.
+
+Where possible use an isolated real ZITADEL test environment/config rather than pretending token parsing alone proves identity integration.
+
+### OpenFGA authorization tests
+Use the real OpenFGA API/SDK against an isolated store for:
+- pinned authorization model ID;
+- Owner/Staff role behavior;
+- tenant-created custom role tuples;
+- multiple role assignments;
+- permission/resource checks;
+- tuple write/delete;
+- model migration compatibility;
+- consistency modes where used;
+- PII-free opaque identifiers;
+- cross-tenant relation attacks;
+- ambiguous write/reconciliation behavior.
+
+Do not mock OpenFGA in the tests whose purpose is to prove tuple/model/consistency behavior.
 
 ### API/authorization tests
 Use the real ASP.NET Core pipeline for:
-- authentication/TenantContext;
-- function/resource/property authorization;
+- ZITADEL-authenticated identity/session boundary;
+- authoritative TenantContext;
+- `IAuthorizationService` semantic requirement;
+- OpenFGA allow/deny/error integration;
+- domain/workflow rejection after OpenFGA allow;
 - cross-tenant negative tests;
 - idempotency/retry;
-- error contracts;
-- request limits;
-- custom-domain/Host validation.
+- request limits/custom-domain validation.
 
-### Selected end-to-end journeys
-Use only where crossing the real runtime boundaries is what needs proof, for example:
+### Provider contract tests
+`IObjectStore` and `IBackupTarget` are intentional replacement seams and therefore get contract tests.
+
+`IObjectStore` contract proves, as supported by SquiFlow semantics:
+- put/read;
+- hash/size/metadata behavior;
+- missing-object result;
+- delete/retire semantics where exposed;
+- cancellation/timeouts/stream disposal;
+- provider errors map to stable SquiFlow results without hiding important provider diagnostics.
+
+Run the same contract against `HuggingFaceObjectStore` and later paid adapters.
+
+`IBackupTarget` contract proves:
+- encrypted artifact upload;
+- list/identify retained versions;
+- download;
+- integrity metadata;
+- retention/delete where supported by SquiFlow policy.
+
+Run it against `KaggleBackupTarget` and later paid adapters.
+
+### Guard/desktop process tests
+Run the real process boundary for:
+- Guard launches Workstation;
+- Workstation crash/exit;
+- Guard crash while Workstation remains usable;
+- bounded restart/backoff;
+- hang/heartbeat behavior including false-positive resistance;
+- sleep/hibernate/clock jump;
+- safe mode;
+- Guard/Workstation version mismatch;
+- update handoff/recovery;
+- helper cleanup where helpers later exist;
+- bounded diagnostics/resource observations.
+
+A mocked `IGuard` does not prove process supervision.
+
+### End-to-end journey tests
+Keep these selective and meaningful, for example:
 
 ```text
-Owner grants Staff permission in Web
-→ Staff signs in to Workstation
-→ creates local order
-→ reconnects
-→ Core API authorizes/syncs
-→ server accepts or explicitly conflicts
+Owner logs in through ZITADEL
+→ creates/edits custom Staff role in Web
+→ Core API applies/reconciles OpenFGA tuples
+→ Workstation receives effective snapshot
+→ Staff creates local order offline
+→ Workstation crashes and Guard restarts it
+→ order survives locally
+→ reconnect
+→ server rechecks OpenFGA + tenant/domain state
+→ sync commits authoritatively
 ```
 
-Later phases extend this with Worker/object/printing only when those components exist.
+## 2. Architecture dependency tests
 
-## 2. Architecture tests
-
-Test only real boundaries that exist.
-
-Examples:
+Automate rules such as:
 - domain/application code does not depend on ASP.NET Core merely for convenience;
-- Web/Desktop do not directly become central DB clients;
-- provider-specific Hugging Face/DB types do not leak into business/domain records;
-- Workstation does not gain platform-control-plane authority;
-- future Worker must not depend on presentation projects.
-
-Do not require architecture tests for placeholder projects that were never created.
+- Web/Desktop do not directly become central DB or OpenFGA business-authority clients;
+- Hugging Face/Kaggle/ZITADEL/OpenFGA provider SDK types do not leak into business/domain records;
+- `IObjectStore`/`IBackupTarget` are consumer-facing SquiFlow contracts rather than copied SDK surfaces;
+- Guard does not reference business modules/ORM/OpenFGA authorization implementation;
+- future Worker does not depend on presentation projects.
 
 ## 3. Failure injection
 
-### Workstation
-- process termination after local commit;
-- restart with pending outbox;
-- disk full/low space;
-- local DB busy/locked;
-- lost in-memory sync wake signal;
-- sleep/hibernate during sync;
-- missing/changed staged attachment;
-- old client returning after a long period;
-- printer/spooler failure when printing is implemented.
+### Workstation/Guard
+- abrupt Workstation termination after local commit;
+- Guard restart independent of Workstation;
+- both processes killed;
+- crash loop/restart budget;
+- false hang signal during sleep/slow machine;
+- disk full;
+- DB busy/locked;
+- pending attachment missing/changed;
+- months-old client returning;
+- update interruption.
+
+### Identity/authorization
+- ZITADEL unavailable/degraded;
+- wrong issuer/audience;
+- expired/replayed auth transaction;
+- PKCE mismatch;
+- open redirect attempt;
+- OpenFGA unavailable/degraded;
+- OpenFGA allow but wrong tenant/resource in DB;
+- OpenFGA model ID mismatch;
+- role revocation immediately followed by sensitive action;
+- tuple write succeeds but SquiFlow status persistence fails;
+- duplicate/retried authorization mutation;
+- stale lower-consistency check where higher consistency is required.
 
 ### Sync/API
 - server commits and response is lost;
 - duplicate same-key request;
-- same key + changed intent;
-- partial sync batch failure;
+- changed intent with same key;
 - stale expected version;
 - permission revoked while pending;
-- tenant/object ID tampering;
-- retry storm;
-- protocol/version mismatch.
+- retry storm/version mismatch.
 
-### Worker — when Phase 6 exists
-- crash before effect;
-- crash after external effect before completion persistence;
-- stale lease owner;
-- no-progress work;
-- repeated transient failure;
-- poison work/quarantine;
+### Object/backup
+- Hugging Face upload succeeds/DB metadata fails;
+- DB metadata exists/object missing;
+- provider times out mid-stream;
+- object capacity approaches limit;
+- Kaggle upload/download failure;
+- backup artifact corruption/wrong key;
+- backup excludes required state;
+- restore to replacement environment.
+
+### Worker/external effects
+When Worker exists:
+- crash before/after external effect;
+- stale lease;
+- poison work;
+- no-progress;
 - pause/drain/restart;
 - priority starvation.
 
-### Hugging Face object storage — when Phase 7 exists
-- upload succeeds/metadata fails;
-- metadata succeeds/object missing;
-- capacity approaches limit;
-- upload interrupted;
-- cross-tenant object reference;
-- object hash mismatch.
+## 4. Actual-hardware qualification
 
-### Kaggle backup — when Phase 7/10 exists
-- encrypted artifact upload succeeds but local record fails;
-- remote artifact missing/corrupt;
-- checksum mismatch;
-- wrong/missing decryption key;
-- download succeeds but restore fails;
-- raw readable customer data accidentally selected for direct upload (must be rejected by backup tooling/process).
+Benchmarks/failure tests run on the real deployment class, not only developer/CI machines.
 
-### Identity/security
-- wrong issuer/audience;
-- PKCE/state/replay/open-redirect attack;
-- stale authorization revision;
-- custom Host/domain confusion;
-- cross-tenant BOLA/BFLA/property attack;
-- session revoked during an operation.
-
-## 4. Actual hardware qualification
-
-Run relevant benchmarks/failure tests on the actual lower-spec deployment class, not only a developer laptop/CI runner.
-
-Measure as needed:
-- Core API latency under constrained CPU/RAM;
-- DB pool/resource saturation;
-- Workstation idle/active resource use;
-- local/object transfer bandwidth;
+Measure at least:
+- API latency and DB pool saturation;
+- Workstation + Guard idle/active/resource behavior;
+- Guard false-positive hang/restart behavior under low CPU/RAM;
+- Worker backlog age when implemented;
+- document/image peak RSS;
+- object transfer bandwidth;
 - disk/free-space behavior;
-- restart/recovery time;
-- future Worker backlog age when Worker exists.
+- restart/recovery time.
 
-Record hardware/OS/DB/configuration with the result.
+Resource targets must protect function. If Guard needs more than an arbitrary initial memory estimate to reliably supervise/recover, adjust the budget from measurement rather than deleting required behavior.
 
 ## 5. Test data and tenant safety
 
-Use synthetic test data. Include at least Tenant A and Tenant B for tenant-isolation attacks.
+Fixtures include at least Tenant A and Tenant B so tenant isolation can actually fail in tests.
 
-Do not use production customer data in normal CI/test environments.
+Use opaque synthetic user/object IDs in OpenFGA fixtures. Do not put production customer data/PII in ordinary CI/test stores.
 
-Useful fixtures can include:
-- Owner + Staff tenant;
-- organization/program tenant;
-- noisy/large tenant;
-- long-offline Workstation;
-- conflicting concurrent actors.
+## 6. Migration/compatibility matrix
 
-## 6. Migration/compatibility
-
-Test the supported upgrade window for what actually exists:
+Cover supported upgrade paths for:
 - central DB schema;
 - Workstation local schema;
-- API/sync contract;
-- durable messages once Worker exists;
-- rule/workflow/form snapshots once Phase 5 exists.
+- API/sync protocol;
+- Guard/Workstation IPC/protocol;
+- OpenFGA authorization model IDs/tuple migrations;
+- ZITADEL client/session configuration changes;
+- durable messages;
+- rule/workflow/config snapshots;
+- `IObjectStore`/`IBackupTarget` provider migration.
 
-Skipped Workstation releases are a specific case.
+## 7. Restore verification
 
-## 7. Backup restore proof
-
-An encrypted Kaggle upload is not enough.
-
-A restore proof checks:
-- backup artifact downloads;
-- checksum verifies;
-- key material is available;
-- archive decrypts;
-- DB/application state restores;
-- object metadata/bytes reconcile for the backed-up scope;
+Backup testing is incomplete until restore proves:
+- SquiFlow can start;
 - tenant isolation still holds;
-- idempotency/job state does not recreate completed effects unexpectedly.
+- DB/object references reconcile;
+- idempotency/job state does not recreate completed effects;
+- ZITADEL/OpenFGA can be reconnected/restored/reprovisioned according to managed/self-hosted topology;
+- Guard/Workstation deployment can restart from durable local state;
+- secrets/key recovery follows the intended secure procedure;
+- business history remains explainable.
 
-Before the first paying customer, this proof must be real, not prose.
-
-## 8. CI versus release qualification
+## 8. CI versus qualification
 
 Use:
 - fast deterministic tests on merge;
 - real adapter/integration tests in CI where practical;
-- scheduled failure/load tests only when useful;
-- actual-hardware/recovery/backup restore qualification before production.
+- isolated ZITADEL/OpenFGA/provider contract tests on scheduled/appropriate pipelines;
+- scheduled failure/load tests;
+- release qualification on actual hardware;
+- manual restore/security exercises where automation cannot prove the behavior.
 
-CI success must not imply a physical/restore test ran when it did not.
+CI success must never imply that actual-hardware/restore/provider-migration exercises ran when they did not.
 
-## 9. Testability rule
+## 9. Definition of a testable requirement
 
-A requirement is testable when it can state:
+A requirement is incomplete if it cannot state:
 1. observable expected outcome;
 2. failure/attack input;
-3. authoritative component being exercised;
-4. required recovery/cleanup;
-5. where evidence runs: merge CI, real adapter, scheduled, actual hardware, or manual restore/runbook exercise.
-
-Testing should drive confidence, not an interface/helper hierarchy.
+3. authoritative component under test;
+4. cleanup/recovery expected afterward;
+5. evidence layer/environment.
