@@ -11,6 +11,8 @@ Deliver:
 - `services/core-api`, `services/worker`;
 - business modules/packages/persistence abstractions;
 - error/result/execution-context contracts;
+- typed immutable request/application `TenantContext` contract;
+- tenant-owned vs platform-global data classification convention;
 - architecture dependency tests;
 - basic CI/build/test/package pipeline;
 - generated API endpoint inventory from executable endpoint metadata/OpenAPI.
@@ -19,6 +21,7 @@ Gate:
 - each runtime builds separately;
 - forbidden dependencies are caught;
 - no provider/reference project leaks into domain/application contracts;
+- tenant-owned repository/query contracts cannot casually omit tenant context;
 - every externally reachable endpoint declares audience/owner/policy/version metadata;
 - development/debug endpoints are absent or inaccessible in production configuration.
 
@@ -33,6 +36,7 @@ Deliver:
 - Workstation system-browser Authorization Code + PKCE `S256` login/device enrollment;
 - trusted issuer Discovery validation;
 - exact registered Web/custom-domain redirect handling;
+- authoritative membership → TenantContext resolution;
 - effective permission retrieval with `TenantAuthorizationRevision`;
 - ASP.NET Core policy/requirement registration;
 - simple server resource/action authorization using `IAuthorizationService`.
@@ -50,14 +54,17 @@ Attack:
 - open redirect/return URL attempt;
 - email changes while subject remains the same;
 - login/recovery brute force according to the chosen identity-provider boundary;
+- client supplies another TenantId after authenticating;
+- custom-domain/Host value attempts to manufacture another TenantContext;
 - handler-order assumption or a requirement handler performing a business side effect.
 
 Gate:
 - only Web administration can modify grants;
-- identity token proves authentication but does not act as current SquiFlow permission truth;
+- identity token proves authentication but does not act as current SquiFlow permission or tenant-isolation truth;
 - native client has no embedded reusable secret;
 - server authorization rejects stale/forged/cross-tenant authority;
 - redirect/issuer validation fails closed;
+- TenantContext comes from authoritative membership/placement data, not untrusted client input;
 - authorization handlers are side-effect free and do not depend on invocation order.
 
 ## Phase 2 — first local-first Workstation transaction
@@ -87,7 +94,7 @@ Gate:
 - no server/network dependency for the approved local operation;
 - duplicate scheduling cannot create a second semantic operation.
 
-## Phase 3 — authoritative synchronization + object authorization + idempotent API
+## Phase 3 — authoritative synchronization + tenant isolation + object authorization + idempotent API
 
 Deliver:
 - bounded upload batch;
@@ -100,6 +107,10 @@ Deliver:
 - resource/action authorization;
 - explicit request/response DTO allowlists;
 - expected-version/concurrency contract;
+- pooled tenant-owned central schema/model with explicit tenant discriminator;
+- tenant-aware uniqueness/index conventions;
+- provider-specific pooled-isolation adapter proof;
+- PostgreSQL reference POC with RLS if PostgreSQL remains the reference candidate;
 - one authoritative central transaction;
 - idempotency receipt + business mutation + audit/outbox atomically when owned by the same store;
 - per-item result;
@@ -116,11 +127,17 @@ Attack:
 - malformed/tampered tenant ID;
 - partial batch failure;
 - substitute another tenant's object ID;
+- list/search/report/export omits explicit tenant filtering;
+- background job receives mismatched TenantId/resource;
 - change HTTP method/path to reach a privileged function;
 - add hidden/privileged JSON properties;
 - request sensitive response fields without permission;
 - stale `TenantAuthorizationRevision` snapshot;
-- nested client/API/SDK retries amplify one dependency failure.
+- nested client/API/SDK retries amplify one dependency failure;
+- connection pool reuses a connection after Tenant A and serves Tenant B;
+- PostgreSQL reference runtime connects as table owner/superuser/`BYPASSRLS` role;
+- write attempts create/update a row under another TenantId;
+- RLS/policy missing or disabled on a tenant-owned reference table.
 
 Gate:
 - no duplicate business effect;
@@ -130,6 +147,9 @@ Gate:
 - explicit `AuthorizationChanged`/conflict states;
 - BOLA/BFLA/property-level authorization tests pass;
 - cross-tenant existence/data is not exposed through unrestricted resource lookup;
+- pooled tenant isolation fails closed under the selected/reference persistence design;
+- runtime connection pooling cannot carry Tenant A isolation context into Tenant B;
+- PostgreSQL RLS proof, if used, covers reads and writes with a non-bypass runtime identity;
 - retry is finite, classified and budgeted.
 
 ## Phase 4 — conflict + long-offline
@@ -184,8 +204,11 @@ Gate:
 
 Deliver:
 - durable job/outbox;
+- TenantId on tenant-owned jobs;
 - Worker claim/lease/retry;
 - idempotent consumer/effect contract;
+- bounded global and tenant-aware concurrency/admission;
+- fairness/aging so one tenant/tier cannot starve others;
 - no-progress detection;
 - pause/drain/resume;
 - quarantine/reconciliation;
@@ -208,7 +231,9 @@ Attack:
 - normal tenant user guesses a platform-admin endpoint;
 - client loses the initial `202` response and retries the POST;
 - status item is stuck in Running with no progress;
-- queue contains high-priority work continuously and starves lower-priority work.
+- queue contains high-priority work continuously and starves lower-priority work;
+- one tenant floods expensive jobs and attempts to consume the entire worker/provider budget;
+- job TenantId and referenced business entity belong to different tenants.
 
 Gate:
 - critical Worker/server controls are reachable only from Platform Admin Web;
@@ -217,13 +242,15 @@ Gate:
 - deferred actor actions reauthorize where their semantics require it;
 - third-party responses are bounded/validated and timeout-controlled;
 - async command retries return one operation identity;
-- priority/fairness policy prevents indefinite starvation.
+- priority/fairness policy prevents indefinite starvation;
+- pooled processing enforces tenant-aware admission without requiring one physical queue per tenant.
 
 ## Phase 7 — files/documents/printing
 
 Deliver:
 - local attachment staging;
 - object upload + metadata lifecycle;
+- tenant-scoped object metadata/key policy;
 - document helper where isolation justified;
 - printing status independent from transaction status;
 - upload/request size and processing budgets;
@@ -233,6 +260,7 @@ Deliver:
 Attack:
 - object succeeds/metadata fails;
 - metadata succeeds/object missing;
+- Tenant A attempts to fetch Tenant B object by guessed key/reference;
 - printer out of paper;
 - helper crashes;
 - disk full during staging;
@@ -244,6 +272,7 @@ Attack:
 
 Deliver:
 - OpenTelemetry traces/metrics/log correlation;
+- tenant-safe telemetry dimensions and per-tenant workload/backlog evidence where operationally appropriate;
 - New Relic + Aiven OpenSearch export;
 - Backtrace crash path;
 - tenant/platform audit;
@@ -263,6 +292,7 @@ Attack against applicable OWASP API Security Top 10 categories and reliability c
 - auth/recovery abuse;
 - expensive single-request resource exhaustion;
 - excessive provider-cost operations;
+- one tenant creates sustained noisy-neighbor pressure;
 - automated abuse of a sensitive business flow;
 - SSRF/private-network/metadata target;
 - stale/beta/debug API version;
@@ -280,6 +310,7 @@ Gate:
 - privileged API inventory has no undocumented production endpoint;
 - applicable OWASP attack tests pass;
 - retry volume cannot grow without aggregate budget bounds;
+- noisy-tenant behavior is measurable and bounded before dedicated processing is considered;
 - health/readiness correctly remove unhealthy nodes without exposing privileged diagnostics.
 
 ## Phase 9 — payments/credit/inventory hardening
@@ -311,6 +342,8 @@ Deliver:
 - schema/protocol/rule/config/message compatibility;
 - backup/restore drill;
 - long-running leak/soak tests;
+- cross-tenant negative isolation suite in release CI;
+- privileged backup/migration isolation tests;
 - authorization-revision/cache invalidation tests if a permission cache exists;
 - OIDC/session/logout/version-skew tests for selected identity implementation;
 - idempotency retention/cleanup test;
@@ -333,6 +366,11 @@ Do not spend baseline implementation effort on:
 - sharding;
 - leader-election infrastructure where atomic claims/leases suffice;
 - deployment stamps/geode/active-active multi-region;
+- schema-per-tenant baseline;
+- database-per-tenant baseline;
+- physical queue/worker pool per tenant baseline;
+- dedicated stack per tenant baseline;
+- per-tenant cloud account/VPC infrastructure;
 - full HATEOAS;
 - Zanzibar-style authorization service/relation-tuple graph/specialized set index;
 - Dynamic OpenID Connect Client Registration;
