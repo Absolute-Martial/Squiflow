@@ -3,50 +3,68 @@
 **Status:** Current audited architecture/implementation baseline.  
 **Implementation state:** **pre-Phase-0**.
 
-This file is the high-level source of truth. `docs/review/DECISION_AUDIT.md` records what was kept, simplified, deferred or removed. Detailed semantics belong to focused owner documents.
+This file is the high-level source of truth. `docs/review/DECISION_AUDIT.md` records why decisions were kept, simplified, deferred, removed, or restored. Detailed semantics belong to focused owner documents.
 
 ---
 
-## 1. Implementation principle
+## 1. Implementation principle: remove accidental complexity, not core capability
 
-SquiFlow should preserve hard correctness/security boundaries without pre-building future machinery.
+SquiFlow should not confuse minimal structure with minimal behavior.
 
-Use this order:
+Use this rule:
 
 ```text
-real user journey
-→ smallest correct implementation
-→ hostile/failure test
-→ measurement
-→ only then extract abstraction/process/service if evidence earns it
+real requirement / failure mode
+→ preserve the full required behavior
+→ choose the simplest structure that can own it correctly
+→ test hostile/edge cases
+→ measure
+→ add further layers only when evidence earns them
 ```
 
-Do not create a helper, interface, project or provider-wrapper layer merely because it might be useful later.
+A design is **not** better because it has fewer processes/interfaces if that simplification destroys recovery, provider replacement, authorization freshness, offline durability, or other accepted responsibilities.
+
+Likewise, a design is not better because it has more layers. Avoid forwarding-only Manager/Service/Helper/Repository hierarchies.
 
 ---
 
 ## 2. Runtime shape
 
-Accepted technology direction:
+Accepted early runtime direction:
 
 ```text
-apps/web            Blazor Web App — tenant business Web + tenant Owner Settings
-apps/desktop        Avalonia — Windows Workstation
-services/core-api   ASP.NET Core HTTP/composition host
+apps/web                  Blazor Web App — tenant business Web + tenant Owner Settings
+apps/desktop/workstation  Avalonia — Windows Workstation
+apps/desktop/guard        Workstation supervision/recovery companion
+services/core-api         ASP.NET Core HTTP/composition host
 ```
 
 Create later when their first real feature exists:
 
 ```text
-apps/admin-web      Blazor Web App — SquiFlow platform control plane
-services/worker     durable background execution
+apps/admin-web            Blazor Web App — SquiFlow platform control plane
+services/worker           durable background execution
 ```
 
 Business capability code remains a modular monolith.
 
-There is **no baseline SquiFlow.Guard process**. Workstation begins as one process. A helper/supervisor process is added only when a real updater/native-library/driver fault-isolation problem proves that process boundary necessary.
+### Guard
 
-Owner: `docs/architecture/REPOSITORY_STRUCTURE.md`.
+`SquiFlow.Guard` is accepted because supervision/recovery must survive or observe Workstation failure from outside the Workstation process.
+
+Guard owns:
+- launch/supervision;
+- bounded crash/hang recovery;
+- update handoff/recovery;
+- child/helper cleanup;
+- bounded lifecycle/crash/resource evidence;
+- safe-mode/restart-budget behavior.
+
+Guard does **not** own business rules, OpenFGA authorization, sync semantics, central DB access, or Worker/platform duties.
+
+Owner: `docs/workstation/GUARD_AND_RECOVERY.md`.
+
+Repository boundary owner: `docs/architecture/REPOSITORY_STRUCTURE.md`.
 
 ---
 
@@ -81,9 +99,9 @@ Owners:
 
 ---
 
-## 4. Identity and sessions
+## 4. Identity: ZITADEL
 
-Interactive authentication uses OpenID Connect; SquiFlow authorization is separate.
+**ZITADEL is selected as the SquiFlow identity/authentication platform.**
 
 Stable external identity:
 
@@ -95,21 +113,58 @@ Workstation login:
 
 ```text
 system browser
-→ Authorization Code
+→ ZITADEL OIDC Authorization Code
 → PKCE S256
 → validated native callback
-→ SquiFlow session/device context
+→ SquiFlow account/device/session context
 ```
 
 No reusable native client secret and no central DB credentials on the Workstation.
 
-Exact OIDC provider, browser session implementation and native callback mechanism are closed just-in-time for Phase 1.
+ZITADEL provides authentication/account/session/MFA/SSO capability; it does not become current business authorization truth simply because it can expose roles/claims.
+
+Open Phase-1 details include ZITADEL Cloud vs self-hosted, exact instance/project/application layout, tenant-organization mapping, Web session topology, and native callback choice.
 
 Owner: `docs/security/IDENTITY_AND_SESSIONS.md`.
 
 ---
 
-## 5. Web versus Workstation
+## 5. Application authorization: OpenFGA + ASP.NET Core integration
+
+**OpenFGA is selected as the SquiFlow application-authorization engine.**
+
+Responsibilities:
+
+```text
+ZITADEL
+  authentication / account identity / MFA / SSO
+
+OpenFGA
+  roles / tenant-defined custom roles / assignments / resource relationships
+
+ASP.NET Core IAuthorizationService
+  application integration point for semantic requirements
+
+SquiFlow domain/workflow
+  canonical state, business invariants, calculations, transitions
+
+Database isolation
+  tenant-scoped data access / provider defense in depth
+```
+
+These layers are deliberately separate.
+
+Tenant-created custom roles are tuple/data changes, not a new OpenFGA model deployment per role. Stable SquiFlow permission relations live in a versioned authorization model, and production checks pin an explicit model ID.
+
+Web-only role/grant changes use a durable, reconcilable change path because OpenFGA and the SquiFlow DB are separate systems. Do not report a grant/revocation as applied until the OpenFGA outcome is known/applied.
+
+`TenantAuthorizationRevision` remains SquiFlow-visible snapshot/audit/invalidation evidence. It complements OpenFGA model/tuple state rather than replacing it.
+
+Owner: `docs/security/TENANT_PERMISSIONS.md`.
+
+---
+
+## 6. Web versus Workstation
 
 ### Web
 
@@ -154,11 +209,13 @@ UpgradeRequired
 
 No global CRDT/peer-authority model.
 
+Guard must not compromise or rewrite this durable local-first model; it supervises process lifecycle around it.
+
 Owner: `docs/workstation/LOCAL_FIRST_DESKTOP.md`.
 
 ---
 
-## 6. Multi-tenancy isolation
+## 7. Multi-tenancy isolation
 
 Ordinary tenants use pooled isolation:
 
@@ -169,38 +226,13 @@ authoritative TenantContext
 → provider-specific defense in depth
 ```
 
-Authentication, application authorization and tenant isolation are separate concerns.
+Authentication, OpenFGA authorization, and tenant data isolation are separate concerns.
 
 Do not prebuild schema-per-tenant, DB-per-tenant, queue-per-tenant or deployment-per-tenant.
 
 If PostgreSQL is used, prove RLS defense in depth, safe runtime roles and safe tenant context under connection pooling. This does not silently select PostgreSQL.
 
 Owner: `docs/architecture/MULTI_TENANCY_ISOLATION.md`.
-
----
-
-## 7. Authorization
-
-Permission keys represent stable business actions, not screens/routes.
-
-Server authorization can combine:
-
-```text
-authenticated actor
-+ authoritative tenant/platform context
-+ function permission
-+ resource scope
-+ sensitive property access
-+ canonical state/workflow guard
-+ risk/step-up where required
-+ expected version/concurrency
-```
-
-ASP.NET Core policy/requirements/`IAuthorizationService` are the runtime primitives.
-
-Authorization mutations advance `TenantAuthorizationRevision`; Workstation permission snapshots never replace server reauthorization.
-
-Owner: `docs/security/TENANT_PERMISSIONS.md`.
 
 ---
 
@@ -213,9 +245,9 @@ same key + same intent      → same semantic result
 same key + changed intent   → reject
 ```
 
-When one store owns the business mutation, idempotency receipt and outbox, commit them atomically.
+When one store owns business mutation, idempotency receipt and outbox, commit them atomically.
 
-Retry is finite/classified/budgeted. Long-running work uses durable async status only when the work is genuinely long-running; ordinary short transactions stay synchronous.
+Retry is finite/classified/budgeted. Long-running work uses durable async status only when genuinely long-running; ordinary short transactions stay synchronous.
 
 Owner: `docs/api/API_CONTRACT_IDEMPOTENCY_AND_RETRY.md`.
 
@@ -223,12 +255,12 @@ Owner: `docs/api/API_CONTRACT_IDEMPOTENCY_AND_RETRY.md`.
 
 ## 9. Synchronization
 
-Workstation durable outbox is the local upload truth; in-memory signaling only wakes work.
+Workstation durable outbox is local upload truth; in-memory signaling only wakes work.
 
 ```text
 bounded pending items
 → authenticated Sync API
-→ authoritative tenant + permission + business/rule validation
+→ authoritative tenant + OpenFGA permission + business/rule validation
 → idempotency + concurrency/conflict
 → central transaction
 → per-item result
@@ -243,16 +275,16 @@ Owner: `docs/sync/SYNC_AND_AUTHORITY.md`.
 
 ---
 
-## 10. Persistence — real provider first, abstraction only if earned
+## 10. Persistence — real provider first, abstractions only where justified
 
-Exact products remain open until their phase POCs:
+Exact DB products remain open until phase POCs:
 - PostgreSQL — strongest central reference candidate;
 - SQLite + WAL — mature Workstation candidate;
 - libSQL — explicit Workstation candidate.
 
-Do **not** create generic `IRepository<T>`, `IUnitOfWork`, one-interface-per-provider or a `persistence/abstractions` project solely to appear portable.
+Do **not** create generic `IRepository<T>`, `IUnitOfWork`, or one-interface-per-provider hierarchies solely to appear portable.
 
-Keep provider-specific code contained outside business/domain code. Introduce an interface/project when a real dependency inversion, multiple production implementation, stable process/wire contract, or active migration makes it useful.
+Provider-specific DB code stays contained outside business/domain code. Extract interfaces only when an actual dependency/replacement boundary requires them.
 
 Owner: `docs/data/PERSISTENCE_SELECTION.md`.
 
@@ -270,9 +302,9 @@ SquiFlow owns the bounded tenant-safe rule architecture:
 - bounded decision trace;
 - compatible server/Workstation snapshots.
 
-Local rule evaluation cannot make stale server-owned facts authoritative.
+OpenFGA decides whether an actor has the required relationship/permission. It does not replace workflow/domain transition validity.
 
-Workflow is continuation-first and versioned. Phase 5 proves one real rule + one workflow + one bounded dynamic form, not a general BPM/form platform.
+Phase 5 proves one real rule + one workflow + one bounded dynamic form, not a general BPM/form platform.
 
 Owners:
 - `docs/rules/NATIVE_RULE_ENGINE.md`
@@ -297,56 +329,64 @@ Support practical walk-in/registered/organization/program/credit scenarios, quot
 
 Do not baseline MRP, universal reservation, complex banner-roll wastage, universal lot/serial tracking, or complex procurement workflow.
 
-Owner: `docs/domain/BUSINESS_MODEL.md`.
-
 ### Currency — minimal requirement
 
 Currency must not be hardcoded.
-
-Baseline:
 
 ```text
 Tenant.DefaultCurrencyCode
 monetary record retains CurrencyCode where historical meaning requires it
 ```
 
-Do not add exchange-rate providers, FX conversion, multi-currency accounting or a currency-service/interface hierarchy until a real customer requires multi-currency behavior.
+No exchange-rate provider/FX/multi-currency accounting subsystem until a real customer needs it.
 
-Owner: `docs/domain/CROSS_CUTTING_BUSINESS_PRIMITIVES.md`.
+Owners:
+- `docs/domain/BUSINESS_MODEL.md`
+- `docs/domain/CROSS_CUTTING_BUSINESS_PRIMITIVES.md`.
 
 ---
 
 ## 13. Files and bootstrap storage
 
-### Primary object storage
+### Primary business object storage
 
-Current bootstrap primary object storage is a **private Hugging Face Storage Bucket** with approximately **100 GB** current private-storage capacity.
-
-Treat capacity as finite. Business DB stores object metadata/ownership/hash/lifecycle; application-level immutable/versioned keys protect issued/historical object identity.
-
-Do not create `IObjectStorage` merely because migration is expected. Keep Hugging Face calls localized in infrastructure code. Extract the narrow migration seam when migration actually begins.
-
-### Backup
-
-Current bootstrap off-site backup carrier is a **private Kaggle Dataset** containing only locally encrypted opaque backup archives.
-
-Never upload raw customer DB dumps/CSV/object trees to Kaggle.
+Current bootstrap provider:
 
 ```text
-required backup state
-→ package/compress locally
-→ authenticated encryption locally
-→ opaque .sqfbak + checksum
-→ private Kaggle Dataset version
-→ download verification
-→ restore drill
+IObjectStore
+└── HuggingFaceObjectStore
 ```
 
-Backup key/recovery material stays outside Kaggle and must itself be recoverable.
+The private Hugging Face Storage Bucket currently provides approximately 100 GB of private-storage capacity.
+
+The interface is justified now because provider replacement at the first paying customer is already planned. It uses SquiFlow-owned object keys/streams/hash metadata and does not leak Hugging Face SDK types into business code.
+
+### Backup destination
+
+Current bootstrap backup destination:
+
+```text
+IBackupTarget
+└── KaggleBackupTarget
+```
+
+`IBackupTarget` is an **infrastructure/operations** boundary, not a business-domain service.
+
+Kaggle receives only locally packaged/encrypted opaque backup artifacts.
+
+Backup scope is broader than application tables: recovery must include all state/configuration/evidence required to reconstruct a usable deployment, according to whether dependencies such as ZITADEL/OpenFGA are managed or self-hosted.
 
 ### Migration trigger
 
-Planned migration to purpose-built paid primary/backup storage: **first paying customer**, or earlier if capacity, privacy/compliance, reliability, service limits, contract or restore requirements demand it.
+At the first paying customer, or earlier if constraints demand it:
+
+```text
+implement paid IObjectStore adapter
++ implement paid IBackupTarget adapter
+→ migrate/copy/verify
+→ switch configuration
+→ restore test
+```
 
 Owner: `docs/data/FILES_AND_OBJECT_STORAGE.md`.
 
@@ -354,7 +394,7 @@ Owner: `docs/data/FILES_AND_OBJECT_STORAGE.md`.
 
 ## 14. Printing and physical devices
 
-Printing is the baseline device side effect and initially runs through the normal Workstation/Windows printing path.
+Printing is a Workstation device side effect.
 
 ```text
 committed business document
@@ -365,17 +405,13 @@ committed business document
 
 Print failure does not undo committed business truth.
 
-Do not create a helper process for printing unless actual driver/native behavior proves process isolation is needed.
-
-Other peripherals are requirement-driven.
-
-Owner: `docs/workstation/LOCAL_FIRST_DESKTOP.md`.
+If a future driver/native component needs a helper process, Guard supervises its lifecycle; the helper still has a narrow contract and no broad business authority.
 
 ---
 
 ## 15. Worker and external effects
 
-A separate Worker executable is created in **Phase 6**, when the first durable background workload exists.
+A separate Worker executable is created in Phase 6 when the first durable background workload exists.
 
 Worker requirements then include:
 - bounded concurrency;
@@ -385,8 +421,6 @@ Worker requirements then include:
 - no-progress handling;
 - pause/drain/recovery;
 - `OutcomeUnknown` for ambiguous external effects.
-
-Do not create the Worker project in Phase 0 simply because the target architecture has one.
 
 Notifications/webhooks use Core API/outbox/Worker boundaries first; no notification microservice baseline.
 
@@ -403,13 +437,13 @@ OpenTelemetry/OTLP is the telemetry boundary.
 Current managed targets:
 - New Relic — metrics/traces/APM;
 - Aiven OpenSearch — structured operational logs;
-- Backtrace — crash-diagnostics direction.
+- Backtrace — crash diagnostics direction.
+
+Guard supplies bounded desktop lifecycle/crash/resource evidence into the support/diagnostic path.
 
 Telemetry failure cannot invalidate business transactions.
 
 Current server hardware is lower-spec/desktop-class rack equipment. `Stateless` means process memory is not authoritative; it does not promise automatic failover.
-
-Before paying-customer production, prove actual hardware resource/recovery behavior and the encrypted Hugging Face/Kaggle storage/restore path, then migrate the bootstrap storage arrangement as planned.
 
 Owner: `docs/operations/DEPLOYMENT_CAPACITY_AND_RECOVERY.md`.
 
@@ -421,14 +455,17 @@ Keep tests focused on real correctness risks:
 - business/domain invariants;
 - real DB transaction/concurrency/isolation behavior;
 - Workstation local durability/restart;
+- Guard independent crash/hang/update recovery;
+- ZITADEL authentication/session flows;
+- OpenFGA model/tuple/custom-role/consistency/reconciliation behavior;
 - tenant/API authorization;
 - idempotency/response loss;
 - sync conflict/long-offline;
-- object failure/capacity;
-- encrypted backup download/restore;
+- `IObjectStore` provider contract + Hugging Face adapter;
+- `IBackupTarget` contract + encrypted Kaggle backup restore;
 - actual low-end hardware/resource limits.
 
-Do not introduce interfaces merely to increase mock/unit-test count. Provider correctness should be tested against real adapters where provider behavior matters.
+Do not introduce unrelated interfaces merely to increase mock/unit-test count.
 
 Owner: `docs/testing/VERIFICATION_STRATEGY.md`.
 
@@ -436,23 +473,21 @@ Owner: `docs/testing/VERIFICATION_STRATEGY.md`.
 
 ## 18. Sequential implementation plan
 
-Default WIP limit: **one implementation phase**.
+Default WIP limit: **one implementation phase**, but each phase must cover its defined edge/failure behavior before being called complete.
 
 ```text
-Phase 0  Web + Workstation + Core API skeleton, minimal CI/dependency boundaries
-Phase 1  identity + Owner/Staff + Web-only permissions
-Phase 2  first local-first Workstation Customer/Order transaction + local DB
+Phase 0  Web + Workstation + Guard + Core API skeleton, provider contracts, minimal CI
+Phase 1  ZITADEL identity + OpenFGA Owner/Staff/custom-role authorization
+Phase 2  first local-first Workstation Customer/Order transaction + local DB + Guard recovery
 Phase 3  authoritative sync + central DB + pooled tenant isolation + idempotency
 Phase 4  conflict/long-offline/resnapshot recovery
 Phase 5  one native rule + workflow + bounded dynamic form
 Phase 6  create Worker + Platform Admin Web for first durable/control-plane slice
-Phase 7  Hugging Face file/document flow + in-process printing + encrypted Kaggle backup proof
+Phase 7  Hugging Face IObjectStore flow + documents/printing + Kaggle IBackupTarget restore proof
 Phase 8  API/observability/admin hardening
 Phase 9  payments/credit/inventory/correction hardening
-Phase 10 actual-rack release/resource/restore qualification + paid-storage migration readiness
+Phase 10 actual-rack release/resource/restore qualification + paid-provider migration readiness
 ```
-
-Each phase closes only the decisions needed to start that phase, implements a complete vertical slice, attacks it, measures it, then updates later assumptions from evidence.
 
 Owner: `docs/implementation/PHASES_AND_GATES.md`.
 
@@ -462,15 +497,13 @@ Owner: `docs/implementation/PHASES_AND_GATES.md`.
 
 Do not add these now:
 - dedicated accessibility/a11y workstream or conformance program;
-- Guard/supervisor/helper process without a proven isolation need;
-- generic repository/unit-of-work/provider abstraction hierarchy;
+- generic repository/unit-of-work/one-interface-per-class hierarchy;
 - full browser offline/PWA sync;
 - Kafka/event-log infrastructure;
 - mandatory Redis;
 - microservice-per-module architecture;
 - full CQRS/event sourcing/Saga core architecture;
 - global CRDTs;
-- Zanzibar authorization service;
 - schema/database/deployment per tenant baseline;
 - multi-currency/FX subsystem;
 - advanced peripheral suite;
@@ -478,10 +511,12 @@ Do not add these now:
 - generic ETL/search/SaaS billing infrastructure without a real requirement;
 - hundreds of placeholder files/projects.
 
+The accepted `IObjectStore`, `IBackupTarget`, Guard, ZITADEL, and OpenFGA boundaries are **not** examples of forbidden complexity: each has a concrete current or committed near-term responsibility.
+
 ---
 
 ## 20. Implementation-complete rule
 
-A capability is complete when the concerns that materially apply to **that capability** are proven: user states/recovery, tenant/authority, validation/permission, transaction/idempotency/concurrency, local-vs-server authority, async/external-unknown behavior where relevant, resource/storage bounds, upgrade/restore implications, and tests.
+A capability is complete when the concerns that materially apply to that capability are proven: user states/recovery, tenant/authority, validation/permission, transaction/idempotency/concurrency, local-vs-server authority, async/external-unknown behavior, resource/storage bounds, upgrade/restore implications, and relevant hostile tests.
 
-Do not force irrelevant checklist items onto tiny features merely to satisfy documentation symmetry.
+Do not force irrelevant checklist items onto tiny features, but do not waive required edge cases simply to keep the implementation visually minimal.
