@@ -33,6 +33,44 @@ The Owner can create roles, clone/edit templates, assign users, and optionally s
 
 The platform still prevents cross-tenant access, platform-operator privilege, unavailable entitlements, arbitrary code execution, direct database/root access, and bypass of protected financial/security invariants.
 
+## 2A. Multi-tenancy isolation baseline
+
+Isolation is treated as a spectrum rather than one forever-topology.
+
+For ordinary v0.0.15 tenants the implementation target is **pooled compute + pooled authoritative data**:
+
+```text
+shared Web/API/Worker
+→ authoritative TenantContext
+→ shared central schema/model
+→ TenantId on tenant-owned authoritative records
+→ provider-appropriate defense-in-depth isolation
+```
+
+Authentication, application authorization and tenant isolation are separate concerns. A valid identity/role does not by itself prove that a resource belongs to the current tenant.
+
+Tenant context is derived from authoritative SquiFlow membership/placement state, not trusted from a Workstation payload, browser header, custom-domain Host value or stale client snapshot.
+
+Tenant-owned repository/query contracts must be tenant-scoped so isolation does not depend on each developer remembering a filter. Lists, writes, reports, search, exports, Worker jobs, object metadata and read models must preserve tenant scope.
+
+Schema-per-tenant, database-per-tenant, physical queue-per-tenant and full deployment-per-tenant are **not** baseline implementation targets.
+
+The architecture still leaves an evolution path:
+
+```text
+pooled
+→ targeted dedicated resource / dedicated database
+→ dedicated stack
+```
+
+only when residency, compliance, contractual isolation, noisy-neighbor, enterprise scale or customer-managed hosting requirements justify the added operational cost.
+
+Processing isolation is a separate axis from data isolation. Baseline Worker processing stays pooled but tenant-aware, bounded and fair; dedicated worker capacity can be introduced later for a tenant/tier when evidence requires it.
+
+If PostgreSQL is used as the central reference/selected provider, its pooled-storage POC must prove Row-Level Security as defense in depth with safe runtime roles, write-side checks and connection-pool tenant-context handling. This does not select PostgreSQL; any selected provider must prove an equivalent provider-appropriate isolation story.
+
+See `docs/architecture/MULTI_TENANCY_ISOLATION.md`.
+
 ## 3. Permission ownership and where permissions are changed
 
 Permission **definitions** are stable server-side capabilities such as:
@@ -345,7 +383,7 @@ Central and local persistence requirements are decided; exact products are not.
 - libSQL is an explicit local-store candidate.
 - Server and Workstation do not need to use the same product.
 
-Provider-specific reference projects do not silently close the decision.
+Provider-specific reference projects do not silently close the decision. A central provider must also prove the pooled tenant-isolation requirements documented above and in `docs/data/PERSISTENCE_SELECTION.md`.
 
 ## 16. Rules and workflow
 
@@ -390,6 +428,9 @@ Do not add complexity merely because it is technically possible:
 - no full browser offline/PWA sync layer;
 - no CRDT global data model;
 - no generic per-row ACL engine;
+- no schema-per-tenant/database-per-tenant/deployment-per-tenant baseline;
+- no physical Worker queue/pool per tenant baseline;
+- no per-tenant cloud account/VPC machinery;
 - no separate Rule network service by default;
 - no generic `run SQL` / `mark job complete` admin controls;
 - no hundreds of placeholder projects/files to satisfy a documentation inventory.
@@ -403,6 +444,7 @@ Implement complete vertical journeys, not many parallel modules.
 - `services/core-api`, `services/worker`;
 - modules/packages/persistence abstractions;
 - error/result/execution-context contracts;
+- typed tenant context/isolation boundary;
 - architecture dependency tests.
 
 ### Phase 1 — identity + small-tenant setup
@@ -410,6 +452,7 @@ Implement complete vertical journeys, not many parallel modules.
 - Owner tenant creation/bootstrap;
 - invite one Staff user;
 - Web-only role/permission assignment;
+- authoritative tenant-context resolution;
 - Workstation browser-login/device enrollment.
 
 ### Phase 2 — first local-first Workstation transaction
@@ -419,9 +462,13 @@ Implement complete vertical journeys, not many parallel modules.
 - instant local UI;
 - restart/power-loss recovery.
 
-### Phase 3 — authoritative sync
+### Phase 3 — authoritative sync + pooled tenant-isolation proof
 - one upload command end to end;
 - idempotency receipts;
+- tenant-scoped resource/data access;
+- provider-specific pooled isolation proof;
+- PostgreSQL RLS POC if PostgreSQL remains reference candidate;
+- cross-tenant read/write/report/job/connection-pool attacks;
 - response-loss retry;
 - remote change feed/cursor;
 - permission revocation while pending.
@@ -442,12 +489,13 @@ Implement complete vertical journeys, not many parallel modules.
 ### Phase 6 — Worker/control plane
 - durable job;
 - lease/retry/no-progress;
+- tenant-aware fair/admitted processing;
 - pause/drain/recovery from Platform Admin Web only;
 - unknown external-effect reconciliation.
 
 ### Phase 7 — files/documents/printing
 - local staging;
-- object lifecycle;
+- tenant-scoped object lifecycle;
 - printing failure separated from transaction truth;
 - helper isolation where justified.
 
@@ -455,6 +503,7 @@ Implement complete vertical journeys, not many parallel modules.
 - OTel → New Relic/Aiven;
 - Backtrace;
 - tenant/platform audit;
+- noisy-tenant/resource evidence;
 - step-up MFA and exact-diff critical admin flows.
 
 ### Phase 9 — financial/stock hardening
@@ -467,16 +516,18 @@ Implement complete vertical journeys, not many parallel modules.
 - 8 GB single-node target;
 - Workstation resource budget;
 - update/version skew;
+- cross-tenant isolation release suite;
 - backup/restore;
 - failure-injection and long-running soak tests.
 
-Only after this baseline is proven should broader business modules, multi-node HA or Web offline behavior expand.
+Only after this baseline is proven should broader business modules, multi-node HA, dedicated tenant placement or Web offline behavior expand.
 
 ## 22. Definition of implementation-complete
 
 A capability is not complete until it answers:
 - user states and recovery;
 - owner/authority and durable source;
+- tenant/isolation scope where applicable;
 - validation and permission;
 - transaction boundary;
 - idempotency/concurrency;
@@ -484,7 +535,7 @@ A capability is not complete until it answers:
 - unknown external-effect handling;
 - user feedback/retry/cancel;
 - audit/telemetry;
-- resource limits;
+- resource limits/noisy-neighbor behavior;
 - upgrade/version skew;
 - backup/restore/deletion;
 - tests proving those behaviors.
