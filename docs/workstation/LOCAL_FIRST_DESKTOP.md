@@ -7,50 +7,51 @@
 ## 1. What SquiFlow adopts
 
 The Workstation should provide:
-- fast interaction without waiting for network round trips for explicitly local-capable work;
-- durable local work;
-- useful operation when the network is unavailable;
+- fast local interaction without waiting for ordinary network round trips;
+- useful operation during network loss for explicitly local-capable work;
+- durable local work that survives process restart;
 - background synchronization;
-- understandable pending/conflict/history state;
-- export/recovery paths for user work.
+- understandable pending/conflict/rejection state;
+- user control/export/recovery where policy allows.
 
-SquiFlow does **not** copy a peer-to-peer document-editor authority model into payments, stock, credit, permissions or other centrally coordinated business facts.
+## 2. What SquiFlow does not copy blindly
 
-No global CRDT requirement exists.
+Payments, shared inventory, credit, permissions, tenant security, workflow publication and similar shared facts need central authority.
 
-## 2. Baseline process model
+Therefore SquiFlow uses **local-first interaction and durability**, not unrestricted peer-to-peer/global multi-master authority. There is no global CRDT requirement.
 
-Start with one process:
+## 3. Desktop process model
 
 ```text
-SquiFlow.Workstation
+SquiFlow.Guard
+└── SquiFlow.Workstation
 ```
 
-Do not create an always-running Guard/supervisor/helper process during the baseline.
+Guard is part of the local-first reliability story: process crash/hang/update failure must not make durable local work disappear or leave the application in an unexplained restart loop.
 
-If a future updater, printer/native library, document parser or other component proves it can hang/crash/leak in a way that warrants process isolation, add one narrow process then. The problem must exist before the helper does.
+Guard supervises lifecycle only. The Workstation owns UI, local business/application logic, local DB/outbox, sync, and device interactions. See `docs/workstation/GUARD_AND_RECOVERY.md`.
 
-## 3. Local transaction rule
+## 4. Local transaction rule
 
-For an operation explicitly allowed offline:
+For a business operation explicitly allowed offline:
 
 ```text
 User action
 → local validation
-→ applicable compatible local rule/config snapshot
+→ applicable immutable local rule/config snapshot
 → one durable local transaction
-     business state + outbox/change record
+     business record/state + outbox/change record
 → immediate local UI update
 → background synchronization later
 ```
 
-The durable local store, not an in-memory queue/channel, survives restart.
+If the Workstation crashes after the local commit, Guard may restart the process, but recovery comes from the durable local store—not from Guard memory.
 
-## 4. Local state versus server authority
+In-memory channels/signals may wake synchronization but are never durable truth.
 
-Local storage contains real user work, not disposable cache data.
+## 5. Local state is real state, but authority is explicit
 
-Use explicit states such as:
+Use states such as:
 
 ```text
 LocalCommitted
@@ -62,132 +63,169 @@ AuthorizationChanged
 UpgradeRequired
 ```
 
-Do not tell the user a server accepted something merely because the local transaction committed.
+Examples:
+- order/customer capture can be locally committed where allowed;
+- operations affected by current shared stock/credit can be provisional or server-required;
+- permission assignment is never locally authoritative;
+- provider payment/refund effects may require server/provider authority.
 
-## 5. Authority classes
+## 6. Authority classes
 
-### Local-capable
-May be completed locally and reconciled later, for example selected customer/order/quotation drafting operations after domain proof.
+### Local-capable / remotely reconciled
+The user can perform the action offline and keep working after durable local commit.
 
-### Local-provisional
-Can continue locally but remote authority is still pending, for example an operation influenced by current shared credit/stock.
+### Local provisional
+The user can proceed locally but the UI must show that current server authority/facts can still reject or alter the final outcome.
 
 ### Server-required
-Unavailable offline because correctness requires current central authority, for example permission changes, many payment/provider effects, privileged refunds, and selected shared-stock/financial actions.
+The action is unavailable offline because current shared/security/external authority is required.
 
-Each real command chooses deliberately; do not create a huge generic policy framework before commands exist.
+Examples include role/permission changes and platform controls, and can include payments/refunds/critical stock/credit actions according to domain policy.
 
-## 6. Read path
+## 7. Authorization while offline
 
-Where relevant data is local, Workstation screens read local state directly. Do not round-trip to the server after every local write merely to redisplay the same value.
+ZITADEL authenticates the user when connectivity/session allows; OpenFGA is the current server authorization engine.
+
+The Workstation may keep a **versioned effective permission snapshot** for local UX/offline eligibility. That snapshot includes SquiFlow authorization revision/model context sufficient for diagnostics/refresh, but it is not a server capability token.
+
+On sync the server repeats:
+- current account/device/session validation;
+- authoritative TenantContext derivation;
+- current OpenFGA permission/resource check;
+- current domain/workflow/state validation.
+
+If the Owner revoked permission while the Workstation was offline, pending work remains locally preserved but can return `AuthorizationChanged`/review rather than being silently discarded or incorrectly accepted.
+
+## 8. Read path
+
+Where authorized data is already local, Workstation screens should read local state directly rather than block on a server read after every edit.
 
 Remote synchronization updates local state in the background.
 
-## 7. Sync path
+## 9. Sync path
 
 ```text
 LocalCommitted change
 → durable outbox
 → bounded batch
 → authenticated Sync API
-→ authoritative tenant + permission + business/rule/concurrency validation
+→ server TenantContext
+→ OpenFGA authorization
+→ business/rule/concurrency validation
 → idempotent central transaction
-→ per-item result
-→ durable local acknowledgement
+→ per-item result/receipt
+→ local durable acknowledgement
 ```
 
-Remote changes + cursor advancement commit together locally. Never advance the cursor before the changes are durably applied.
-
-## 8. Conflict policy
-
-No one algorithm fits every aggregate.
-
-- Customer/profile: merge/version where safe.
-- Draft quotation: version/merge/manual review can be reasonable.
-- Published quotation: immutable revision.
-- Order: command + expected version.
-- Inventory: authoritative transactional operation, no generic last-write-wins.
-- Payment: idempotent/immutable effect + reconciliation.
-- Permissions/rules/workflow publication: server authority.
-
-## 9. Network behavior
-
-When offline:
-- continue local-capable work;
-- do not busy-loop retries;
-- show connectivity/sync state without blocking ordinary local interaction;
-- back off retries with jitter;
-- explain why server-required actions need connectivity.
-
-## 10. Local disk/staging
-
-Bound local DB, pending attachment staging, temp data, logs/diagnostics and application-managed exports.
-
-When disk space becomes low:
-- preserve committed local business work;
-- stop optional heavy new processing;
-- never delete unsynced business evidence just to recover space;
-- explain which SquiFlow-managed data is consuming space where practical.
-
-## 11. Printing
-
-Printing is a device side effect and begins inside the ordinary Workstation process using the supported Windows printing/spooler path.
+Remote changes:
 
 ```text
-committed business document
-→ print request
-→ local printer/spooler
-→ success/failure/unknown physical output
+server change feed/cursor
+→ authorized scoped changes
+→ local transaction: apply changes + advance cursor
+→ UI updates
 ```
 
-Printer failure does not undo the sale/order/invoice. Retry and alternate-printer selection are separate actions.
+Never advance the cursor independently from successful local apply.
 
-Do not claim physical paper output merely because the spooler accepted a job.
+## 10. Conflict policy is per aggregate
 
-Other hardware integrations are added only after a real customer journey requires them.
+- Customer/profile: merge/version where safe.
+- Draft quotation: version/merge/manual review where useful.
+- Published quotation: immutable revision.
+- Order: command + expected version.
+- Inventory: authoritative transactional operation; no generic LWW.
+- Payment: immutable/idempotent effect + reconciliation.
+- Permission/roles: OpenFGA/server authority.
+- Rules/workflow publication: server authority.
+- Attachments: immutable object identity + metadata version.
 
-## 12. Security/session reality
+## 11. Long-offline behavior
 
-Assume a determined local user can inspect/tamper with local storage.
+A returning Workstation may have:
+- expired ZITADEL/session/device credentials;
+- old local schema/protocol;
+- old OpenFGA-derived permission snapshot;
+- old rule/config snapshot;
+- compacted tombstones;
+- pending operations against deleted/changed entities.
+
+Recovery can require reauthentication, upgrade, resnapshot, rebase/conflict review, or export/repair.
+
+Never silently discard durable user work.
+
+## 12. Local capacity
+
+Local-first must not mean unlimited disk/RAM usage.
+
+Track/bound:
+- local DB growth;
+- pending outbox count/bytes/age;
+- staged attachments;
+- application-controlled temp files;
+- logs/diagnostics/update data;
+- helper output where helpers later exist.
+
+Low-space behavior preserves already committed work and stops optional large work before complete disk exhaustion.
+
+## 13. Guard interaction
+
+Guard may:
+- restart the Workstation after a crash;
+- detect sustained hang using the defined heartbeat policy;
+- coordinate safe mode/update recovery;
+- collect bounded diagnostic/process evidence.
+
+Guard must not:
+- repair/rewrite business rows by guessing;
+- grant permissions or call OpenFGA as a business actor;
+- acknowledge sync work;
+- delete pending local operations merely to resolve a crash loop.
+
+Guard resource goals are measured on supported hardware. Do not reduce functionality simply to chase an arbitrary tiny-memory number.
+
+## 14. Network behavior
+
+Network loss for local-capable operations:
+- continues local work;
+- does not busy-loop errors/retries;
+- shows connectivity/sync state without blocking the whole application;
+- backs off with jitter;
+- reconciles on reconnect.
+
+Server-required operations explain that current connectivity/authority is required instead of showing false success.
+
+## 15. User control and longevity
+
+Support appropriate export/backup of business data/documents to stable formats where business/security policy permits. This does not mean raw central DB access or bypassing tenant authorization.
+
+## 16. Security reality
+
+Authorized business data exists locally by design. Assume a determined local user can inspect/tamper with local storage.
 
 Therefore:
-- no central DB credentials are stored locally;
-- local tenant IDs/permissions are not server authority;
-- synchronization reauthenticates/reauthorizes material changes;
-- device/session expiry does not delete pending local business work;
-- a stolen/revoked device cannot be assumed to have had already-downloaded bytes remotely erased.
+- minimize local secrets;
+- no central DB credentials locally;
+- local tenant IDs/permissions are never trusted by server authority;
+- server reauthenticates/reauthorizes material changes;
+- Windows secure-storage/data protection is used for credentials as proven by the POC;
+- revoking a device does not magically erase bytes already present on a stolen machine.
 
-Exact shared-Windows-profile/user-switch behavior remains an implementation decision before that scenario is supported.
-
-## 13. Long-offline recovery
-
-A Workstation can return with expired credentials, old schema/protocol/rules, compacted tombstones, or pending work against remotely changed/deleted data.
-
-Recovery may require reauthentication, upgrade, resnapshot, rebase/conflict review or export/repair.
-
-Never silently discard pending user work.
-
-## 14. Resource behavior
-
-Use durable storage and bounded in-memory work. Do not increase cache/worker count simply because more RAM/CPU is present.
-
-Avoid helper processes until actual process isolation is justified.
-
-## 15. Qualification cases
+## 17. Qualification tests
 
 Test at least:
-- process termination immediately after local commit;
-- lost in-memory sync wake signal;
-- restart with pending outbox;
-- sleep/hibernate during sync;
-- disk full/low space;
+- power/process loss immediately after local commit;
+- Guard restarts Workstation without losing pending work;
+- Guard crash while Workstation remains healthy;
+- repeated Workstation startup crash enters bounded recovery/safe mode;
+- sleep/hibernate during heartbeat/sync;
 - days/months offline;
 - two Workstations editing overlapping data;
 - response lost after server commit;
-- permission revoked while local work is pending;
-- rule/protocol version changes while offline;
+- OpenFGA permission revoked while local work is pending;
+- model/rule/protocol version changes while offline;
 - local DB tamper/corruption;
-- large pending queue reconnecting;
+- 10k+ queued changes reconnecting;
 - large staged attachment;
 - wrong local clock/timezone;
-- printer unavailable/spooler error after business commit.
+- disk nearly full during recovery/update.
