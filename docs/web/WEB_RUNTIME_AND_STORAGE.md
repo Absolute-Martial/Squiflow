@@ -49,7 +49,25 @@ No business-data service-worker architecture in v0.0.15.
 
 Normal browser/HTTP/CDN caching of versioned static assets is allowed without introducing offline semantics.
 
-## 3. Network loss UX
+## 3. Online server-side drafts are allowed
+
+`Online-only` does not require valuable work to exist only in browser RAM until final submit.
+
+For long/valuable forms where browser refresh, crash or session expiry would create unacceptable loss, a module may implement an explicit **server-side draft** while the network is available.
+
+A server-side draft:
+- is a real versioned server resource, not hidden browser offline state;
+- is tenant/permission scoped;
+- has explicit ownership/share rules;
+- uses idempotent save/autosave semantics;
+- exposes `Saved at ...` / save-failed state;
+- has retention/abandon/delete policy;
+- reauthorizes on later edit/submit;
+- uses expected-version conflict handling for multiple tabs/devices.
+
+Do not introduce server-side drafts for every tiny form. Use them where the cost of losing user input justifies the lifecycle complexity.
+
+## 4. Network loss UX
 
 If Web loses connectivity:
 - show a clear offline/connectivity state;
@@ -57,9 +75,10 @@ If Web loses connectivity:
 - keep safe in-memory form state where practical;
 - disable/hold submit until connectivity returns;
 - let the user copy/export important unsent text where the form is large/valuable;
+- if the form has an online server-side draft, show whether the latest edits were actually saved;
 - on reconnect, revalidate session, authorization, version and current server state before submitting.
 
-## 4. Performance without offline architecture
+## 5. Performance without offline architecture
 
 Web can still feel fast using:
 - immutable hashed static assets;
@@ -72,7 +91,15 @@ Web can still feel fast using:
 
 Do not preload the tenant database.
 
-## 5. Future evaluation gate
+## 6. Accessibility
+
+All Web surfaces follow `docs/ux/ACCESSIBILITY_AND_INTERACTION_QUALITY.md`.
+
+Connectivity, save state, validation, authorization failure and long-running operation status must be conveyed as accessible text/state, not color/icon alone.
+
+Tenant branding/custom domains cannot bypass the accessibility baseline through arbitrary CSS/script.
+
+## 7. Future evaluation gate
 
 Browser offline support is reconsidered only after the native Workstation local-first/sync architecture is production-proven and there is a real Web user need.
 
