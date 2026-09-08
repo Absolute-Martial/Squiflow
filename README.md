@@ -11,7 +11,9 @@ Start with [`MASTER_IMPLEMENTATION_PLAN.md`](MASTER_IMPLEMENTATION_PLAN.md).
 - C# / modern .NET.
 - Avalonia for the Windows Workstation.
 - Blazor Web App for tenant Web and future separate Platform Admin Web.
-- ASP.NET Core Core API.
+- ASP.NET Core Core API for tenant/business operations.
+- **Platform Admin uses a separate `services/admin-api` backend**, independent of Core API for normal super-admin/control-plane operations.
+- `apps/admin-web → services/admin-api`; Core API is not the normal downstream backend for platform administration.
 - Modular-monolith business code; network/process boundaries are added when they protect a real deployment/fault/security/recovery responsibility.
 - **SquiFlow.Guard** is a baseline Workstation companion for launch/supervision, bounded crash/hang recovery, update recovery, child/helper cleanup and diagnostic/resource evidence. It does not own business logic.
 - Small-team-first tenant model: Owner + Staff by default, with Owner-controlled granular permissions.
@@ -19,6 +21,7 @@ Start with [`MASTER_IMPLEMENTATION_PLAN.md`](MASTER_IMPLEMENTATION_PLAN.md).
 - **ZITADEL** is the selected identity/authentication platform.
 - **OpenFGA** is the selected application-authorization engine for roles/custom roles/assignments/resource relationships where applicable.
 - ASP.NET Core authorization integrates OpenFGA checks; SquiFlow domain/workflow/concurrency rules and DB tenant isolation remain separate.
+- Tenant and platform authorization scopes remain separate; a tenant role can never become super-admin authority.
 - Workstation login uses system-browser OIDC Authorization Code + PKCE against ZITADEL.
 - Pooled multi-tenancy is the ordinary baseline; tenant isolation is separate from authentication/OpenFGA authorization.
 - Shared compute is still tenant-aware: expensive jobs/reports/provider work use bounded/fair limits where needed to prevent noisy-neighbor takeover.
@@ -48,6 +51,7 @@ Keep a boundary when it protects a real capability or committed replacement:
 
 ```text
 SquiFlow.Guard     process supervision/recovery
+services/admin-api independent platform/super-admin backend
 IObjectStore       known near-term primary-storage migration
 IBackupTarget      known near-term backup-provider migration
 ZITADEL            identity/authentication
@@ -64,7 +68,7 @@ arbitrary helper processes
 empty projects/directories for future architecture
 ```
 
-Minimalism must never remove required offline durability, recovery, authorization freshness, tenant isolation, backup restore, retry/idempotency guarantees, or edge-case handling.
+Minimalism must never remove required offline durability, recovery, authorization freshness, tenant isolation, backup restore, retry/idempotency guarantees, control-plane independence, or edge-case handling.
 
 ## Documentation map
 
@@ -97,7 +101,7 @@ Minimalism must never remove required offline durability, recovery, authorizatio
 ### Security/admin/identity
 - [`docs/security/TENANT_PERMISSIONS.md`](docs/security/TENANT_PERMISSIONS.md) — OpenFGA authorization model/role boundary.
 - [`docs/security/IDENTITY_AND_SESSIONS.md`](docs/security/IDENTITY_AND_SESSIONS.md) — ZITADEL/OIDC/session/device boundary.
-- [`docs/admin/ADMIN_SURFACES.md`](docs/admin/ADMIN_SURFACES.md)
+- [`docs/admin/ADMIN_SURFACES.md`](docs/admin/ADMIN_SURFACES.md) — separate Admin Web/Admin API control plane.
 
 ### Web/data/integrations
 - [`docs/web/WEB_RUNTIME_AND_STORAGE.md`](docs/web/WEB_RUNTIME_AND_STORAGE.md)
