@@ -31,6 +31,27 @@ fewest files/processes/interfaces at any cost
 
 A component is not allowed to become functionally weak merely to satisfy a minimalist architecture aesthetic.
 
+## Question-driven source-review rule
+
+A source review is incomplete if it only classifies the pattern/technology. Questions and trade-offs raised by the source must be asked against the actual SquiFlow journeys/runtime/data flow.
+
+Required flow:
+
+```text
+source question / trade-off
+→ apply to SquiFlow
+→ answer from current requirement/evidence
+→ identify failure if the answer is wrong
+→ classify ANSWERED / OPEN / DEFERRED / NOT NEEDED NOW
+→ assign owner + phase/revisit trigger
+```
+
+Where a source contains an explicit question, preserve its meaning and apply it. Where the article only presents a trade-off, a SquiFlow-derived question is allowed but must be labeled as synthesis rather than quoted as the source's wording.
+
+Applicable unanswered questions must not remain buried in a review file. Promote them to `docs/decisions/OPEN_DECISIONS.md` or a named phase gate. A question may legitimately end in `NO`/`NOT NEEDED NOW`; this rule is for requirement discovery, not feature creation.
+
+The consolidated working ledger is `docs/review/ARCHITECTURE_QUESTION_LEDGER.md`.
+
 ## 1. Runtime/project audit
 
 | Decision | Audit | Result |
@@ -288,6 +309,8 @@ Keep tests for:
 
 Testing should attack required edge cases even when the implementation uses few components.
 
+Source-derived questions also become test design inputs. For example, asking `what if the edge is unavailable?`, `what if OpenFGA is unavailable?`, or `what if a WebSocket signal disappears?` is useful only if the resulting required behavior is eventually exercised in the appropriate phase.
+
 ## 11. Documentation audit
 
 One focused document owns each detailed topic. Review docs never override current decisions.
@@ -300,6 +323,8 @@ Current owners include:
 - object/backup provider boundaries → `docs/data/FILES_AND_OBJECT_STORAGE.md`;
 - Guard → `docs/workstation/GUARD_AND_RECOVERY.md`;
 - local-first Workstation → `docs/workstation/LOCAL_FIRST_DESKTOP.md`.
+
+Question ledgers/review docs are evidence/discovery aids. Once a question is answered or made OPEN, the actual answer belongs in the focused owner/current/open decision documents.
 
 ## 12. Corrected implementation shape
 
@@ -346,4 +371,4 @@ without removing required responsibility
 
 Specifically, v0.0.15 treats Guard, separate Admin API, `IObjectStore`, `IBackupTarget`, ZITADEL, and OpenFGA as justified boundaries. Generic repositories, forwarding services, arbitrary helper processes, and unrelated provider interfaces remain rejected.
 
-The implementation should begin, but every phase must prove the edge/failure behavior that makes SquiFlow's core abilities real rather than merely produce the smallest possible happy-path codebase.
+The implementation should begin, but every phase must prove the edge/failure behavior that makes SquiFlow's core abilities real rather than merely produce the smallest possible happy-path codebase. Question-driven source reviews are one mechanism for discovering those requirements before they become production omissions.
