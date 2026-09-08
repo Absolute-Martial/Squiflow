@@ -51,6 +51,15 @@
 - Current selective pattern use includes async request-reply, bulkhead-style workload isolation, health endpoints, idempotent consumers, bounded priority/load-leveling queues, retry/throttling, selected compensation, and narrowly scoped signed object access when justified.
 - Full CQRS, event sourcing, Saga-based core architecture, per-frontend BFF services, sharding, leader election, deployment stamps and active-active multi-region are deferred until a concrete workload requirement justifies their costs.
 - Cache-aside/local caches are optional measured optimizations; shared Redis is not baseline and caches are never authoritative.
+- Ordinary tenants use a **pooled multi-tenant baseline**: shared application compute and a shared authoritative schema/model with explicit tenant discriminators on tenant-owned data.
+- Authentication, application authorization and tenant isolation are separate concerns; a valid role or token never substitutes for tenant-resource isolation.
+- Tenant isolation mechanics must be centralized/shared enough that correctness does not depend on every developer manually remembering a tenant filter.
+- Schema-per-tenant, database-per-tenant and deployment-per-tenant are not baseline implementation targets.
+- SquiFlow supports an evolution path toward targeted dedicated resources, dedicated databases or fully dedicated stacks when residency, compliance, contractual isolation, noisy-neighbor or enterprise/customer-managed requirements justify them.
+- Processing isolation is independent of data isolation. Baseline Worker execution is pooled but tenant-aware, bounded and fair; one physical queue/worker pool per tenant is not baseline.
+- Tenant placement/isolation-profile changes are Platform Admin/control-plane operations, not Desktop or ordinary tenant settings.
+- If PostgreSQL is used as the central reference/selected provider, the pooled-isolation POC must prove PostgreSQL RLS as defense in depth, including non-`BYPASSRLS` runtime credentials, table-owner behavior, write-side checks and safe connection-pool tenant context.
+- RLS does not close the central database choice; any selected central provider must prove a provider-appropriate pooled isolation mechanism and cross-tenant negative tests.
 - Central/local persistence product choices remain open; PostgreSQL/SQLite are reference candidates and libSQL is a real local-store candidate.
 - SquiFlow-native bounded rule architecture is baseline.
 - Workflow is continuation-first and versioned.
