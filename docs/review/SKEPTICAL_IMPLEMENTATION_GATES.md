@@ -2,7 +2,7 @@
 
 **Version:** v0.0.15
 
-For each capability ask the questions below before adding another project, service, queue, cache, offline layer, identity mechanism or configurable state.
+For each capability ask the questions below before adding another project, service, queue, cache, offline layer, identity mechanism, isolation tier or configurable state.
 
 ## Product/UX
 
@@ -36,6 +36,24 @@ For each capability ask the questions below before adding another project, servi
 - What happens to queued/offline work after permission revocation?
 - Does a role/grant/membership change advance `TenantAuthorizationRevision` atomically with audit/outbox invalidation?
 - If any permission result is cached, what prevents the Zanzibar-style “new enemy” failure after revocation?
+
+## Multi-tenancy/isolation
+
+- Is the current tenant context derived authoritatively, or copied from a client header/payload/hostname without validation?
+- Does authentication/role authorization accidentally substitute for actual tenant isolation?
+- Is this data tenant-owned, platform-global or deliberately shared reference data?
+- Can a repository/query be called without a tenant scope when it touches tenant-owned data?
+- Does every read, write, list, search, report, export and Worker path preserve tenant scope?
+- Is tenant-local uniqueness/indexing actually scoped by `TenantId` where needed?
+- Could a pooled database connection retain the previous request's tenant context?
+- If PostgreSQL RLS is used, can the runtime role bypass it because it is table owner, superuser or `BYPASSRLS`?
+- Do RLS/write policies prevent cross-tenant INSERT/UPDATE as well as SELECT?
+- Do backup/migration/support paths use deliberate privileged identities rather than ordinary runtime credentials?
+- Is one tenant able to consume all Worker/database/provider capacity and degrade everyone else?
+- Would bounded/fair pooled processing solve the problem before creating a physical queue/worker per tenant?
+- Is a request for schema/database/stack isolation driven by residency/compliance/SLA/noisy-neighbor evidence, or only fear of future requirements?
+- Can domain/application code tolerate a future tenant being placed in dedicated storage without becoming a product fork?
+- Is a tenant-placement change handled as a Platform Admin migration/cutover workflow rather than a casual configuration edit?
 
 ## Resource/API authorization
 
@@ -108,6 +126,7 @@ For each capability ask the questions below before adding another project, servi
 - Is a provider-specific reference project being mistaken for a product decision?
 - Can we postpone this until measurements/user demand justify it?
 - Are we copying Zanzibar's planet-scale relation/index/cache machinery when a small role/scope model is enough?
+- Are we creating per-tenant schemas/databases/queues/stacks before any isolation requirement justifies their operational cost?
 
 ## Operations/security
 
@@ -116,5 +135,7 @@ For each capability ask the questions below before adding another project, servi
 - What happens during version skew/upgrade/long offline?
 - How is the data backed up, restored, retained and deleted?
 - Can a support/admin action be explained and rolled back/corrected?
+- What is the blast radius of a tenant-isolation bug or noisy-neighbor event?
+- Can a dedicated tenant still run the same SquiFlow release instead of becoming a custom fork?
 
 An implementation is not complete merely because its happy path works, and an architecture is not better merely because it has more components.
