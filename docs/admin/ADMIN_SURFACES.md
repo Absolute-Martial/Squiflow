@@ -20,7 +20,7 @@ Includes only as implemented:
 
 Authentication is through ZITADEL-backed Web session. Application authorization is current OpenFGA/SquiFlow authorization, not a ZITADEL role claim alone.
 
-Backend contract uses explicit `/tenant-admin/...` APIs and authoritative server authorization.
+Tenant-control backend operations stay on the ordinary business backend under explicit `/tenant-admin/...` policies because they are still tenant-scoped application behavior.
 
 Tenant role/permission assignment, workflow/rule/form publication and other tenant control-plane changes are initiated only from Web administration. Desktop consumes results/snapshots but cannot modify OpenFGA relationships or tenant control state.
 
@@ -30,7 +30,7 @@ Role changes are not direct browser-to-OpenFGA calls.
 
 ```text
 Tenant Web
-→ /tenant-admin/roles...
+→ Core API /tenant-admin/roles...
 → ZITADEL-authenticated session
 → current OpenFGA ManageRoles/delegation check
 → validate requested permission ceiling
@@ -42,11 +42,37 @@ Tenant Web
 
 The browser never receives OpenFGA administrative credentials.
 
-## 3. Platform administration
+## 3. Platform administration is a separate backend boundary
 
-`apps/admin-web` is a separate future Blazor Web App/security surface for SquiFlow operators.
+The SquiFlow operator/super-admin surface is intentionally separated from the tenant/business backend.
 
-Do not create that project in Phase 0. Create it in Phase 6 when the first real platform-control/Admin journey exists.
+Runtime boundary:
+
+```text
+apps/admin-web      Blazor Platform Admin UI
+        ↓
+services/admin-api  dedicated Platform Admin backend
+```
+
+`services/admin-api` is a separate ASP.NET Core executable/deployment/security boundary from `services/core-api`.
+
+**Platform Admin Web must not depend on Core API being available in order to perform platform-administration operations.** Normal super-admin requests go to Admin API directly, not through `/platform-admin/...` routes hosted by Core API.
+
+The two backends may share reviewed libraries/modules/contracts where appropriate, but they must not have a runtime HTTP dependency such as:
+
+```text
+Admin Web
+→ Admin API
+→ Core API
+```
+
+for ordinary platform-control work.
+
+This separation exists because platform operators can perform cross-tenant, provider, runtime, support, and security-sensitive actions whose availability and attack surface should not be coupled to the tenant business API.
+
+## 4. Platform Admin responsibilities
+
+Create `apps/admin-web` and `services/admin-api` when the first real platform-control/Admin slice is implemented.
 
 Potential responsibilities:
 - tenants/subscriptions/entitlements;
@@ -54,43 +80,82 @@ Potential responsibilities:
 - runtime health/incidents;
 - provider configuration;
 - support/break-glass **application** operations;
-- privileged Worker/server application controls.
+- privileged Worker/server application controls;
+- platform authorization/operator administration;
+- controlled cross-tenant support actions.
 
 Platform operators authenticate through ZITADEL but require separate platform-level SquiFlow/OpenFGA authority. Tenant roles can never imply platform authority.
 
 Exact OpenFGA store/model separation for platform versus tenant authorization remains a Phase-6 implementation detail; security isolation between them is mandatory.
 
-Backend contract uses `/platform-admin/...` policies.
+## 5. Admin API security and dependency rules
 
-## 4. Critical server tasks during normal operation
+Admin API has its own:
+- authentication/session validation;
+- platform OpenFGA/authorization integration;
+- rate/admission limits;
+- audit/correlation;
+- health/readiness;
+- deployment configuration;
+- service credentials/scopes;
+- endpoint inventory;
+- observability and failure handling.
 
-When Platform Admin exists, supported application-level controls such as Worker pause/drain/retry/quarantine, provider config and cross-tenant support operations are exposed there rather than through Desktop, `/sync`, ordinary `/api`, or tenant Settings.
+It does not reuse a tenant/Core API session as proof of super-admin authority.
+
+Admin API may access platform-owned persistence/provider/control-plane dependencies directly through least-privilege infrastructure integrations where that is the correct ownership boundary. It must not require Core API to proxy those calls.
+
+Where Admin API and Core API both touch shared authoritative data, they must use the same data invariants/transactions/authorization model through shared reviewed application/domain code or explicit persistence contracts rather than duplicating business rules differently.
+
+## 6. Critical server tasks during normal operation
+
+When Platform Admin exists, supported application-level controls such as Worker pause/drain/retry/quarantine, provider config and cross-tenant support operations are exposed only through Admin Web → Admin API.
+
+Do not expose these controls through:
+- Workstation;
+- `/sync`;
+- ordinary tenant `/api`;
+- tenant Settings;
+- Core API `/platform-admin/...` compatibility routes.
 
 Do not create generic `run SQL`, `set anything`, `force success`, or `mark payment/job complete` controls.
 
-## 5. Application control plane is not infrastructure recovery
+## 7. Failure independence
 
-If Admin Web/Core API itself is unavailable, recovery cannot depend on it.
+The purpose of a separate Admin API is not merely code organization. It provides an independent application control surface.
+
+Required behavior:
+- Core API outage does not automatically make Admin API unavailable;
+- Admin API outage does not block ordinary tenant business API operation;
+- deploying/restarting Admin API does not require restarting Core API;
+- Admin API can inspect/control the implemented platform resources it owns even when Core API is unhealthy, unless the underlying shared dependency itself is unavailable;
+- an Admin API failure must not accidentally fail open into tenant/Core API authority.
+
+This does **not** imply that Admin API can function through a central database outage if the operation itself requires that database. Backend independence means no runtime dependency on the Core API process, not magical independence from shared infrastructure.
+
+## 8. Application control plane is not infrastructure recovery
+
+If Admin Web/Admin API itself is unavailable, recovery cannot depend on it.
 
 A separate private infrastructure runbook may be used for:
-- restart/redeploy;
+- restart/redeploy of Admin API/Core API/Worker;
 - node replacement;
-- DB recovery required for app startup;
+- DB recovery required for application startup;
 - ZITADEL/OpenFGA/storage connectivity/config recovery required to restore application operation;
-- network/config repair required to bring the app back.
+- network/config repair required to bring the control plane back.
 
 This is not a second hidden business API and is never exposed to tenant users or Workstations.
 
 Owner: `docs/operations/DEPLOYMENT_CAPACITY_AND_RECOVERY.md`.
 
-## 6. High-risk application operations
+## 9. High-risk application operations
 
 For high-risk operations actually implemented:
 
 ```text
 proposal/current state
-→ validate
-→ show material diff
+→ validate in Admin API
+→ show material diff in Admin Web
 → ZITADEL step-up/recent authentication where required
 → current platform OpenFGA/SquiFlow authorization
 → approval where actually required
@@ -101,9 +166,9 @@ proposal/current state
 
 Do not require enterprise approval workflows for ordinary low-risk tenant settings.
 
-A hidden/disabled button is UX only; API authorization remains authoritative.
+A hidden/disabled button is UX only; Admin API authorization remains authoritative.
 
-## 7. Device/workstation lifecycle
+## 10. Device/workstation lifecycle
 
 Tenant Settings may manage enrollment visibility, revocation/suspension, friendly name and supported device policy.
 
