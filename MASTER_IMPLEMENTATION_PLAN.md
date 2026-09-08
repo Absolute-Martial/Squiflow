@@ -26,6 +26,16 @@ A design is **not** better because it has fewer processes/interfaces if that sim
 
 Likewise, a design is not better because it has more layers. Avoid forwarding-only Manager/Service/Helper/Repository hierarchies.
 
+Code-quality/SOLID guidance is applied pragmatically:
+- use meaningful business names;
+- keep responsibilities cohesive;
+- avoid magic policy/configuration values;
+- prefer readable shallow control flow;
+- explain `why`, not obvious mechanics;
+- keep accepted interfaces narrow;
+- do not create an interface/class/helper merely to satisfy a pattern slogan;
+- tolerate small duplication when the alternative is a wrong shared abstraction.
+
 ---
 
 ## 2. Runtime shape
@@ -235,6 +245,8 @@ UpgradeRequired
 
 No global CRDT/peer-authority model.
 
+This explicit authority model is intentionally more precise than saying the Workstation is merely “eventually consistent.” Pending local work is never presented as globally authoritative.
+
 Guard must not compromise or rewrite this durable local-first model; it supervises process lifecycle around it.
 
 Owner: `docs/workstation/LOCAL_FIRST_DESKTOP.md`.
@@ -264,7 +276,7 @@ Owner: `docs/architecture/MULTI_TENANCY_ISOLATION.md`.
 
 ---
 
-## 8. Command/query, API, idempotency, and retry
+## 8. Command/query, REST API, idempotency, retry, and rate limiting
 
 SquiFlow adopts **command/query responsibility separation** without assuming full CQRS infrastructure.
 
@@ -278,6 +290,8 @@ Query
 
 Material actions remain task-oriented (`ApproveQuote`, `RefundPayment`, `AdjustInventory`). Separate read/write databases, event sourcing, or command/query microservices are added only if an implemented workload proves they are worth the extra consistency/operations contract.
 
+**REST/task-oriented HTTP is the v0.0.15 API baseline.** GraphQL/GraphQL Federation are deferred until a real client query-composition problem justifies query-cost, field-authorization, caching, schema, and N+1 complexity.
+
 Retryable mutations use caller-provided semantic idempotency keys.
 
 ```text
@@ -290,6 +304,8 @@ When one store owns business mutation, idempotency receipt and outbox, commit th
 Duplicate handling is end-to-end: caller/producer retry, transport redelivery, and consumer/effect replay are distinct failure points. Do not treat one broker or one dedupe table as system-wide exactly-once.
 
 Retry is finite/classified/budgeted, with an intentional retry owner for each remote dependency path so nested retries do not multiply blindly.
+
+Rate limiting/admission is also explicit and can vary by unauthenticated source, account/device, tenant, endpoint/work class, expensive provider action, Admin API operation, and downstream provider budget. Authorization and throttling are separate decisions. Temporary HTTP throttling uses stable errors and `429`/`Retry-After` where applicable.
 
 Long-running work uses durable async status only when genuinely long-running; ordinary short transactions stay synchronous.
 
@@ -319,7 +335,7 @@ Owner: `docs/sync/SYNC_AND_AUTHORITY.md`.
 
 ---
 
-## 10. Persistence — real provider first, abstractions only where justified
+## 10. Persistence — normalized authority, measured indexes, explicit consistency
 
 Exact DB products remain open until phase POCs:
 - PostgreSQL — strongest central reference candidate;
@@ -329,6 +345,16 @@ Exact DB products remain open until phase POCs:
 Do **not** create generic `IRepository<T>`, `IUnitOfWork`, or one-interface-per-provider hierarchies solely to appear portable.
 
 Provider-specific DB code stays contained outside business/domain code. Extract interfaces only when an actual dependency/replacement boundary requires them.
+
+Authoritative relational business state starts normalized around real identities/relationships/constraints. Core business invariants are not hidden in arbitrary JSON/EAV or tenant-specific DDL simply to avoid schema work.
+
+Denormalized/materialized read structures are derived optimizations. Each declares source, freshness, update/rebuild behavior, tenant/authorization scope, and what happens when stale/unavailable.
+
+Indexes are workload contracts, not decorations. Measure real query plans/cardinality **and** write/WAL/storage/migration/sync/import cost; do not “index every filterable field.”
+
+Consistency is selected per invariant:
+- strong/current authority where temporary disagreement could create an unsafe business/security effect;
+- eventual/derived freshness only where staleness is acceptable and visible/reconcilable.
 
 Admin API and Core API may intentionally share the same authoritative database, but they must preserve the same invariants and transaction rules without making Admin API call Core API as a proxy.
 
@@ -489,6 +515,8 @@ immediate authoritative answer → direct synchronous path
 
 The transactional outbox is the normal bridge from an authoritative commit to later consequences. Do not make hidden event choreography the primary correctness owner for payments, stock, permissions, or other protected transitions.
 
+Eventual consistency is allowed only for consequences/projections whose temporary staleness is safe. Each such consumer defines source/version, duplicate/out-of-order behavior, freshness evidence where material, and reconciliation/rebuild path.
+
 Worker requirements include:
 - bounded concurrency;
 - durable claims/leases where needed;
@@ -510,7 +538,25 @@ Owners:
 
 ---
 
-## 16. Observability and physical operations
+## 16. Edge, API gateway, service mesh, observability, and physical operations
+
+A deployment edge/reverse proxy/API-gateway capability may terminate TLS, route hostnames, enforce request-size/WAF/private-access policy, and apply coarse rate limiting.
+
+That edge never becomes business authority and must preserve direct backend separation:
+
+```text
+edge
+├── tenant/business → Core API
+└── platform/admin → Admin API
+```
+
+not:
+
+```text
+edge → Core API → Admin API
+```
+
+A service mesh is **not baseline**. Revisit only after real independently deployed east-west service traffic proves enough mTLS/discovery/traffic-policy/observability complexity to justify the runtime and operational cost.
 
 OpenTelemetry/OTLP is the telemetry boundary.
 
@@ -518,6 +564,8 @@ Current managed targets:
 - New Relic — metrics/traces/APM;
 - Aiven OpenSearch — structured operational logs;
 - Backtrace — crash diagnostics direction.
+
+Operational telemetry may use bounded asynchronous buffering/export for performance, but authoritative security/business audit is not allowed to exist only in a lossy logging buffer.
 
 Guard supplies bounded desktop lifecycle/crash/resource evidence into the support/diagnostic path.
 
@@ -531,11 +579,28 @@ Owner: `docs/operations/DEPLOYMENT_CAPACITY_AND_RECOVERY.md`.
 
 ---
 
-## 17. Verification
+## 17. API performance discipline
+
+Common performance techniques are allowed only with explicit correctness/resource limits:
+- server-bounded pagination for large collections;
+- bounded DB connection pooling;
+- selective caching with a freshness contract;
+- compression only for suitably large compressible payloads;
+- bounded asynchronous telemetry export;
+- measured query/index optimization.
+
+A performance optimization that makes a stale permission/payment/stock/credit answer look current is a correctness regression, not an optimization.
+
+Measure representative latency percentiles, throughput, query/dependency time, allocation/memory pressure, payload sizes, and pool wait before adding another caching/proxy/read-model layer.
+
+---
+
+## 18. Verification
 
 Keep tests focused on real correctness risks:
 - business/domain invariants;
 - real DB transaction/concurrency/isolation behavior;
+- schema/index/query-plan behavior at representative and projected cardinalities;
 - Workstation local durability/restart;
 - Guard independent crash/hang/update recovery;
 - ZITADEL authentication/session flows;
@@ -544,7 +609,9 @@ Keep tests focused on real correctness risks:
 - **platform/Admin API authorization and Core-API-outage independence**;
 - idempotency/response loss across caller/transport/consumer boundaries;
 - retry amplification and retry-budget exhaustion;
+- rate/admission behavior and `Retry-After` client backoff;
 - sync conflict/long-offline;
+- derived-projection duplicate/out-of-order/staleness/rebuild behavior where implemented;
 - `IObjectStore` provider contract + Hugging Face adapter;
 - `IBackupTarget` contract + encrypted Kaggle backup restore;
 - actual low-end hardware/resource limits.
@@ -555,7 +622,7 @@ Owner: `docs/testing/VERIFICATION_STRATEGY.md`.
 
 ---
 
-## 18. Sequential implementation plan
+## 19. Sequential implementation plan
 
 Default WIP limit: **one implementation phase**, but each phase must cover its defined edge/failure behavior before being called complete.
 
@@ -563,12 +630,12 @@ Default WIP limit: **one implementation phase**, but each phase must cover its d
 Phase 0  Web + Workstation + Guard + Core API skeleton, provider contracts, minimal CI
 Phase 1  ZITADEL identity + OpenFGA Owner/Staff/custom-role authorization
 Phase 2  first local-first Workstation Customer/Order transaction + local DB + Guard recovery
-Phase 3  authoritative sync + central DB + pooled tenant isolation + idempotency
+Phase 3  authoritative sync + central DB + normalized schema/index/consistency proof + pooled tenant isolation + idempotency
 Phase 4  conflict/long-offline/resnapshot recovery
 Phase 5  one native rule + workflow + bounded dynamic form
 Phase 6  create Worker + Platform Admin Web + independent Admin API; prove first platform-control and durable-work slice
 Phase 7  Hugging Face IObjectStore flow + documents/printing + Kaggle IBackupTarget restore proof
-Phase 8  API/observability/admin hardening
+Phase 8  API/rate/performance/observability/admin hardening
 Phase 9  payments/credit/inventory/correction hardening
 Phase 10 actual-rack release/resource/restore qualification + paid-provider migration readiness
 ```
@@ -577,7 +644,7 @@ Owner: `docs/implementation/PHASES_AND_GATES.md`.
 
 ---
 
-## 19. Explicit non-baseline work
+## 20. Explicit non-baseline work
 
 Do not add these now:
 - dedicated accessibility/a11y workstream or conformance program;
@@ -589,7 +656,11 @@ Do not add these now:
 - microservice-per-module architecture;
 - full CQRS/event sourcing/Saga core architecture;
 - event-driven-everything;
+- eventual-consistency-everywhere;
 - global CRDTs;
+- GraphQL/GraphQL Federation;
+- service mesh;
+- denormalized authoritative core schema;
 - schema/database/deployment per tenant baseline;
 - multi-currency/FX subsystem;
 - advanced peripheral suite;
@@ -601,9 +672,9 @@ The accepted `IObjectStore`, `IBackupTarget`, Guard, ZITADEL, OpenFGA, and separ
 
 ---
 
-## 20. Implementation-complete rule
+## 21. Implementation-complete rule
 
-A capability is complete when the concerns that materially apply to that capability are proven: user states/recovery, tenant/authority, validation/permission, transaction/idempotency/concurrency, local-vs-server authority, async/external-unknown behavior, resource/storage bounds, upgrade/restore implications, and relevant hostile tests.
+A capability is complete when the concerns that materially apply to that capability are proven: user states/recovery, tenant/authority, validation/permission, transaction/idempotency/concurrency, consistency/freshness, local-vs-server authority, async/external-unknown behavior, resource/storage/rate limits, upgrade/restore implications, and relevant hostile tests.
 
 For platform administration this additionally includes proving that super-admin control uses Admin API directly and remains process-independent from Core API for the implemented operation.
 
