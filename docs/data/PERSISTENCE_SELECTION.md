@@ -114,7 +114,44 @@ Measure the actual selected provider/driver rather than accepting framework defa
 
 Do not size pools/caches from available RAM alone.
 
-## 7. Future dedicated tenant placement
+## 7. Database performance is a trade-off, not a checklist
+
+The database performance review reinforces a simple rule: every optimization has a cost somewhere else.
+
+Examples:
+- an index can reduce read latency while increasing write/import/storage cost;
+- a cache can reduce DB work while introducing stale-data/invalidation risk;
+- denormalization can reduce joins while making authoritative updates/reconciliation harder.
+
+Therefore performance qualification uses **measured workload evidence**, not a catalog of standard optimizations.
+
+For implemented hot paths, test at more than toy development cardinality. Record representative small data plus a larger projected/growth dataset appropriate to the business scenario.
+
+Measure where relevant:
+- actual query plan/index use;
+- latency distribution, not one warm best-case query;
+- tenant-scoped composite index effectiveness;
+- extra write cost after each proposed index;
+- sync/import/batch cost with the production index set;
+- RLS overhead if PostgreSQL is selected;
+- connection-pool wait/saturation;
+- lock/contention behavior;
+- WAL/temp/disk growth;
+- pagination behavior under concurrent inserts/updates;
+- cache hit/freshness/invalidation behavior if a cache is introduced.
+
+Do not automatically:
+- index every filter/sort column;
+- denormalize authoritative financial/order state;
+- add Redis because reads are slow;
+- add read replicas before query/schema/index work is measured;
+- shard before one central store's real limit has been demonstrated.
+
+For permissions, payments, stock, credit and other freshness-sensitive data, a faster stale cache is a correctness regression unless its revision/invalidation contract is proven.
+
+A query that is fast with a few thousand rows is not accepted as evidence that the same plan remains healthy after realistic growth.
+
+## 8. Future dedicated tenant placement
 
 Application/business code should not assume a physical DB filename/connection belongs permanently to every tenant, but do not implement per-tenant DB routing/pools before a real residency/compliance/SLO customer requires them.
 
@@ -122,7 +159,7 @@ Schema-per-tenant and DB-per-tenant are not baseline.
 
 Owner: `docs/architecture/MULTI_TENANCY_ISOLATION.md`.
 
-## 8. Workstation local store — Phase 2 selection
+## 9. Workstation local store — Phase 2 selection
 
 A local candidate must prove the actual local-first requirements:
 - atomic business + outbox transaction;
@@ -139,13 +176,15 @@ SQLite + WAL is the mature reference candidate. libSQL is an explicit candidate.
 
 Server and Workstation may use different DB products without requiring a shared persistence interface.
 
-## 9. Selection evidence
+## 10. Selection evidence
 
 Record:
 - exact product/driver/version/config;
 - hardware/OS;
 - workload/data size;
 - transaction/concurrency/isolation results;
+- query/index performance at the tested cardinalities;
+- write/import cost of the selected indexes;
 - resource measurements;
 - backup/recovery evidence;
 - known limitations;
