@@ -75,6 +75,8 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Core business invariants are not hidden in arbitrary JSON/EAV or tenant-specific DDL merely to avoid schema design. Bounded custom fields/forms are a separate extensibility concern.
 - Indexes are workload-driven: each important index/constraint must protect a real query/invariant and its write, storage, WAL, migration, and sync/import costs are measured. “Index every filterable column” is not baseline.
 - Tenant-local uniqueness and hot tenant-scoped queries use tenant-aware keys/indexes where appropriate, but index shape is confirmed by actual query plans/cardinality rather than a mechanical prefix rule.
+- Core API, Admin API, and Worker may share the same authoritative central database because they are runtime hosts of the same modular-monolith business core, not independent microservices. Shared access must preserve explicit module/data ownership and the same invariants/transaction rules.
+- If a future capability is extracted into a genuinely independent service, its authoritative data ownership becomes explicit; other services do not directly modify its private tables as a shortcut.
 
 ## Consistency model
 
@@ -86,8 +88,9 @@ This file records accepted direction only. Detailed reasoning and changes from t
 
 ## API, sync, and Worker correctness
 
-- REST/task-oriented HTTP is the v0.0.15 application API baseline. GraphQL and GraphQL Federation are deferred until a real client/query-composition requirement justifies their query-cost, authorization, caching, schema, and N+1 complexity.
-- Retryable mutating operations use caller-provided semantic idempotency keys.
+- **REST/task-oriented HTTP is the v0.0.15 application API baseline, but SquiFlow does not claim strict REST purity.** Resource-oriented naming is the default; semantic command/action subresources remain valid for approvals, refunds, publications, reconciliations, and other material domain transitions.
+- GraphQL and GraphQL Federation are deferred until a real client/query-composition requirement justifies their query-cost, authorization, caching, schema, and N+1 complexity.
+- Retryable mutating operations use caller-provided semantic idempotency keys. A POST command is not automatically retry-safe; it becomes retry-safe only when its SquiFlow idempotency contract applies to the same intended business operation.
 - Same idempotency key + changed intent is rejected.
 - Where one store owns mutation + idempotency receipt + outbox, they commit atomically.
 - At-least-once delivery/redelivery is assumed; effects are idempotent or explicitly reconcilable.
@@ -98,13 +101,22 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Caching, response compression, and asynchronous telemetry logging are selective performance techniques, not default correctness mechanisms. Security/business audit is not allowed to exist only in a lossy async log buffer.
 - Rate limiting/admission is multi-dimensional where needed (IP/unauthenticated abuse, account/device, tenant, endpoint/work class, expensive provider action, platform admin, downstream budget). Authorization and throttling are separate decisions.
 - Temporary HTTP throttling uses stable errors and `429`/`Retry-After` where applicable; clients back off rather than amplify overload.
+- Communication inside the modular monolith is in-process by default. Do not create HTTP/gRPC between modules merely to imitate microservices.
+- At real process/service boundaries, choose synchronous calls only when an immediate response is required; use durable asynchronous work for long-running/after-commit consequences. Avoid long synchronous service-call chains that multiply timeout/retry/failure obligations.
 
-## Network edge and service-to-service traffic
+## Network edge and protocol boundaries
 
-- An edge reverse proxy/API-gateway capability may terminate TLS, route hostnames, enforce request-size/WAF/access policy, and apply coarse rate limiting when the deployment needs it.
-- Edge/gateway controls do not replace Core API or Admin API authentication, OpenFGA authorization, TenantContext isolation, domain validation, or operation-specific admission.
+- An edge reverse proxy/API-gateway capability may terminate TLS, route hostnames, enforce request-size/WAF/access policy, perform transport/protocol negotiation, and apply coarse rate limiting when the deployment needs it.
+- Edge/gateway controls do not replace Core API or Admin API authentication, OpenFGA authorization, TenantContext isolation, domain validation, idempotency/concurrency, or operation-specific admission.
 - Core API and Admin API remain independent backend/runtime planes even when one edge technology routes to both; Admin API does not route through Core API.
+- A heavyweight API-management platform is not baseline merely because API gateways can perform analytics, transformation, version management, or authorization. Add only the edge capabilities SquiFlow actually needs.
 - A service mesh is not baseline. Revisit only if independently deployed east-west service traffic becomes large/complex enough that mTLS, discovery, traffic policy, and distributed observability justify the added runtime/operational cost.
+- Production external application traffic uses HTTPS/TLS. ZITADEL uses standards-based OIDC/OAuth over HTTPS.
+- HTTP/1.1, HTTP/2, or HTTP/3 transport negotiation is an infrastructure/runtime concern; SquiFlow application semantics do not depend on one HTTP transport version.
+- WebSocket/SignalR, if used, is for live UI/signal/wakeup behavior only. Durable business/sync truth remains in DB/outbox/state records.
+- SSH/private network access is infrastructure recovery/operations only, never a normal tenant business channel.
+- DNS/hostname information assists routing but is never tenant authority by itself. Time synchronization is operationally important for TLS/tokens/leases/schedules/diagnostics, while business correctness still uses explicit versions/IDs where wall-clock ambiguity would be unsafe.
+- MQTT, WebRTC, FTP/SFTP, raw TCP/UDP, and gRPC are not baseline; each requires a concrete latency/streaming/device/transport/compatibility need before adoption.
 
 ## Rules/workflow
 
@@ -146,6 +158,9 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Kafka, mandatory Redis, event-sourced/full-CQRS/Saga core architecture;
 - GraphQL/GraphQL Federation;
 - service mesh;
+- API-management platform selected before a concrete need;
+- HTTP/gRPC between ordinary modules;
+- database-per-service rules applied to the current modular monolith;
 - eventual-consistency-everywhere;
 - denormalized authoritative core schema;
 - global CRDTs;
