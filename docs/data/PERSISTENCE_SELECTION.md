@@ -43,7 +43,27 @@ Instead:
 
 Containment is enough until migration is real.
 
-## 3. Authoritative schema design
+## 3. Runtime hosts, shared data source, and data ownership
+
+SquiFlow currently has a **modular-monolith business core with several runtime hosts**, not a fleet of independently owned microservices.
+
+Therefore Core API, Admin API, and Worker may legitimately connect to the same authoritative central database.
+
+That does **not** mean every host owns every table or may bypass application invariants.
+
+Rules:
+- module/capability ownership remains explicit even when tables share one physical database;
+- hosts should reuse reviewed shared module/application/persistence code where practical;
+- if Core API and Admin API can both mutate the same authoritative concept, they enforce the same domain/transaction/concurrency rules;
+- one host must not reach around a module with ad-hoc SQL merely because the table is physically reachable;
+- read/report access still respects tenant/platform authorization and field-sensitivity rules;
+- database permissions/service identities should be no broader than the host actually needs once the schema/runtime shape is known.
+
+Do **not** apply `database per service` mechanically to `services/core-api`, `services/admin-api`, and `services/worker`. Those are process/deployment/security boundaries, not automatically independent business services.
+
+If a future capability is extracted into a genuinely independent service with its own deployment/data lifecycle, its authoritative data ownership becomes explicit. Other services should then exchange data through stable APIs/events/read models rather than directly modifying that service's private tables.
+
+## 4. Authoritative schema design
 
 The authoritative relational model starts normalized around real business identities and relationships because write correctness, understandable constraints, and maintainable evolution matter more than optimizing one screen prematurely.
 
@@ -67,7 +87,7 @@ Denormalized/materialized read structures are allowed when a real query/report p
 
 A denormalized projection is reconstructable state, not a second independent business authority.
 
-## 4. Pooled multi-tenant baseline
+## 5. Pooled multi-tenant baseline
 
 Tenant-owned central data uses explicit tenant scope/discriminator.
 
@@ -92,7 +112,7 @@ If PostgreSQL is used:
 
 RLS is defense in depth, not a replacement for application authorization.
 
-## 5. Consistency policy
+## 6. Consistency policy
 
 Do not label the whole database/application as simply `strong` or `eventual`.
 
@@ -108,7 +128,7 @@ Eventual consistency is acceptable for explicitly derived/reconstructable state 
 
 For asynchronous projection updates, handle duplicate and out-of-order delivery through stable source versions/sequence/effect identity as appropriate to that projection. Do not let late derived data overwrite newer authoritative meaning.
 
-## 6. Indexing policy
+## 7. Indexing policy
 
 Indexes are justified by a real query or invariant, not by column availability.
 
@@ -126,7 +146,7 @@ Avoid `index every filterable field`. Periodically review unused/redundant index
 
 Index selection should be tested against both normal small-tenant data and projected larger cardinalities so a design is not approved only because a 10K-row development database is fast.
 
-## 7. Physical durability
+## 8. Physical durability
 
 Database `COMMIT` semantics do not by themselves prove recovery on the current rack.
 
@@ -142,7 +162,7 @@ UPS, ECC, RAID/ZFS, enterprise SSDs etc. are deployment choices derived from rea
 
 Owner: `docs/operations/DEPLOYMENT_CAPACITY_AND_RECOVERY.md`.
 
-## 8. Restore consistency
+## 9. Restore consistency
 
 Restore correctness can involve:
 - business records;
@@ -161,7 +181,7 @@ idempotency receipt lost
 
 Restore qualification must consider this relationship rather than checking only `database starts`.
 
-## 9. Connection/resource envelope
+## 10. Connection/resource envelope
 
 Measure the actual selected provider/driver rather than accepting framework defaults blindly:
 - normal/max pool size;
@@ -174,7 +194,7 @@ Connection pooling is an efficiency technique, not permission for unbounded conn
 
 Do not size pools/caches from available RAM alone.
 
-## 10. Future dedicated tenant placement
+## 11. Future dedicated tenant placement
 
 Application/business code should not assume a physical DB filename/connection belongs permanently to every tenant, but do not implement per-tenant DB routing/pools before a real residency/compliance/SLO customer requires them.
 
@@ -182,7 +202,7 @@ Schema-per-tenant and DB-per-tenant are not baseline.
 
 Owner: `docs/architecture/MULTI_TENANCY_ISOLATION.md`.
 
-## 11. Workstation local store — Phase 2 selection
+## 12. Workstation local store — Phase 2 selection
 
 A local candidate must prove the actual local-first requirements:
 - atomic business + outbox transaction;
@@ -199,7 +219,7 @@ SQLite + WAL is the mature reference candidate. libSQL is an explicit candidate.
 
 Server and Workstation may use different DB products without requiring a shared persistence interface.
 
-## 12. Selection evidence
+## 13. Selection evidence
 
 Record:
 - exact product/driver/version/config;
