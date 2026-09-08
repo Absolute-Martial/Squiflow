@@ -70,7 +70,35 @@ This separation does **not** imply:
 
 Introduce read-optimized projections/materialized views only when an implemented workload justifies the extra freshness/rebuild/operational contract.
 
-## 4. API security baseline
+## 4. API cross-cutting concerns and pipeline ownership
+
+Authentication, safe logging/correlation, generic rate/admission limits, safe error shaping, and input/schema boundaries affect many endpoints. They should be applied uniformly through ASP.NET Core middleware, endpoint filters/metadata, policies, and shared host configuration where those mechanisms fit.
+
+Do **not** respond to cross-cutting concerns by building one giant middleware that owns all business decisions.
+
+Correct split:
+
+```text
+request/correlation + safe logging
+→ generic request/rate/admission controls
+→ authentication
+→ TenantContext/platform context resolution
+→ coarse endpoint/function policy
+→ input/schema validation
+→ tenant-scoped resource loading
+→ resource/OpenFGA authorization
+→ domain/workflow/concurrency validation
+→ transaction/effect
+→ safe result/error + trace/audit evidence
+```
+
+Some concerns intentionally span the whole pipeline (for example trace correlation). Others require the actual resource or domain state and therefore belong later.
+
+Every externally reachable endpoint must be classifiable by executable metadata/configuration as one of the intended audiences, with its authentication/policy/resource-limit behavior or an explicit reviewed public exception. CI/release endpoint inventory tests should fail on accidental unclassified privileged/business endpoints rather than relying on developers remembering to add security route by route.
+
+Health/liveness endpoints, OIDC callbacks, provider webhooks and other special routes can have different policies, but they are explicit exceptions with their own abuse/input/authenticity controls.
+
+## 5. API security baseline
 
 Every API group is reviewed against the OWASP API Security Top 10 classes that apply.
 
@@ -86,9 +114,11 @@ Required release gates include:
 - generated endpoint/version inventory and explicit retirement policy;
 - validation/timeouts/limits for data consumed from third-party APIs.
 
+A valid ZITADEL identity/token does not itself authorize a resource. A valid OpenFGA relation does not bypass TenantContext/data isolation or SquiFlow business state checks.
+
 An endpoint inventory is generated from executable endpoint metadata/OpenAPI in CI/release. It is not a hand-maintained architecture CSV.
 
-## 5. API version/surface ownership
+## 6. API version/surface ownership
 
 Every externally reachable API surface declares:
 - audience: tenant Web, Workstation sync, client-client, tenant admin, platform admin or specific integration;
@@ -100,7 +130,7 @@ Every externally reachable API surface declares:
 
 Development/debug/test endpoints are not simply hidden; they are absent or inaccessible in production configuration.
 
-## 6. Synchronous versus asynchronous HTTP
+## 7. Synchronous versus asynchronous HTTP
 
 Keep ordinary short authoritative business transactions synchronous when the user needs a definitive result in the interactive request budget.
 
@@ -130,7 +160,7 @@ A duplicate POST with the same semantic idempotency key returns the existing ope
 
 Do not queue every command merely because a Worker exists.
 
-## 7. API idempotency and retry
+## 8. API idempotency and retry
 
 Mutating commands that can be retried after an uncertain outcome use caller-provided semantic idempotency keys.
 
@@ -160,7 +190,7 @@ Retry policy is finite and failure-classified:
 
 Full details: `docs/api/API_CONTRACT_IDEMPOTENCY_AND_RETRY.md`.
 
-## 8. Resource consumption/admission
+## 9. Resource consumption/admission
 
 Rate limiting is only one control.
 
@@ -177,7 +207,7 @@ Also bound:
 
 Expensive work moves to the Worker rather than keeping request threads occupied indefinitely.
 
-## 9. Worker
+## 10. Worker
 
 `services/worker` executes durable asynchronous work that should not keep API requests open.
 
@@ -191,7 +221,7 @@ Examples:
 - rule/workflow snapshot distribution where asynchronous;
 - diagnostic packaging.
 
-## 10. Background trigger taxonomy
+## 11. Background trigger taxonomy
 
 Background work can originate for different reasons. The trigger does not define the reliability contract by itself.
 
@@ -218,7 +248,7 @@ For scheduled jobs whose meaning depends on business time, define timezone/DST b
 
 The first Worker implementation may use a simple durable database-backed job/schedule mechanism if it satisfies the actual workload. Do not introduce a distributed scheduler/broker merely because background-work architectures can grow into one.
 
-## 11. Command/job versus event
+## 12. Command/job versus event
 
 Keep instruction and fact semantics distinct:
 
@@ -245,7 +275,9 @@ The asynchronous event does not make the invoice issuance itself eventually auth
 
 Avoid hidden event choreography for flows that require one explicit business owner/state machine, especially money, stock, permissions, and other protected transitions.
 
-## 12. Messaging-pattern selection
+Transactional outbox/audit/history is not the same thing as event sourcing. Current relational state remains authoritative unless a future explicit event-sourcing decision changes that for a demonstrated domain.
+
+## 13. Messaging-pattern selection
 
 Use the simplest pattern matching the semantic need:
 
@@ -270,7 +302,7 @@ Kafka/event-log infrastructure is not baseline.
 ### Direct synchronous call
 Use when the caller needs the authoritative answer now and the work fits the bounded interactive budget.
 
-## 13. Durable work lifecycle
+## 14. Durable work lifecycle
 
 ```text
 Pending
@@ -291,7 +323,7 @@ OutcomeUnknown
 
 A claim has a lease/ownership expiry. Use fencing/claim generations for work where a stale previous owner could cause an unsafe duplicate effect.
 
-## 14. Worker loop requirements
+## 15. Worker loop requirements
 
 A process may run indefinitely. A loop may not spin indefinitely.
 
@@ -309,7 +341,7 @@ Required:
 - queue-age/oldest-item monitoring in addition to depth;
 - business priority classes with fairness/aging so lower-priority work cannot starve forever.
 
-## 15. Idempotent consumers and duplicate-entry points
+## 16. Idempotent consumers and duplicate-entry points
 
 Assume at-least-once delivery/redelivery can occur.
 
@@ -324,7 +356,7 @@ A queue/message ID can help transport deduplication but is not sufficient to rep
 
 Do not claim system-wide exactly-once because one broker or database offers a narrower exactly-once/transactional feature.
 
-## 16. Authorization semantics for durable jobs
+## 17. Authorization semantics for durable jobs
 
 Do not use one vague rule such as “always re-check the original user's permission” for every queued job. Classify why the job exists.
 
@@ -346,7 +378,7 @@ A platform-critical command originates from Platform Admin Web, passes risk/step
 
 This classification prevents both unsafe stale-authority execution and the opposite error of cancelling valid committed consequences merely because a user was later suspended.
 
-## 17. External effect safety
+## 18. External effect safety
 
 For a side effect such as an external payment, webhook or remote provider action:
 
@@ -365,7 +397,7 @@ Third-party responses are untrusted inputs even when the provider is managed/wel
 - do not blindly follow redirects;
 - isolate malformed/unexpected responses from authoritative state transitions.
 
-## 18. Load isolation patterns
+## 19. Load isolation and container/distributed patterns
 
 Use patterns only where the problem exists:
 
@@ -376,13 +408,35 @@ Use patterns only where the problem exists:
 - **Circuit breaker:** add only for remote dependencies where sustained/slow failure makes retries harmful; do not wrap every local component.
 - **Claim check:** keep large files/diagnostic payloads outside queue messages and pass protected references.
 
-## 19. Server concurrency
+Container design patterns do not become automatic runtime architecture. Do not add per-service sidecars/proxies/adapters, leader election, or scatter/gather fan-out solely because the server is containerized. A pattern needs a measured coordination/deployment problem and must justify its memory/network/failure/operational cost on the owned rack.
+
+`SquiFlow.Guard` is a native Windows supervision/recovery boundary, not evidence that server components should follow a sidecar-everywhere model.
+
+## 20. Server concurrency
 
 The application handles independent work in parallel. Correctness is scoped to the relevant aggregate/resource, not one global writer.
 
 Final correctness is enforced by the selected central store through transactions, constraints, optimistic concurrency and locking where appropriate.
 
-## 20. Platform-critical Worker controls
+## 21. Stateless server-process semantics
+
+`Stateless` for Core API/future Worker means their process memory is not the sole durable authority for business correctness.
+
+It does **not** mean SquiFlow has no state.
+
+Durable/shared state can live in:
+- central DB;
+- object storage;
+- outbox/job store;
+- ZITADEL/OpenFGA;
+- shared configuration/session state where the selected Web topology requires it;
+- backup/recovery systems.
+
+Process-local cache/circuit/temporary state is permitted only with explicit loss/freshness behavior. A server restart must not cause committed orders, idempotency receipts, durable jobs, permissions, or business documents to disappear merely because they were only in memory.
+
+This also does not imply automatic failover or zero downtime. If Blazor Interactive Server is used, Web circuits themselves are stateful and require an explicit circuit/session topology before multi-node failover claims are made.
+
+## 22. Platform-critical Worker controls
 
 Pause/drain/resume/retry/quarantine/reconcile controls that can materially affect server operation are invoked only through Platform Admin Web and `/platform-admin/...` APIs.
 
@@ -396,7 +450,7 @@ Do not expose those controls through Workstation or ordinary tenant business end
 - Stripe idempotency article
 - AWS Builders' Library idempotent API article
 - Azure Architecture Center patterns, API design/implementation, background jobs and transient-fault guidance
-- ByteByteGo CQRS/retry/event-driven/messaging/idempotency/background-work/multi-tenancy follow-up review
+- ByteByteGo CQRS/retry/event-driven/messaging/idempotency/background-work/multi-tenancy/container/cross-cutting/API-security/stateless follow-up review
 
 See:
 - `docs/review/SECURITY_AUTHORIZATION_SOURCE_REVIEW.md`
