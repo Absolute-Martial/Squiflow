@@ -34,7 +34,8 @@ Deliver:
 - trusted issuer Discovery validation;
 - exact registered Web/custom-domain redirect handling;
 - effective permission retrieval with `TenantAuthorizationRevision`;
-- simple server resource/action authorization using ASP.NET Core `IAuthorizationService`.
+- ASP.NET Core policy/requirement registration;
+- simple server resource/action authorization using `IAuthorizationService`.
 
 Attack:
 - invitation expires;
@@ -48,14 +49,16 @@ Attack:
 - PKCE verifier mismatch/downgrade attempt;
 - open redirect/return URL attempt;
 - email changes while subject remains the same;
-- login/recovery brute force according to the chosen identity-provider boundary.
+- login/recovery brute force according to the chosen identity-provider boundary;
+- handler-order assumption or a requirement handler performing a business side effect.
 
 Gate:
 - only Web administration can modify grants;
 - identity token proves authentication but does not act as current SquiFlow permission truth;
 - native client has no embedded reusable secret;
 - server authorization rejects stale/forged/cross-tenant authority;
-- redirect/issuer validation fails closed.
+- redirect/issuer validation fails closed;
+- authorization handlers are side-effect free and do not depend on invocation order.
 
 ## Phase 2 — first local-first Workstation transaction
 
@@ -68,36 +71,47 @@ UI
 → immediate local result
 ```
 
+Every local outbox item receives a stable semantic idempotency key separate from transport/message IDs.
+
 Attack:
 - power loss after commit;
 - lost Channel signal;
 - app restart;
 - disk full;
 - local DB busy/locked;
-- user closes app immediately.
+- user closes app immediately;
+- same local intent gets scheduled for upload twice.
 
 Gate:
 - user work survives crashes;
-- no server/network dependency for the approved local operation.
+- no server/network dependency for the approved local operation;
+- duplicate scheduling cannot create a second semantic operation.
 
-## Phase 3 — authoritative synchronization + object authorization
+## Phase 3 — authoritative synchronization + object authorization + idempotent API
 
 Deliver:
 - bounded upload batch;
-- idempotency receipt;
+- item-level semantic idempotency key;
+- durable idempotency receipt;
+- canonical request fingerprint/semantic comparison sufficient to reject same key + different intent;
 - server tenant derivation/authorization;
 - coarse endpoint/function policy;
 - tenant-scoped resource resolution;
 - resource/action authorization;
 - explicit request/response DTO allowlists;
+- expected-version/concurrency contract;
 - one authoritative central transaction;
+- idempotency receipt + business mutation + audit/outbox atomically when owned by the same store;
 - per-item result;
 - remote change feed + cursor;
-- local result/cursor durability.
+- local result/cursor durability;
+- finite retry classification and `Retry-After` handling.
 
 Attack:
 - server commits, response lost;
-- duplicate request;
+- duplicate request with same key/same payload;
+- same key with changed semantic parameters;
+- duplicate item arrives in a different transport batch;
 - permission revoked while pending;
 - malformed/tampered tenant ID;
 - partial batch failure;
@@ -105,14 +119,18 @@ Attack:
 - change HTTP method/path to reach a privileged function;
 - add hidden/privileged JSON properties;
 - request sensitive response fields without permission;
-- stale `TenantAuthorizationRevision` snapshot.
+- stale `TenantAuthorizationRevision` snapshot;
+- nested client/API/SDK retries amplify one dependency failure.
 
 Gate:
 - no duplicate business effect;
+- duplicate same-intent request receives the same/semantically equivalent result;
+- same key + changed intent is rejected;
 - no cursor advancement before local apply;
 - explicit `AuthorizationChanged`/conflict states;
 - BOLA/BFLA/property-level authorization tests pass;
-- cross-tenant existence/data is not exposed through unrestricted resource lookup.
+- cross-tenant existence/data is not exposed through unrestricted resource lookup;
+- retry is finite, classified and budgeted.
 
 ## Phase 4 — conflict + long-offline
 
@@ -121,7 +139,8 @@ Deliver:
 - protocol/schema version negotiation;
 - reauth/upgrade/resnapshot/repair paths;
 - pending local work preservation;
-- effective-permission snapshot revision refresh.
+- effective-permission snapshot revision refresh;
+- idempotency retention policy suitable for long-offline Workstation retries.
 
 Attack:
 - weeks/months offline;
@@ -129,11 +148,13 @@ Attack:
 - entity deleted/merged remotely;
 - 10k+ pending changes;
 - old rule snapshot;
-- old permission snapshot after Owner revoked authority.
+- old permission snapshot after Owner revoked authority;
+- very late retry arrives after the original operation succeeded and later business state changed.
 
 Gate:
 - no silent local data discard;
-- server does not accept a stale Workstation permission snapshot as authority.
+- server does not accept a stale Workstation permission snapshot as authority;
+- late idempotent retry cannot recreate an already-completed business effect.
 
 ## Phase 5 — native rules + workflow
 
@@ -159,11 +180,12 @@ Gate:
 - last known good rule/workflow remains usable if publication fails;
 - authorization and workflow/domain validity are separate checks.
 
-## Phase 6 — Worker and platform control plane
+## Phase 6 — Worker, long-running HTTP and platform control plane
 
 Deliver:
 - durable job/outbox;
 - Worker claim/lease/retry;
+- idempotent consumer/effect contract;
 - no-progress detection;
 - pause/drain/resume;
 - quarantine/reconciliation;
@@ -171,7 +193,9 @@ Deliver:
 - explicit job authorization/execution classification:
   - committed business consequence;
   - deferred actor action;
-  - platform-control command.
+  - platform-control command;
+- one long-running API using `202 Accepted` + durable operation/status resource + `Location` and appropriate `Retry-After`;
+- duplicate async command with the same idempotency key returns the existing operation resource instead of enqueuing duplicate work.
 
 Attack:
 - Worker crashes after external effect;
@@ -181,14 +205,19 @@ Attack:
 - external outcome unknown;
 - actor permission revoked after enqueue;
 - provider response malformed/oversized/slow;
-- normal tenant user guesses a platform-admin endpoint.
+- normal tenant user guesses a platform-admin endpoint;
+- client loses the initial `202` response and retries the POST;
+- status item is stuck in Running with no progress;
+- queue contains high-priority work continuously and starves lower-priority work.
 
 Gate:
 - critical Worker/server controls are reachable only from Platform Admin Web;
 - no generic force-complete operation;
 - committed consequences are not incorrectly cancelled by later actor revocation;
 - deferred actor actions reauthorize where their semantics require it;
-- third-party responses are bounded/validated and timeout-controlled.
+- third-party responses are bounded/validated and timeout-controlled;
+- async command retries return one operation identity;
+- priority/fairness policy prevents indefinite starvation.
 
 ## Phase 7 — files/documents/printing
 
@@ -197,7 +226,9 @@ Deliver:
 - object upload + metadata lifecycle;
 - document helper where isolation justified;
 - printing status independent from transaction status;
-- upload/request size and processing budgets.
+- upload/request size and processing budgets;
+- claim-check/reference messages for large payloads rather than putting full files in durable queue envelopes;
+- narrowly scoped signed upload/download capability only if provider/flow proves it simpler and safer than proxying all bytes through Core API.
 
 Attack:
 - object succeeds/metadata fails;
@@ -206,9 +237,10 @@ Attack:
 - helper crashes;
 - disk full during staging;
 - oversized/decompression-bomb input;
-- malicious filename/content-type mismatch.
+- malicious filename/content-type mismatch;
+- signed object URL has too broad scope or excessive lifetime.
 
-## Phase 8 — API security + observability/admin hardening
+## Phase 8 — API reliability + observability/admin hardening
 
 Deliver:
 - OpenTelemetry traces/metrics/log correlation;
@@ -219,9 +251,14 @@ Deliver:
 - generated endpoint/version inventory and deprecation/retirement check;
 - production CORS/cache/security-header/error policy;
 - endpoint/work-class resource budgets;
-- SSRF-safe outbound HTTP policy before enabling user-configured webhooks/remote fetches.
+- SSRF-safe outbound HTTP policy before enabling user-configured webhooks/remote fetches;
+- dependency-specific timeout/retry policies;
+- retry budgets and retry telemetry;
+- circuit breaker only for dependencies where persistent/slow failure proves retry alone harmful;
+- liveness/readiness/functional health separation;
+- queue age/oldest-item and completion latency metrics, not only queue depth/start counters.
 
-Attack against applicable OWASP API Security Top 10 categories:
+Attack against applicable OWASP API Security Top 10 categories and reliability cases:
 - object/function/property authorization bypass;
 - auth/recovery abuse;
 - expensive single-request resource exhaustion;
@@ -230,18 +267,26 @@ Attack against applicable OWASP API Security Top 10 categories:
 - SSRF/private-network/metadata target;
 - stale/beta/debug API version;
 - unsafe cache/CORS/error configuration;
-- malicious/unexpected third-party provider response.
+- malicious/unexpected third-party provider response;
+- dependency returns 429/503 for a sustained period;
+- many callers synchronize retries into a thundering herd;
+- retry at several layers multiplies calls;
+- cache unavailable or stale;
+- health endpoint says live while a critical dependency makes the node not ready.
 
 Gate:
 - telemetry failure never invalidates a business transaction;
 - sensitive data is redacted/bounded;
 - privileged API inventory has no undocumented production endpoint;
-- applicable OWASP attack tests pass.
+- applicable OWASP attack tests pass;
+- retry volume cannot grow without aggregate budget bounds;
+- health/readiness correctly remove unhealthy nodes without exposing privileged diagnostics.
 
 ## Phase 9 — payments/credit/inventory hardening
 
 Deliver:
 - `OutcomeUnknown` payment state;
+- provider idempotency/effect receipt linkage;
 - refund/reversal/correction;
 - inventory concurrency policy;
 - current credit exposure authority;
@@ -253,6 +298,7 @@ Attack:
 - concurrent last-stock sale;
 - offline stale credit exposure;
 - duplicate refund/webhook;
+- same payment/refund idempotency key reused with changed amount/target;
 - ordinary Staff attempts refund/credit override by object ID, hidden property or guessed endpoint;
 - permission revoked before a deferred sensitive action executes.
 
@@ -262,21 +308,32 @@ Deliver:
 - Workstation resource/idle tests;
 - constrained single-node server tests;
 - installer/update/rollback;
-- schema/protocol/rule/config compatibility;
+- schema/protocol/rule/config/message compatibility;
 - backup/restore drill;
 - long-running leak/soak tests;
 - authorization-revision/cache invalidation tests if a permission cache exists;
-- OIDC/session/logout/version-skew tests for selected identity implementation.
+- OIDC/session/logout/version-skew tests for selected identity implementation;
+- idempotency retention/cleanup test;
+- retry-storm/queue-backlog/load-shedding tests;
+- restore validation across DB/object/job/idempotency state where required.
 
 ## Deferred until baseline proves itself
 
 Do not spend baseline implementation effort on:
 - full browser offline/PWA business sync;
-- Kafka;
+- Kafka/event-log infrastructure;
 - YugabyteDB;
-- mandatory Redis;
+- mandatory Redis/shared cache;
 - microservice-per-module extraction;
+- per-frontend BFF services;
+- full CQRS dual-store architecture;
+- event-sourced authoritative persistence;
+- Saga as the default business transaction model;
 - global CRDT data model;
+- sharding;
+- leader-election infrastructure where atomic claims/leases suffice;
+- deployment stamps/geode/active-active multi-region;
+- full HATEOAS;
 - Zanzibar-style authorization service/relation-tuple graph/specialized set index;
 - Dynamic OpenID Connect Client Registration;
 - OpenID Native SSO for Mobile Apps as a Windows login mechanism;
