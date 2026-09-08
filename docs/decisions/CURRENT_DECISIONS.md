@@ -63,9 +63,20 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Ordinary tenants use a pooled multi-tenant baseline with explicit tenant discriminators on tenant-owned authoritative data.
 - Authentication, authorization, and tenant isolation are separate concerns.
 - Schema-per-tenant, DB-per-tenant, queue-per-tenant, and deployment-per-tenant are not baseline.
+- Shared compute is still tenant-aware: expensive reports/documents/jobs/provider calls use bounded/fair per-tenant or work-class limits where needed so one tenant cannot consume the whole system.
 - PostgreSQL remains the strongest central reference candidate; if used, its proof includes RLS defense in depth and safe runtime-role/connection-pool behavior.
 - SQLite + WAL and libSQL remain Workstation-store candidates.
 - Exact central and local database products remain open until the relevant vertical-slice POCs close them.
+
+## Command/query and messaging shape
+
+- SquiFlow keeps command/query responsibility clear in code: a command expresses business intent and may mutate state; a query returns data and does not perform business mutation.
+- Material actions use task-oriented commands such as `ApproveQuote`, `RefundPayment`, or `AdjustInventory` rather than hiding every operation behind generic CRUD.
+- This **does not** require separate CQRS read/write databases, command/query microservices, or event sourcing. Read projections/materialized views are introduced only for an implemented query/load need.
+- A **job/command** is an instruction with an execution owner. An **event** is a fact that already happened. Do not blur the two.
+- Short authoritative business work remains synchronous when the caller needs a definitive result. After-commit consequences may use transactional outbox + Worker/event delivery.
+- For one durable background task, use queue/job semantics. Use pub/sub only when multiple independent consumers genuinely need the same committed fact. Use an event stream only when durable replay/independent offsets/history are proven requirements.
+- Kafka or another event-stream platform is not baseline merely because event streams are a valid pattern.
 
 ## API, sync, and Worker correctness
 
@@ -73,8 +84,12 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Same idempotency key + changed intent is rejected.
 - Where one store owns mutation + idempotency receipt + outbox, they commit atomically.
 - At-least-once delivery/redelivery is assumed; effects are idempotent or explicitly reconcilable.
+- Duplicate defense is end-to-end: caller/producer retry, transport redelivery, and consumer/effect replay are distinct duplicate-entry points.
+- “Exactly once” is never claimed system-wide without naming and proving its scope; one ACID transaction may be exactly-once within that store while a distributed external effect remains retry/reconciliation based.
 - Retry is finite, classified, budgeted, and uses backoff/jitter/`Retry-After` where appropriate.
+- One dependency call path has an intentional retry owner; nested Workstation/API/application/Worker/provider retry loops must not multiply blindly.
 - Long-running HTTP work uses durable asynchronous status only when work is actually long-running; ordinary short business transactions remain synchronous.
+- Background work can be user-triggered, schedule-triggered, external-system-triggered, batch/volume-triggered, or platform-control work; the trigger type does not remove the need for durable state/failure ownership when the work matters.
 - Conflict handling is aggregate-specific; no global last-write-wins policy.
 
 ## Rules/workflow
@@ -114,6 +129,7 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - full browser offline sync;
 - generic repository/unit-of-work/one-interface-per-class abstractions;
 - Kafka, mandatory Redis, event-sourced/full-CQRS/Saga core architecture;
+- event-driven-everything or a generic broker/pub-sub layer before a real multi-consumer requirement;
 - global CRDTs;
 - microservice-per-module design;
 - per-tenant infrastructure by default;
