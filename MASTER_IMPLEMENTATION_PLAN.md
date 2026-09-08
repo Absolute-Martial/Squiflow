@@ -22,7 +22,7 @@ real requirement / failure mode
 → add further layers only when evidence earns them
 ```
 
-A design is **not** better because it has fewer processes/interfaces if that simplification destroys recovery, provider replacement, authorization freshness, offline durability, or other accepted responsibilities.
+A design is **not** better because it has fewer processes/interfaces if that simplification destroys recovery, provider replacement, authorization freshness, offline durability, retry safety, duplicate handling, or other accepted responsibilities.
 
 Likewise, a design is not better because it has more layers. Avoid forwarding-only Manager/Service/Helper/Repository hierarchies.
 
@@ -228,6 +228,8 @@ authoritative TenantContext
 
 Authentication, OpenFGA authorization, and tenant data isolation are separate concerns.
 
+Pooled data does not mean unbounded pooled compute. Expensive reports, documents, jobs, provider calls and future Worker concurrency are tenant/work-class aware where required so one tenant cannot consume the entire system.
+
 Do not prebuild schema-per-tenant, DB-per-tenant, queue-per-tenant or deployment-per-tenant.
 
 If PostgreSQL is used, prove RLS defense in depth, safe runtime roles and safe tenant context under connection pooling. This does not silently select PostgreSQL.
@@ -236,7 +238,19 @@ Owner: `docs/architecture/MULTI_TENANCY_ISOLATION.md`.
 
 ---
 
-## 8. API/idempotency/retry
+## 8. Command/query, API, idempotency, and retry
+
+SquiFlow adopts **command/query responsibility separation** without assuming full CQRS infrastructure.
+
+```text
+Command
+→ business intent, possible mutation
+
+Query
+→ read only, no business mutation
+```
+
+Material actions remain task-oriented (`ApproveQuote`, `RefundPayment`, `AdjustInventory`). Separate read/write databases, event sourcing, or command/query microservices are added only if an implemented workload proves they are worth the extra consistency/operations contract.
 
 Retryable mutations use caller-provided semantic idempotency keys.
 
@@ -247,7 +261,11 @@ same key + changed intent   → reject
 
 When one store owns business mutation, idempotency receipt and outbox, commit them atomically.
 
-Retry is finite/classified/budgeted. Long-running work uses durable async status only when genuinely long-running; ordinary short transactions stay synchronous.
+Duplicate handling is end-to-end: caller/producer retry, transport redelivery, and consumer/effect replay are distinct failure points. Do not treat one broker or one dedupe table as system-wide exactly-once.
+
+Retry is finite/classified/budgeted, with an intentional retry owner for each remote dependency path so nested retries do not multiply blindly.
+
+Long-running work uses durable async status only when genuinely long-running; ordinary short transactions stay synchronous.
 
 Owner: `docs/api/API_CONTRACT_IDEMPOTENCY_AND_RETRY.md`.
 
@@ -409,11 +427,41 @@ If a future driver/native component needs a helper process, Guard supervises its
 
 ---
 
-## 15. Worker and external effects
+## 15. Worker, events, messaging, and external effects
 
 A separate Worker executable is created in Phase 6 when the first durable background workload exists.
 
-Worker requirements then include:
+Background work may be:
+- user-triggered consequence;
+- scheduled occurrence;
+- external-system-triggered;
+- batch/volume-triggered;
+- platform-control work.
+
+A schedule is a trigger, not the durable business truth. Important scheduled work becomes a durable occurrence/job before execution.
+
+Keep message semantics explicit:
+
+```text
+Command / Job
+= instruction with an execution owner
+
+Event
+= fact that already happened
+```
+
+Messaging pattern selection:
+
+```text
+one durable task → queue/job semantics
+many independent consumers of one fact → pub/sub or multiple outbox deliveries
+replay/history/independent offsets required → event stream, only when proven
+immediate authoritative answer → direct synchronous path
+```
+
+The transactional outbox is the normal bridge from an authoritative commit to later consequences. Do not make hidden event choreography the primary correctness owner for payments, stock, permissions, or other protected transitions.
+
+Worker requirements include:
 - bounded concurrency;
 - durable claims/leases where needed;
 - idempotent/reconcilable effects;
@@ -421,6 +469,8 @@ Worker requirements then include:
 - no-progress handling;
 - pause/drain/recovery;
 - `OutcomeUnknown` for ambiguous external effects.
+
+No Kafka/event-stream infrastructure or generic pub/sub broker is baseline merely because those patterns exist.
 
 Notifications/webhooks use Core API/outbox/Worker boundaries first; no notification microservice baseline.
 
@@ -459,7 +509,8 @@ Keep tests focused on real correctness risks:
 - ZITADEL authentication/session flows;
 - OpenFGA model/tuple/custom-role/consistency/reconciliation behavior;
 - tenant/API authorization;
-- idempotency/response loss;
+- idempotency/response loss across caller/transport/consumer boundaries;
+- retry amplification and retry-budget exhaustion;
 - sync conflict/long-offline;
 - `IObjectStore` provider contract + Hugging Face adapter;
 - `IBackupTarget` contract + encrypted Kaggle backup restore;
@@ -482,7 +533,7 @@ Phase 2  first local-first Workstation Customer/Order transaction + local DB + G
 Phase 3  authoritative sync + central DB + pooled tenant isolation + idempotency
 Phase 4  conflict/long-offline/resnapshot recovery
 Phase 5  one native rule + workflow + bounded dynamic form
-Phase 6  create Worker + Platform Admin Web for first durable/control-plane slice
+Phase 6  create Worker + Platform Admin Web; prove first real queue/schedule/event consequence
 Phase 7  Hugging Face IObjectStore flow + documents/printing + Kaggle IBackupTarget restore proof
 Phase 8  API/observability/admin hardening
 Phase 9  payments/credit/inventory/correction hardening
@@ -500,9 +551,11 @@ Do not add these now:
 - generic repository/unit-of-work/one-interface-per-class hierarchy;
 - full browser offline/PWA sync;
 - Kafka/event-log infrastructure;
+- generic pub/sub/event-bus platform before a real multi-consumer need;
 - mandatory Redis;
 - microservice-per-module architecture;
 - full CQRS/event sourcing/Saga core architecture;
+- event-driven-everything;
 - global CRDTs;
 - schema/database/deployment per tenant baseline;
 - multi-currency/FX subsystem;
