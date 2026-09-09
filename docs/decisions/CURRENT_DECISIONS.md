@@ -46,6 +46,22 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Detailed owner: `docs/requirements/RESOURCE_CONSUMPTION_AND_LIMITS.md`.
 - Accepted/open/deferred NFR decisions and edge-case challenges are recorded in `docs/review/NFR_DECISION_CHALLENGE.md`.
 
+## Non-functional, consumption, and operational requirements
+
+- Cross-cutting NFRs are classified as **HardInvariant**, **OperationalTarget**, or **DegradedMode** requirements. Detailed owner: `docs/requirements/NON_FUNCTIONAL_REQUIREMENTS.md`.
+- A capability is not complete merely because the happy path works; material failure, recovery, concurrency, compatibility, capacity, security, observability/support and user-understandability behavior must also be defined/tested.
+- Numerical latency/resource/recovery targets are measured from representative slices and actual deployment hardware before becoming release/customer promises; architecture does not invent arbitrary p95/p99 or memory numbers.
+- **Consumption accounting for a defined metered resource is durable/reconcilable application state when it is needed for enforcement, provider/account capacity, cost, abuse control, support/contract explanation, or future billing. It is not optional analytics and OpenTelemetry is not the authority for it.**
+- **Application-level scoped limit enforcement is accepted.** Limits may be platform/provider, workload/resource, tenant, integration/destination, or another explicit bounded scope when the implemented resource requires it.
+- A tenant-specific limit does **not** require or imply a subscription tier. Commercial plan names/prices/default allowances remain separate OPEN product decisions.
+- Every authoritative meter defines what consumes a unit, whether retries/failed attempts count, unit/scope, correction/reconciliation behavior and consistency needed for hard enforcement.
+- Hard limits must define race/atomicity/reservation behavior so concurrent requests cannot both spend the same final allowance; approximate counters cannot silently masquerade as strict contractual enforcement.
+- Limit changes are versioned/audited. Lowering a limit below current consumption blocks/degrades new optional usage according to policy; it never silently deletes already committed business state or retained customer objects.
+- Workstation offline usage/limit snapshots may support UX but do not override current server/provider hard limits. Pending local intent is preserved if server authority later rejects/defer it because a limit changed or was exhausted.
+- Existing `entitlement` wording means a SquiFlow/platform capability/security ceiling or manually controlled product availability where required; it does not imply that commercial subscription tiers already exist.
+- Detailed owner: `docs/requirements/RESOURCE_CONSUMPTION_AND_LIMITS.md`.
+- Accepted/open/deferred NFR decisions and edge-case challenges are recorded in `docs/review/NFR_DECISION_CHALLENGE.md`.
+
 ## Small-team tenant control
 
 - `Owner` + `Staff` are the default small-team role templates.
