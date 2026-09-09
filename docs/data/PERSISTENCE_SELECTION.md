@@ -21,7 +21,27 @@ PostgreSQL is the strongest current central reference candidate, not an implicit
 
 Do not require future Worker/HA/reporting features to be solved before the Phase-3 slice unless the selected DB would make a known required path impossible.
 
-## 2. No generic persistence abstraction baseline
+## 2. Workload characterization comes before tuning
+
+A database proof is invalid if it optimizes an undefined workload.
+
+Before comparing/tuning candidates, record the implemented slice's representative profile:
+- read/write/delete mix;
+- typical and large row/document sizes;
+- number of tenants and expected tenant/data skew;
+- normal interactive concurrency;
+- offline Workstation reconnect burst concurrency;
+- sync/import/backfill write bursts;
+- current hot queries and expected larger cardinalities;
+- consistency/transaction requirements for each protected invariant;
+- expected page/report/export sizes;
+- initial HA/geographic assumptions (currently single-region/single-node first unless changed by evidence).
+
+The same DB can behave very differently under a read-heavy Web demo and under a reconnecting Workstation backlog that writes many rows while maintaining indexes and WAL.
+
+Measure the real slice first, then decide whether the problem is query shape, index choice, lock contention, connection pressure, storage I/O, WAL/checkpoint behavior, data-model shape, or something else.
+
+## 3. No generic persistence abstraction baseline
 
 Do not create:
 
@@ -42,26 +62,6 @@ Instead:
 - extract a narrow interface/project only if an actual replacement, dual provider, plugin/process boundary or dependency-inversion problem requires it.
 
 Containment is enough until migration is real.
-
-## 3. Runtime hosts, shared data source, and data ownership
-
-SquiFlow currently has a **modular-monolith business core with several runtime hosts**, not a fleet of independently owned microservices.
-
-Therefore Core API, Admin API, and Worker may legitimately connect to the same authoritative central database.
-
-That does **not** mean every host owns every table or may bypass application invariants.
-
-Rules:
-- module/capability ownership remains explicit even when tables share one physical database;
-- hosts should reuse reviewed shared module/application/persistence code where practical;
-- if Core API and Admin API can both mutate the same authoritative concept, they enforce the same domain/transaction/concurrency rules;
-- one host must not reach around a module with ad-hoc SQL merely because the table is physically reachable;
-- read/report access still respects tenant/platform authorization and field-sensitivity rules;
-- database permissions/service identities should be no broader than the host actually needs once the schema/runtime shape is known.
-
-Do **not** apply `database per service` mechanically to `services/core-api`, `services/admin-api`, and `services/worker`. Those are process/deployment/security boundaries, not automatically independent business services.
-
-If a future capability is extracted into a genuinely independent service with its own deployment/data lifecycle, its authoritative data ownership becomes explicit. Other services should then exchange data through stable APIs/events/read models rather than directly modifying that service's private tables.
 
 ## 4. Authoritative schema design
 
@@ -108,7 +108,13 @@ If PostgreSQL is used:
 - runtime role is not superuser/`BYPASSRLS`;
 - table-owner/`FORCE ROW LEVEL SECURITY` behavior is deliberately handled;
 - read and write policies are tested;
-- any custom tenant setting used by RLS is transaction-local under connection pooling.
+- any custom tenant setting used by RLS is transaction-local under connection pooling;
+- measure connection-pool size against PostgreSQL backend-process/memory cost on the actual rack;
+- measure WAL growth and checkpoint latency during reconnect/import bursts;
+- observe autovacuum behavior under update/delete churn rather than assuming defaults are free;
+- observe temp/sort spill and disk usage for representative reports/queries;
+- bound/monitor archive/log/WAL growth so finite disk cannot be exhausted silently;
+- measure crash/restart recovery time and verify backup/restore behavior with the chosen WAL/archive settings.
 
 RLS is defense in depth, not a replacement for application authorization.
 
@@ -224,10 +230,12 @@ Server and Workstation may use different DB products without requiring a shared 
 Record:
 - exact product/driver/version/config;
 - hardware/OS;
+- workload profile from section 2;
 - workload/data size and projected cardinality;
 - representative query plans and index choices;
 - write/index overhead under sync/import-style bursts;
 - transaction/concurrency/isolation results;
+- provider-specific maintenance behavior (including WAL/checkpoint/vacuum/temp behavior when applicable);
 - resource measurements;
 - backup/recovery evidence;
 - known limitations;
