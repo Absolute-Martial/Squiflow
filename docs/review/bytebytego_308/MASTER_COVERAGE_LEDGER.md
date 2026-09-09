@@ -118,7 +118,7 @@ Those labels are **surface-scoped shorthand**, not judgments about whether a tec
 
 Reference architectures and technology lists are not implementation backlogs. gRPC, Kafka, RabbitMQ, Kubernetes, sharding, distributed caches, GraphQL, CQRS, event sourcing, service mesh, microservices and similar patterns require an actual SquiFlow workload/failure/operational reason.
 
-**Technology comparisons are not winner/loser decisions.** `REST vs GraphQL`, `Redis vs Memcached`, `Docker vs Kubernetes`, `Kafka vs RabbitMQ`, `JWT vs PASETO`, `RBAC vs ABAC vs ACL`, `API vs SDK`, and similar material must be converted into a SquiFlow **fit/usage analysis**: what each option is good at, where it is weaker, what SquiFlow currently uses at that boundary and why, where another option could be beneficial, whether complementary use is sensible, and what evidence/adoption trigger is required. The authoritative method is `TECHNOLOGY_FIT_AND_USAGE_REVIEW_RULE.md`.
+**Technology comparisons are not winner/loser decisions.** `REST vs GraphQL`, `Redis vs Memcached`, `Docker vs Kubernetes`, `Kafka vs RabbitMQ`, `JWT vs PASETO`, `RBAC vs ABAC vs ACL`, `API vs SDK`, `batch vs stream`, `monolith vs modular monolith vs microservices`, `process vs thread`, and similar material must be converted into a SquiFlow **fit/usage analysis**: what each option is good at, where it is weaker, what SquiFlow currently uses at that boundary and why, where another option could be beneficial, whether complementary use is sensible, and what evidence/adoption trigger is required. The authoritative method is `TECHNOLOGY_FIT_AND_USAGE_REVIEW_RULE.md`.
 
 Entries `001-060` have been **retrospectively re-audited** under that method in `RETROSPECTIVE_TECHNOLOGY_FIT_AUDIT_001_060.md`. Any older shorthand such as `deferred`, `not baseline`, `AVOID`, or `REST baseline` in the detailed studies must be interpreted through that fit audit rather than as a global rejection/winner declaration. The archive source material itself is not rewritten; only the SquiFlow interpretation is narrowed/corrected. Entries `061+` are reviewed under the corrected method from the start.
 
@@ -142,51 +142,52 @@ Material changes to accepted architecture, technology choice, trust/authority bo
 - `STUDY_061_070.md` — entries `061-070` exhaustive study plus the seventh 10-article checkpoint.
 - `STUDY_071_080.md` — entries `071-080` exhaustive study plus the eighth 10-article checkpoint.
 - `STUDY_081_090.md` — entries `081-090` exhaustive study plus the ninth 10-article checkpoint.
+- `STUDY_091_100.md` — entries `091-100` exhaustive study plus the tenth 10-article checkpoint.
 - `TECHNOLOGY_FIT_AND_USAGE_REVIEW_RULE.md` — fit-for-purpose rule for technology/comparison exposures.
 - `CRITICAL_INTERROGATION_RULE.md` — user-requested rule requiring explicit challenge of what SquiFlow is doing, why, alternatives, new costs, recovery, evidence and falsification.
 - `RETROSPECTIVE_TECHNOLOGY_FIT_AUDIT_001_060.md` — retroactive fit/use/why audit of every prior archive entry through `060`; authoritative for interpreting older technology-selection shorthand.
 - `CONCEPT_DEPENDENCY_MAP.md` — cumulative concept map through entry `060`.
 - `CONCEPT_DEPENDENCY_MAP_061_070.md` — sequential map extension for entries `061-070`.
 - `CONCEPT_DEPENDENCY_MAP_071_080.md` — sequential map extension for entries `071-080`.
-- `CONCEPT_DEPENDENCY_MAP_081_090.md` — sequential map extension for entries `081-090`; together the map is current through entry `090`.
+- `CONCEPT_DEPENDENCY_MAP_081_090.md` — sequential map extension for entries `081-090`.
+- `CONCEPT_DEPENDENCY_MAP_091_100.md` — sequential map extension for entries `091-100`; together the map is current through entry `100`.
 
 The split between study files is organizational only; the coverage ledger is authoritative.
 
 ## Current sequential progress
 
-Archive entries `001-090` are fully completed. All archive-article PDF pages `5-179` have been read. For entries `081-090`, every PDF page `159-179` was rendered and visually inspected, including the visual-heavy pages `159, 160, 162, 164, 166, 168, 170, 172, 174, 176, 178` in addition to parsed source text. Structural pages `1-4` were previously completed for inventory.
+Archive entries `001-100` are fully completed. All archive-article PDF pages `5-197` have been read. For entries `091-100`, every PDF page `180-197` was rendered and visually inspected, including the diagram-heavy pages `180, 182, 184, 186, 187, 189, 191, 193, 194, 196` in addition to parsed source text. Structural pages `1-4` were previously completed for inventory.
 
-The ninth checkpoint after ninety archive entries is recorded at the end of `STUDY_081_090.md`.
+The tenth checkpoint after one hundred archive entries is recorded at the end of `STUDY_091_100.md`.
 
-A traceability error from the previous checkpoint was corrected here: the prior cursor text named archive `081` as a cross-language strings article, but the authoritative archive ledger and PDF page `159` show `081 — Design Patterns Cheat Sheet`. The sequential study follows the ledger/PDF, and the next cursor is now derived from those sources rather than the stale label.
+The batch continues the explicit **what/where/why + falsification** method. Entry `091` treats XSS as a source-to-sink rendering problem and records existing security requirements as unverified until real Web/rendering tests exist. Entry `092` separates one-owner durable jobs, scheduled batch work, live signals and true stream processing rather than selecting batch or stream globally. Entry `093` positively explains why a modular monolith currently fits SquiFlow business modules—small-team operation, in-process transactions/debugging and owned-rack constraints—while also naming service-extraction triggers rather than declaring microservices generally inferior. Entry `094` applies the same rule to process/thread/task boundaries. Entry `095` separates latency distributions from throughput/backlog capacity and refuses invented SLO numbers. Entry `097` treats the source's performance remedies as conditional hypotheses, not automatic fixes. Entries `098-100` treat server/network/protocol lists as capability inventories and map only the services SquiFlow actually needs or might need for a specific surface.
 
-The main refinement in this batch is **critical verification of what is only planned/documented versus what is actually implemented**. Entry `081` does not claim Factory/Adapter/State/etc. are implemented because the repository has no application source yet; it maps only pattern-shaped documented boundaries such as `IObjectStore`/`IBackupTarget`, explicit command semantics and the staged request pipeline. Entry `082` finds a concrete implementation gap: SquiFlow has a strong documented release/qualification contract, but the repository currently has no committed CI configuration. Entry `083` treats Kafka as a positive replay-stream candidate only if a real SquiFlow workload needs replay/independent offsets/partition ordering at a scale where the simpler DB outbox/job path becomes uneconomical. Entry `084` treats load balancer, API-gateway and reverse-proxy as overlapping capabilities rather than three required products. Entries `085-089` apply the same what/why interrogation to Redis persistence, cookies/sessions, access-control models, API/SDK integration and SQL-injection defenses.
+Notable source caveats preserved in entries `091-100` include:
 
-Notable source caveats preserved in entries `081-090` include:
+- input validation and `HttpOnly` cookies do not by themselves solve XSS; output context/safe sinks matter, and DOM XSS can bypass a server-only validation story;
+- batch does not inherently mean greater accuracy and stream does not inherently mean approximate/unsafe processing; freshness, event time, replay and state recovery determine the design;
+- “modules are independent” and “microservices are more scalable” are overbroad; modular monoliths share deployment/process concerns and services earn value only from real independent boundaries;
+- process/thread comparisons are simplified relative to modern .NET async/task scheduling and platform-specific process/thread costs;
+- latency should be treated as a distribution and throughput interacts with queueing/saturation rather than as a separate “bandwidth” number;
+- the duplicate system-design catalog is a recall checklist and still omits SquiFlow-critical idempotency, tenant isolation, compatibility, authority/freshness, backpressure, recovery and privacy concerns;
+- CDN/background work/async/indexes/parallel calls/retries/autoscale/pool tuning are not universal slow-API fixes and can worsen the wrong bottleneck;
+- the server infographic's `Replica/Backup` label is misleading: replication is not an independent backup/recovery strategy, and object storage is a valid alternative to a conventional file server;
+- firewalls, load balancers, VPNs, IDS/IPS, SIEM/NMS, SD-WAN and similar network capabilities are not automatic requirements for a small owned-rack deployment;
+- DNS/DHCP/NTP/SSH/RDP/SMTP/HTTPS/LDAP/OIDC/database protocols/VPNs span different layers and are not one stack to install; direct LDAP is not required merely because a customer uses enterprise directory services.
 
-- design-pattern diagrams are vocabulary, not proof that each pattern needs a SquiFlow class hierarchy; Singleton/Observer/Proxy have important lifecycle/distributed-failure caveats;
-- the CI/CD visual's Jenkins/Docker/Kubernetes flow is an example and its `CD` text specifically describes Continuous Deployment; a green pipeline is not full production qualification;
-- Kafka ordering is partition-scoped, replication safety is configuration-dependent, and broker/consumer exactly-once features do not make external business effects exactly once;
-- load balancer/API-gateway/reverse-proxy roles overlap and may be implemented by one component; gateway authorization is not current resource/domain authorization and load balancing does not remove shared SPOFs;
-- Redis AOF durability depends on fsync policy, RDB snapshotting has a loss window if used alone, fork/COW can add memory pressure, and “writes are non-blocking” is too broad;
-- cookies and sessions are normally complementary because server sessions commonly use an opaque cookie; “sessions are more secure” is not universal;
-- RBAC/ABAC/ACL are not exhaustive; ReBAC is directly relevant to OpenFGA and SquiFlow deliberately composes role, relationship, tenant-isolation and domain-state checks;
-- API and SDK are not substitutes; SDKs typically implement/use provider APIs and can add retry/version/error-model coupling;
-- parameterized SQL values do not make arbitrary dynamic identifiers/operators safe; ORM/RLS/WAF/safe errors are defense-in-depth rather than replacements for safe query construction.
+No material owner-architecture technology adoption was made from entries `091-100`. The batch strengthens existing security, modularity, performance, network and recovery requirements without silently adding a streaming platform, microservices, cache, load balancer, enterprise network appliance, LDAP integration, VPN product or HTTP/3-specific business API logic. The existing modular-monolith direction is retained for the current business-module boundary **because of explicit SquiFlow requirements**, not because the comparison article declares it a universal winner.
 
-No material owner-architecture technology adoption was made from entries `081-090`. The batch records one important implementation-state finding—CI is documented but not currently committed—and reinforces existing boundaries without silently adding Kafka, Redis, a new gateway product, a new access-control engine, a design-pattern framework or another provider SDK policy.
+The next unprocessed page is PDF page `198`, archive entry `101`.
 
-The next unprocessed page is PDF page `180`, archive entry `091`.
+`LAST FULLY COMPLETED PDF PAGE: 197`
 
-`LAST FULLY COMPLETED PDF PAGE: 179`
+`LAST COMPLETED ARTICLE: 100 — Network Services That Power Modern Connectivity`
 
-`LAST COMPLETED ARTICLE: 090 — 24 Good Resources to Learn Software Architecture in 2025`
+`NEXT PDF PAGE: 198`
 
-`NEXT PDF PAGE: 180`
+`NEXT ARTICLE: 101 — How to Design Good APIs`
 
-`NEXT ARTICLE: 091 — Cross-Site Scripting (XSS) Attacks`
-
-`COVERAGE STATUS: 179 / 308 pages sequentially completed`
+`COVERAGE STATUS: 197 / 308 pages sequentially completed`
 
 The structural inventory pages `242-244` were inspected only to establish the master inventory; this does not mean URL detailed processing has jumped ahead.
 
