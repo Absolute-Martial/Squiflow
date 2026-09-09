@@ -1,41 +1,41 @@
 id,section,pdf_pages,archive_entry,url_entry,title,original_pages,multi,duplicate,status,source_url,notes
-ARCH-001,ARCHIVE,5-6,001,,How does gRPC work?,12-13,YES,NO,COMPLETED,,visual:5; study:001 complete
-ARCH-002,ARCHIVE,7-8,002,,Docker vs. Kubernetes. Which one should we use?,14-15,YES,NO,COMPLETED,,visual:7; study:002 complete
-ARCH-003,ARCHIVE,9-10,003,,A Cheatsheet on Infrastructure as Code Landscape,20-21,YES,NO,COMPLETED,,visual:9; study:003 complete
-ARCH-004,ARCHIVE,11-12,004,,A Crash Course on Architectural Scalability,22-23,YES,NO,COMPLETED,,visual:11; study:004 complete
-ARCH-005,ARCHIVE,13-14,005,,Cookies Vs Sessions Vs JWT Vs PASETO,26-27,YES,NO,COMPLETED,,visual:13; study:005 complete
-ARCH-006,ARCHIVE,15-16,006,,The Ultimate API Learning Roadmap,30-31,YES,NO,COMPLETED,,visual:15; study:006 complete
-ARCH-007,ARCHIVE,17-18,007,,10 Essential Components of a Production Web Application,34-35,YES,NO,COMPLETED,,visual:17; study:007 complete
-ARCH-008,ARCHIVE,19-20,008,,"Session, Cookie, JWT, Token, SSO, and OAuth 2.0 Explained in One Diagram",36-37,YES,NO,COMPLETED,,visual:19; study:008 complete
-ARCH-009,ARCHIVE,21-22,009,,A Cheatsheet on Database Performance,46-47,YES,NO,COMPLETED,,visual:21; study:009 complete
-ARCH-010,ARCHIVE,23-24,010,,JWT 101: Key to Stateless Authentication,51-52,YES,NO,COMPLETED,,visual:23; study:010 complete; overlaps URL-052 later
-ARCH-011,ARCHIVE,25-26,011,,12 Algorithms for System Design Interviews,59-60,YES,NO,COMPLETED,,visual:25; study:011 complete
-ARCH-012,ARCHIVE,27-28,012,,PostgreSQL 101: The Everything Database,63-64,YES,NO,COMPLETED,,visual:27; study:012 complete
-ARCH-013,ARCHIVE,29-30,013,,Top 12 Tips for API Security,65-66,YES,NO,COMPLETED,,visual:29; study:013 complete
-ARCH-014,ARCHIVE,31-32,014,,24 Good Resources to Learn Software Architecture in 2025,67-68,YES,ARCH-DUP-01,COMPLETED,,visual:31; study:014 complete; duplicate occurrences 057 and 090 remain independent
-ARCH-015,ARCHIVE,33-34,015,,SQS vs SNS vs EventBridge vs Kinesis,69-70,YES,NO,COMPLETED,,visual:33; study:015 complete
-ARCH-016,ARCHIVE,35-36,016,,Top 5 common ways to improve API performance,71-72,YES,ARCH-DUP-02,COMPLETED,,visual:35; study:016 complete; duplicate occurrence 059 remains independent; overlaps URL-013 later
-ARCH-017,ARCHIVE,37-38,017,,HTTP/1 -> HTTP/2 -> HTTP/3,79-80,YES,NO,COMPLETED,,visual:37; study:017 complete
-ARCH-018,ARCHIVE,39-40,018,,Structure of URL,81-82,YES,NO,COMPLETED,,visual:39; study:018 complete; source text port-separator typo explicitly noted
-ARCH-019,ARCHIVE,41-42,019,,A Cheatsheet on Comparing Key-Value Stores,83-84,YES,NO,COMPLETED,,visual:41; study:019 complete; product matrix treated as high-level/version-sensitive
-ARCH-020,ARCHIVE,43-44,020,,Which Database Should I Use on AWS?,85-86,YES,NO,COMPLETED,,visual:43; study:020 complete; AWS-specific provider choices not adopted
-ARCH-021,ARCHIVE,45-46,021,,How to load your websites at lightning speed,91-92,YES,NO,COMPLETED,,visual:45; study:021 complete
-ARCH-022,ARCHIVE,47-48,022,,What is SSO (Single Sign-On)?,93-94,YES,NO,COMPLETED,,visual:47; study:022 complete
-ARCH-023,ARCHIVE,49,023,,Redis VS Memcached,97,NO,NO,COMPLETED,,visual:49; study:023 complete; product details treated as version/configuration-sensitive
-ARCH-024,ARCHIVE,50-51,024,,How to Learn Backend Development?,108-109,YES,NO,COMPLETED,,visual:50; study:024 complete; overlaps URL-059 later
-ARCH-025,ARCHIVE,52-53,025,,Virtualization vs Containerization,112-113,YES,ARCH-DUP-03,COMPLETED,,visual:52; study:025 complete; duplicate occurrence 108 remains independent
-ARCH-026,ARCHIVE,54-55,026,,How to Learn API Development?,116-117,YES,NO,COMPLETED,,visual:54; study:026 complete; overlaps URL-061 later
-ARCH-027,ARCHIVE,56-57,027,,Must-Know Network Protocol Dependencies,118-119,YES,NO,COMPLETED,,visual:56; study:027 complete; HTTP/TCP simplification and MCP categorization caveats recorded
-ARCH-028,ARCHIVE,58-59,028,,18 Key Design Patterns Every Developer Should Know,122-123,YES,NO,COMPLETED,,visual:58; study:028 complete; patterns kept as vocabulary not baseline layers
-ARCH-029,ARCHIVE,60-61,029,,The Data Engineering Roadmap,124-125,YES,NO,COMPLETED,,visual:60; study:029 complete; data-platform stack deferred until real workload
-ARCH-030,ARCHIVE,62-63,030,,What do version numbers mean?,128-129,YES,NO,COMPLETED,,visual:62; study:030 complete; overlaps URL-045 later; SemVer separated from API/sync/schema compatibility
-ARCH-031,ARCHIVE,64-65,031,,Top 20 System Design Concepts You Should Know,134-135,YES,ARCH-DUP-04,COMPLETED,,visual:64; study:031 complete; duplicate occurrence 096 remains independent; CAP/eventual-consistency simplifications noted
-ARCH-032,ARCHIVE,66-67,032,,9 OOP Design Patterns You Must Know,139-140,YES,NO,COMPLETED,,visual:66; study:032 complete; singleton/observer durability caveats noted
-ARCH-033,ARCHIVE,68-69,033,,A Cheatsheet on REST API Design Best Practices,143-144,YES,NO,COMPLETED,,visual:68; study:033 complete; overlaps URL-064 later; HTTP idempotence table not treated as app retry proof
-ARCH-034,ARCHIVE,70-71,034,,Top 30 AWS Services That Are Commonly Used,145-146,YES,NO,COMPLETED,,visual:70; study:034 complete; provider catalog treated as taxonomy not architecture selection
-ARCH-035,ARCHIVE,72-73,035,,9 Clean Code Principles To Keep In Mind,149-150,YES,NO,COMPLETED,,visual:72; study:035 complete; overlaps URL-008 later; DRY anti-dogma caveat recorded
-ARCH-036,ARCHIVE,74-75,036,,The 4 Types of SQL Joins,151-152,YES,NO,COMPLETED,,visual:74; study:036 complete; row-multiplication/NULL semantics considered
-ARCH-037,ARCHIVE,76-77,037,,How to Learn Cloud Computing?,153-154,YES,NO,COMPLETED,,visual:76; study:037 complete; roadmap not treated as product backlog
-ARCH-038,ARCHIVE,78,038,,Visualizing a SQL query,155,NO,NO,COMPLETED,,visual:78; study:038 complete; logical order distinguished from physical optimizer plan
-ARCH-039,ARCHIVE,79-80,039,,Explaining JSON Web Token (JWT) with simple terms,156-157,YES,NO,COMPLETED,,visual:79; study:039 complete; signature-not-encryption and current-authorization caveats recorded
-ARCH-040,ARCHIVE,81-82,040,,How to Deploy Services,160-161,YES,NO,COMPLETED,,visual:81; study:040 complete; canary/A-B/DB rollback caveats recorded
+ARCH-001,ARCHIVE,5-6,001,,How does gRPC work?,12-13,YES,NO,COMPLETED,,visual:5; study:001 complete; fit-audit:RETRO-001-060
+ARCH-002,ARCHIVE,7-8,002,,Docker vs. Kubernetes. Which one should we use?,14-15,YES,NO,COMPLETED,,visual:7; study:002 complete; fit-audit:RETRO-001-060
+ARCH-003,ARCHIVE,9-10,003,,A Cheatsheet on Infrastructure as Code Landscape,20-21,YES,NO,COMPLETED,,visual:9; study:003 complete; fit-audit:RETRO-001-060
+ARCH-004,ARCHIVE,11-12,004,,A Crash Course on Architectural Scalability,22-23,YES,NO,COMPLETED,,visual:11; study:004 complete; fit-audit:RETRO-001-060
+ARCH-005,ARCHIVE,13-14,005,,Cookies Vs Sessions Vs JWT Vs PASETO,26-27,YES,NO,COMPLETED,,visual:13; study:005 complete; fit-audit:RETRO-001-060
+ARCH-006,ARCHIVE,15-16,006,,The Ultimate API Learning Roadmap,30-31,YES,NO,COMPLETED,,visual:15; study:006 complete; fit-audit:RETRO-001-060
+ARCH-007,ARCHIVE,17-18,007,,10 Essential Components of a Production Web Application,34-35,YES,NO,COMPLETED,,visual:17; study:007 complete; fit-audit:RETRO-001-060
+ARCH-008,ARCHIVE,19-20,008,,"Session, Cookie, JWT, Token, SSO, and OAuth 2.0 Explained in One Diagram",36-37,YES,NO,COMPLETED,,visual:19; study:008 complete; fit-audit:RETRO-001-060
+ARCH-009,ARCHIVE,21-22,009,,A Cheatsheet on Database Performance,46-47,YES,NO,COMPLETED,,visual:21; study:009 complete; fit-audit:RETRO-001-060
+ARCH-010,ARCHIVE,23-24,010,,JWT 101: Key to Stateless Authentication,51-52,YES,NO,COMPLETED,,visual:23; study:010 complete; overlaps URL-052 later; fit-audit:RETRO-001-060
+ARCH-011,ARCHIVE,25-26,011,,12 Algorithms for System Design Interviews,59-60,YES,NO,COMPLETED,,visual:25; study:011 complete; fit-audit:RETRO-001-060
+ARCH-012,ARCHIVE,27-28,012,,PostgreSQL 101: The Everything Database,63-64,YES,NO,COMPLETED,,visual:27; study:012 complete; fit-audit:RETRO-001-060
+ARCH-013,ARCHIVE,29-30,013,,Top 12 Tips for API Security,65-66,YES,NO,COMPLETED,,visual:29; study:013 complete; fit-audit:RETRO-001-060
+ARCH-014,ARCHIVE,31-32,014,,24 Good Resources to Learn Software Architecture in 2025,67-68,YES,ARCH-DUP-01,COMPLETED,,visual:31; study:014 complete; duplicate occurrences 057 and 090 remain independent; fit-audit:RETRO-001-060
+ARCH-015,ARCHIVE,33-34,015,,SQS vs SNS vs EventBridge vs Kinesis,69-70,YES,NO,COMPLETED,,visual:33; study:015 complete; fit-audit:RETRO-001-060
+ARCH-016,ARCHIVE,35-36,016,,Top 5 common ways to improve API performance,71-72,YES,ARCH-DUP-02,COMPLETED,,visual:35; study:016 complete; duplicate occurrence 059 remains independent; overlaps URL-013 later; fit-audit:RETRO-001-060
+ARCH-017,ARCHIVE,37-38,017,,HTTP/1 -> HTTP/2 -> HTTP/3,79-80,YES,NO,COMPLETED,,visual:37; study:017 complete; fit-audit:RETRO-001-060
+ARCH-018,ARCHIVE,39-40,018,,Structure of URL,81-82,YES,NO,COMPLETED,,visual:39; study:018 complete; source text port-separator typo explicitly noted; fit-audit:RETRO-001-060
+ARCH-019,ARCHIVE,41-42,019,,A Cheatsheet on Comparing Key-Value Stores,83-84,YES,NO,COMPLETED,,visual:41; study:019 complete; product matrix treated as high-level/version-sensitive; fit-audit:RETRO-001-060
+ARCH-020,ARCHIVE,43-44,020,,Which Database Should I Use on AWS?,85-86,YES,NO,COMPLETED,,visual:43; study:020 complete; AWS-specific provider choices not adopted; fit-audit:RETRO-001-060
+ARCH-021,ARCHIVE,45-46,021,,How to load your websites at lightning speed,91-92,YES,NO,COMPLETED,,visual:45; study:021 complete; fit-audit:RETRO-001-060
+ARCH-022,ARCHIVE,47-48,022,,What is SSO (Single Sign-On)?,93-94,YES,NO,COMPLETED,,visual:47; study:022 complete; fit-audit:RETRO-001-060
+ARCH-023,ARCHIVE,49,023,,Redis VS Memcached,97,NO,NO,COMPLETED,,visual:49; study:023 complete; product details treated as version/configuration-sensitive; fit-audit:RETRO-001-060
+ARCH-024,ARCHIVE,50-51,024,,How to Learn Backend Development?,108-109,YES,NO,COMPLETED,,visual:50; study:024 complete; overlaps URL-059 later; fit-audit:RETRO-001-060
+ARCH-025,ARCHIVE,52-53,025,,Virtualization vs Containerization,112-113,YES,ARCH-DUP-03,COMPLETED,,visual:52; study:025 complete; duplicate occurrence 108 remains independent; fit-audit:RETRO-001-060
+ARCH-026,ARCHIVE,54-55,026,,How to Learn API Development?,116-117,YES,NO,COMPLETED,,visual:54; study:026 complete; overlaps URL-061 later; fit-audit:RETRO-001-060
+ARCH-027,ARCHIVE,56-57,027,,Must-Know Network Protocol Dependencies,118-119,YES,NO,COMPLETED,,visual:56; study:027 complete; HTTP/TCP simplification and MCP categorization caveats recorded; fit-audit:RETRO-001-060
+ARCH-028,ARCHIVE,58-59,028,,18 Key Design Patterns Every Developer Should Know,122-123,YES,NO,COMPLETED,,visual:58; study:028 complete; patterns kept as vocabulary not baseline layers; fit-audit:RETRO-001-060
+ARCH-029,ARCHIVE,60-61,029,,The Data Engineering Roadmap,124-125,YES,NO,COMPLETED,,visual:60; study:029 complete; data-platform stack deferred until real workload; fit-audit:RETRO-001-060
+ARCH-030,ARCHIVE,62-63,030,,What do version numbers mean?,128-129,YES,NO,COMPLETED,,visual:62; study:030 complete; overlaps URL-045 later; SemVer separated from API/sync/schema compatibility; fit-audit:RETRO-001-060
+ARCH-031,ARCHIVE,64-65,031,,Top 20 System Design Concepts You Should Know,134-135,YES,ARCH-DUP-04,COMPLETED,,visual:64; study:031 complete; duplicate occurrence 096 remains independent; CAP/eventual-consistency simplifications noted; fit-audit:RETRO-001-060
+ARCH-032,ARCHIVE,66-67,032,,9 OOP Design Patterns You Must Know,139-140,YES,NO,COMPLETED,,visual:66; study:032 complete; singleton/observer durability caveats noted; fit-audit:RETRO-001-060
+ARCH-033,ARCHIVE,68-69,033,,A Cheatsheet on REST API Design Best Practices,143-144,YES,NO,COMPLETED,,visual:68; study:033 complete; overlaps URL-064 later; HTTP idempotence table not treated as app retry proof; fit-audit:RETRO-001-060
+ARCH-034,ARCHIVE,70-71,034,,Top 30 AWS Services That Are Commonly Used,145-146,YES,NO,COMPLETED,,visual:70; study:034 complete; provider catalog treated as taxonomy not architecture selection; fit-audit:RETRO-001-060
+ARCH-035,ARCHIVE,72-73,035,,9 Clean Code Principles To Keep In Mind,149-150,YES,NO,COMPLETED,,visual:72; study:035 complete; overlaps URL-008 later; DRY anti-dogma caveat recorded; fit-audit:RETRO-001-060
+ARCH-036,ARCHIVE,74-75,036,,The 4 Types of SQL Joins,151-152,YES,NO,COMPLETED,,visual:74; study:036 complete; row-multiplication/NULL semantics considered; fit-audit:RETRO-001-060
+ARCH-037,ARCHIVE,76-77,037,,How to Learn Cloud Computing?,153-154,YES,NO,COMPLETED,,visual:76; study:037 complete; roadmap not treated as product backlog; fit-audit:RETRO-001-060
+ARCH-038,ARCHIVE,78,038,,Visualizing a SQL query,155,NO,NO,COMPLETED,,visual:78; study:038 complete; logical order distinguished from physical optimizer plan; fit-audit:RETRO-001-060
+ARCH-039,ARCHIVE,79-80,039,,Explaining JSON Web Token (JWT) with simple terms,156-157,YES,NO,COMPLETED,,visual:79; study:039 complete; signature-not-encryption and current-authorization caveats recorded; fit-audit:RETRO-001-060
+ARCH-040,ARCHIVE,81-82,040,,How to Deploy Services,160-161,YES,NO,COMPLETED,,visual:81; study:040 complete; canary/A-B/DB rollback caveats recorded; fit-audit:RETRO-001-060
