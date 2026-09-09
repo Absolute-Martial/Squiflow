@@ -19,7 +19,7 @@ This file records accepted direction only. Detailed reasoning and changes from t
 ## Completeness versus minimalism
 
 - The architecture minimizes unnecessary **layers/components**, not required behavior.
-- A component must still fully cover its accepted success, failure, recovery, security, and resource responsibilities.
+- A component must still fully cover its accepted success, failure, recovery, security, compatibility, resource and operability responsibilities.
 - Do not remove a real boundary or edge-case capability merely to reduce project/interface/process count.
 - Do not create empty projects/directories to match an architecture diagram.
 - Do not create generic helper/manager/service layers that only forward calls.
@@ -30,15 +30,32 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Liskov/interface-segregation implications apply to accepted provider seams: replacement adapters must honor the same SquiFlow contract and interfaces stay narrower than the third-party SDKs they hide.
 - Secondary architecture articles/diagrams are used to surface questions and trade-offs; exact high-impact security/database/protocol/provider claims are closed against current primary specifications, official provider documentation, or foundational papers when available.
 
+## Non-functional, consumption, and operational requirements
+
+- Cross-cutting NFRs are classified as **HardInvariant**, **OperationalTarget**, or **DegradedMode** requirements. Detailed owner: `docs/requirements/NON_FUNCTIONAL_REQUIREMENTS.md`.
+- A capability is not complete merely because the happy path works; material failure, recovery, concurrency, compatibility, consistency/freshness, capacity, security, observability/support and user-understandability behavior must also be defined/tested.
+- Numerical latency/resource/recovery targets are measured from representative slices and actual deployment hardware before becoming release/customer promises; architecture does not invent arbitrary p95/p99 or memory numbers.
+- **Consumption accounting for a defined metered resource is durable/reconcilable application state when it is needed for enforcement, provider/account capacity, cost, abuse control, support/contract explanation, or future billing. It is not optional analytics and OpenTelemetry is not the authority for it.**
+- **Application-level scoped limit enforcement is accepted.** Limits may be platform/provider, workload/resource, tenant, integration/destination, or another explicit bounded scope when the implemented resource requires it.
+- A tenant-specific limit does **not** require or imply a subscription tier. Commercial plan names/prices/default allowances remain separate OPEN product decisions.
+- Every authoritative meter defines what consumes a unit, whether retries/failed attempts count, unit/scope, correction/reconciliation behavior and consistency needed for hard enforcement.
+- Hard limits must define race/atomicity/reservation behavior so concurrent requests cannot both spend the same final allowance; approximate counters cannot silently masquerade as strict contractual enforcement.
+- Limit changes are versioned/audited. Lowering a limit below current consumption blocks/degrades new optional usage according to policy; it never silently deletes already committed business state or retained customer objects.
+- Workstation offline usage/limit snapshots may support UX but do not override current server/provider hard limits. Pending local intent is preserved if server authority later rejects/defers it because a limit changed or was exhausted.
+- Existing `entitlement` wording means a SquiFlow/platform capability/security ceiling or manually controlled product availability where required; it does not imply that commercial subscription tiers already exist.
+- Detailed owner: `docs/requirements/RESOURCE_CONSUMPTION_AND_LIMITS.md`.
+- Accepted/open/deferred NFR decisions and edge-case challenges are recorded in `docs/review/NFR_DECISION_CHALLENGE.md`.
+
 ## Small-team tenant control
 
 - `Owner` + `Staff` are the default small-team role templates.
-- Tenant Owner controls ordinary staff permissions inside SquiFlow security/entitlement limits.
+- Tenant Owner controls ordinary staff permissions inside SquiFlow security/platform-capability constraints; no commercial plan is implied.
 - Role/permission assignment and tenant rule/workflow/form publication are Web-only tenant-administration operations.
 - Tenant administration lives in the normal tenant Web Settings/Administration area and uses the ordinary Core API tenant-admin surface.
 - Platform-critical application controls are available only through the separate Platform Admin Web **and separate Admin API backend** during normal operation.
 - Platform Admin Web does not call Core API as its normal platform-command backend.
 - Desktop never grants permissions or changes platform control-plane state.
+- Tenant-visible usage/limit views may be added per implemented resource, but platform hard caps and authority to raise a tenant limit remain protected platform control. Whether a Tenant Owner may configure a lower self-limit is OPEN per resource.
 
 ## Identity and authorization stack
 
@@ -48,7 +65,7 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - **OpenFGA is the current application-authorization engine choice** for tenant roles, tenant-defined custom roles, role assignments, stable permissions/relations, and resource relationship checks where applicable.
 - ZITADEL authentication and OpenFGA application authorization are separate concerns. ZITADEL role/token claims are not treated as current SquiFlow business authorization truth.
 - ASP.NET Core policy/requirements/`IAuthorizationService` remain the server integration point. Core API uses tenant authorization; Admin API uses separate platform authorization. SquiFlow domain/workflow/concurrency rules still run separately.
-- OpenFGA does not replace database tenant isolation, business state validation, workflow guards, idempotency, or concurrency checks.
+- OpenFGA does not replace database tenant isolation, business state validation, workflow guards, idempotency, concurrency checks, consumption accounting, or limit enforcement.
 - OpenFGA production calls pin an explicit authorization model ID; model migrations are versioned/controlled rather than silently using whatever model is newest.
 - Tenant-created custom role instances/assignments are data/tuples, not a new OpenFGA authorization-model deployment for every role edit.
 - OpenFGA tuples use opaque SquiFlow IDs rather than emails or other unnecessary PII.
@@ -62,7 +79,7 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Valuable online forms may use explicit server-side drafts/autosave when justified.
 - Workstation is the local-first/offline client.
 - Local Workstation success and server-authoritative acceptance are separate states (`LocalCommitted`, `PendingRemote`, `Authoritative`, `Conflict`, `Rejected`, `AuthorizationChanged`, `UpgradeRequired`).
-- SquiFlow adopts local-first interaction/durability, not a global CRDT or peer-authority model for payments, stock, credit, permissions, or other shared invariants.
+- SquiFlow adopts local-first interaction/durability, not a global CRDT or peer-authority model for payments, stock, credit, permissions, hard limits, or other shared invariants.
 - Local-first synchronization is not described as generic eventual consistency: users can see whether work is only local/pending or centrally authoritative.
 
 ## Multi-tenancy and persistence
@@ -70,6 +87,7 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Ordinary tenants use a pooled multi-tenant baseline with explicit tenant discriminators on tenant-owned authoritative data.
 - Authentication, authorization, and tenant isolation are separate concerns.
 - Schema-per-tenant, DB-per-tenant, queue-per-tenant, and deployment-per-tenant are not baseline.
+- Shared-resource fairness/noisy-neighbor protection and tenant-scoped resource limits may be used where the implemented workload requires them. They are application/resource policies; they become commercial allowances only if a later product decision maps them to a subscription/contract.
 - PostgreSQL remains the strongest central reference candidate; if used, its proof includes RLS defense in depth and safe runtime-role/connection-pool behavior.
 - SQLite + WAL and libSQL remain Workstation-store candidates.
 - Exact central and local database products remain open until the relevant vertical-slice POCs close them.
@@ -87,10 +105,10 @@ This file records accepted direction only. Detailed reasoning and changes from t
 ## Consistency model
 
 - SquiFlow does not choose one consistency model for the whole product.
-- Current/strong authority is required where temporary disagreement can create unsafe business effects, including sensitive authorization, tenant isolation, shared stock/credit decisions, payment/refund authority, unique issued-document truth, and expected-version state transitions.
-- Eventual/derived consistency is acceptable for consequences such as notifications, telemetry, non-authoritative caches, and read/search/report projections when their freshness and rebuild behavior are explicit.
+- Current/strong authority is required where temporary disagreement can create unsafe business effects, including sensitive authorization, tenant isolation, shared stock/credit decisions, payment/refund authority, unique issued-document truth, expected-version state transitions, and strict hard-limit decisions.
+- Eventual/derived consistency is acceptable for consequences such as notifications, telemetry, non-authoritative caches, read/search/report projections, and advisory usage projections when their freshness and rebuild behavior are explicit.
 - An eventually updated projection declares its authoritative source, freshness/version evidence where material, duplicate/out-of-order handling, and reconciliation/rebuild path.
-- Stale derived data must not silently become current authority for permissions, payment, stock, credit, or another protected invariant.
+- Stale derived data must not silently become current authority for permissions, payment, stock, credit, hard limits, or another protected invariant.
 
 ## API, sync, and Worker correctness
 
@@ -99,14 +117,15 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Retryable mutating operations use caller-provided semantic idempotency keys. A POST command is not automatically retry-safe; it becomes retry-safe only when its SquiFlow idempotency contract applies to the same intended business operation.
 - Same idempotency key + changed intent is rejected.
 - Where one store owns mutation + idempotency receipt + outbox, they commit atomically.
-- At-least-once delivery/redelivery is assumed; effects are idempotent or explicitly reconcilable.
+- Where one store also owns a strict consumption/limit decision for that semantic effect, prefer an atomic check-and-consume/commit design when practical.
+- At-least-once delivery/redelivery is assumed; effects and usage records are idempotent or explicitly reconcilable according to their semantics.
 - Retry is finite, classified, budgeted, and uses backoff/jitter/`Retry-After` where appropriate.
 - Long-running HTTP work uses durable asynchronous status only when work is actually long-running; ordinary short business transactions remain synchronous.
 - Conflict handling is aggregate-specific; no global last-write-wins policy.
 - Large collection APIs are paginated/bounded. Connection pools are bounded/measured and must not leak tenant-scoped DB context across reused connections.
-- Caching, response compression, and asynchronous telemetry logging are selective performance techniques, not default correctness mechanisms. Security/business audit is not allowed to exist only in a lossy async log buffer.
+- Caching, response compression, and asynchronous telemetry logging are selective performance techniques, not default correctness mechanisms. Security/business audit and authoritative usage are not allowed to exist only in lossy async telemetry buffers.
 - Any cache remains bounded, tenant-safe, disposable, and non-authoritative. Its design must define freshness/invalidation, stampede/miss amplification, outage bypass, cold-start behavior, and capacity; no Redis/Memcached/browser cache is mandatory.
-- Rate limiting/admission is multi-dimensional where needed (IP/unauthenticated abuse, account/device, tenant, endpoint/work class, expensive provider action, platform admin, downstream budget). Authorization and throttling are separate decisions.
+- Rate limiting/admission is multi-dimensional where needed (IP/unauthenticated abuse, account/device, tenant, endpoint/work class, expensive provider action, platform admin, downstream budget). Authorization and throttling are separate decisions. Rate limiting can share policy concepts with resource limits, but rate-limit telemetry alone is not durable quota accounting where durable usage is required.
 - Temporary HTTP throttling uses stable errors and `429`/`Retry-After` where applicable; clients back off rather than amplify overload.
 - Communication inside the modular monolith is in-process by default. Do not create HTTP/gRPC between modules merely to imitate microservices.
 - At real process/service boundaries, choose synchronous calls only when an immediate response is required; use durable asynchronous work for long-running/after-commit consequences. Avoid long synchronous service-call chains that multiply timeout/retry/failure obligations.
@@ -115,13 +134,13 @@ This file records accepted direction only. Detailed reasoning and changes from t
 ## Network edge, deployment and protocol boundaries
 
 - An edge reverse proxy/API-gateway capability may terminate TLS, route hostnames, enforce request-size/WAF/access policy, perform transport/protocol negotiation, and apply coarse rate limiting when the deployment needs it.
-- Edge/gateway controls do not replace Core API or Admin API authentication, OpenFGA authorization, TenantContext isolation, domain validation, idempotency/concurrency, or operation-specific admission.
+- Edge/gateway controls do not replace Core API or Admin API authentication, OpenFGA authorization, TenantContext isolation, domain validation, idempotency/concurrency, consistency, operation-specific admission, or authoritative usage/limit enforcement.
 - Core API and Admin API remain independent backend/runtime planes even when one edge technology routes to both; Admin API does not route through Core API.
 - A heavyweight API-management platform is not baseline merely because API gateways can perform analytics, transformation, version management, or authorization. Add only the edge capabilities SquiFlow actually needs.
 - A service mesh is not baseline. Revisit only if independently deployed east-west service traffic becomes large/complex enough that mTLS, discovery, traffic policy, and distributed observability justify the added runtime/operational cost.
 - Production external application traffic uses HTTPS/TLS. ZITADEL uses standards-based OIDC/OAuth over HTTPS.
 - HTTP/1.1, HTTP/2, or HTTP/3 transport negotiation is an infrastructure/runtime concern; SquiFlow application semantics do not depend on one HTTP transport version.
-- WebSocket/SignalR, if used, is for live UI/signal/wakeup behavior only. Durable business/sync truth remains in DB/outbox/state records.
+- WebSocket/SignalR, if used, is for live UI/signal/wakeup behavior only. Durable business/sync/usage truth remains in DB/outbox/state records.
 - SSH/private network access is infrastructure recovery/operations only, never a normal tenant business channel.
 - DNS/hostname information assists routing but is never tenant authority by itself. Time synchronization is operationally important for TLS/tokens/leases/schedules/diagnostics, while business correctness still uses explicit versions/IDs where wall-clock ambiguity would be unsafe.
 - MQTT, WebRTC, FTP/SFTP, raw TCP/UDP, and gRPC are not baseline; each requires a concrete latency/streaming/device/transport/compatibility need before adoption.
@@ -134,7 +153,7 @@ This file records accepted direction only. Detailed reasoning and changes from t
 
 - SquiFlow owns the bounded native rule model; arbitrary tenant C#/JS/SQL is not allowed.
 - Rules/workflows are edited/published through Web administration and distributed as immutable/versioned compatible snapshots.
-- Workstation local rule evaluation cannot turn stale server-owned facts into authoritative financial/stock/security decisions.
+- Workstation local rule evaluation cannot turn stale server-owned facts into authoritative financial/stock/security/hard-limit decisions.
 - Workflow is continuation-first and versioned.
 
 ## Practical business scope
@@ -148,15 +167,17 @@ This file records accepted direction only. Detailed reasoning and changes from t
 
 - Currency is not hardcoded in application logic.
 - A tenant has a configurable default currency code and monetary records that need historical meaning retain the applicable currency code.
+- Exact rounding/tax precision is closed when the first affected production financial slice requires it; it is not guessed globally in advance.
 - v0.0.15 does not add a multi-currency ledger, exchange-rate service, FX conversion engine, gain/loss accounting, or currency-provider abstraction.
 
 ## Object storage and backups
 
-- The current bootstrap primary object store is a **private Hugging Face Storage Bucket**, with the currently available private-storage envelope of about **100 GB** treated as a real limit.
+- The current bootstrap primary object store is a **private Hugging Face Storage Bucket**, with the currently available private-storage envelope of about **100 GB** treated as a real provider/account limit, not as a predetermined per-tenant allowance.
+- Retained object bytes are a likely first authoritative consumption meter because provider/account capacity is real; exact tenant storage limits remain OPEN until configured/required.
 - Because primary object storage is already planned to change at the first paying customer, a narrow **`IObjectStore`** provider boundary is baseline. `HuggingFaceObjectStore` is the bootstrap implementation; provider SDK types do not leak into business/domain contracts.
 - The current bootstrap off-site backup target is a **private Kaggle Dataset** containing only encrypted opaque backup archives, never raw customer tables/files.
 - Backup destination access uses a separate infrastructure-level **`IBackupTarget`** boundary. `KaggleBackupTarget` is the bootstrap implementation.
-- Backup is an infrastructure recovery concern, not only an application feature: the recoverable set must include all state needed to reconstruct a usable SquiFlow deployment, according to the selected deployment topology.
+- Backup is an infrastructure recovery concern, not only an application feature: the recoverable set must include all state needed to reconstruct a usable SquiFlow deployment, including usage/limit state that affects enforcement, according to the selected deployment topology.
 - Hugging Face/Kaggle are temporary. The first paying customer is the planned trigger to move to purpose-built paid primary/backup providers, or earlier if constraints demand it.
 - Backups are not considered valid until download + integrity verification + restore has been proven.
 
@@ -168,6 +189,7 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - OpenTelemetry/OTLP is the instrumentation boundary. New Relic + Aiven OpenSearch are current managed targets and Backtrace remains the crash-diagnostics direction.
 - Guard contributes bounded Workstation lifecycle/crash/resource evidence into diagnostics without becoming business authority.
 - Telemetry-provider failure/quota exhaustion cannot block business transaction correctness.
+- Analytics/telemetry retention, sampling, provider outage, or dashboard deletion cannot erase authoritative consumption required by an implemented limit.
 - Production qualification includes proving the deployment can be recreated from the versioned deployment definitions/runbook on a replacement environment and identifying the next scaling action for the measured first-order bottlenecks.
 
 ## Application security
@@ -197,5 +219,7 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - global CRDTs;
 - microservice-per-module design;
 - per-tenant infrastructure by default;
+- invented commercial plan names/prices/default allowances or a SaaS billing engine without a current product/commercial requirement;
+- a giant generic metering/data-warehouse platform that records every user action without an enforcement/cost/capacity/support reason;
 - advanced peripheral suite, MRP/wastage, specialized ETL/search, or SaaS billing engine without a current customer/commercial requirement;
 - mandatory cache product, data lake, custom authentication/token system, or pattern-driven security microservice.
