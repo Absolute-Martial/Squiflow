@@ -1,14 +1,14 @@
 id,section,pdf_pages,archive_entry,url_entry,title,original_pages,multi,duplicate,status,source_url,notes
-ARCH-081,ARCHIVE,159-161,081,,Design Patterns Cheat Sheet,305-307,YES,NO,NOT STARTED,,visual:159/160
-ARCH-082,ARCHIVE,162-163,082,,CI/CD Simplified Visual Guide,308-309,YES,NO,NOT STARTED,,visual:162
-ARCH-083,ARCHIVE,164-165,083,,How Apache Kafka Works?,310-311,YES,NO,NOT STARTED,,visual:164
-ARCH-084,ARCHIVE,166-167,084,,Load Balancers vs API Gateways vs Reverse Proxy! And how can they Work Together?,312-313,YES,NO,NOT STARTED,,visual:166
-ARCH-085,ARCHIVE,168-169,085,,The Life of a Redis Query,318-319,YES,NO,NOT STARTED,,visual:168
-ARCH-086,ARCHIVE,170-171,086,,Cookies vs Sessions,322-323,YES,NO,NOT STARTED,,visual:170
-ARCH-087,ARCHIVE,172-173,087,,Access Control Clearly Explained,324-325,YES,NO,NOT STARTED,,visual:172
-ARCH-088,ARCHIVE,174-175,088,,API Vs SDK!,339-340,YES,NO,NOT STARTED,,visual:174
-ARCH-089,ARCHIVE,176-177,089,,SQL Injection (SQLi),341-342,YES,NO,NOT STARTED,,visual:176
-ARCH-090,ARCHIVE,178-179,090,,24 Good Resources to Learn Software Architecture in 2025,345-346,YES,ARCH-DUP-01,NOT STARTED,,visual:178
+ARCH-081,ARCHIVE,159-161,081,,Design Patterns Cheat Sheet,305-307,YES,NO,COMPLETED,,visual:159/160; study:081 complete; 17 GoF-style patterns inspected; actual repo is docs-only so pattern use is not falsely claimed; Adapter Command State pipeline-style fits mapped by concrete problem
+ARCH-082,ARCHIVE,162-163,082,,CI/CD Simplified Visual Guide,308-309,YES,NO,COMPLETED,,visual:162; study:082 complete; Jenkins Docker K8s treated as examples; repo currently has no CI config; documented immutable-artifact/recovery contract distinguished from verified pipeline implementation
+ARCH-083,ARCHIVE,164-165,083,,How Apache Kafka Works?,310-311,YES,NO,COMPLETED,,visual:164; study:083 complete; partitions replication consumer groups reviewed; ordering/offset/rebalance/exactly-once caveats recorded; Kafka positive replay-stream candidate only when real workload earns it
+ARCH-084,ARCHIVE,166-167,084,,Load Balancers vs API Gateways vs Reverse Proxy! And how can they Work Together?,312-313,YES,NO,COMPLETED,,visual:166; study:084 complete; roles treated as complementary capabilities not three required products; current edge TLS/routing/coarse policy fit separated from backend auth; LB topology-triggered
+ARCH-085,ARCHIVE,168-169,085,,The Life of a Redis Query,318-319,YES,NO,COMPLETED,,visual:168; study:085 complete; AOF RDB COW flow reviewed; fsync/durability/fork-memory caveats recorded; Redis persistence decision tied to exact cache/session/coordination role
+ARCH-086,ARCHIVE,170-171,086,,Cookies vs Sessions,322-323,YES,NO,COMPLETED,,visual:170; study:086 complete; cookie and server session treated as complementary; hardened server-managed Web session direction and multi-node shared-state trigger recorded
+ARCH-087,ARCHIVE,172-173,087,,Access Control Clearly Explained,324-325,YES,NO,COMPLETED,,visual:172; study:087 complete; RBAC ABAC ACL reviewed; ReBAC omission added; SquiFlow composition of custom roles OpenFGA relationships tenant isolation and domain-state checks documented
+ARCH-088,ARCHIVE,174-175,088,,API Vs SDK!,339-340,YES,NO,COMPLETED,,visual:174; study:088 complete; API and SDK treated as complementary not alternatives; provider SDK types remain behind SquiFlow boundaries; retry/error coupling and URL API-key caveat recorded
+ARCH-089,ARCHIVE,176-177,089,,SQL Injection (SQLi),341-342,YES,NO,COMPLETED,,visual:176; study:089 complete; tautology union/error boolean/time blind SQLi reviewed; parameterization identifier allowlists least privilege and two-tenant hostile tests mapped; docs requirement not falsely claimed implemented
+ARCH-090,ARCHIVE,178-179,090,,24 Good Resources to Learn Software Architecture in 2025,345-346,YES,ARCH-DUP-01,COMPLETED,,visual:178; study:090 complete; third duplicate occurrence independently inspected; no material semantic delta from 014/057; resources remain question generators not technology authority
 ARCH-091,ARCHIVE,180-181,091,,Cross-Site Scripting (XSS) Attacks,347-348,YES,NO,NOT STARTED,,visual:180
 ARCH-092,ARCHIVE,182-183,092,,Batch vs Stream Processing,351-352,YES,NO,NOT STARTED,,visual:182
 ARCH-093,ARCHIVE,184-185,093,,What are Modular Monoliths?,353-354,YES,NO,NOT STARTED,,visual:184
