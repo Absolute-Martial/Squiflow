@@ -29,16 +29,16 @@ ARCH-107,ARCHIVE,209-210,107,,Things Every Developer Should Know: Concurrency is
 ARCH-108,ARCHIVE,211-212,108,,Virtualization vs. Containerization,401-402,YES,ARCH-DUP-03,COMPLETED,,visual:211; study:108 complete; second exact duplicate independently inspected; VM/container startup and compatibility generalizations qualified; no packaging winner selected
 ARCH-109,ARCHIVE,213-214,109,,5 REST API Authentication Methods,403-404,YES,NO,COMPLETED,,visual:213; study:109 complete; Basic session token OAuth API-key methods mapped by principal/lifecycle; OAuth/OIDC and JWT/API-key caveats recorded; ZITADEL PKCE/session + future machine-credential candidates coexist
 ARCH-110,ARCHIVE,215-216,110,,What is a Firewall?,407-408,YES,NO,COMPLETED,,visual:215; study:110 complete; network/host filtering treated as defense in depth not authorization; topology/layer claims qualified; explicit tested ingress/egress/port inventory recorded as production hardening need
-ARCH-111,ARCHIVE,217-218,111,,What is a REST API?,411-412,YES,NO,NOT STARTED,,visual:217
-ARCH-112,ARCHIVE,219-220,112,,Virtualization Explained: From Bare Metal to Hosted Hypervisors,415-416,YES,NO,NOT STARTED,,visual:219
-ARCH-113,ARCHIVE,221-222,113,,Database Types You Should Know in 2025,417-418,YES,NO,NOT STARTED,,visual:221
-ARCH-114,ARCHIVE,223-224,114,,Apache Kafka vs. RabbitMQ,419-420,YES,NO,NOT STARTED,,visual:223
-ARCH-115,ARCHIVE,225-226,115,,The HTTP Mindmap,421-422,YES,NO,NOT STARTED,,visual:225
-ARCH-116,ARCHIVE,227-228,116,,How DNS Works,423-424,YES,NO,NOT STARTED,,visual:227
-ARCH-117,ARCHIVE,229-230,117,,Can a web server provide real-time updates?,425-426,YES,NO,NOT STARTED,,visual:229
-ARCH-118,ARCHIVE,231-232,118,,Evolution of HTTP,427-428,YES,NO,NOT STARTED,,visual:231
-ARCH-119,ARCHIVE,233-234,119,,System Performance Metrics Every Engineer Should Know,429-430,YES,NO,NOT STARTED,,visual:233
-ARCH-120,ARCHIVE,235-236,120,,Why Is Nginx So Popular?,431-432,YES,NO,NOT STARTED,,visual:235
+ARCH-111,ARCHIVE,217-218,111,,What is a REST API?,411-412,YES,NO,COMPLETED,,visual:217; study:111 complete; six REST constraints reviewed; uniform-interface/stateless simplifications qualified; pragmatic task HTTP retained while GraphQL gRPC live signaling remain surface-specific candidates; URL021 remains independent
+ARCH-112,ARCHIVE,219-220,112,,Virtualization Explained: From Bare Metal to Hosted Hypervisors,415-416,YES,NO,COMPLETED,,visual:219; study:112 complete; type1/type2 hypervisor model reviewed; KVM/Hyper-V and complete-isolation simplifications qualified; VM/bare-metal/container packaging remains actual-rack evidence driven
+ARCH-113,ARCHIVE,221-222,113,,Database Types You Should Know in 2025,417-418,YES,NO,COMPLETED,,visual:221; study:113 complete; relational columnar KV memory wide-column time-series ledger graph document geospatial search blob vector categories reviewed; overlapping taxonomy and polyglot-persistence risk recorded
+ARCH-114,ARCHIVE,223-224,114,,Apache Kafka vs. RabbitMQ,419-420,YES,NO,COMPLETED,,visual:223; study:114 complete; Kafka retained-log/offset and RabbitMQ exchange/queue/ack semantics reviewed; overlap caveats recorded; DB jobs RabbitMQ Kafka mapped by workload rather than winner
+ARCH-115,ARCHIVE,225-226,115,,The HTTP Mindmap,421-422,YES,NO,COMPLETED,,visual:225; study:115 complete; HTTP ecosystem mindmap treated as dependency inventory not shopping list; OpenTelemetry packet-capture misclassification and WAF/TLS simplifications qualified
+ARCH-116,ARCHIVE,227-228,116,,How DNS Works,423-424,YES,NO,COMPLETED,,visual:227; study:116 complete; browser/OS/resolver/root/TLD/authoritative DNS flow reviewed; caching DoH/CNAME/edge/DNSSEC caveats recorded; DNS routing separated from tenant authority
+ARCH-117,ARCHIVE,229-230,117,,Can a web server provide real-time updates?,425-426,YES,NO,COMPLETED,,visual:229; study:117 complete; short/long polling SSE WebSocket flows reviewed; SSE-browser-request simplification qualified; live transport remains non-authoritative and requirement-driven
+ARCH-118,ARCHIVE,231-232,118,,Evolution of HTTP,427-428,YES,NO,COMPLETED,,visual:231; study:118 complete; HTTP0.9-3 evolution reviewed; keepalive/H2 TCP HOL/QUIC caveats recorded; transport version stays business-semantics independent
+ARCH-119,ARCHIVE,233-234,119,,System Performance Metrics Every Engineer Should Know,429-430,YES,NO,COMPLETED,,visual:233; study:119 complete; QPS TPS concurrency response-time relationship reviewed; workload-boundary/Littles-law/tail-latency caveats recorded; SquiFlow measurement families mapped
+ARCH-120,ARCHIVE,235-236,120,,Why Is Nginx So Popular?,431-432,YES,NO,COMPLETED,,visual:235; study:120 complete; Nginx web server reverse proxy LB cache TLS roles reviewed; popularity/Apache claims qualified; Nginx remains candidate edge product not selection
 ARCH-121,ARCHIVE,237-238,121,,Common Network Protocols Every Engineer Should Know,437-438,YES,NO,NOT STARTED,,visual:237
 ARCH-122,ARCHIVE,239-240,122,,8 Popular Network Protocols,439-440,YES,NO,NOT STARTED,,visual:239
 ARCH-123,ARCHIVE,241,123,,A picture is worth a thousand words: 9 best practices for developing microservices,441,NO,NO,NOT STARTED,,visual:241

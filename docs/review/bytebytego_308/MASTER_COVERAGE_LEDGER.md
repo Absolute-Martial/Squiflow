@@ -144,6 +144,7 @@ Material changes to accepted architecture, technology choice, trust/authority bo
 - `STUDY_081_090.md` — entries `081-090` exhaustive study plus the ninth 10-article checkpoint.
 - `STUDY_091_100.md` — entries `091-100` exhaustive study plus the tenth 10-article checkpoint.
 - `STUDY_101_110.md` — entries `101-110` exhaustive study plus the eleventh 10-article checkpoint.
+- `STUDY_111_120.md` — batch index for entries `111-120`; exhaustive per-occurrence studies are `STUDY_111.md` through `STUDY_120.md`, with the twelfth checkpoint in `STUDY_120.md`.
 - `TECHNOLOGY_FIT_AND_USAGE_REVIEW_RULE.md` — fit-for-purpose rule for technology/comparison exposures.
 - `CRITICAL_INTERROGATION_RULE.md` — user-requested rule requiring explicit challenge of what SquiFlow is doing, why, alternatives, new costs, recovery, evidence and falsification.
 - `RETROSPECTIVE_TECHNOLOGY_FIT_AUDIT_001_060.md` — retroactive fit/use/why audit of every prior archive entry through `060`; authoritative for interpreting older technology-selection shorthand.
@@ -152,44 +153,45 @@ Material changes to accepted architecture, technology choice, trust/authority bo
 - `CONCEPT_DEPENDENCY_MAP_071_080.md` — sequential map extension for entries `071-080`.
 - `CONCEPT_DEPENDENCY_MAP_081_090.md` — sequential map extension for entries `081-090`.
 - `CONCEPT_DEPENDENCY_MAP_091_100.md` — sequential map extension for entries `091-100`.
-- `CONCEPT_DEPENDENCY_MAP_101_110.md` — sequential map extension for entries `101-110`; together the map is current through entry `110`.
+- `CONCEPT_DEPENDENCY_MAP_101_110.md` — sequential map extension for entries `101-110`.
+- `CONCEPT_DEPENDENCY_MAP_111_120.md` — sequential map extension for entries `111-120`; together the map is current through entry `120`.
 
 The split between study files is organizational only; the coverage ledger is authoritative.
 
 ## Current sequential progress
 
-Archive entries `001-110` are fully completed on the current study branch. All archive-article PDF pages `5-216` have been read. For entries `101-110`, every PDF page `198-216` was rendered and visually inspected, including the visual-heavy pages `198, 200, 202, 204, 205, 207, 209, 211, 213, 215` in addition to parsed source text. Structural pages `1-4` were previously completed for inventory.
+Archive entries `001-120` are fully completed on the current study branch. All archive-article PDF pages `5-236` have been read. For entries `111-120`, every PDF page `217-236` was rendered and visually inspected, including detailed inspection of the visual-heavy first pages `217, 219, 221, 223, 225, 227, 229, 231, 233, 235`. Structural pages `1-4` were previously completed for inventory.
 
-The eleventh checkpoint after one hundred ten archive entries is recorded at the end of `STUDY_101_110.md`.
+The twelfth checkpoint after one hundred twenty archive entries is recorded at the end of `STUDY_120.md`.
 
-This batch continues the explicit **what/where/why + alternative-fit + falsification** method. Entry `101` treats API design as business-contract correctness rather than REST purity and keeps REST/task HTTP, GraphQL, gRPC, live signaling and durable async available for different surfaces. Entries `102` and `108` treat bare metal, VMs and containers as composable deployment/isolation tools and leave packaging open to actual-rack evidence. Entry `103` treats Cloudflare/AWS/Azure as a time-sensitive capability snapshot and requires current primary-provider evidence before any provider adoption. Entry `104` challenges the mixed “backend stack” taxonomy and does not reopen accepted C#/.NET, ASP.NET Core, Avalonia and Blazor choices merely because popular alternatives are pictured. Entry `105` preserves TLS requirements while correcting the obsolete universal RSA-style key-exchange and TCP-only HTTP mental model. Entry `106` separates current inbound reverse-proxy needs from a possible future egress/forward-proxy requirement. Entry `107` separately budgets I/O concurrency and CPU parallelism. Entry `109` maps authentication methods by principal/lifecycle instead of selecting one mechanism globally. Entry `110` treats firewalls as network exposure controls that complement rather than replace backend authority.
+This batch continues the explicit **what/where/why + alternative-fit + failure/recovery + adoption/falsification** method. Entry `111` keeps pragmatic REST/task HTTP because it fits explicit command/resource contracts while preserving GraphQL, gRPC, live signaling, and durable async as positive fits for other surfaces. Entry `112` treats hypervisors as deployment/isolation tools and keeps VM/container/bare-metal packaging actual-rack-evidence driven. Entry `113` challenges a database catalog that mixes overlapping models/storage/query capabilities and keeps new stores authority-first and workload-earned. Entry `114` treats DB-backed jobs, RabbitMQ, and Kafka as different messaging fits instead of choosing a broker winner. Entry `115` treats the HTTP mindmap as a dependency inventory, not a shopping list. Entry `116` keeps DNS as routing rather than tenant authority. Entry `117` makes live transports reconstructable UX mechanisms over durable state. Entry `118` keeps HTTP transport evolution separate from business correctness. Entry `119` turns QPS/TPS/concurrency/latency into a constrained-resource measurement discipline. Entry `120` treats Nginx as a legitimate edge-product candidate, not a selection based on popularity.
 
-Notable source caveats preserved in entries `101-110` include:
+Notable source caveats preserved in entries `111-120` include:
 
-- HTTP idempotency concerns intended effect, not necessarily identical repeated response bytes/status; POST/PATCH can be made semantically idempotent by an application contract;
-- a Redis idempotency-key example does not prove safe atomic business idempotency, and noun-only CRUD is not mandatory for semantic business commands;
-- bare-metal operating systems still isolate processes, and “containers are always dramatically lighter/start in milliseconds” is a generalization;
-- provider comparison rows are not strict equivalents and rapidly changing cloud product catalogs require current official-source verification before procurement/architecture;
-- the popular-backend infographic mixes languages, runtimes, frameworks, data formats, providers, patterns and tools rather than defining one coherent stack;
-- modern TLS 1.3 commonly uses ephemeral key agreement rather than the archive's universal “client encrypts a generated session key with server public key” story, and HTTP/3 is not TCP-based;
-- forward/reverse proxies do not automatically provide anonymity, DDoS protection, authorization or safe caching;
-- concurrency can use async/event-driven structures and parallelism is not automatically beneficial simply because CPU cores exist;
-- Basic Auth is Base64 rather than encryption, token auth is not inherently stateless, OAuth is primarily authorization, and API keys do not replace resource authorization;
-- firewall placement/layer classifications are simplified, and network allow rules never become application permission.
+- REST Uniform Interface is broader than consistent route naming, and REST statelessness does not mean servers have no durable state;
+- Type-1/Type-2 hypervisor diagrams simplify KVM/Hyper-V architecture and VM isolation is not a separate physical failure domain;
+- database-category rows overlap and “blob database” is loose terminology; one product can satisfy several apparent categories;
+- Kafka can provide queue-like competing-consumer behavior and RabbitMQ has richer queue/stream options than a simplistic comparison; broker ack/offset never proves end-to-end exactly-once external effects;
+- the HTTP mindmap mixes layers and incorrectly groups OpenTelemetry with packet-capture tooling; WAF is not application authorization;
+- real DNS resolution may use cached delegations, CNAME/alias chains, DoH, DNSSEC, multiple A/AAAA records, and an edge/CDN rather than the origin;
+- SSE is unidirectional on the event stream but the browser can still make separate HTTP requests, and no live transport creates durable truth by itself;
+- HTTP/1.0 keep-alive existed as an extension, HTTP/2 remains subject to TCP-level transport head-of-line effects, and HTTP/3/QUIC does not universally improve every network;
+- QPS/TPS definitions and the `QPS = concurrency / average response time` relationship require a clear stable workload boundary and do not replace tail-latency/saturation/error analysis;
+- Nginx popularity and historical Apache comparison do not select an edge product; load balancing only helps with meaningful targets, TLS termination introduces a backend trust decision, and proxy caching can leak tenant-sensitive data.
 
-No material owner-architecture technology adoption was made from entries `101-110`. The batch does **not** select a cloud provider, VM/container packaging, GraphQL, gRPC, API-key subsystem, forward proxy, firewall product, Kubernetes, Redis or a replacement backend stack from the comparison graphics. Two implementation-hardening findings remain explicit: API implementation must prove semantic idempotency/endpoint classification/version compatibility, and production deployment must prove an ingress/egress/port policy plus direct-backend/IPv6 exposure behavior. Exact products remain open where they were already open.
+No material owner-architecture technology adoption was made from entries `111-120`. The batch does **not** select strict REST as the only API style, a VM/hypervisor product, a specialized database, Kafka, RabbitMQ, a CDN, a mandatory live transport, HTTP/3-specific application logic, or Nginx as the final edge product. It strengthens selection/verification gates around already accepted architecture and keeps candidate technologies positive where a concrete SquiFlow boundary can justify them.
 
-The next unprocessed page is PDF page `217`, archive entry `111`.
+The next unprocessed page is PDF page `237`, archive entry `121`.
 
-`LAST FULLY COMPLETED PDF PAGE: 216`
+`LAST FULLY COMPLETED PDF PAGE: 236`
 
-`LAST COMPLETED ARTICLE: 110 — What is a Firewall?`
+`LAST COMPLETED ARTICLE: 120 — Why Is Nginx So Popular?`
 
-`NEXT PDF PAGE: 217`
+`NEXT PDF PAGE: 237`
 
-`NEXT ARTICLE: 111 — What is a REST API?`
+`NEXT ARTICLE: 121 — Common Network Protocols Every Engineer Should Know`
 
-`COVERAGE STATUS: 216 / 308 pages sequentially completed`
+`COVERAGE STATUS: 236 / 308 pages sequentially completed`
 
 The structural inventory pages `242-244` were inspected only to establish the master inventory; this does not mean URL detailed processing has jumped ahead.
 
