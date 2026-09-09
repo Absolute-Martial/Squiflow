@@ -118,13 +118,15 @@ Those labels are **surface-scoped shorthand**, not judgments about whether a tec
 
 Reference architectures and technology lists are not implementation backlogs. gRPC, Kafka, RabbitMQ, Kubernetes, sharding, distributed caches, GraphQL, CQRS, event sourcing, service mesh, microservices and similar patterns require an actual SquiFlow workload/failure/operational reason.
 
-**Technology comparisons are not winner/loser decisions.** `REST vs GraphQL`, `Redis vs Memcached`, `Docker vs Kubernetes`, `Kafka vs RabbitMQ`, `JWT vs PASETO`, and similar material must be converted into a SquiFlow **fit/usage analysis**: what each option is good at, where it is weaker, what SquiFlow currently uses at that boundary and why, where another option could be beneficial, whether complementary use is sensible, and what evidence/adoption trigger is required. The authoritative method is `TECHNOLOGY_FIT_AND_USAGE_REVIEW_RULE.md`.
+**Technology comparisons are not winner/loser decisions.** `REST vs GraphQL`, `Redis vs Memcached`, `Docker vs Kubernetes`, `Kafka vs RabbitMQ`, `JWT vs PASETO`, `RBAC vs ABAC vs ACL`, `API vs SDK`, and similar material must be converted into a SquiFlow **fit/usage analysis**: what each option is good at, where it is weaker, what SquiFlow currently uses at that boundary and why, where another option could be beneficial, whether complementary use is sensible, and what evidence/adoption trigger is required. The authoritative method is `TECHNOLOGY_FIT_AND_USAGE_REVIEW_RULE.md`.
 
 Entries `001-060` have been **retrospectively re-audited** under that method in `RETROSPECTIVE_TECHNOLOGY_FIT_AUDIT_001_060.md`. Any older shorthand such as `deferred`, `not baseline`, `AVOID`, or `REST baseline` in the detailed studies must be interpreted through that fit audit rather than as a global rejection/winner declaration. The archive source material itself is not rewritten; only the SquiFlow interpretation is narrowed/corrected. Entries `061+` are reviewed under the corrected method from the start.
 
 For every current or candidate technology, the review must be able to state **what we use (or do not use), where, and why**. A current non-selection must name the missing requirement or adoption trigger rather than relying only on a negative label.
 
 Starting with batch `071-080`, every material implication also follows `CRITICAL_INTERROGATION_RULE.md`: explicitly ask **what SquiFlow is actually doing, what real problem/invariant it solves, why this mechanism, whether the requirement is real now, what simpler alternative exists, what new failure/operational cost appears, what authority the mechanism owns, how recovery works, and what evidence would justify or falsify the decision**.
+
+Starting with batch `081-090`, the review also explicitly distinguishes **documented/accepted architecture** from **verified implementation evidence**. A design document is not proof that source code, CI, deployment, security controls, SDK adapters, caching or operational behavior already exists. Where the current repository contains documentation only, the study says so and records what later code/tests must prove.
 
 Material changes to accepted architecture, technology choice, trust/authority boundary, security model, deployment topology or major phase scope are proposed first and require user approval before owner documents are changed. Coverage/study artifacts themselves are updated continuously.
 
@@ -139,49 +141,52 @@ Material changes to accepted architecture, technology choice, trust/authority bo
 - `STUDY_051_060.md` — entries `051-060` exhaustive study plus the sixth 10-article checkpoint.
 - `STUDY_061_070.md` — entries `061-070` exhaustive study plus the seventh 10-article checkpoint.
 - `STUDY_071_080.md` — entries `071-080` exhaustive study plus the eighth 10-article checkpoint.
+- `STUDY_081_090.md` — entries `081-090` exhaustive study plus the ninth 10-article checkpoint.
 - `TECHNOLOGY_FIT_AND_USAGE_REVIEW_RULE.md` — fit-for-purpose rule for technology/comparison exposures.
 - `CRITICAL_INTERROGATION_RULE.md` — user-requested rule requiring explicit challenge of what SquiFlow is doing, why, alternatives, new costs, recovery, evidence and falsification.
 - `RETROSPECTIVE_TECHNOLOGY_FIT_AUDIT_001_060.md` — retroactive fit/use/why audit of every prior archive entry through `060`; authoritative for interpreting older technology-selection shorthand.
 - `CONCEPT_DEPENDENCY_MAP.md` — cumulative concept map through entry `060`.
 - `CONCEPT_DEPENDENCY_MAP_061_070.md` — sequential map extension for entries `061-070`.
-- `CONCEPT_DEPENDENCY_MAP_071_080.md` — sequential map extension for entries `071-080`; together the map is current through entry `080`.
+- `CONCEPT_DEPENDENCY_MAP_071_080.md` — sequential map extension for entries `071-080`.
+- `CONCEPT_DEPENDENCY_MAP_081_090.md` — sequential map extension for entries `081-090`; together the map is current through entry `090`.
 
 The split between study files is organizational only; the coverage ledger is authoritative.
 
 ## Current sequential progress
 
-Archive entries `001-080` are fully completed. All archive-article PDF pages `5-158` have been read. For entries `071-080`, every PDF page `142-158` was rendered and visually inspected, including the diagram-heavy pages `142, 144, 146, 148, 150, 152, 153, 154, 155, 157` in addition to parsed source text. Structural pages `1-4` were previously completed for inventory.
+Archive entries `001-090` are fully completed. All archive-article PDF pages `5-179` have been read. For entries `081-090`, every PDF page `159-179` was rendered and visually inspected, including the visual-heavy pages `159, 160, 162, 164, 166, 168, 170, 172, 174, 176, 178` in addition to parsed source text. Structural pages `1-4` were previously completed for inventory.
 
-The eighth checkpoint after eighty archive entries is recorded at the end of `STUDY_071_080.md`.
+The ninth checkpoint after ninety archive entries is recorded at the end of `STUDY_081_090.md`.
 
-The main refinement in this batch is **critical interrogation of the current project**, not passive pattern collection. Entry `071` asks which SquiFlow invariant actually earns an Aggregate boundary rather than treating “Aggregate = unit of storage” literally. Entry `072` asks what real problem each added stack layer solves and whether it needs a process/network boundary. Entry `073` asks which shared resource/invariant is under concurrency and whether more concurrency helps or amplifies contention. Entry `074` asks whether SquiFlow has a token-format problem at all before considering PASETO. Entry `075` asks what Kubernetes would solve that simpler host/container lifecycle management cannot. Entries `076-080` apply the same challenge to CI/CD evidence, version compatibility, test-layer selection, containerization and every derived/data-retention copy.
+A traceability error from the previous checkpoint was corrected here: the prior cursor text named archive `081` as a cross-language strings article, but the authoritative archive ledger and PDF page `159` show `081 — Design Patterns Cheat Sheet`. The sequential study follows the ledger/PDF, and the next cursor is now derived from those sources rather than the stale label.
 
-Notable source caveats preserved in entries `071-080` include:
+The main refinement in this batch is **critical verification of what is only planned/documented versus what is actually implemented**. Entry `081` does not claim Factory/Adapter/State/etc. are implemented because the repository has no application source yet; it maps only pattern-shaped documented boundaries such as `IObjectStore`/`IBackupTarget`, explicit command semantics and the staged request pipeline. Entry `082` finds a concrete implementation gap: SquiFlow has a strong documented release/qualification contract, but the repository currently has no committed CI configuration. Entry `083` treats Kafka as a positive replay-stream candidate only if a real SquiFlow workload needs replay/independent offsets/partition ordering at a scale where the simpler DB outbox/job path becomes uneconomical. Entry `084` treats load balancer, API-gateway and reverse-proxy as overlapping capabilities rather than three required products. Entries `085-089` apply the same what/why interrogation to Redis persistence, cookies/sessions, access-control models, API/SDK integration and SQL-injection defenses.
 
-- Aggregate is more usefully an invariant/consistency boundary than merely a “unit of storage”; Domain Event is not automatically a durable integration event or Event Sourcing record;
-- the modern-stack diagram mixes logical layers, protocols, products and developer tools and is not a deployment prescription;
-- concurrency does not require one dedicated thread/context-switch model, and parallelism is not limited to CPU cores;
-- JWT is a token format and can be secure under strict verifier policy; PASETO does not remove key lifecycle, theft, replay, session or authorization concerns;
-- Kubernetes Pod lifecycle responsibilities are simplified across API server, kubelet, container runtime, CNI/CSI, probes and termination; `Terminating` is not a Pod phase;
-- CI/CD tool logos do not define release safety and a green CI pipeline does not prove provider/restore/actual-hardware qualification;
-- SemVer/CalVer/sequential numbering and API version carriers solve different version-communication/exposure problems; version syntax is not the compatibility mechanism;
-- the Testing Pyramid is a heuristic rather than a fixed ratio and cannot replace real provider/process/recovery tests;
-- “official image,” environment variables and scanning are not sufficient container-security/runtime controls by themselves;
-- Kafka/search/WAL/transaction logs/replication logs/materialized views are not all ordinary caches, and database buffer pools generally cache pages rather than simply query results.
+Notable source caveats preserved in entries `081-090` include:
 
-No material owner-architecture technology adoption was made from entries `071-080`. The batch reinforces existing SquiFlow boundaries and adds stronger review questions. In particular, it does **not** add PASETO, Kubernetes, Docker, Redis, Kafka, Elasticsearch, a new DDD framework, or a new CI/CD product from the source material alone.
+- design-pattern diagrams are vocabulary, not proof that each pattern needs a SquiFlow class hierarchy; Singleton/Observer/Proxy have important lifecycle/distributed-failure caveats;
+- the CI/CD visual's Jenkins/Docker/Kubernetes flow is an example and its `CD` text specifically describes Continuous Deployment; a green pipeline is not full production qualification;
+- Kafka ordering is partition-scoped, replication safety is configuration-dependent, and broker/consumer exactly-once features do not make external business effects exactly once;
+- load balancer/API-gateway/reverse-proxy roles overlap and may be implemented by one component; gateway authorization is not current resource/domain authorization and load balancing does not remove shared SPOFs;
+- Redis AOF durability depends on fsync policy, RDB snapshotting has a loss window if used alone, fork/COW can add memory pressure, and “writes are non-blocking” is too broad;
+- cookies and sessions are normally complementary because server sessions commonly use an opaque cookie; “sessions are more secure” is not universal;
+- RBAC/ABAC/ACL are not exhaustive; ReBAC is directly relevant to OpenFGA and SquiFlow deliberately composes role, relationship, tenant-isolation and domain-state checks;
+- API and SDK are not substitutes; SDKs typically implement/use provider APIs and can add retry/version/error-model coupling;
+- parameterized SQL values do not make arbitrary dynamic identifiers/operators safe; ORM/RLS/WAF/safe errors are defense-in-depth rather than replacements for safe query construction.
 
-The next unprocessed page is PDF page `159`, archive entry `081`.
+No material owner-architecture technology adoption was made from entries `081-090`. The batch records one important implementation-state finding—CI is documented but not currently committed—and reinforces existing boundaries without silently adding Kafka, Redis, a new gateway product, a new access-control engine, a design-pattern framework or another provider SDK policy.
 
-`LAST FULLY COMPLETED PDF PAGE: 158`
+The next unprocessed page is PDF page `180`, archive entry `091`.
 
-`LAST COMPLETED ARTICLE: 080 — Where Do We Cache Data?`
+`LAST FULLY COMPLETED PDF PAGE: 179`
 
-`NEXT PDF PAGE: 159`
+`LAST COMPLETED ARTICLE: 090 — 24 Good Resources to Learn Software Architecture in 2025`
 
-`NEXT ARTICLE: 081 — What are the differences among strings in C, C++, Java, Python, and JavaScript?`
+`NEXT PDF PAGE: 180`
 
-`COVERAGE STATUS: 158 / 308 pages sequentially completed`
+`NEXT ARTICLE: 091 — Cross-Site Scripting (XSS) Attacks`
+
+`COVERAGE STATUS: 179 / 308 pages sequentially completed`
 
 The structural inventory pages `242-244` were inspected only to establish the master inventory; this does not mean URL detailed processing has jumped ahead.
 
