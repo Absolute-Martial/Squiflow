@@ -1,0 +1,33 @@
+id,section,pdf_pages,archive_entry,url_entry,title,original_pages,multi,duplicate,status,source_url,notes
+URL-033,URL,277,,033,A Detailed Guide to API Composition Techniques,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/a-detailed-guide-to-api-composition,visual; visual-archive-page:30
+URL-034,URL,278,,034,How Databases Keep Their Sanity with Concurrency Control,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/how-databases-keep-their-sanity-with,visual; visual-archive-page:202
+URL-035,URL,279,,035,Schema Evolution: Changing the Contract Without Breaking What Runs,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/schema-evolution-changing-the-contract,visual; visual-archive-page:293
+URL-036,URL,280,,036,REST API Cheatsheet,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/ep94-rest-api-cheatsheet,visual; visual-archive-page:143
+URL-037,URL,281,,037,10 Good Coding Principles to Improve Code Quality,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/ep97-10-good-coding-principles-to,visual; visual-archive-page:149
+URL-038,URL,282,,038,Embracing Chaos to Improve System Resilience: Chaos Engineering,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/embracing-chaos-to-improve-system,visual; visual-archive-page:248
+URL-039,URL,283,,039,Top 9 Architectural Patterns for Data and Communication Flow,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/ep107-top-9-architectural-patterns,visual; visual-archive-page:305
+URL-040,URL,284,,040,A Crash Course in API Versioning Strategies,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/a-crash-course-in-api-versioning,visual; visual-archive-page:293
+URL-041,URL,285,,041,How Do We Design a Secure System?,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/ep108-how-do-we-design-a-secure-system,visual; visual-archive-page:65
+URL-042,URL,286,,042,Unlocking the Power of SQL Queries for Improved Performance,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/unlocking-the-power-of-sql-queries,visual; visual-archive-page:202
+URL-043,URL,287,,043,API Security Best Practices,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/api-security-best-practices,visual; visual-archive-page:65
+URL-044,URL,288,,044,What Are the Differences Among Database Locks?,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/ep118-what-are-the-differences-among,visual; visual-archive-page:202
+URL-045,URL,289,,045,What Do Version Numbers Mean?,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/ep120-what-do-version-numbers-mean,visual; visual-archive-page:128; exact-overlap:030
+URL-046,URL,290,,046,A Crash Course on Scaling the Data Layer,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/a-crash-course-on-scaling-the-data,visual; visual-archive-page:258
+URL-047,URL,291,,047,Stateless Architecture: The Key to Building Scalable and Resilient Systems,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/stateless-architecture-the-key-to,visual; visual-archive-page:22
+URL-048,URL,292,,048,Infrastructure as Code Landscape,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/ep145-infrastructure-as-code-landscape,visual; visual-archive-page:20
+URL-049,URL,293,,049,Top Strategies to Reduce Latency,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/top-strategies-to-reduce-latency,visual; visual-archive-page:358
+URL-050,URL,294,,050,Clean Architecture 101: Building Software That Lasts,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/clean-architecture-101-building-software,visual; visual-archive-page:264
+URL-051,URL,295,,051,Mastering Idempotency: Building Reliable APIs,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/mastering-idempotency-building-reliable,visual; visual-archive-page:143
+URL-052,URL,296,,052,JWT 101: Key to Stateless Authentication,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/ep149-jwt-101-key-to-stateless-authentication,visual; visual-archive-page:51; exact-overlap:010
+URL-053,URL,297,,053,Non-Functional Requirements: The Backbone of Great Software - Part 1,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/non-functional-requirements-the-backbone,visual; visual-archive-page:429
+URL-054,URL,298,,054,Mastering Data Consistency Across Microservices,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/mastering-data-consistency-across,visual; visual-archive-page:441
+URL-055,URL,299,,055,API Protocols 101: A Guide to Choose the Right One,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/api-protocols-101-a-guide-to-choose,visual; visual-archive-page:118
+URL-056,URL,300,,056,Mastering OOP Fundamentals with SOLID Principles,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/mastering-oop-fundamentals-with-solid,visual; visual-archive-page:260
+URL-057,URL,301,,057,Software Architect Knowledge Map,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/ep156-software-architect-knowledge,visual; visual-archive-page:162
+URL-058,URL,302,,058,"The Art of REST API Design: Idempotency, Pagination, and Security",,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/the-art-of-rest-api-design-idempotency,visual; visual-archive-page:143
+URL-059,URL,303,,059,How to Learn Backend Development?,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/ep157-how-to-learn-backend-development,visual; visual-archive-page:108; exact-overlap:024
+URL-060,URL,304,,060,OOP Design Patterns and Anti-Patterns: What Works and What Fails,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/oop-design-patterns-and-anti-patterns,visual; visual-archive-page:139
+URL-061,URL,305,,061,How to Learn API Development,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/ep158-how-to-learn-api-development,visual; visual-archive-page:116; exact-overlap:026
+URL-062,URL,306,,062,Domain-Driven Design (DDD) Demystified,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/domain-driven-design-ddd-demystified,visual; visual-archive-page:272
+URL-063,URL,307,,063,Synchronous vs Asynchronous Communication: When to Use What?,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/synchronous-vs-asynchronous-communication,visual; visual-archive-page:425
+URL-064,URL,308,,064,A Cheatsheet on REST API Design Best Practices,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/ep161-a-cheatsheet-on-rest-api-design,visual; visual-archive-page:143; exact-overlap:033

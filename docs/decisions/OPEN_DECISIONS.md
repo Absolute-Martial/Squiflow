@@ -15,6 +15,8 @@ These are decisions that can materially affect the current implementation baseli
 - **OpenFGA is selected**; open implementation details are deployment topology, store layout, first authorization model, authorization model ID rollout procedure, and consistency policy by operation class.
 - Exact messaging/scheduling mechanism only when Phase 6 implements the first durable Worker path.
 - Exact API/schema compatibility mechanism and supported overlap/retirement windows for the first old-Workstation/new-server and old/new-backend coexistence slice; the requirement for compatible evolution is accepted.
+- **Final first Workstation synchronization transport is OPEN for Phase 3.** Ordinary HTTP is the simpler baseline; gRPC is the preferred candidate to compare when representative sync work demonstrates streaming, binary-efficiency, generated-contract, or sustained high-frequency RPC value. The sync correctness model must remain transport-independent.
+- **Exact synchronous transport for any future independently deployed service boundary remains OPEN until that boundary exists.** gRPC is the preferred candidate to evaluate first when a real synchronous RPC need exists, but durable async work or ordinary HTTP may still be the correct answer. Admin API and Core API do not gain a normal runtime dependency merely because both processes exist.
 
 Avalonia, Blazor Web App, ZITADEL, and OpenFGA are accepted product/technology decisions and are not provider-selection questions anymore.
 
@@ -124,6 +126,7 @@ Do not reopen the existence of Guard merely to reduce process count unless evide
 - Exact supported HTTP/proxy protocol configuration only after deployment measurements; HTTP/1.1, HTTP/2, or HTTP/3 transport negotiation must not change business semantics.
 - Whether WebSocket/SignalR is needed for any implemented live-update UX. If used, it remains a signal/reconnect mechanism and not durable business or usage truth.
 - Whether the simple edge/reverse proxy remains sufficient or a fuller API-management product is justified by real external-developer/version/transformation/policy requirements.
+- For any boundary where gRPC is selected, exact HTTP/2/proxy/edge support, `.proto` compatibility rules, deadline/cancellation behavior, authentication/authorization, observability, and benchmark evidence versus the simpler HTTP path. Owner: `docs/api/TRANSPORT_SELECTION.md`.
 
 ## Bootstrap storage decisions already selected
 
@@ -197,5 +200,5 @@ Open only if a real requirement appears:
 - specialized import/ETL platform;
 - Kafka/event-log infrastructure, mandatory Redis, global CRDT model, sharding, or active-active multi-region without a measured requirement;
 - Kubernetes before an actual cluster-orchestration problem exists;
-- gRPC before a concrete streaming/binary/generated-contract requirement justifies another transport;
+- gRPC as a universal/default protocol, between ordinary modules, or as prebuilt infrastructure before the Phase-3/real-boundary transport POC; the candidate itself is active, but final adoption remains workload-driven;
 - container sidecar/proxy/leader/scatter-gather patterns without a concrete deployment or workload problem.

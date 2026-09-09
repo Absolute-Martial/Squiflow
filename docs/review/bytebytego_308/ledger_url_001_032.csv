@@ -1,0 +1,33 @@
+id,section,pdf_pages,archive_entry,url_entry,title,original_pages,multi,duplicate,status,source_url,notes
+URL-001,URL,245,,001,Container Design Patterns for Distributed Systems,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/container-design-patterns-for-distributed,visual; visual-archive-page:61
+URL-002,URL,246,,002,Must-Know Cross-Cutting Concerns in API Development,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/must-know-cross-cutting-concerns,visual; visual-archive-page:143
+URL-003,URL,247,,003,Database Performance Strategies and Their Hidden Costs,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/database-performance-strategies-and,visual; visual-archive-page:46
+URL-004,URL,248,,004,How to Implement API Security,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/how-to-implement-api-security,visual; visual-archive-page:65
+URL-005,URL,249,,005,Event Sourcing Explained: Benefits and Use Cases,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/event-sourcing-explained-benefits,visual; visual-archive-page:186
+URL-006,URL,250,,006,Stateless Architecture: Benefits and Tradeoffs,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/stateless-architecture-benefits-and,visual; visual-archive-page:22
+URL-007,URL,251,,007,Top Authentication Techniques to Build Secure Applications,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/top-authentication-techniques-to,visual; visual-archive-page:403
+URL-008,URL,252,,008,9 Clean Code Principles To Keep In Mind,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/ep162-9-clean-code-principles-to,visual; visual-archive-page:149; exact-overlap:035
+URL-009,URL,253,,009,Engineering Trade-offs: Eventual Consistency in Practice,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/a-guide-to-eventual-consistency-in,visual; visual-archive-page:218
+URL-010,URL,254,,010,API Gateway vs Service Mesh - Which One Do You Need,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/api-gateway-vs-service-mesh-which,visual; visual-archive-page:312
+URL-011,URL,255,,011,Database Schema Design Simplified: Normalization vs Denormalization,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/database-schema-design-simplified,visual; visual-archive-page:214
+URL-012,URL,256,,012,Database Indexing Demystified: Index Types and Use-Cases,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/database-indexing-demystified-index,visual; visual-archive-page:226
+URL-013,URL,257,,013,Top 5 Common Ways to Improve API Performance,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/ep172-top-5-common-ways-to-improve,"visual; visual-archive-page:232; exact-overlap:016,059"
+URL-014,URL,258,,014,What is the SOLID Principle?,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/ep175-what-is-the-solid-principle,visual; visual-archive-page:260; exact-overlap:066
+URL-015,URL,259,,015,A Guide to Rate Limiting Strategies,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/a-guide-to-rate-limiting-strategies,visual; visual-archive-page:71
+URL-016,URL,260,,016,GraphQL 101: API Approach Beyond REST,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/graphql-101-api-approach-beyond-rest,visual; visual-archive-page:234
+URL-017,URL,261,,017,API Gateways 101: The Core of Modern API Management & Security,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/api-gateways-101-the-core-of-modern,visual; visual-archive-page:312
+URL-018,URL,262,,018,Top Service-to-Service Communication Patterns,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/top-service-to-service-communication,visual; visual-archive-page:118
+URL-019,URL,263,,019,Top Strategies to Share Data Between Services,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/top-strategies-to-share-data-between,visual; visual-archive-page:218
+URL-020,URL,264,,020,How to Design Good APIs,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/ep189-how-to-design-good-apis,visual; visual-archive-page:380; exact-overlap:101
+URL-021,URL,265,,021,What is a REST API?,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/ep192-what-is-a-rest-api,visual; visual-archive-page:411; exact-overlap:111
+URL-022,URL,266,,022,Common Network Protocols Every Engineer Should Know,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/ep195-common-network-protocols-every,visual; visual-archive-page:437; exact-overlap:121
+URL-023,URL,267,,023,"Message Brokers 101: Storage, Replication, and Delivery Guarantees",,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/message-brokers-101-storage-replication,visual; visual-archive-page:310
+URL-024,URL,268,,024,Must-Know Message Broker Patterns,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/must-know-message-broker-patterns,visual; visual-archive-page:419
+URL-025,URL,269,,025,Eventual Consistency: The Key Trade-Off Behind Modern Databases,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/eventual-consistency-the-key-trade,visual; visual-archive-page:83
+URL-026,URL,270,,026,A Guide to Async Patterns in API Design,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/a-guide-to-async-patterns-in-api,visual; visual-archive-page:425
+URL-027,URL,271,,027,Must-Know Deployment Strategies: From Big-Bang to Progressive Delivery,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/must-know-deployment-strategies-from,visual; visual-archive-page:184
+URL-028,URL,272,,028,"Observability for Beginners: Logs, Metrics, Traces, and Everything Around Them",,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/observability-for-beginners-logs,visual; visual-archive-page:429
+URL-029,URL,273,,029,Streaming vs Batch: Two Philosophies of Data Processing,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/streaming-vs-batch-two-philosophies,visual; visual-archive-page:351
+URL-030,URL,274,,030,A Guide to Multi-Tenancy: Benefits and Challenges,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/a-guide-to-multi-tenancy-benefits,visual; visual-archive-page:360
+URL-031,URL,275,,031,"A Detailed Guide to Idempotency, Delivery Semantics, and Deduplication",,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/a-detailed-guide-to-idempotency-delivery,visual; visual-archive-page:143
+URL-032,URL,276,,032,The Read Path versus the Write Path: Strategies and Techniques,,NO,NO,NOT STARTED,https://blog.bytebytego.com/p/the-read-path-versus-the-write-path,visual; visual-archive-page:318
