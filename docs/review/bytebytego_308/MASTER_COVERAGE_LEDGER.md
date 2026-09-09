@@ -124,6 +124,8 @@ Entries `001-060` have been **retrospectively re-audited** under that method in 
 
 For every current or candidate technology, the review must be able to state **what we use (or do not use), where, and why**. A current non-selection must name the missing requirement or adoption trigger rather than relying only on a negative label.
 
+Starting with batch `071-080`, every material implication also follows `CRITICAL_INTERROGATION_RULE.md`: explicitly ask **what SquiFlow is actually doing, what real problem/invariant it solves, why this mechanism, whether the requirement is real now, what simpler alternative exists, what new failure/operational cost appears, what authority the mechanism owns, how recovery works, and what evidence would justify or falsify the decision**.
+
 Material changes to accepted architecture, technology choice, trust/authority boundary, security model, deployment topology or major phase scope are proposed first and require user approval before owner documents are changed. Coverage/study artifacts themselves are updated continuously.
 
 ## Detailed study files
@@ -136,49 +138,50 @@ Material changes to accepted architecture, technology choice, trust/authority bo
 - `STUDY_041_050.md` — entries `041-050` exhaustive study plus the fifth 10-article checkpoint.
 - `STUDY_051_060.md` — entries `051-060` exhaustive study plus the sixth 10-article checkpoint.
 - `STUDY_061_070.md` — entries `061-070` exhaustive study plus the seventh 10-article checkpoint.
-- `TECHNOLOGY_FIT_AND_USAGE_REVIEW_RULE.md` — user-approved fit-for-purpose rule for technology/comparison exposures, including the corrected interpretation of entry `060`.
+- `STUDY_071_080.md` — entries `071-080` exhaustive study plus the eighth 10-article checkpoint.
+- `TECHNOLOGY_FIT_AND_USAGE_REVIEW_RULE.md` — fit-for-purpose rule for technology/comparison exposures.
+- `CRITICAL_INTERROGATION_RULE.md` — user-requested rule requiring explicit challenge of what SquiFlow is doing, why, alternatives, new costs, recovery, evidence and falsification.
 - `RETROSPECTIVE_TECHNOLOGY_FIT_AUDIT_001_060.md` — retroactive fit/use/why audit of every prior archive entry through `060`; authoritative for interpreting older technology-selection shorthand.
 - `CONCEPT_DEPENDENCY_MAP.md` — cumulative concept map through entry `060`.
-- `CONCEPT_DEPENDENCY_MAP_061_070.md` — sequential map extension for entries `061-070`; together the map is current through entry `070`.
+- `CONCEPT_DEPENDENCY_MAP_061_070.md` — sequential map extension for entries `061-070`.
+- `CONCEPT_DEPENDENCY_MAP_071_080.md` — sequential map extension for entries `071-080`; together the map is current through entry `080`.
 
 The split between study files is organizational only; the coverage ledger is authoritative.
 
 ## Current sequential progress
 
-Archive entries `001-070` are fully completed. All archive-article PDF pages `5-141` have been read. For entries `061-070`, all PDF pages `123-141` were rendered and visually inspected, with the diagram-heavy first pages `123, 125, 127, 129, 131, 133, 135, 137, 138, 140` reviewed in addition to parsed source text. Structural pages `1-4` were previously completed for inventory.
+Archive entries `001-080` are fully completed. All archive-article PDF pages `5-158` have been read. For entries `071-080`, every PDF page `142-158` was rendered and visually inspected, including the diagram-heavy pages `142, 144, 146, 148, 150, 152, 153, 154, 155, 157` in addition to parsed source text. Structural pages `1-4` were previously completed for inventory.
 
-The seventh checkpoint after seventy archive entries is recorded at the end of `STUDY_061_070.md`.
+The eighth checkpoint after eighty archive entries is recorded at the end of `STUDY_071_080.md`.
 
-The fit-for-purpose review method is now applied directly rather than retrospectively. Entry `061` therefore does **not** become “tokens win over API keys”: ZITADEL/OIDC remains the fit for interactive human identity, while API keys remain a positive candidate for a future developer/public integration that needs a simple revocable application credential; OAuth client credentials, mTLS or signed-request approaches may fit other machine-identity requirements. Entry `062` likewise treats B-tree/B+/hash/bitmap/inverted structures as workload/provider-dependent access paths rather than a speed ranking. Entry `063` treats cache design as a failure/repopulation contract, not a reason to select Redis/Memcached by default.
+The main refinement in this batch is **critical interrogation of the current project**, not passive pattern collection. Entry `071` asks which SquiFlow invariant actually earns an Aggregate boundary rather than treating “Aggregate = unit of storage” literally. Entry `072` asks what real problem each added stack layer solves and whether it needs a process/network boundary. Entry `073` asks which shared resource/invariant is under concurrency and whether more concurrency helps or amplifies contention. Entry `074` asks whether SquiFlow has a token-format problem at all before considering PASETO. Entry `075` asks what Kubernetes would solve that simpler host/container lifecycle management cannot. Entries `076-080` apply the same challenge to CI/CD evidence, version compatibility, test-layer selection, containerization and every derived/data-retention copy.
 
-Entries `064-070` reinforce existing owner decisions rather than silently changing them: SquiFlow's accepted NFR model is more precise than one-quality/one-technology mappings; coding/interview patterns remain implementation vocabulary; SOLID and Clean Architecture guide cohesion/dependency direction without interface/layer ceremony; HTTP status codes are paired with stable SquiFlow failure/retry semantics; ZITADEL/OIDC SSO centralizes authentication while TenantContext/OpenFGA/domain authorization stays current; and the existing API contract already covers naming, semantic idempotency, pagination, sorting/filtering bounds, references, rate/admission, version compatibility and authentication/authorization.
+Notable source caveats preserved in entries `071-080` include:
 
-Notable source caveats preserved in entries `061-070` include:
+- Aggregate is more usefully an invariant/consistency boundary than merely a “unit of storage”; Domain Event is not automatically a durable integration event or Event Sourcing record;
+- the modern-stack diagram mixes logical layers, protocols, products and developer tools and is not a deployment prescription;
+- concurrency does not require one dedicated thread/context-switch model, and parallelism is not limited to CPU cores;
+- JWT is a token format and can be secure under strict verifier policy; PASETO does not remove key lifecycle, theft, replay, session or authorization concerns;
+- Kubernetes Pod lifecycle responsibilities are simplified across API server, kubelet, container runtime, CNI/CSI, probes and termination; `Terminating` is not a Pod phase;
+- CI/CD tool logos do not define release safety and a green CI pipeline does not prove provider/restore/actual-hardware qualification;
+- SemVer/CalVer/sequential numbering and API version carriers solve different version-communication/exposure problems; version syntax is not the compatibility mechanism;
+- the Testing Pyramid is a heuristic rather than a fixed ratio and cannot replace real provider/process/recovery tests;
+- “official image,” environment variables and scanning are not sufficient container-security/runtime controls by themselves;
+- Kafka/search/WAL/transaction logs/replication logs/materialized views are not all ordinary caches, and database buffer pools generally cache pages rather than simply query results.
 
-- JWT/API-key validation at an API Gateway is not the full application authorization decision;
-- index taxonomy and physical behavior are DBMS-specific, and persistent bitmap-index semantics are not universal;
-- “never expire hot keys” and “use a cache cluster” are not universal cache-failure fixes;
-- load balancer/CDN/replication/transaction-log/eventual-consistency/message-queue pairings are illustrative NFR relationships, not one-to-one guarantees;
-- the “16 coding patterns” list mixes data structures, algorithmic paradigms and problem-solving techniques;
-- SOLID does not imply one interface per class, one method per class, or never modifying code under OCP;
-- `401` vs `403`, `409` vs `412`, `202`, `429`, and 5xx retry behavior need more precision than status-family labels alone;
-- Clean Architecture is a source-dependency direction, not four mandatory projects/services;
-- SSO reuses IdP session state but still issues/validates per-relying-party responses; it does not imply shared bearer tokens or shared authorization;
-- “APIs should be idempotent” is too broad: mutating retry safety is semantic and operation-specific, and POST is not inherently idempotent.
+No material owner-architecture technology adoption was made from entries `071-080`. The batch reinforces existing SquiFlow boundaries and adds stronger review questions. In particular, it does **not** add PASETO, Kubernetes, Docker, Redis, Kafka, Elasticsearch, a new DDD framework, or a new CI/CD product from the source material alone.
 
-No material owner-architecture technology adoption was made from entries `061-070`; the batch validates existing boundaries and records positive future candidates/triggers where appropriate.
+The next unprocessed page is PDF page `159`, archive entry `081`.
 
-The next unprocessed page is PDF page `142`, archive entry `071`.
+`LAST FULLY COMPLETED PDF PAGE: 158`
 
-`LAST FULLY COMPLETED PDF PAGE: 141`
+`LAST COMPLETED ARTICLE: 080 — Where Do We Cache Data?`
 
-`LAST COMPLETED ARTICLE: 070 — Best Practices in API Design`
+`NEXT PDF PAGE: 159`
 
-`NEXT PDF PAGE: 142`
+`NEXT ARTICLE: 081 — What are the differences among strings in C, C++, Java, Python, and JavaScript?`
 
-`NEXT ARTICLE: 071 — Key Terms in Domain-Driven Design`
-
-`COVERAGE STATUS: 141 / 308 pages sequentially completed`
+`COVERAGE STATUS: 158 / 308 pages sequentially completed`
 
 The structural inventory pages `242-244` were inspected only to establish the master inventory; this does not mean URL detailed processing has jumped ahead.
 
