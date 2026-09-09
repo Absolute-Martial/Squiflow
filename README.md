@@ -1,6 +1,6 @@
 # SquiFlow
 
-**Current architecture/documentation version: `v0.0.15`**
+**Current architecture/documentation version: `v0.0.16`**
 
 Start with [`MASTER_IMPLEMENTATION_PLAN.md`](MASTER_IMPLEMENTATION_PLAN.md).
 
@@ -54,7 +54,7 @@ Start with [`MASTER_IMPLEMENTATION_PLAN.md`](MASTER_IMPLEMENTATION_PLAN.md).
 - A service mesh is not baseline; revisit only if real east-west service traffic justifies the runtime/operational cost.
 - Production external traffic uses HTTPS/TLS; ZITADEL uses OIDC/OAuth over HTTPS. HTTP/1.1/2/3 negotiation is transport detail, not business semantics.
 - WebSocket/SignalR, if used, is live signaling only; durable truth remains in DB/outbox/state. DNS/hostnames route traffic but are never tenant authority. SSH/private access is infrastructure operations only.
-- Currency is configurable/not hardcoded. v0.0.15 does not build a multi-currency/FX subsystem.
+- Currency is configurable/not hardcoded. v0.0.16 does not build a multi-currency/FX subsystem.
 - SquiFlow-native bounded rules/workflow remain in-process capabilities unless real isolation/scale proves otherwise.
 - Practical domain limits remain authoritative: no forced ready-made/custom-design or separate social category, Owner-adjustable pricing, outsourced print-only work, informal supplier ordering/partial payables, damaged-stock adjustments, and no universal reservation/MRP/banner-wastage engine.
 - **Primary bootstrap object storage:** private Hugging Face Storage Bucket, current private-storage envelope about 100 GB. This is a provider/account capacity fact; retained bytes are a likely first consumption meter, not an automatically divided tenant allowance.
@@ -66,7 +66,8 @@ Start with [`MASTER_IMPLEMENTATION_PLAN.md`](MASTER_IMPLEMENTATION_PLAN.md).
 - Current server environment is lower-spec/desktop-class rack hardware; `stateless` does not mean automatic failover or zero downtime.
 - The initial release process promotes one verified immutable artifact and proves migration, health/smoke, rollback/roll-forward, and honest maintenance-window behavior; blue-green/canary deployment is not assumed on a single node.
 - Browser/API/data/file/build security follows a layered application-security baseline in addition to ZITADEL, OpenFGA, tenant isolation and edge controls.
-- OpenTelemetry remains the provider-neutral telemetry boundary; New Relic + Aiven OpenSearch are current managed targets and Backtrace remains the crash-diagnostics direction. Telemetry is not the authoritative source for enforced consumption.
+- OpenTelemetry remains the provider-neutral telemetry boundary; New Relic + Aiven OpenSearch are current managed targets and Backtrace remains the crash-diagnostics direction.
+- `SquiFlow.Observability` owns the implementation boundary over standard .NET/OpenTelemetry primitives, with shared execution/correlation context, stable EventId/EventName/FailureCode vocabulary, structured state-transition logging, bounded metric cardinality, Workstation local-durable-first diagnostics, server central-first telemetry, diagnostic disk reserve, telemetry self-health and hostile acceptance tests.
 
 ## Complexity rule: disciplined completeness
 
@@ -75,13 +76,13 @@ SquiFlow is not optimizing for the smallest number of files/processes/interfaces
 Keep a boundary when it protects a real capability or committed replacement:
 
 ```text
-SquiFlow.Guard     process supervision/recovery
-services/admin-api independent platform/super-admin backend
-IObjectStore       known near-term primary-storage migration
-IBackupTarget      known near-term backup-provider migration
-ZITADEL            identity/authentication
-OpenFGA            application authorization
-Consumption/limits durable usage + scoped resource-policy correctness
+SquiFlow.Guard          process supervision/recovery
+SquiFlow.Observability  provider-neutral telemetry/evidence contract
+services/admin-api      independent platform/super-admin backend
+IObjectStore            known near-term primary-storage migration
+IBackupTarget           known near-term backup-provider migration
+ZITADEL                 identity/authentication
+OpenFGA                 application authorization
 ```
 
 Apply clean-code/SOLID principles pragmatically: meaningful business names, cohesive responsibilities, explicit policy/config values, narrow provider interfaces, and contract-compatible replacements. Do not turn DRY/SOLID into helper/interface proliferation; small duplication is preferable to a wrong shared abstraction.
@@ -98,7 +99,7 @@ empty projects/directories for future architecture
 generic data warehouse that records every click as "metering"
 ```
 
-Minimalism must never remove required offline durability, recovery, authorization freshness, tenant isolation, backup restore, retry/idempotency guarantees, usage/limit correctness, control-plane independence, consistency/freshness behavior, or edge-case handling.
+Minimalism must never remove required offline durability, recovery, authorization freshness, tenant isolation, backup restore, retry/idempotency guarantees, observability evidence, control-plane independence, consistency/freshness behavior, or edge-case handling.
 
 ## Documentation map
 
@@ -143,10 +144,18 @@ Minimalism must never remove required offline durability, recovery, authorizatio
 - [`docs/data/PERSISTENCE_SELECTION.md`](docs/data/PERSISTENCE_SELECTION.md)
 - [`docs/data/FILES_AND_OBJECT_STORAGE.md`](docs/data/FILES_AND_OBJECT_STORAGE.md) — `IObjectStore`, `IBackupTarget`, Hugging Face/Kaggle bootstrap and migration.
 - [`docs/integrations/NOTIFICATIONS_AND_EXTERNAL_DELIVERY.md`](docs/integrations/NOTIFICATIONS_AND_EXTERNAL_DELIVERY.md)
-- [`docs/observability/OBSERVABILITY.md`](docs/observability/OBSERVABILITY.md)
+
+### Observability
+- [`docs/observability/OBSERVABILITY.md`](docs/observability/OBSERVABILITY.md) — high-level owner.
+- [`docs/observability/OBSERVABILITY_IMPLEMENTATION_CONTRACT.md`](docs/observability/OBSERVABILITY_IMPLEMENTATION_CONTRACT.md) — execution context, OpenTelemetry, metrics/traces, sampling and health.
+- [`docs/observability/STRUCTURED_LOGGING_AND_FAILURE_CODES.md`](docs/observability/STRUCTURED_LOGGING_AND_FAILURE_CODES.md) — stable event/failure registry and state-transition logging.
+- [`docs/observability/WORKSTATION_SERVER_LOG_PIPELINE.md`](docs/observability/WORKSTATION_SERVER_LOG_PIPELINE.md) — Workstation/server pipeline differences and diagnostic bundles.
+- [`docs/observability/MULTI_TENANT_OBSERVABILITY.md`](docs/observability/MULTI_TENANT_OBSERVABILITY.md) — tenant/privacy/cardinality/support boundaries.
+- [`docs/observability/OBSERVABILITY_VERIFICATION_ACCEPTANCE.md`](docs/observability/OBSERVABILITY_VERIFICATION_ACCEPTANCE.md) — hostile acceptance tests.
 
 ### Verification/review
 - [`docs/testing/VERIFICATION_STRATEGY.md`](docs/testing/VERIFICATION_STRATEGY.md)
+- [`docs/review/OBSERVABILITY_AND_OVERLOOKED_RECOMMENDATIONS.md`](docs/review/OBSERVABILITY_AND_OVERLOOKED_RECOMMENDATIONS.md)
 - [`docs/review/SKEPTICAL_IMPLEMENTATION_GATES.md`](docs/review/SKEPTICAL_IMPLEMENTATION_GATES.md)
 - [`docs/review/SECURITY_AUTHORIZATION_SOURCE_REVIEW.md`](docs/review/SECURITY_AUTHORIZATION_SOURCE_REVIEW.md)
 - [`docs/review/RELIABILITY_API_AND_PATTERN_SOURCE_REVIEW.md`](docs/review/RELIABILITY_API_AND_PATTERN_SOURCE_REVIEW.md)
@@ -164,4 +173,4 @@ Generated CSV inventories/review ledgers are not architecture authority. Markdow
 
 ## Versioning
 
-The current baseline remains `v0.0.15`. Documentation corrections do not manufacture a new semantic version unless the actual product/architecture baseline version changes.
+The current architecture/documentation baseline is `v0.0.16`. This version records the accepted observability implementation contracts discussed after v0.0.15; it does not imply that implementation code already exists.

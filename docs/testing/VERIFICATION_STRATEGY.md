@@ -1,6 +1,6 @@
 # Verification and Failure-Injection Strategy
 
-**Version:** v0.0.15
+**Version:** v0.0.16
 
 SquiFlow uses the smallest test layer that can prove a real invariant. Lean architecture does **not** mean shallow testing: edge/failure behavior that protects core capability remains required.
 
@@ -130,6 +130,25 @@ Run the real process boundary for:
 
 A mocked `IGuard` does not prove process supervision.
 
+### Observability runtime tests
+Use the real OpenTelemetry/runtime path where the behavior under test depends on propagation/export/processing.
+
+Prove representative:
+- trace/log correlation across Workstation → Sync/API → authorization → DB/outbox/Worker;
+- stable EventId/EventName/FailureCode uniqueness and compatibility;
+- state-transition event emission;
+- secret/PII redaction before external export where feasible;
+- bounded metric cardinality under many tenants/entities;
+- Workstation local-durable diagnostics while offline;
+- collector/provider outage and bounded queue/spool behavior;
+- diagnostic-bundle redaction and size bounds;
+- telemetry self-health (drops/exporter/spool/sampling evidence);
+- alert grouping/deduplication/rate control;
+- UTC/monotonic clock behavior under sleep/clock jumps;
+- observability resource overhead on the actual low-end deployment class.
+
+Detailed acceptance lives in `docs/observability/OBSERVABILITY_VERIFICATION_ACCEPTANCE.md`.
+
 ### End-to-end journey tests
 Keep these selective and meaningful, for example:
 
@@ -144,6 +163,7 @@ Owner logs in through ZITADEL
 → reconnect
 → server rechecks OpenFGA + tenant/domain state
 → sync commits authoritatively
+→ correlated evidence can reconstruct the path without leaking secrets
 ```
 
 ## 2. Architecture dependency tests
@@ -152,6 +172,7 @@ Automate rules such as:
 - domain/application code does not depend on ASP.NET Core merely for convenience;
 - Web/Desktop do not directly become central DB or OpenFGA business-authority clients;
 - Hugging Face/Kaggle/ZITADEL/OpenFGA provider SDK types do not leak into business/domain records;
+- New Relic/OpenSearch/Backtrace provider SDK types do not leak into business/domain contracts;
 - `IObjectStore`/`IBackupTarget` are consumer-facing SquiFlow contracts rather than copied SDK surfaces;
 - Guard does not reference business modules/ORM/OpenFGA authorization implementation;
 - future Worker does not depend on presentation projects.
@@ -213,6 +234,19 @@ When Worker exists:
 - pause/drain/restart;
 - priority starvation.
 
+### Observability
+- OTLP collector unavailable;
+- exporter timeout/429/quota exhaustion;
+- collector queue saturation;
+- local diagnostic area near/full;
+- crash while Workstation is offline;
+- log/bundle redaction hostile inputs;
+- one noisy tenant producing high-volume telemetry;
+- alert storm from crash loop/shared outage;
+- severe Workstation clock skew/clock jump.
+
+Expected throughout: telemetry failure cannot roll back or corrupt committed business state and cannot grow RAM/disk without bound.
+
 ## 4. Actual-hardware qualification
 
 Benchmarks/failure tests run on the real deployment class, not only developer/CI machines.
@@ -225,15 +259,19 @@ Measure at least:
 - document/image peak RSS;
 - object transfer bandwidth;
 - disk/free-space behavior;
-- restart/recovery time.
+- restart/recovery time;
+- observability idle/active RSS/allocation/CPU/disk-write/network overhead;
+- local diagnostic footprint and spool pressure.
 
-Resource targets must protect function. If Guard needs more than an arbitrary initial memory estimate to reliably supervise/recover, adjust the budget from measurement rather than deleting required behavior.
+Resource targets must protect function. If Guard or required observability evidence needs more than an arbitrary initial memory estimate to work reliably, adjust the budget from measurement rather than deleting required behavior.
 
 ## 5. Test data and tenant safety
 
 Fixtures include at least Tenant A and Tenant B so tenant isolation can actually fail in tests.
 
-Use opaque synthetic user/object IDs in OpenFGA fixtures. Do not put production customer data/PII in ordinary CI/test stores.
+Use opaque synthetic user/object IDs in OpenFGA and observability fixtures. Do not put production customer data/PII in ordinary CI/test stores.
+
+Cross-tenant telemetry/support tests must prove Tenant A cannot retrieve Tenant B logs/traces/bundles and that a spoofed request-body tenant ID cannot become authoritative telemetry context.
 
 ## 6. Migration/compatibility matrix
 
@@ -246,7 +284,8 @@ Cover supported upgrade paths for:
 - ZITADEL client/session configuration changes;
 - durable messages;
 - rule/workflow/config snapshots;
-- `IObjectStore`/`IBackupTarget` provider migration.
+- `IObjectStore`/`IBackupTarget` provider migration;
+- stable EventId/EventName/FailureCode registry compatibility where external dashboards/runbooks/tests depend on it.
 
 For destructive schema/contract contraction, also prove that supported old application instances, skipped Workstations, pending local sync, durable jobs/messages, stored idempotency results, and rule/workflow/form snapshots are compatible, migrated, drained, rejected explicitly, or outside the documented support window. Do not infer this from a successful migration on an empty database.
 
@@ -266,9 +305,12 @@ Backup testing is incomplete until restore proves:
 
 Use:
 - fast deterministic tests on merge;
+- stable event/failure registry uniqueness/compatibility tests on merge;
+- redaction/cardinality architecture tests on merge where deterministic;
 - secret/dependency/static checks appropriate to the implemented surface, with explicit triage rather than ignored scanner output;
 - real adapter/integration tests in CI where practical;
 - isolated ZITADEL/OpenFGA/provider contract tests on scheduled/appropriate pipelines;
+- scheduled observability outage/load/cardinality/alert-storm tests;
 - scheduled failure/load tests;
 - release qualification on actual hardware;
 - manual restore/security exercises where automation cannot prove the behavior.
