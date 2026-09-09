@@ -79,7 +79,7 @@ URL occurrences remain independent even when a title exactly matches an archive 
 - URL `061` **How to Learn API Development** ↔ archive `026`
 - URL `064` **A Cheatsheet on REST API Design Best Practices** ↔ archive `033`
 
-URLs `008`, `013`, `014`, and `020` have now each been independently processed; their archive overlaps did not auto-complete them. All later overlap rows remain independent and pending until their own sequential page is reached.
+URLs `008`, `013`, `014`, `020`, `021`, and `022` have now each been independently processed; their archive overlaps did not auto-complete them. All later overlap rows remain independent and pending until their own sequential page is reached.
 
 ## Processing-status rules
 
@@ -164,6 +164,9 @@ Material changes to accepted architecture, technology choice, trust/authority bo
 - `STUDY_URL_011.md` through `STUDY_URL_020.md` — exhaustive independent studies for URL occurrences `011-020`.
 - `STUDY_URL_011_020.md` — second URL-section checkpoint and batch index.
 - `CONCEPT_DEPENDENCY_MAP_URL_011_020.md` — URL-section concept-map extension through URL `020`.
+- `STUDY_URL_021.md` through `STUDY_URL_030.md` — exhaustive independent studies for URL occurrences `021-030`.
+- `STUDY_URL_021_030.md` — third URL-section checkpoint and batch index.
+- `CONCEPT_DEPENDENCY_MAP_URL_021_030.md` — URL-section concept-map extension through URL `030`.
 
 ### Review-method / concept-map files
 
@@ -180,6 +183,7 @@ Material changes to accepted architecture, technology choice, trust/authority bo
 - `CONCEPT_DEPENDENCY_MAP_121_123.md`
 - `CONCEPT_DEPENDENCY_MAP_URL_001_010.md`
 - `CONCEPT_DEPENDENCY_MAP_URL_011_020.md`
+- `CONCEPT_DEPENDENCY_MAP_URL_021_030.md`
 
 The split between study files is organizational only; the coverage ledger is authoritative.
 
@@ -187,7 +191,7 @@ The split between study files is organizational only; the coverage ledger is aut
 
 All archive occurrences `001-123` are complete. Archive PDF pages `5-241` were fully read/inspected, and structural transition pages `242-244` were re-inspected in sequence before entering the URL section.
 
-URL occurrences `001-020` are now fully completed. Every URL-summary PDF page `245-264` was rendered and visually inspected individually. The supplied public URLs were checked directly; paid content was not bypassed and inaccessible content was not inferred. Exact archive overlaps at URL `008`, `013`, `014`, and `020` were independently processed.
+URL occurrences `001-030` are now fully completed. Every URL-summary PDF page `245-274` was rendered and visually inspected individually. The supplied public URLs were checked directly; paid content was not bypassed and inaccessible content was not inferred. Exact archive overlaps at URL `008`, `013`, `014`, `020`, `021`, and `022` were independently processed.
 
 ### URL 001-010 architecture synthesis
 
@@ -204,34 +208,47 @@ URL occurrences `001-020` are now fully completed. Every URL-summary PDF page `2
 
 ### URL 011-020 architecture synthesis
 
-- URL `011`: normalization and denormalization are complementary per responsibility, not winner/loser choices. Current transactional authority remains normalized; measured read paths may earn derived projections/materialized shapes with source/freshness/rebuild contracts.
-- URL `012`: indexes are selected for concrete queries/invariants and must prove query-plan benefit against write, WAL/storage, reconnect/import and migration/rebuild cost on real provider/hardware.
-- URL `013`: pagination, async telemetry, caching, compression and pooling solve different bottlenecks. They may coexist, but caching/Redis and large pool sizes are not automatically selected.
-- URL `014`: SOLID remains a design-review lens. Real provider/replacement seams justify narrow abstractions and contract tests; one-interface-per-class, generic repository and speculative extension hierarchies do not follow from the principle.
-- URL `015`: rate/admission control protects specific finite resources and remains distinct from authorization, strict durable consumption accounting and execution concurrency. Edge-only RPS limits cannot protect every Worker/provider/DB bottleneck.
-- URL `016`: GraphQL is a positive surface-specific candidate, not the loser/winner of a REST comparison. Task-oriented HTTP remains useful for explicit commands/resources; GraphQL should be evaluated for real tenant Web/Admin client-driven nested read composition. Federation is a separate ownership problem. Either adoption leaves TenantContext/OpenFGA/domain/idempotency/concurrency/sync/Worker correctness intact.
-- URL `017`: gateway/reverse-proxy capability is justified by current edge needs such as TLS/custom domains/routing/exposure/limits even without microservices; advanced API-management features require a concrete product/operations need and backend business authority remains independent.
-- URL `018`: service communication selection starts by challenging whether a service boundary exists. Same-host modules remain in-process, real immediate-response boundaries evaluate HTTP/gRPC, and long-running/after-commit consequences use durable async work.
-- URL `019`: current Core API/Admin API/Worker may share central persistence because they are runtime hosts of one modular-monolith authority. A genuinely extracted service must own its authoritative writes and share selected data through stable APIs/events/read models; “database per service” is not a mandate for one physical database server per service.
-- URL `020`: good API design is semantic rather than REST-method purity. Semantic idempotency, explicit domain actions, current authorization, concurrency, pagination and version/compatibility rules matter more than assuming method names guarantee retry safety.
+- URL `011`: normalization and denormalization are complementary per responsibility; transactional authority remains normalized and measured read paths may earn derived structures.
+- URL `012`: indexes are selected for concrete queries/invariants and must prove plan benefit against write/WAL/storage/reconnect/migration cost.
+- URL `013`: pagination, async telemetry, caching, compression and pooling solve different bottlenecks and do not form a mandatory stack.
+- URL `014`: SOLID remains design-review guidance; real seams justify narrow abstractions, not one-interface-per-class ceremony.
+- URL `015`: rate/admission protects concrete finite resources and remains separate from authorization, durable meter/quota state and execution concurrency.
+- URL `016`: GraphQL is a positive surface-specific candidate for nested/client-driven reads, while task HTTP remains strong for explicit commands/resources; Federation is separate.
+- URL `017`: gateway capability is justified by real edge TLS/routing/custom-domain/exposure/limit needs; backend business authority remains independent.
+- URL `018`: service communication starts by proving the service boundary; same-host modules remain in-process, real immediate boundaries compare HTTP/gRPC, after-commit work uses durable async.
+- URL `019`: Core/Admin/Worker may share central persistence because they are hosts of one modular-monolith authority; a genuinely extracted service must own its writes.
+- URL `020`: API correctness is semantic rather than HTTP-method purity; idempotency, authorization, concurrency, pagination and compatibility remain explicit.
 
-No material owner-architecture technology adoption was made from URL entries `001-020`. The second URL batch does **not** newly select GraphQL/Federation, Redis, a new DB/index type, denormalized authority, a heavyweight API-management platform, service mesh/broker, database-per-service, or a universal service transport. It strengthens what/why, recovery, measurement and falsification gates while explicitly recording positive candidate surfaces where these options may be useful.
+### URL 021-030 architecture synthesis
 
-The next unprocessed detailed-content page is PDF page `265`, URL entry `021 — What is a REST API?`.
+- URL `021`: REST is an architectural/interface style, not “JSON over HTTP” and not a universal SquiFlow protocol. Task-oriented HTTP remains justified for ordinary explicit commands/resources without strict REST purity. GraphQL/gRPC/live signaling remain fit-dependent alternatives.
+- URL `022`: protocol selection is layered by responsibility. HTTPS/TLS, OIDC/OAuth, DNS, time/private operations each solve different problems; transport/network trust never replaces TenantContext/OpenFGA/domain authorization. gRPC/live/device/file protocols remain requirement-triggered.
+- URL `023`: a broker is a durable distributed data system with storage/replication/delivery/recovery obligations. SquiFlow keeps the simpler DB-backed job/outbox path until independent-consumer, replay/retention, throughput, cross-node coordination, or operability evidence earns a broker.
+- URL `024`: broker reliability patterns matter regardless of product. The public preview does not expose the seven names and they were not inferred. Kafka/RabbitMQ imagery does not select a product; semantic idempotency, bounded retry, poison handling, fairness, observability and reconciliation remain required.
+- URL `025`: eventual consistency is per invariant. Protected payment/stock/credit/tenant-sensitive authorization/hard-limit decisions retain current authority; safe derived projections may lag only with explicit source/version/freshness/convergence/rebuild behavior.
+- URL `026`: async API patterns solve different lifetimes. Short authoritative work remains synchronous; true long-running work uses durable operation/status + Worker. Polling/SSE/WebSocket/webhook/queue/subscription patterns never become durable business truth by themselves.
+- URL `027`: deployment strategy is release-risk control, not a maturity label. One active rack node may rationally use a maintenance window. Progressive/canary/rolling/blue-green approaches become real only with spare topology/routing, compatible state, telemetry and tested recovery.
+- URL `028`: observability is correlated bounded evidence, not merely “have logs, metrics and traces.” OTel/OTLP, stable event/failure vocabulary, audit separation, Workstation local evidence, sampling/cardinality/privacy bounds, and observability-of-observability remain the current direction.
+- URL `029`: batch versus streaming is a workload decision about completeness/latency/replay. Current finite imports/rebuilds/reconciliation/documents fit jobs/batches. Streaming infrastructure needs continuous low-latency + replay/offset/window/late-data evidence; product logos do not choose Kafka/Flink/Spark.
+- URL `030`: multi-tenancy is multi-axis isolation. Pooled app/data remains justified for ordinary tenants because it reduces provisioning/migration/backup/deployment/monitoring burden while TenantContext, scoped persistence, authorization, fairness, hostile tests and provider defense in depth protect shared resources. Dedicated profiles remain triggered by residency/compliance/contract/noisy-neighbor/SLO/enterprise needs.
 
-`LAST FULLY COMPLETED PDF PAGE: 264`
+No material owner-architecture technology adoption was made from URL entries `001-030`. URL `021-030` specifically does **not** newly select a broker, Kafka/RabbitMQ, streaming platform, GraphQL, WebSocket/SSE, new protocol family, Kubernetes/progressive-delivery platform, observability provider, or database/schema/deployment-per-tenant model. It strengthens what/why, authority, recovery, measurement and falsification gates around the accepted architecture.
 
-`LAST COMPLETED ARTICLE: URL 020 — How to Design Good APIs`
+The next unprocessed detailed-content page is PDF page `275`, URL entry `031 — A Detailed Guide to Idempotency, Delivery Semantics, and Deduplication`.
 
-`NEXT PDF PAGE: 265`
+`LAST FULLY COMPLETED PDF PAGE: 274`
 
-`NEXT ARTICLE: URL 021 — What is a REST API?`
+`LAST COMPLETED ARTICLE: URL 030 — A Guide to Multi-Tenancy: Benefits and Challenges`
 
-`COVERAGE STATUS: 264 / 308 pages sequentially completed`
+`NEXT PDF PAGE: 275`
+
+`NEXT ARTICLE: URL 031 — A Detailed Guide to Idempotency, Delivery Semantics, and Deduplication`
+
+`COVERAGE STATUS: 274 / 308 pages sequentially completed`
 
 ## Checkpoint and final-audit rule
 
-A synthesis checkpoint is produced after approximately every 10 articles and at major section boundaries. Every remaining URL occurrence on pages `265-308` must be independently reviewed, even when it exactly overlaps an archive title.
+A synthesis checkpoint is produced after approximately every 10 articles and at major section boundaries. Every remaining URL occurrence on pages `275-308` must be independently reviewed, even when it exactly overlaps an archive title.
 
 Reaching PDF page 308 does not by itself close this work. A second pass must verify every ledger row, every multi-page span, every duplicate occurrence, every URL occurrence and every visual-heavy page; no `NOT STARTED` or unresolved `NEEDS REVIEW` may remain before stating:
 
