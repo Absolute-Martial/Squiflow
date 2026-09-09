@@ -15,13 +15,13 @@ For each phase:
 
 ## Phase-start decisions
 
-- **Phase 0:** ZITADEL/OpenFGA are selected; no final central/local DB is required yet. Create the real Guard and the two already-justified provider contracts (`IObjectStore`, `IBackupTarget`) without scaffolding unrelated abstractions.
+- **Phase 0:** ZITADEL/OpenFGA are selected; no final central/local DB is required yet. Create the real Guard and the two already-justified provider contracts (`IObjectStore`, `IBackupTarget`) without scaffolding unrelated abstractions. Start a version-controlled `deploy/` representation, but do not select Kubernetes/Flux/Terraform merely to make the repository look production-like.
 - **Phase 1:** close ZITADEL Cloud vs self-hosted, instance/project/application layout, first OpenFGA store/model, model-ID rollout, initial consistency/reconciliation policy, and Blazor render/circuit/session topology.
 - **Phase 2:** choose the Workstation local DB after the smallest SQLite/libSQL proof needed for a real local transaction.
-- **Phase 3:** choose the initial central DB implementation capable of authoritative transaction + pooled isolation + normalized schema/index/query-plan proof, and close the first concrete API/sync compatibility versioning mechanism required by Workstation/server skew.
+- **Phase 3:** choose the initial central DB implementation capable of authoritative transaction + pooled isolation + normalized schema/index/query-plan proof, and close the first concrete API/sync compatibility versioning mechanism required by Workstation/server skew. The DB proof begins from an explicit SquiFlow workload profile rather than generic benchmark traffic.
 - **Phase 6:** create `apps/admin-web`, **independent `services/admin-api`**, and `services/worker` only when their first real control/durable-work slice exists. Choose only the background mechanism required by that workload.
 - **Phase 7:** use private Hugging Face through `IObjectStore` and encrypted private Kaggle through `IBackupTarget`.
-- **Before paying-customer production:** actual rack inventory/recovery, backup restore proof, provisional RPO/RTO, operator/break-glass access, printer support, and provider migration readiness must be known honestly.
+- **Before paying-customer production:** actual rack inventory/recovery, reproducible deployment/rebuild, backup restore proof, provisional RPO/RTO, operator/break-glass access, printer support, edge/DNS/TLS/time recovery, scaling thresholds, and provider migration readiness must be known honestly.
 
 ---
 
@@ -50,6 +50,7 @@ Do not create yet:
 - one interface per class/provider API;
 - GraphQL/service-mesh/event-bus infrastructure;
 - HTTP/gRPC endpoints between ordinary business modules;
+- Kubernetes manifests/cluster machinery merely because server processes may later be containerized;
 - dozens of empty modules/projects.
 
 Deliver:
@@ -63,7 +64,8 @@ Deliver:
 - architecture tests preventing provider SDK types from leaking into business/domain code;
 - architecture test/convention that ordinary modules remain in-process rather than becoming accidental HTTP services;
 - basic code-quality conventions: meaningful business names, no magic business/config values, no forwarding-only helper/interface chains;
-- minimal rack hardware inventory.
+- minimal rack hardware inventory;
+- initial version-controlled `deploy/` representation/runbook showing how the current executable skeleton is started/stopped/configured without claiming the final production IaC tool is selected.
 
 Attack:
 - Workstation process exits unexpectedly while Guard survives;
@@ -72,7 +74,8 @@ Attack:
 - incompatible Guard/Workstation protocol version;
 - provider implementation accidentally leaks Hugging Face/Kaggle types into a business contract;
 - a proposed SOLID/clean-code refactor creates an interface/helper with no real responsibility or replacement boundary;
-- a developer proposes HTTP/gRPC between two modules that run in the same host without a real process/security/fault boundary.
+- a developer proposes HTTP/gRPC between two modules that run in the same host without a real process/security/fault boundary;
+- a deployment change exists only as an undocumented manual command and cannot be recreated from repository/runbook state.
 
 Gate:
 - Web, Workstation, Guard and Core API build/run;
@@ -80,7 +83,8 @@ Gate:
 - Guard can observe/recover Workstation process failure without owning business logic;
 - `IObjectStore`/`IBackupTarget` are narrow enough to implement a second adapter later without mirroring whole third-party SDKs;
 - Admin Web/Admin API/Worker remain documented future boundaries without empty placeholder projects;
-- no architecture-style abstraction/network hop exists solely to satisfy a pattern slogan.
+- no architecture-style abstraction/network hop/orchestrator exists solely to satisfy a pattern slogan;
+- the current development/deployment skeleton is reproducible enough that a second machine/operator is not forced to infer every startup step.
 
 ---
 
@@ -107,7 +111,8 @@ Do not:
 - let Desktop write OpenFGA tuples;
 - equate a ZITADEL organization claim directly with SquiFlow TenantContext without server verification;
 - put workflow/payment/stock arithmetic into OpenFGA;
-- rely on transient Blazor circuit memory to preserve valuable business drafts.
+- rely on transient Blazor circuit memory to preserve valuable business drafts;
+- create a parallel JWT/PASETO/WebAuthn/password subsystem that duplicates ZITADEL.
 
 Attack:
 - expired/duplicate invitation;
@@ -122,7 +127,9 @@ Attack:
 - stale/low-consistency authorization result immediately after a change;
 - Desktop attempts permission change;
 - PII accidentally used in tuple IDs;
-- Web circuit/server restart during valuable draft editing.
+- Web circuit/server restart during valuable draft editing;
+- syntactically valid JWT from an untrusted issuer/audience is presented;
+- ZITADEL is unavailable during new login, existing Web session use, and high-risk step-up.
 
 Gate:
 - ZITADEL authenticates; OpenFGA authorizes; SquiFlow tenant/domain checks remain independent;
@@ -130,7 +137,8 @@ Gate:
 - ambiguous tuple writes have reconciliation, not guesswork;
 - custom role does not require new authorization model deployment;
 - no embedded reusable Workstation client secret;
-- durable business work does not depend solely on process-local Blazor circuit state.
+- durable business work does not depend solely on process-local Blazor circuit state;
+- outage/session behavior is explicit and no identity-provider failure turns into accidental application authorization.
 
 ---
 
@@ -187,9 +195,11 @@ Deliver:
 - atomic business mutation + idempotency receipt + outbox where one store owns them;
 - remote change feed + cursor;
 - finite retry/backoff with an intentional retry owner for each remote path;
+- **documented workload profile** covering read/write/delete mix, representative item sizes, tenant/data skew, normal concurrency, reconnect/sync/import burst concurrency, consistency needs, hot-query cardinality, and current HA/geographic assumptions;
 - actual query-plan/index proof at current and projected larger cardinalities;
 - measured write/WAL/storage/migration impact of the selected indexes;
 - explicit consistency classification for authoritative versus derived state;
+- if PostgreSQL is selected: measured connection/backend-process resource cost, WAL/checkpoint behavior, autovacuum, temp/sort spill, archive/log/disk growth, and crash/restart recovery under the SquiFlow workload;
 - first explicit API/sync protocol compatibility/version contract for Workstation/server skew;
 - REST/task-oriented resource/command shape without pretending every semantic transition is generic CRUD.
 
@@ -205,7 +215,10 @@ Attack:
 - partial batch failure;
 - retry amplification across Workstation/API/provider layers;
 - query that is fast at 10K rows but degrades at projected cardinality;
+- Web-style read benchmark passes while Workstation reconnect burst causes unacceptable write/WAL/lock pressure;
 - over-indexed schema causing unacceptable sync/import/write cost;
+- checkpoint/autovacuum/temp spill causes latency/resource spikes on the selected DB;
+- WAL/archive/log growth approaches finite disk capacity;
 - stale derived projection accidentally used as current authority;
 - out-of-order derived update overwrites a newer projection state;
 - older Workstation sends a supported old protocol version;
@@ -215,9 +228,10 @@ Gate:
 - no duplicate semantic effect;
 - no cross-tenant leakage even if authorization relation exists incorrectly;
 - stale Workstation permission snapshot is not server authority;
-- central DB behavior proven against the real adapter;
+- central DB behavior proven against the real adapter and real SquiFlow workload shape;
 - authoritative schema is not denormalized/EAV/JSON merely for UI convenience;
 - each important index has a named query/invariant and measured cost;
+- provider maintenance behavior fits the current rack resource/disk envelope;
 - derived state has explicit source/freshness/rebuild semantics;
 - compatible old client requests are handled deliberately and unsupported versions fail explicitly;
 - no system-wide `exactly once`, `eventually consistent`, or `strictly RESTful` claim is made from one narrower mechanism.
@@ -355,6 +369,7 @@ Gate:
 - runtime-process separation has not accidentally become microservice/database-per-service ceremony;
 - no generic force-success/mark-complete control;
 - break-glass is infrastructure recovery, not hidden tenant API;
+- the selected queue/job/pub-sub/event mechanism exists because the first workload needs its semantics, not because a managed messaging product was listed in an article;
 - no service-mesh/gateway component exists unless its current responsibility is concrete and measured.
 
 ---
@@ -494,12 +509,17 @@ Deliver/prove:
 - provisional/final RPO/RTO;
 - private recovery runbook exercise;
 - operator ownership;
-- new paid `IObjectStore`/`IBackupTarget` adapter readiness.
+- new paid `IObjectStore`/`IBackupTarget` adapter readiness;
+- **clean/replacement-environment rebuild from the version-controlled deployment/IaC definitions and runbook**;
+- **edge/DNS/TLS/certificate/time failure exercise** with a recovery path that does not rely on the same failed public edge;
+- **measured capacity envelope and next-move table** for first-order bottlenecks (DB, Worker/CPU, disk, network/object transfer, external dependency, node saturation).
 
 Gate:
 - do not accept a paying customer while backup restore is untested;
+- do not accept a paying customer if the production environment can only be recreated from undocumented manual knowledge;
 - migrate bootstrap storage at the first paying customer or earlier when constraints require it;
-- no HA/zero-downtime claim without proven topology;
+- no HA/zero-downtime/scalability claim without measured topology/capacity evidence;
+- Kubernetes remains absent unless the actual multi-node orchestration problem has been demonstrated;
 - no simplification is accepted if it removes a core recovery/security/offline/control-plane behavior already relied on by the product.
 
 ---
@@ -518,10 +538,13 @@ Do not spend baseline work on:
 - eventual-consistency-everywhere;
 - GraphQL/GraphQL Federation;
 - service mesh;
+- Kubernetes before a concrete cluster-orchestration problem exists;
 - API-management platform selected before need;
 - HTTP/gRPC between ordinary modules;
 - database-per-service for the current modular monolith;
 - MQTT/WebRTC/FTP/SFTP/raw TCP/UDP/gRPC without a concrete workload;
+- custom Raft/consistent-hashing/Merkle-repair/distributed-database machinery;
+- Operational Transformation without a real collaborative-editing requirement;
 - denormalized authoritative core schema;
 - global CRDTs;
 - per-tenant schema/database/queue/stack by default;
