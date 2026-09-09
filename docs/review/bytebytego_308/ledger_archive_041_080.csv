@@ -1,14 +1,14 @@
 id,section,pdf_pages,archive_entry,url_entry,title,original_pages,multi,duplicate,status,source_url,notes
-ARCH-041,ARCHIVE,83-84,041,,The System Design Topic Map,162-163,YES,NO,NOT STARTED,,visual:83
-ARCH-042,ARCHIVE,85-86,042,,How Transformers Architecture Works?,164-165,YES,NO,NOT STARTED,,visual:85
-ARCH-043,ARCHIVE,87-88,043,,JWT Simply Explained,166-167,YES,NO,NOT STARTED,,visual:87
-ARCH-044,ARCHIVE,89-90,044,,The 5 Pillars of API Design,168-169,YES,NO,NOT STARTED,,visual:89
-ARCH-045,ARCHIVE,91-92,045,,How does HTTPS work?,176-177,YES,NO,NOT STARTED,,visual:91
-ARCH-046,ARCHIVE,93-94,046,,Top 6 most commonly used Server Types,180-181,YES,NO,NOT STARTED,,visual:93
-ARCH-047,ARCHIVE,95-96,047,,Amazon Key Architecture with Third Party Integration,182-183,YES,NO,NOT STARTED,,visual:95
-ARCH-048,ARCHIVE,97-98,048,,How Do Companies Ship Code to Production?,184-185,YES,NO,NOT STARTED,,visual:97
-ARCH-049,ARCHIVE,99-100,049,,What is Event Sourcing? How is it different from normal CRUD design?,186-187,YES,NO,NOT STARTED,,visual:99
-ARCH-050,ARCHIVE,101-102,050,,How Data Lake Architecture Works?,188-189,YES,NO,NOT STARTED,,visual:101
+ARCH-041,ARCHIVE,83-84,041,,The System Design Topic Map,162-163,YES,NO,COMPLETED,,visual:83; study:041 complete; map treated as completeness prompt not backlog
+ARCH-042,ARCHIVE,85-86,042,,How Transformers Architecture Works?,164-165,YES,NO,COMPLETED,,visual:85; study:042 complete; canonical encoder-decoder diagram qualified against modern variants
+ARCH-043,ARCHIVE,87-88,043,,JWT Simply Explained,166-167,YES,NO,COMPLETED,,visual:87; study:043 complete; overlaps prior JWT/auth occurrences
+ARCH-044,ARCHIVE,89-90,044,,The 5 Pillars of API Design,168-169,YES,NO,COMPLETED,,visual:89; study:044 complete; SquiFlow-specific idempotency/concurrency/authority additions recorded
+ARCH-045,ARCHIVE,91-92,045,,How does HTTPS work?,176-177,YES,NO,COMPLETED,,visual:91; study:045 complete; modern TLS 1.3 handshake caveat recorded
+ARCH-046,ARCHIVE,93-94,046,,Top 6 most commonly used Server Types,180-181,YES,NO,COMPLETED,,visual:93; study:046 complete; server roles not deployment prescriptions
+ARCH-047,ARCHIVE,95-96,047,,Amazon Key Architecture with Third Party Integration,182-183,YES,NO,COMPLETED,,visual:95; study:047 complete; IoT/partner case study deferred for current scope
+ARCH-048,ARCHIVE,97-98,048,,How Do Companies Ship Code to Production?,184-185,YES,NO,COMPLETED,,visual:97; study:048 complete; tool names treated as examples, immutable-artifact/recovery controls retained
+ARCH-049,ARCHIVE,99-100,049,,What is Event Sourcing? How is it different from normal CRUD design?,186-187,YES,NO,COMPLETED,,visual:99; study:049 complete; event sourcing rejected as baseline; outbox distinction recorded
+ARCH-050,ARCHIVE,101-102,050,,How Data Lake Architecture Works?,188-189,YES,NO,COMPLETED,,visual:101; study:050 complete; data lake rejected as baseline; backup/object-store distinction recorded
 ARCH-051,ARCHIVE,103-104,051,,How SQL Query Executes In A Database?,202-203,YES,NO,NOT STARTED,,visual:103
 ARCH-052,ARCHIVE,105-106,052,,How RabbitMQ Works?,206-207,YES,NO,NOT STARTED,,visual:105
 ARCH-053,ARCHIVE,107-108,053,,A Cheatsheet on Kubernetes,210-211,YES,NO,NOT STARTED,,visual:107
