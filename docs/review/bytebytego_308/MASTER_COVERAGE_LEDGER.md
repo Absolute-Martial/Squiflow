@@ -79,7 +79,7 @@ URL occurrences remain independent even when a title exactly matches an archive 
 - URL `061` **How to Learn API Development** ↔ archive `026`
 - URL `064` **A Cheatsheet on REST API Design Best Practices** ↔ archive `033`
 
-URLs `008`, `013`, `014`, `020`, `021`, and `022` have now each been independently processed; their archive overlaps did not auto-complete them. All later overlap rows remain independent and pending until their own sequential page is reached.
+URLs `008`, `013`, `014`, `020`, `021`, `022`, and `045` have now each been independently processed; their archive overlaps did not auto-complete them. All later overlap rows remain independent and pending until their own sequential page is reached.
 
 ## Processing-status rules
 
@@ -170,6 +170,9 @@ Material changes to accepted architecture, technology choice, trust/authority bo
 - `STUDY_URL_031.md` through `STUDY_URL_040.md` — exhaustive independent studies for URL occurrences `031-040`.
 - `STUDY_URL_031_040.md` — fourth URL-section checkpoint and batch index.
 - `CONCEPT_DEPENDENCY_MAP_URL_031_040.md` — URL-section concept-map extension through URL `040`.
+- `STUDY_URL_041.md` through `STUDY_URL_050.md` — exhaustive independent studies for URL occurrences `041-050`.
+- `STUDY_URL_041_050.md` — fifth URL-section checkpoint and batch index.
+- `CONCEPT_DEPENDENCY_MAP_URL_041_050.md` — URL-section concept-map extension through URL `050`.
 
 ### Review-method / concept-map files
 
@@ -188,6 +191,7 @@ Material changes to accepted architecture, technology choice, trust/authority bo
 - `CONCEPT_DEPENDENCY_MAP_URL_011_020.md`
 - `CONCEPT_DEPENDENCY_MAP_URL_021_030.md`
 - `CONCEPT_DEPENDENCY_MAP_URL_031_040.md`
+- `CONCEPT_DEPENDENCY_MAP_URL_041_050.md`
 
 The split between study files is organizational only; the coverage ledger is authoritative.
 
@@ -195,7 +199,7 @@ The split between study files is organizational only; the coverage ledger is aut
 
 All archive occurrences `001-123` are complete. Archive PDF pages `5-241` were fully read/inspected, and structural transition pages `242-244` were re-inspected in sequence before entering the URL section.
 
-URL occurrences `001-040` are now fully completed. Every URL-summary PDF page `245-284` was rendered and visually inspected individually. The supplied public URLs were checked directly; paid content was not bypassed and inaccessible content was not inferred. Exact archive overlaps at URL `008`, `013`, `014`, `020`, `021`, and `022` were independently processed.
+URL occurrences `001-050` are now fully completed. Every URL-summary PDF page `245-294` was rendered and visually inspected individually. The supplied public URLs were checked directly; paid content was not bypassed and inaccessible content was not inferred. Exact archive overlaps at URL `008`, `013`, `014`, `020`, `021`, `022`, and `045` were independently processed.
 
 ### URL 001-010 architecture synthesis
 
@@ -249,23 +253,36 @@ URL occurrences `001-040` are now fully completed. Every URL-summary PDF page `2
 - URL `039`: the nine architecture-flow patterns are mapped per boundary rather than used as a backlog. Request-response/gateway/batching/orchestration have current justified fits; pub/sub, ETL, streaming and Event Sourcing remain positive requirement-triggered candidates.
 - URL `040`: API versioning is client compatibility + migration + retirement, not a `v2` label. Exact URI/header/media/query transport remains evidence-driven; product SemVer does not replace API/sync/schema/message compatibility; old-client inventory is required before retirement.
 
-No material owner-architecture technology adoption was made from URL entries `001-040`. URL `031-040` specifically does **not** newly select a broker/exactly-once platform, cache/read replica/search store, GraphQL/BFF, new global DB isolation/locking policy, schema registry, chaos platform, Event Sourcing/stream processor, or one API-version transport. It strengthens implementation/verification gates around already accepted semantics while keeping alternative technologies positive where a concrete future boundary earns them.
+### URL 041-050 architecture synthesis
 
-The next unprocessed detailed-content page is PDF page `285`, URL entry `041 — How Do We Design a Secure System?`.
+- URL `041`: security is layered trust, authority, verification and recovery rather than a product checklist. ZITADEL identity, TenantContext, OpenFGA, domain rules, DB/edge controls and private recovery solve different facts; hostile implementation tests are the key missing evidence.
+- URL `042`: SQL performance remains workload/plan driven. Provider-native execution plans plus read/write/WAL/lock/pool evidence must precede indexes, caches, replicas, hardware or database changes.
+- URL `043`: API security uses principal-appropriate authentication plus object/function/field/domain authorization, bounded input/resource handling, safe errors and hostile cross-tenant tests. Scanner/gateway/token success is never business authority.
+- URL `044`: database lock selection follows the invariant and actual provider. Expected versions, constraints and atomic updates remain ordinary tools; stronger locks/isolation require a named hot invariant plus measured contention.
+- URL `045`: SemVer is release/public-API compatibility communication, not a substitute for API/sync/DB/message/IPC/snapshot compatibility, migration or rollback design. The exact archive overlap was independently reviewed.
+- URL `046`: data-layer distribution is not a maturity stage. The current one-clear-central-relational-authority/single-node-first direction is justified by current transaction/small-team/owned-rack needs; read replicas, dedicated placement, sharding and distributed DBs remain positive triggers for measured read/write/volume/isolation/availability/residency limits.
+- URL `047`: stateless compute means process memory is not sole durable business authority. It does not mean no state, automatic HA or mandatory Redis; Blazor circuit state and Workstation local-first durability remain intentionally different state responsibilities.
+- URL `048`: IaC is the reproducibility requirement, not one product. Version-controlled deployment definitions/runbooks, immutable artifacts and clean-environment rebuild are current needs; containerization, Terraform/Ansible, Kubernetes and GitOps are selected only for real packaging/provisioning/orchestration/reconciliation problems.
+- URL `049`: latency optimization starts with exact journey/completion semantics and p50/p95/p99 wait decomposition. Cache/CDN/load balancing/async/indexing/compression/connection reuse each address different bottlenecks and are not a mandatory stack.
+- URL `050`: Clean Architecture contributes dependency direction and containment around real seams. SquiFlow's modular monolith, provider containment, `IObjectStore`/`IBackupTarget`, Guard and Admin API already express justified boundaries; generic repositories, interface-per-class and project-per-ring ceremony remain unjustified without real dependency/replacement evidence.
 
-`LAST FULLY COMPLETED PDF PAGE: 284`
+No material owner-architecture technology adoption was made from URL entries `001-050`. URL `041-050` specifically does **not** newly select a WAF/security platform, new DB/index/cache/read-replica/sharding/distributed-DB topology, distributed session store, Terraform/Kubernetes/GitOps, latency platform, or additional project/layer hierarchy. It reinforces accepted responsibility boundaries while recording implementation, measurement, adoption and falsification gates.
 
-`LAST COMPLETED ARTICLE: URL 040 — A Crash Course in API Versioning Strategies`
+The next unprocessed detailed-content page is PDF page `295`, URL entry `051 — Mastering Idempotency: Building Reliable APIs`.
 
-`NEXT PDF PAGE: 285`
+`LAST FULLY COMPLETED PDF PAGE: 294`
 
-`NEXT ARTICLE: URL 041 — How Do We Design a Secure System?`
+`LAST COMPLETED ARTICLE: URL 050 — Clean Architecture 101: Building Software That Lasts`
 
-`COVERAGE STATUS: 284 / 308 pages sequentially completed`
+`NEXT PDF PAGE: 295`
+
+`NEXT ARTICLE: URL 051 — Mastering Idempotency: Building Reliable APIs`
+
+`COVERAGE STATUS: 294 / 308 pages sequentially completed`
 
 ## Checkpoint and final-audit rule
 
-A synthesis checkpoint is produced after approximately every 10 articles and at major section boundaries. Every remaining URL occurrence on pages `285-308` must be independently reviewed, even when it exactly overlaps an archive title.
+A synthesis checkpoint is produced after approximately every 10 articles and at major section boundaries. Every remaining URL occurrence on pages `295-308` must be independently reviewed, even when it exactly overlaps an archive title.
 
 Reaching PDF page 308 does not by itself close this work. A second pass must verify every ledger row, every multi-page span, every duplicate occurrence, every URL occurrence and every visual-heavy page; no `NOT STARTED` or unresolved `NEEDS REVIEW` may remain before stating:
 
