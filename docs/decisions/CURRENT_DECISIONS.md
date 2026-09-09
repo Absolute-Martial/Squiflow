@@ -129,7 +129,10 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Temporary HTTP throttling uses stable errors and `429`/`Retry-After` where applicable; clients back off rather than amplify overload.
 - Communication inside the modular monolith is in-process by default. Do not create HTTP/gRPC between modules merely to imitate microservices.
 - At real process/service boundaries, choose synchronous calls only when an immediate response is required; use durable asynchronous work for long-running/after-commit consequences. Avoid long synchronous service-call chains that multiply timeout/retry/failure obligations.
-- gRPC is not baseline for Workstation sync or internal service calls. Revisit only when an implemented streaming/binary/generated-contract need materially improves the workload enough to justify another transport and compatibility surface.
+- **gRPC is a preferred candidate, not a pre-decided universal transport, for real process/service boundaries.** The first candidate areas are Workstation synchronization and future independently deployed synchronous service communication. Adopt it only when streaming, binary efficiency, generated contracts, or high-frequency RPC materially improve the implemented workload enough to justify the extra protocol/version/operations surface.
+- Workstation sync correctness stays transport-independent. Phase 3 may compare the simpler HTTP baseline with gRPC before the first sync transport is finalized.
+- Admin API and Core API remain independent normal runtime planes. Do not introduce an Admin API → Core API gRPC dependency merely because gRPC is available; if a future operation genuinely requires synchronous cross-process communication, evaluate gRPC under the same adoption gate.
+- Detailed transport owner: `docs/api/TRANSPORT_SELECTION.md`.
 
 ## Network edge, deployment and protocol boundaries
 
@@ -143,7 +146,7 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - WebSocket/SignalR, if used, is for live UI/signal/wakeup behavior only. Durable business/sync/usage truth remains in DB/outbox/state records.
 - SSH/private network access is infrastructure recovery/operations only, never a normal tenant business channel.
 - DNS/hostname information assists routing but is never tenant authority by itself. Time synchronization is operationally important for TLS/tokens/leases/schedules/diagnostics, while business correctness still uses explicit versions/IDs where wall-clock ambiguity would be unsafe.
-- MQTT, WebRTC, FTP/SFTP, raw TCP/UDP, and gRPC are not baseline; each requires a concrete latency/streaming/device/transport/compatibility need before adoption.
+- gRPC is not the universal/default application protocol, but it is the preferred candidate to evaluate for real synchronous process/service boundaries under `docs/api/TRANSPORT_SELECTION.md`. MQTT, WebRTC, FTP/SFTP, and raw TCP/UDP each still require a concrete latency/streaming/device/transport/compatibility need before adoption.
 - The initial paying-customer deployment must be reproducible from version-controlled deployment/infrastructure definitions and runbooks. Exact IaC/automation/container tooling is OPEN; normal tenant/platform application settings still belong in Web/Admin API rather than YAML-only administration.
 - The initial release path promotes the same verified immutable artifact, applies compatible/preflighted migrations, runs health/smoke checks, and has explicit rollback/roll-forward and maintenance-window behavior. Blue-green/canary/progressive delivery requires enough topology, capacity, routing, compatibility, telemetry, and recovery evidence; it is not assumed for one rack node.
 - Containerization is allowed when it improves repeatability/isolation, but Kubernetes is not baseline. Revisit Kubernetes only after concrete multi-node orchestration, rollout/reconciliation, discovery, failover/replacement, or scaling pain exceeds the simpler deployment approach.
@@ -212,7 +215,7 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Kubernetes without a concrete cluster-orchestration requirement;
 - API-management platform selected before a concrete need;
 - HTTP/gRPC between ordinary modules;
-- gRPC for Workstation sync without measured transport/contract value;
+- gRPC as a universal/default transport or an unmeasured Workstation/service dependency; it remains a preferred candidate only at real boundaries under the transport adoption gate;
 - database-per-service rules applied to the current modular monolith;
 - eventual-consistency-everywhere;
 - denormalized authoritative core schema;

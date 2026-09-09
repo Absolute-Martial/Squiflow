@@ -1,0 +1,41 @@
+id,section,pdf_pages,archive_entry,url_entry,title,original_pages,multi,duplicate,status,source_url,notes
+ARCH-041,ARCHIVE,83-84,041,,The System Design Topic Map,162-163,YES,NO,NOT STARTED,,visual:83
+ARCH-042,ARCHIVE,85-86,042,,How Transformers Architecture Works?,164-165,YES,NO,NOT STARTED,,visual:85
+ARCH-043,ARCHIVE,87-88,043,,JWT Simply Explained,166-167,YES,NO,NOT STARTED,,visual:87
+ARCH-044,ARCHIVE,89-90,044,,The 5 Pillars of API Design,168-169,YES,NO,NOT STARTED,,visual:89
+ARCH-045,ARCHIVE,91-92,045,,How does HTTPS work?,176-177,YES,NO,NOT STARTED,,visual:91
+ARCH-046,ARCHIVE,93-94,046,,Top 6 most commonly used Server Types,180-181,YES,NO,NOT STARTED,,visual:93
+ARCH-047,ARCHIVE,95-96,047,,Amazon Key Architecture with Third Party Integration,182-183,YES,NO,NOT STARTED,,visual:95
+ARCH-048,ARCHIVE,97-98,048,,How Do Companies Ship Code to Production?,184-185,YES,NO,NOT STARTED,,visual:97
+ARCH-049,ARCHIVE,99-100,049,,What is Event Sourcing? How is it different from normal CRUD design?,186-187,YES,NO,NOT STARTED,,visual:99
+ARCH-050,ARCHIVE,101-102,050,,How Data Lake Architecture Works?,188-189,YES,NO,NOT STARTED,,visual:101
+ARCH-051,ARCHIVE,103-104,051,,How SQL Query Executes In A Database?,202-203,YES,NO,NOT STARTED,,visual:103
+ARCH-052,ARCHIVE,105-106,052,,How RabbitMQ Works?,206-207,YES,NO,NOT STARTED,,visual:105
+ARCH-053,ARCHIVE,107-108,053,,A Cheatsheet on Kubernetes,210-211,YES,NO,NOT STARTED,,visual:107
+ARCH-054,ARCHIVE,109-110,054,,6 Data Structures to Save Storage,212-213,YES,NO,NOT STARTED,,visual:109
+ARCH-055,ARCHIVE,111-112,055,,5 Database Normal Forms Every Developer Should Know,214-215,YES,NO,NOT STARTED,,visual:111
+ARCH-056,ARCHIVE,113-114,056,,How CQRS Works?,218-219,YES,NO,NOT STARTED,,visual:113
+ARCH-057,ARCHIVE,115-116,057,,24 Good Resources to Learn Software Architecture in 2025,224-225,YES,ARCH-DUP-01,NOT STARTED,,visual:115
+ARCH-058,ARCHIVE,117-118,058,,Database Index Types Every Developer Should Know,226-227,YES,NO,NOT STARTED,,visual:117
+ARCH-059,ARCHIVE,119-120,059,,Top 5 common ways to improve API performance,232-233,YES,ARCH-DUP-02,NOT STARTED,,visual:119
+ARCH-060,ARCHIVE,121-122,060,,REST API Vs. GraphQL,234-235,YES,NO,NOT STARTED,,visual:121
+ARCH-061,ARCHIVE,123-124,061,,Tokens vs API Keys,236-237,YES,NO,NOT STARTED,,visual:123
+ARCH-062,ARCHIVE,125-126,062,,5 Data Structures That Make DB Queries Super Fast,240-241,YES,NO,NOT STARTED,,visual:125
+ARCH-063,ARCHIVE,127-128,063,,How can Cache Systems go wrong?,246-247,YES,NO,NOT STARTED,,visual:127
+ARCH-064,ARCHIVE,129-130,064,,8 System Design Concepts Explained in 1 Diagram,248-249,YES,NO,NOT STARTED,,visual:129
+ARCH-065,ARCHIVE,131-132,065,,16 Coding Patterns That Make Interviews Easy,250-251,YES,NO,NOT STARTED,,visual:131
+ARCH-066,ARCHIVE,133-134,066,,What is the SOLID Principle?,260-261,YES,NO,NOT STARTED,,visual:133
+ARCH-067,ARCHIVE,135-136,067,,Common HTTP Status Codes,262-263,YES,NO,NOT STARTED,,visual:135
+ARCH-068,ARCHIVE,137,068,,How Clean Architecture Works?,264,NO,NO,NOT STARTED,,visual:137
+ARCH-069,ARCHIVE,138-139,069,,How Does SSO Work?,268-269,YES,NO,NOT STARTED,,visual:138
+ARCH-070,ARCHIVE,140-141,070,,Best Practices in API Design,270-271,YES,NO,NOT STARTED,,visual:140
+ARCH-071,ARCHIVE,142-143,071,,Key Terms in Domain-Driven Design,272-273,YES,NO,NOT STARTED,,visual:142
+ARCH-072,ARCHIVE,144-145,072,,The Modern Software Stack,278-279,YES,NO,NOT STARTED,,visual:144
+ARCH-073,ARCHIVE,146-147,073,,Concurrency is NOT Parallelism,280-281,YES,NO,NOT STARTED,,visual:146
+ARCH-074,ARCHIVE,148-149,074,,JWT vs PASETO: The Two Players of Token-Based Authentication,282-283,YES,NO,NOT STARTED,,visual:148
+ARCH-075,ARCHIVE,150-151,075,,The Lifecycle of a Kubernetes Pod,288-289,YES,NO,NOT STARTED,,visual:150
+ARCH-076,ARCHIVE,152,076,,CI/CD Pipeline Explained,290,NO,NO,NOT STARTED,,visual:152
+ARCH-077,ARCHIVE,153,077,,What are some of the most popular versioning strategies?,293,NO,NO,NOT STARTED,,visual:153
+ARCH-078,ARCHIVE,154,078,,The Testing Pyramid,294,NO,NO,NOT STARTED,,visual:154
+ARCH-079,ARCHIVE,155-156,079,,9 Docker Best Practices You Should Know,295-296,YES,NO,NOT STARTED,,visual:155
+ARCH-080,ARCHIVE,157-158,080,,Where Do We Cache Data?,301-302,YES,NO,NOT STARTED,,visual:157

@@ -300,7 +300,9 @@ Material actions remain task-oriented (`ApproveQuote`, `RefundPayment`, `AdjustI
 
 GraphQL/GraphQL Federation are deferred until a real client query-composition problem justifies query-cost, field-authorization, caching, schema, and N+1 complexity.
 
-gRPC is also non-baseline. Revisit only if a real Workstation sync or extracted-service workload proves streaming, binary efficiency, generated contracts, or another transport property materially valuable enough to justify the extra protocol/version/operations surface.
+gRPC is **not a mandatory baseline or universal protocol**, but it is now a **preferred candidate** for real process/service boundaries where its properties materially fit the workload. The first candidate areas are Workstation synchronization and future independently deployed synchronous service communication. Streaming, binary efficiency, generated contracts, or sustained high-frequency RPC must justify the extra protocol/version/operations surface. Workstation sync correctness remains transport-independent, and Phase 3 may compare gRPC with the simpler HTTP baseline before selecting the first transport. Admin API and Core API do not gain a normal runtime dependency merely because gRPC is available.
+
+Owner: `docs/api/TRANSPORT_SELECTION.md`.
 
 Retryable mutations use caller-provided semantic idempotency keys.
 
@@ -335,7 +337,7 @@ Workstation durable outbox is local upload truth; in-memory signaling only wakes
 
 ```text
 bounded pending items
-→ authenticated Sync API
+→ authenticated Sync API/selected transport
 → authoritative tenant + OpenFGA permission + business/rule validation
 → idempotency + concurrency/conflict
 → central transaction
@@ -343,11 +345,15 @@ bounded pending items
 → durable local acknowledgement
 ```
 
+The correctness contract does not depend on HTTP versus gRPC. gRPC is a preferred candidate to POC when representative sync work benefits materially from streaming, binary framing/serialization, generated contracts, or a long-lived efficient connection; HTTP remains the simpler baseline comparison.
+
 Remote changes + cursor advancement commit together locally.
 
 Conflict behavior is aggregate-specific. Long-offline recovery preserves local pending intent and may require upgrade/resnapshot/rebase/review.
 
-Owner: `docs/sync/SYNC_AND_AUTHORITY.md`.
+Owners:
+- `docs/sync/SYNC_AND_AUTHORITY.md`
+- `docs/api/TRANSPORT_SELECTION.md`.
 
 ---
 
@@ -536,7 +542,7 @@ Communication-pattern selection:
 
 ```text
 inside one host/module composition → in-process call
-immediate authoritative answer across a real boundary → synchronous request/response
+immediate authoritative answer across a real boundary → synchronous request/response; gRPC is a preferred candidate when its properties materially fit
 one durable task → queue/job semantics
 many independent consumers of one fact → pub/sub or multiple outbox deliveries
 replay/history/independent offsets required → event stream, only when proven
@@ -559,13 +565,16 @@ Worker requirements include:
 
 Platform Admin Web sends privileged Worker/control commands to **Admin API**, which persists/authorizes the exact command before Worker/system execution. Core API is not the platform-control proxy.
 
+Admin API and Core API remain independent normal runtime planes. Do not introduce a direct gRPC dependency simply because both processes exist. If a future operation genuinely requires synchronous cross-process communication, evaluate gRPC under `docs/api/TRANSPORT_SELECTION.md` while preserving failure/security independence.
+
 No Kafka/event-stream infrastructure or generic pub/sub broker is baseline merely because those patterns exist.
 
 Notifications/webhooks use Core API/outbox/Worker boundaries first; no notification microservice baseline.
 
 Owners:
 - `docs/server/CORE_API_AND_WORKER.md`
-- `docs/integrations/NOTIFICATIONS_AND_EXTERNAL_DELIVERY.md`.
+- `docs/integrations/NOTIFICATIONS_AND_EXTERNAL_DELIVERY.md`
+- `docs/api/TRANSPORT_SELECTION.md`.
 
 ---
 
@@ -590,7 +599,8 @@ edge → Core API → Admin API
 Do not adopt a heavyweight API-management product merely because gateways can also perform transformation, analytics, version management, or authorization. Add only capabilities that solve the actual deployment problem.
 
 Current external protocol baseline:
-- HTTPS/TLS for Web/Core API/Admin API/Workstation sync;
+- HTTPS/TLS for Web/Core API/Admin API and as the secure transport envelope for Workstation communication;
+- Workstation sync may remain ordinary HTTP or use gRPC over TLS after the Phase-3 transport POC; the sync correctness model does not depend on that choice;
 - OIDC/OAuth over HTTPS for ZITADEL;
 - HTTP/1.1/2/3 negotiation is infrastructure/runtime detail rather than business semantics;
 - WebSocket/SignalR, if used, is live signaling only, never durable truth;
@@ -609,7 +619,7 @@ If containers are chosen, final images are trusted/minimal/version-or-digest-pin
 
 SquiFlow does not claim infinite scalability. Each deployment profile needs a measured capacity envelope, first-order bottlenecks, and a known next move for those bottlenecks. Diagnose the constraint before adding caching, replicas, extra nodes, sharding, distributed databases, or service extraction.
 
-Do not add gRPC, MQTT, WebRTC, FTP/SFTP, or raw TCP/UDP without a concrete latency/streaming/device/compatibility requirement.
+gRPC is not a universal/default protocol, but it is the preferred candidate to evaluate at real synchronous process/service boundaries when streaming, binary efficiency, generated contracts, or high-frequency RPC justify it. Do not add gRPC between ordinary modules or without passing the transport adoption gate in `docs/api/TRANSPORT_SELECTION.md`. MQTT, WebRTC, FTP/SFTP, and raw TCP/UDP likewise require a concrete workload.
 
 A service mesh is **not baseline**. Revisit only after real independently deployed east-west service traffic proves enough mTLS/discovery/traffic-policy/observability complexity to justify the runtime and operational cost.
 
@@ -674,6 +684,7 @@ Keep tests focused on real correctness risks:
 - retry amplification and retry-budget exhaustion;
 - rate/admission behavior and `Retry-After` client backoff;
 - sync protocol/version compatibility and long-offline recovery;
+- if gRPC is selected for any boundary: `.proto` compatibility, deadlines/cancellation, HTTP/2/edge behavior, streaming interruption/reconnect, authentication/authorization, and benchmark evidence versus the simpler HTTP baseline;
 - derived-projection duplicate/out-of-order/staleness/rebuild behavior where implemented;
 - edge routes Core/Admin directly without collapsing authorization or backend ownership;
 - WebSocket/live-signal loss does not destroy durable business progress;
@@ -700,10 +711,10 @@ Default WIP limit: **one implementation phase**, but each phase must cover its d
 Phase 0  Web + Workstation + Guard + Core API skeleton, provider contracts, minimal CI, initial reproducible deploy representation
 Phase 1  ZITADEL identity + OpenFGA Owner/Staff/custom-role authorization
 Phase 2  first local-first Workstation Customer/Order transaction + local DB + Guard recovery
-Phase 3  authoritative sync + central DB + workload/schema/index/consistency + API-version proof + pooled tenant isolation + idempotency
+Phase 3  authoritative sync + central DB + workload/schema/index/consistency + API-version proof + pooled tenant isolation + idempotency + sync transport POC/selection (HTTP baseline, gRPC preferred candidate when justified)
 Phase 4  conflict/long-offline/resnapshot recovery
 Phase 5  one native rule + workflow + bounded dynamic form
-Phase 6  create Worker + Platform Admin Web + independent Admin API; prove first platform-control and durable-work slice
+Phase 6  create Worker + Platform Admin Web + independent Admin API; prove first platform-control and durable-work slice; evaluate gRPC only if a real synchronous cross-process service boundary appears
 Phase 7  Hugging Face IObjectStore flow + documents/printing + Kaggle IBackupTarget restore proof
 Phase 8  API/rate/network/performance/observability/admin hardening
 Phase 9  payments/credit/inventory/correction hardening
@@ -733,7 +744,7 @@ Do not add these now:
 - Kubernetes before a real cluster-orchestration problem;
 - API-management platform selected before need;
 - HTTP/gRPC between ordinary modules;
-- gRPC sync without measured transport/contract need;
+- gRPC as a universal/default transport or unmeasured sync/service dependency; use the preferred-candidate adoption gate instead;
 - database-per-service rules applied to the current modular monolith;
 - MQTT/WebRTC/FTP/SFTP/raw TCP/UDP without a concrete workload;
 - custom Raft/consistent-hashing/Merkle-repair/distributed-database machinery;
