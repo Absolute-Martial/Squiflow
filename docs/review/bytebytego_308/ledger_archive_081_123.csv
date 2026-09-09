@@ -19,16 +19,16 @@ ARCH-097,ARCHIVE,191-192,097,,How to Debug a Slow API?,362-363,YES,NO,COMPLETED,
 ARCH-098,ARCHIVE,193,098,,Servers You Should Know in Modern Systems,375,NO,NO,COMPLETED,,visual:193; study:098 complete; DNS Web App LB/Proxy DB Cache File roles treated as capabilities not mandatory hosts; replica!=backup and object-store alternative recorded
 ARCH-099,ARCHIVE,194-195,099,,The Building Blocks of Modern Networking,376-377,YES,NO,COMPLETED,,visual:194; study:099 complete; networking security delivery identity operations edge infrastructure categories reviewed; enterprise network catalog treated as inventory prompt; rack topology remains deployment fact
 ARCH-100,ARCHIVE,196-197,100,,Network Services That Power Modern Connectivity,378-379,YES,NO,COMPLETED,,visual:196; study:100 complete; DNS DHCP NTP SSH RDP SMTP HTTPS/QUIC LDAP OIDC DB VPN services mapped by exact SquiFlow use/exposure; no protocol selected from catalog alone
-ARCH-101,ARCHIVE,198-199,101,,How to Design Good APIs,380-381,YES,NO,NOT STARTED,,visual:198
-ARCH-102,ARCHIVE,200-201,102,,Types of Virtualization,390-391,YES,NO,NOT STARTED,,visual:200
-ARCH-103,ARCHIVE,202-203,103,,Cloudflare vs. AWS vs. Azure,392-393,YES,NO,NOT STARTED,,visual:202
-ARCH-104,ARCHIVE,204,104,,Popular Backend Tech Stack,394,NO,NO,NOT STARTED,,visual:204
-ARCH-105,ARCHIVE,205-206,105,,HTTP vs. HTTPS,395-396,YES,NO,NOT STARTED,,visual:205
-ARCH-106,ARCHIVE,207-208,106,,Forward Proxy versus Reverse Proxy,397-398,YES,NO,NOT STARTED,,visual:207
-ARCH-107,ARCHIVE,209-210,107,,Things Every Developer Should Know: Concurrency is NOT parallelism,399-400,YES,NO,NOT STARTED,,visual:209
-ARCH-108,ARCHIVE,211-212,108,,Virtualization vs. Containerization,401-402,YES,ARCH-DUP-03,NOT STARTED,,visual:211
-ARCH-109,ARCHIVE,213-214,109,,5 REST API Authentication Methods,403-404,YES,NO,NOT STARTED,,visual:213
-ARCH-110,ARCHIVE,215-216,110,,What is a Firewall?,407-408,YES,NO,NOT STARTED,,visual:215
+ARCH-101,ARCHIVE,198-199,101,,How to Design Good APIs,380-381,YES,NO,COMPLETED,,visual:198; study:101 complete; HTTP idempotency semantics and POST/PATCH caveats recorded; task HTTP GraphQL gRPC live signaling async mapped by surface; URL020 remains independent
+ARCH-102,ARCHIVE,200-201,102,,Types of Virtualization,390-391,YES,NO,COMPLETED,,visual:200; study:102 complete; bare-metal VM container VM+container layers reviewed; bare-metal process-isolation and cloud-universality caveats recorded; packaging remains deployment-evidence driven
+ARCH-103,ARCHIVE,202-203,103,,Cloudflare vs. AWS vs. Azure,392-393,YES,NO,COMPLETED,,visual:202; study:103 complete; provider matrix treated as time-bound capability snapshot not procurement decision; hybrid owned-rack/edge/storage candidates mapped; primary-source/POC gate required
+ARCH-104,ARCHIVE,204,104,,Popular Backend Tech Stack,394,NO,NO,COMPLETED,,visual:204; study:104 complete; mixed taxonomy/logo popularity map challenged; accepted .NET ASP.NET Avalonia Blazor foundation retained by current-fit reasoning; no stack slot filling
+ARCH-105,ARCHIVE,205-206,105,,HTTP vs. HTTPS,395-396,YES,NO,COMPLETED,,visual:205; study:105 complete; TLS confidentiality/integrity/authentication retained; obsolete RSA-style key-exchange and TCP-only HTTP model qualified; external TLS remains required
+ARCH-106,ARCHIVE,207-208,106,,Forward Proxy versus Reverse Proxy,397-398,YES,NO,COMPLETED,,visual:207; study:106 complete; inbound reverse-proxy and outbound forward-proxy roles treated as complementary; current edge fit and future egress-proxy trigger recorded; proxy not authority
+ARCH-107,ARCHIVE,209-210,107,,Things Every Developer Should Know: Concurrency is NOT parallelism,399-400,YES,NO,COMPLETED,,visual:209; study:107 complete; semantic repeat of 073 independently reviewed; I/O concurrency CPU parallelism resource/fairness budgets mapped to actual rack
+ARCH-108,ARCHIVE,211-212,108,,Virtualization vs. Containerization,401-402,YES,ARCH-DUP-03,COMPLETED,,visual:211; study:108 complete; second exact duplicate independently inspected; VM/container startup and compatibility generalizations qualified; no packaging winner selected
+ARCH-109,ARCHIVE,213-214,109,,5 REST API Authentication Methods,403-404,YES,NO,COMPLETED,,visual:213; study:109 complete; Basic session token OAuth API-key methods mapped by principal/lifecycle; OAuth/OIDC and JWT/API-key caveats recorded; ZITADEL PKCE/session + future machine-credential candidates coexist
+ARCH-110,ARCHIVE,215-216,110,,What is a Firewall?,407-408,YES,NO,COMPLETED,,visual:215; study:110 complete; network/host filtering treated as defense in depth not authorization; topology/layer claims qualified; explicit tested ingress/egress/port inventory recorded as production hardening need
 ARCH-111,ARCHIVE,217-218,111,,What is a REST API?,411-412,YES,NO,NOT STARTED,,visual:217
 ARCH-112,ARCHIVE,219-220,112,,Virtualization Explained: From Bare Metal to Hosted Hypervisors,415-416,YES,NO,NOT STARTED,,visual:219
 ARCH-113,ARCHIVE,221-222,113,,Database Types You Should Know in 2025,417-418,YES,NO,NOT STARTED,,visual:221
