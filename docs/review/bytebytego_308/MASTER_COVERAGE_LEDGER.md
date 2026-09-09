@@ -79,7 +79,7 @@ URL occurrences remain independent even when a title exactly matches an archive 
 - URL `061` **How to Learn API Development** ↔ archive `026`
 - URL `064` **A Cheatsheet on REST API Design Best Practices** ↔ archive `033`
 
-URL `008` has now been independently processed; its archive overlap did not auto-complete it. All later overlap rows remain independent and pending until their own sequential page is reached.
+URLs `008`, `013`, `014`, and `020` have now each been independently processed; their archive overlaps did not auto-complete them. All later overlap rows remain independent and pending until their own sequential page is reached.
 
 ## Processing-status rules
 
@@ -161,6 +161,9 @@ Material changes to accepted architecture, technology choice, trust/authority bo
 - `STUDY_URL_001.md` through `STUDY_URL_010.md` — exhaustive independent studies for URL occurrences `001-010`.
 - `STUDY_URL_001_010.md` — first URL-section checkpoint and batch index.
 - `CONCEPT_DEPENDENCY_MAP_URL_001_010.md` — URL-section concept-map extension through URL `010`.
+- `STUDY_URL_011.md` through `STUDY_URL_020.md` — exhaustive independent studies for URL occurrences `011-020`.
+- `STUDY_URL_011_020.md` — second URL-section checkpoint and batch index.
+- `CONCEPT_DEPENDENCY_MAP_URL_011_020.md` — URL-section concept-map extension through URL `020`.
 
 ### Review-method / concept-map files
 
@@ -176,6 +179,7 @@ Material changes to accepted architecture, technology choice, trust/authority bo
 - `CONCEPT_DEPENDENCY_MAP_111_120.md`
 - `CONCEPT_DEPENDENCY_MAP_121_123.md`
 - `CONCEPT_DEPENDENCY_MAP_URL_001_010.md`
+- `CONCEPT_DEPENDENCY_MAP_URL_011_020.md`
 
 The split between study files is organizational only; the coverage ledger is authoritative.
 
@@ -183,7 +187,7 @@ The split between study files is organizational only; the coverage ledger is aut
 
 All archive occurrences `001-123` are complete. Archive PDF pages `5-241` were fully read/inspected, and structural transition pages `242-244` were re-inspected in sequence before entering the URL section.
 
-URL occurrences `001-010` are now fully completed. Every URL-summary PDF page `245-254` was rendered and visually inspected individually. The supplied public URLs were checked directly; paid content was not bypassed and inaccessible content was not inferred. URL `008` was independently processed despite exact title overlap with archive `035`.
+URL occurrences `001-020` are now fully completed. Every URL-summary PDF page `245-264` was rendered and visually inspected individually. The supplied public URLs were checked directly; paid content was not bypassed and inaccessible content was not inferred. Exact archive overlaps at URL `008`, `013`, `014`, and `020` were independently processed.
 
 ### URL 001-010 architecture synthesis
 
@@ -198,23 +202,36 @@ URL occurrences `001-010` are now fully completed. Every URL-summary PDF page `2
 - URL `009`: eventual consistency is per invariant/derived surface; CQRS does not imply eventual consistency and protected payment/stock/credit/tenant-sensitive authority does not rely on stale projections.
 - URL `010`: API gateway/edge and service mesh are different operational tools. Current edge need exists; current mesh need does not because ordinary business modules are in-process. Mesh remains a positive future candidate if independent east-west service traffic becomes operationally significant.
 
-No material owner-architecture technology adoption was made from URL entries `001-010`. This batch does **not** newly select Kubernetes/container orchestration, sidecar/service-proxy patterns, Redis/cache, sharding/replication/denormalized authority, Event Sourcing, a new auth/token platform, service mesh, or a final edge/gateway product. It strengthens fit, verification, recovery and falsification gates around already accepted architecture.
+### URL 011-020 architecture synthesis
 
-The next unprocessed detailed-content page is PDF page `255`, URL entry `011 — Database Schema Design Simplified: Normalization vs Denormalization`.
+- URL `011`: normalization and denormalization are complementary per responsibility, not winner/loser choices. Current transactional authority remains normalized; measured read paths may earn derived projections/materialized shapes with source/freshness/rebuild contracts.
+- URL `012`: indexes are selected for concrete queries/invariants and must prove query-plan benefit against write, WAL/storage, reconnect/import and migration/rebuild cost on real provider/hardware.
+- URL `013`: pagination, async telemetry, caching, compression and pooling solve different bottlenecks. They may coexist, but caching/Redis and large pool sizes are not automatically selected.
+- URL `014`: SOLID remains a design-review lens. Real provider/replacement seams justify narrow abstractions and contract tests; one-interface-per-class, generic repository and speculative extension hierarchies do not follow from the principle.
+- URL `015`: rate/admission control protects specific finite resources and remains distinct from authorization, strict durable consumption accounting and execution concurrency. Edge-only RPS limits cannot protect every Worker/provider/DB bottleneck.
+- URL `016`: GraphQL is a positive surface-specific candidate, not the loser/winner of a REST comparison. Task-oriented HTTP remains useful for explicit commands/resources; GraphQL should be evaluated for real tenant Web/Admin client-driven nested read composition. Federation is a separate ownership problem. Either adoption leaves TenantContext/OpenFGA/domain/idempotency/concurrency/sync/Worker correctness intact.
+- URL `017`: gateway/reverse-proxy capability is justified by current edge needs such as TLS/custom domains/routing/exposure/limits even without microservices; advanced API-management features require a concrete product/operations need and backend business authority remains independent.
+- URL `018`: service communication selection starts by challenging whether a service boundary exists. Same-host modules remain in-process, real immediate-response boundaries evaluate HTTP/gRPC, and long-running/after-commit consequences use durable async work.
+- URL `019`: current Core API/Admin API/Worker may share central persistence because they are runtime hosts of one modular-monolith authority. A genuinely extracted service must own its authoritative writes and share selected data through stable APIs/events/read models; “database per service” is not a mandate for one physical database server per service.
+- URL `020`: good API design is semantic rather than REST-method purity. Semantic idempotency, explicit domain actions, current authorization, concurrency, pagination and version/compatibility rules matter more than assuming method names guarantee retry safety.
 
-`LAST FULLY COMPLETED PDF PAGE: 254`
+No material owner-architecture technology adoption was made from URL entries `001-020`. The second URL batch does **not** newly select GraphQL/Federation, Redis, a new DB/index type, denormalized authority, a heavyweight API-management platform, service mesh/broker, database-per-service, or a universal service transport. It strengthens what/why, recovery, measurement and falsification gates while explicitly recording positive candidate surfaces where these options may be useful.
 
-`LAST COMPLETED ARTICLE: URL 010 — API Gateway vs Service Mesh - Which One Do You Need`
+The next unprocessed detailed-content page is PDF page `265`, URL entry `021 — What is a REST API?`.
 
-`NEXT PDF PAGE: 255`
+`LAST FULLY COMPLETED PDF PAGE: 264`
 
-`NEXT ARTICLE: URL 011 — Database Schema Design Simplified: Normalization vs Denormalization`
+`LAST COMPLETED ARTICLE: URL 020 — How to Design Good APIs`
 
-`COVERAGE STATUS: 254 / 308 pages sequentially completed`
+`NEXT PDF PAGE: 265`
+
+`NEXT ARTICLE: URL 021 — What is a REST API?`
+
+`COVERAGE STATUS: 264 / 308 pages sequentially completed`
 
 ## Checkpoint and final-audit rule
 
-A synthesis checkpoint is produced after approximately every 10 articles and at major section boundaries. Every remaining URL occurrence on pages `255-308` must be independently reviewed, even when it exactly overlaps an archive title.
+A synthesis checkpoint is produced after approximately every 10 articles and at major section boundaries. Every remaining URL occurrence on pages `265-308` must be independently reviewed, even when it exactly overlaps an archive title.
 
 Reaching PDF page 308 does not by itself close this work. A second pass must verify every ledger row, every multi-page span, every duplicate occurrence, every URL occurrence and every visual-heavy page; no `NOT STARTED` or unresolved `NEEDS REVIEW` may remain before stating:
 
