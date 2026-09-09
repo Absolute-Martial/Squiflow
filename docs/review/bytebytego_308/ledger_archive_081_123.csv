@@ -9,16 +9,16 @@ ARCH-087,ARCHIVE,172-173,087,,Access Control Clearly Explained,324-325,YES,NO,CO
 ARCH-088,ARCHIVE,174-175,088,,API Vs SDK!,339-340,YES,NO,COMPLETED,,visual:174; study:088 complete; API and SDK treated as complementary not alternatives; provider SDK types remain behind SquiFlow boundaries; retry/error coupling and URL API-key caveat recorded
 ARCH-089,ARCHIVE,176-177,089,,SQL Injection (SQLi),341-342,YES,NO,COMPLETED,,visual:176; study:089 complete; tautology union/error boolean/time blind SQLi reviewed; parameterization identifier allowlists least privilege and two-tenant hostile tests mapped; docs requirement not falsely claimed implemented
 ARCH-090,ARCHIVE,178-179,090,,24 Good Resources to Learn Software Architecture in 2025,345-346,YES,ARCH-DUP-01,COMPLETED,,visual:178; study:090 complete; third duplicate occurrence independently inspected; no material semantic delta from 014/057; resources remain question generators not technology authority
-ARCH-091,ARCHIVE,180-181,091,,Cross-Site Scripting (XSS) Attacks,347-348,YES,NO,NOT STARTED,,visual:180
-ARCH-092,ARCHIVE,182-183,092,,Batch vs Stream Processing,351-352,YES,NO,NOT STARTED,,visual:182
-ARCH-093,ARCHIVE,184-185,093,,What are Modular Monoliths?,353-354,YES,NO,NOT STARTED,,visual:184
-ARCH-094,ARCHIVE,186,094,,Popular interview question: What is the difference between Process and Thread?,355,NO,NO,NOT STARTED,,visual:186
-ARCH-095,ARCHIVE,187-188,095,,Latency vs. Throughput,358-359,YES,NO,NOT STARTED,,visual:187
-ARCH-096,ARCHIVE,189-190,096,,Top 20 System Design Concepts You Should Know,360-361,YES,ARCH-DUP-04,NOT STARTED,,visual:189
-ARCH-097,ARCHIVE,191-192,097,,How to Debug a Slow API?,362-363,YES,NO,NOT STARTED,,visual:191
-ARCH-098,ARCHIVE,193,098,,Servers You Should Know in Modern Systems,375,NO,NO,NOT STARTED,,visual:193
-ARCH-099,ARCHIVE,194-195,099,,The Building Blocks of Modern Networking,376-377,YES,NO,NOT STARTED,,visual:194
-ARCH-100,ARCHIVE,196-197,100,,Network Services That Power Modern Connectivity,378-379,YES,NO,NOT STARTED,,visual:196
+ARCH-091,ARCHIVE,180-181,091,,Cross-Site Scripting (XSS) Attacks,347-348,YES,NO,COMPLETED,,visual:180; study:091 complete; reflected stored DOM XSS source/sink model reviewed; framework encoding sanitizer/CSP roles separated; docs security requirement distinguished from unverified implementation
+ARCH-092,ARCHIVE,182-183,092,,Batch vs Stream Processing,351-352,YES,NO,COMPLETED,,visual:182; study:092 complete; batch job live signal and true stream semantics separated; source batch=accuracy stream=real-time simplification qualified; streaming remains workload-triggered
+ARCH-093,ARCHIVE,184-185,093,,What are Modular Monoliths?,353-354,YES,NO,COMPLETED,,visual:184; study:093 complete; modular monolith positively mapped to current business-module need; microservices scalability claim qualified; extraction triggers and module/data-ownership questions recorded
+ARCH-094,ARCHIVE,186,094,,Popular interview question: What is the difference between Process and Thread?,355,NO,NO,COMPLETED,,visual:186; study:094 complete; process isolation vs same-process concurrency mapped to Guard Workstation Core Admin Worker; .NET async/thread simplification qualified
+ARCH-095,ARCHIVE,187-188,095,,Latency vs. Throughput,358-359,YES,NO,COMPLETED,,visual:187; study:095 complete; latency distributions throughput saturation queueing fairness and backlog-age mapping recorded; no guessed numeric SLOs
+ARCH-096,ARCHIVE,189-190,096,,Top 20 System Design Concepts You Should Know,360-361,YES,ARCH-DUP-04,COMPLETED,,visual:189; study:096 complete; duplicate occurrence independently inspected; 20-item catalog retained as coverage checklist not backlog; newer SquiFlow NFR gaps rechecked
+ARCH-097,ARCHIVE,191-192,097,,How to Debug a Slow API?,362-363,YES,NO,COMPLETED,,visual:191; study:097 complete; network backend DB external API infra diagnostic tree reviewed; CDN async retries indexes autoscale pool fixes qualified as evidence-dependent
+ARCH-098,ARCHIVE,193,098,,Servers You Should Know in Modern Systems,375,NO,NO,COMPLETED,,visual:193; study:098 complete; DNS Web App LB/Proxy DB Cache File roles treated as capabilities not mandatory hosts; replica!=backup and object-store alternative recorded
+ARCH-099,ARCHIVE,194-195,099,,The Building Blocks of Modern Networking,376-377,YES,NO,COMPLETED,,visual:194; study:099 complete; networking security delivery identity operations edge infrastructure categories reviewed; enterprise network catalog treated as inventory prompt; rack topology remains deployment fact
+ARCH-100,ARCHIVE,196-197,100,,Network Services That Power Modern Connectivity,378-379,YES,NO,COMPLETED,,visual:196; study:100 complete; DNS DHCP NTP SSH RDP SMTP HTTPS/QUIC LDAP OIDC DB VPN services mapped by exact SquiFlow use/exposure; no protocol selected from catalog alone
 ARCH-101,ARCHIVE,198-199,101,,How to Design Good APIs,380-381,YES,NO,NOT STARTED,,visual:198
 ARCH-102,ARCHIVE,200-201,102,,Types of Virtualization,390-391,YES,NO,NOT STARTED,,visual:200
 ARCH-103,ARCHIVE,202-203,103,,Cloudflare vs. AWS vs. Azure,392-393,YES,NO,NOT STARTED,,visual:202
