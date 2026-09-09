@@ -125,40 +125,43 @@ Material changes to accepted architecture, technology choice, trust/authority bo
 - `STUDY_011_020.md` — entries `011-020` exhaustive study plus the second 10-article checkpoint.
 - `STUDY_021_030.md` — entries `021-030` exhaustive study plus the third 10-article checkpoint.
 - `STUDY_031_040.md` — entries `031-040` exhaustive study plus the fourth 10-article checkpoint.
-- `CONCEPT_DEPENDENCY_MAP.md` — cumulative concept map through entry `040`.
+- `STUDY_041_050.md` — entries `041-050` exhaustive study plus the fifth 10-article checkpoint.
+- `CONCEPT_DEPENDENCY_MAP.md` — cumulative concept map through entry `050`.
 
 The split between study files is organizational only; the coverage ledger is authoritative.
 
 ## Current sequential progress
 
-Archive entries `001-040` are fully completed. All archive-article PDF pages `5-82` have been read. For entries `031-040`, the infographic/table-heavy pages `64, 66, 68, 70, 72, 74, 76, 78, 79, 81` were rendered and visually inspected in addition to the parsed source text. Structural pages `1-4` were previously completed for inventory.
+Archive entries `001-050` are fully completed. All archive-article PDF pages `5-102` have been read. For entries `041-050`, all PDF pages `83-102` were rendered and visually scanned; the infographic-heavy first pages `83, 85, 87, 89, 91, 93, 95, 97, 99, 101` were inspected at full-page resolution in addition to parsed source text. Structural pages `1-4` were previously completed for inventory.
 
-The fourth checkpoint after forty archive entries is recorded at the end of `STUDY_031_040.md`.
+The fifth checkpoint after fifty archive entries is recorded at the end of `STUDY_041_050.md`.
 
-Notable source caveats preserved in entries `031-040` include:
+Notable source caveats preserved in entries `041-050` include:
 
-- CAP, caching, sharding/partitioning, eventual consistency, and microservices are presented as short system-design cards and therefore require workload/failure-context qualification;
-- Singleton is runtime-scope rather than one global cross-node instance, and in-process Observer is not a durable message-delivery mechanism;
-- the REST visual's HTTP-method idempotence table does not by itself prove application-level retry safety, and idempotency protects semantic effects rather than requiring byte-identical responses;
-- AWS/cloud service catalogs are provider taxonomies, not SquiFlow deployment selections;
-- DRY and other clean-code rules are not applied mechanically when business concepts have different reasons to change;
-- SQL logical order is not a literal physical execution plan; optimizer behavior must be measured with real data/statistics/cardinality;
-- a JWT signature provides integrity/authenticity under a trusted key policy but is not encryption and does not replace current authorization;
-- canary may still use staging, A/B experimentation is not identical to release risk reduction, and application rollback does not imply safe database rollback.
+- the system-design topic map mixes universal concerns with optional mechanisms, so service mesh/Kubernetes/sharding/etc. are not treated as maturity requirements;
+- the canonical encoder-decoder Transformer diagram is not the exact architecture of every named modern LLM, and highest-probability token selection is a simplified generation description;
+- JWT signatures do not encrypt normal JWT payloads and token validity does not replace current SquiFlow authorization;
+- the five API pillars omit several production correctness dimensions that SquiFlow already owns, including semantic idempotency, concurrency, tenant/resource authority and failure classification;
+- the HTTPS article's RSA-style “client encrypts a session key with the server public key” step is not a general description of modern TLS 1.3, and “asymmetric encryption goes one way” is inaccurate;
+- server-type lists describe roles, not one-machine-per-role deployment requirements;
+- the Amazon Key architecture is treated as an IoT/partner case study rather than a SquiFlow microservice/AWS blueprint;
+- the CI/CD article's Jira/Jenkins/JFrog/Docker/ELK/Prometheus names are examples rather than mandatory tool selections;
+- event sourcing does not automatically guarantee determinism/global ordering and is distinct from a transactional outbox;
+- a data lake needs governance/lineage/privacy/lifecycle controls and is distinct from SquiFlow object storage or encrypted backup.
 
-No material architecture/technology change requiring owner-document modification was discovered in this batch; the detailed review largely reinforces current SquiFlow decisions and existing release/API/query/security gates. Owner documents were therefore not silently changed.
+No material architecture/technology change requiring owner-document modification was discovered in this batch. The findings reinforce current SquiFlow decisions and add review caveats/implementation questions without silently changing accepted owner documents.
 
-The next unprocessed page is PDF page `83`, archive entry `041`.
+The next unprocessed page is PDF page `103`, archive entry `051`.
 
-`LAST FULLY COMPLETED PDF PAGE: 82`
+`LAST FULLY COMPLETED PDF PAGE: 102`
 
-`LAST COMPLETED ARTICLE: 040 — How to Deploy Services`
+`LAST COMPLETED ARTICLE: 050 — How Data Lake Architecture Works?`
 
-`NEXT PDF PAGE: 83`
+`NEXT PDF PAGE: 103`
 
-`NEXT ARTICLE: 041 — The System Design Topic Map`
+`NEXT ARTICLE: 051 — How SQL Query Executes In A Database?`
 
-`COVERAGE STATUS: 82 / 308 pages sequentially completed`
+`COVERAGE STATUS: 102 / 308 pages sequentially completed`
 
 The structural inventory pages `242-244` were inspected only to establish the master inventory; this does not mean URL detailed processing has jumped ahead.
 

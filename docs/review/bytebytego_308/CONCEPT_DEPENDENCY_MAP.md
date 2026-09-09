@@ -1,7 +1,7 @@
 # ByteByteGo 308-Page Concept Dependency Map
 
 **Status:** Grows sequentially with the exhaustive study.  
-**Last mapped article:** `040 — How to Deploy Services`
+**Last mapped article:** `050 — How Data Lake Architecture Works?`
 
 The map records concepts only after their source occurrence is reached, while allowing architect-derived links to already accepted SquiFlow design. It is a dependency/reasoning map, not a mandatory technology stack.
 
@@ -44,21 +44,33 @@ real process/network boundary
     → TLS
     → HTTP/HTTPS, DNS, NTP, SSH and other application protocols
 
-026 + 033 API design
+026 + 033 + 044 API design
     → audience / protocol choice
+    → interface inputs/outputs
     → resource-oriented defaults
     → semantic action endpoints where clearer
+    → relationships / domain navigation
     → HTTP methods / status / headers
     → stable Problem Details
     → explicit version compatibility
     → semantic idempotency key for retryable mutation
     → bounded pagination
         → offset / cursor / keyset trade-offs
+    → rate/admission limiting
     → authentication
     → TenantContext
     → resource/OpenFGA authorization
     → domain + concurrency validation
     → HTTPS/TLS
+    → cacheability/freshness
+    → observability/audit correlation
+
+045 HTTPS/TLS
+    → authenticated server identity/certificate validation
+    → negotiated key establishment
+    → symmetric protected application traffic
+    → maintained runtime/edge implementation
+    → no insecure downgrade
 
 architect rules
     → POST is not automatically retry-safe
@@ -68,6 +80,8 @@ architect rules
     → hostname/domain assists routing but is never tenant authority
     → arbitrary outbound URLs require SSRF-safe handling
     → gRPC is preferred to evaluate for earned synchronous boundaries, not universal
+    → modern TLS 1.3 is not generally “RSA-encrypt a client-generated session key”
+    → TLS termination creates an explicit edge-to-backend trust boundary
 ```
 
 ## 2. Identity, sessions, SSO, and tokens
@@ -91,8 +105,9 @@ authentication
     → shared IdP authentication/session relationship
     → each application still has its own validation/session path
 
-039 JWT simple explanation
+039 + 043 JWT explanations
     → signed claims / tamper detection
+    → symmetric or asymmetric signing
     → signature ≠ encryption
     → token validity still requires issuer/audience/time/key/token-policy checks
 
@@ -111,6 +126,7 @@ architect rules
     → cryptographically valid token ≠ current business authorization
     → SSO centralizes authentication, not tenant/resource authority
     → SquiFlow does not create a second custom JWT/PASETO/password authority
+    → token algorithm/issuer/audience/key policy is verifier-owned, not trusted from unvalidated claims
 ```
 
 ## 3. Deployment, infrastructure, cloud, and release engineering
@@ -158,8 +174,18 @@ architect rules
         → experimentation/user segmentation
         ≠ inherently rollback strategy
 
+048 delivery pipeline
+    → planned change / source commit
+    → automated build + tests + quality/security checks
+    → artifact/package storage
+    → dev/QA/UAT-style verification as appropriate
+    → release candidate
+    → production deployment
+    → post-release monitoring/alerts
+
 SquiFlow release contract
     → one verified immutable artifact
+    → source commit / checksum / provenance traceability
     → config/secrets outside artifact
     → dependency/capacity/migration preflight
     → drain/bound in-flight work where necessary
@@ -172,6 +198,8 @@ architect rules
     → containerization ≠ IaC ≠ orchestration ≠ HA
     → Docker/Kubernetes are not themselves cloud service models
     → provider catalog ≠ provider selection
+    → pipeline tool names (Jenkins/JFrog/etc.) are examples, not requirements
+    → small team can combine roles without dropping controls
     → single active rack node may honestly require a maintenance window
     → binary rollback does not imply database rollback
     → canary can still have staging; A/B and canary have different objectives
@@ -212,6 +240,15 @@ architect rules
     → monitoring
     → authentication / authorization
 
+041 system-design topic map
+    → Application Layer
+    → Network & Communication
+    → Data Layer
+    → Scalability & Reliability
+    → Security & Observability
+    → Infrastructure & Deployments
+    → cross-links OOP/DDD/modular monolith/microservices, HTTP/gRPC/AMQP, event-driven comms, SQL/NoSQL/distributed DB, auth, monitoring, IaC, containers/orchestration and disaster recovery
+
 architect-derived SquiFlow completeness additions
     → semantic idempotency
     → concurrency control
@@ -220,10 +257,13 @@ architect-derived SquiFlow completeness additions
     → authoritative-vs-derived state
     → recovery/RPO/RTO
     → backpressure/admission
+    → privacy/retention/data lifecycle
+    → cost/provider lock-in/operational ownership
     → partial-effect ambiguity/reconciliation
 
 architect rule
-    → system-design checklist is a question generator, not an infrastructure backlog
+    → system-design checklist/map is a question generator, not an infrastructure backlog
+    → optional mechanisms and universal concerns are not the same thing
     → no microservices, service discovery, sharding, distributed cache, replicas, or extra nodes without an earned workload/failure reason
 ```
 
@@ -262,13 +302,24 @@ AWS source examples
     → EventBridge event bus
     → Kinesis stream
 
+049 event sourcing distinction
+    → append-only authoritative domain-event stream
+    → replay builds current state/projections
+    → durable event-schema/version/rebuild obligations
+    ≠ transactional outbox
+    ≠ ordinary integration-event log by itself
+
 SquiFlow
     → transactional outbox + simplest durable Worker/job path first
+    → normalized current state remains authoritative
     → pub/sub only for several real independent consumers
     → stream/Kafka-style log only when replay/offset/throughput need exists
+    → event sourcing only if one domain truly needs replay-derived authority
 
 architect rule
     → in-process Observer (032) ≠ durable message delivery
+    → event sourcing does not automatically guarantee determinism/global ordering
+    → external effects are never replayed blindly during projection rebuild
 ```
 
 ## 7. Cache and key-value branch
@@ -374,11 +425,33 @@ architect rules
     → CI/CD/IaC
     → notebook/dashboard
 
+050 data lake
+    → heterogeneous sources
+    → batch OR streaming ingestion
+    → raw store
+    → transform/process
+    → processed analytical store
+    → dashboards / AI / warehouse / alerts / reports
+    → production needs governance
+        → catalog/schema/lineage
+        → access/tenant/privacy controls
+        → retention/deletion
+        → quality/deduplication
+        → backfill/reprocessing/versioning
+        → cost/lifecycle
+
+SquiFlow distinctions
+    → transactional relational system = operational authority
+    → object storage = business file/object capability
+    → Kaggle backup target = encrypted opaque recovery artifact carrier
+    → future analytical dataset = derived/exported, governed, tenant-safe
+
 architect rules
-    → reports ≠ automatic warehouse requirement
+    → reports ≠ automatic warehouse/lake requirement
     → analytical copy remains derived, not OLTP authority
     → copied data retains tenant/privacy/retention obligations
     → Kafka/Spark/Flink/lake infrastructure requires actual volume/freshness/replay/backfill need
+    → raw lake without governance can become an untrusted data swamp
 ```
 
 ## 10. Design patterns and clean-code branch
@@ -422,7 +495,7 @@ architect rules
     → build metadata
 
 SquiFlow version domains
-    → product release (current v0.0.15)
+    → product release
     → HTTP API
     → Workstation sync protocol
     → central/local schema
@@ -459,11 +532,71 @@ architect rule
     ≠ cloud migration decision
 ```
 
-## 13. Current SquiFlow integrated path
+## 13. AI / probabilistic model branch
+
+```text
+042 canonical Transformer teaching flow
+    → token/input embedding
+    → positional information
+    → attention + feed-forward layers
+    → masked decoder attention
+    → linear/softmax output distribution
+
+architect qualifications
+    → canonical encoder-decoder diagram ≠ exact architecture of every named LLM
+    → generation may sample; not always highest-probability token
+
+SquiFlow rule
+    → no AI/model-serving baseline from this article
+    → future AI feature gets explicit provider/privacy/cost/error/offline/audit/human-confirmation contract
+    → probabilistic model output never silently becomes payment/stock/permission/financial authority
+```
+
+## 14. Server roles and physical/partner integrations
+
+```text
+046 server-role vocabulary
+    → web
+    → mail
+    → DNS
+    → proxy
+    → FTP
+    → origin
+
+architect rule
+    → role ≠ one physical machine/process
+    → only required roles are operated
+    → no self-hosted mail/FTP/DNS merely because common
+
+047 Amazon Key case study
+    → logistics/partner ingress
+    → access-management authorization
+    → device-management lifecycle
+    → IoT connectivity / MQTT / device shadow / OTA job concepts
+    → monitoring/alarms/metrics/logs
+    → analytical/BI path
+    → physical device at property
+
+future device-integration questions
+    → device identity/provisioning/credential rotation
+    → replay protection + command expiry
+    → intermittent connectivity + reconciliation
+    → OTA signing/rollback/bricked-device recovery
+    → tamper/stolen credential threat model
+    → partner isolation/quotas/versioning
+    → physical OutcomeUnknown + audit/manual recovery
+
+SquiFlow connection
+    → current print/device side effect remains separate from committed business truth
+    → future connected-device capability uses explicit identity/offline/update/reconciliation semantics
+    ≠ copy AWS microservice topology
+```
+
+## 15. Current SquiFlow integrated path
 
 ```text
 Workstation local-first operation
-    → durable SQLite/local transaction
+    → durable local transaction
     → durable outbox
     → HTTP baseline OR measured gRPC candidate
     → server identity/device validation
@@ -485,33 +618,45 @@ long/after-commit consequence
 central persistence
     → PostgreSQL strongest reference candidate
     → closes through Phase-3 workload/operational POC
+    → normalized current state + explicit audit/history
+    → event sourcing remains deferred
 
 Web
-    → online-only business operations in v0.0.15
+    → online-only business operations
     → optimize measured browser bottlenecks
 
 production deployment
     → reproducible definitions/runbooks
     → simplest single-node packaging that works
-    → immutable artifact + compatible migrations + health/smoke + recovery
+    → immutable artifact + source/provenance + compatible migrations + health/smoke + recovery
     → cloud/multi-node/Kubernetes/progressive release only after earned trigger
+
+analytics
+    → no data lake baseline
+    → backup/object storage remain separate operational/business capabilities
 ```
 
 ## Pending future links visible from the index only
 
 These are **not yet studied** and therefore are not treated as completed concept nodes:
 
-- `041` System Design Topic Map (next)
-- `042` Transformer architecture
-- `043` additional JWT framing
-- `044` API design pillars
-- `045` HTTPS internals
-- `048` production code-shipping flow
-- `049` event sourcing and `056` CQRS
-- `051`, `058`, `062`, `097` deeper SQL/index/query material
+- `051` How SQL Query Executes In A Database? (next)
 - `052`, `083`, `114` RabbitMQ/Kafka
 - `053` Kubernetes detail
+- `054` storage-saving data structures
+- `055` database normal forms
+- `056` CQRS (to connect with event sourcing)
+- `057` duplicate architecture-resource occurrence
+- `058`, `062`, `097` deeper index/query/performance material
+- `059` duplicate API-performance occurrence
+- `060` REST vs GraphQL
+- `061` tokens vs API keys
 - `063`, `080`, `085` cache failure/placement/query lifecycle
+- `067` HTTP status code detail
+- `069` additional SSO occurrence
+- `073` concurrency vs parallelism
+- `074` JWT vs PASETO
+- `076`, `082` CI/CD follow-up occurrences
 - `077` and URL `040` API versioning strategies
 - `093` explicit modular-monolith source occurrence
 - `096` duplicate system-design concept occurrence
