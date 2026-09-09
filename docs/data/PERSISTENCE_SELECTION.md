@@ -134,6 +134,37 @@ Eventual consistency is acceptable for explicitly derived/reconstructable state 
 
 For asynchronous projection updates, handle duplicate and out-of-order delivery through stable source versions/sequence/effect identity as appropriate to that projection. Do not let late derived data overwrite newer authoritative meaning.
 
+### Concurrency, isolation, and locks
+
+Concurrency control is selected per invariant rather than globally:
+
+- expected-version/optimistic concurrency is the ordinary collaborative edit contract;
+- unique/check/foreign-key constraints protect database-owned invariants;
+- atomic conditional updates are preferred when they express the transition clearly;
+- stronger transaction isolation or row/range/advisory locks are used only when the real invariant cannot be protected safely by a simpler mechanism;
+- transactions stay short and do not wait on user interaction or avoidable external provider calls;
+- code that takes multiple locks follows a deliberate stable ordering where applicable;
+- deadlock/serialization/lock-timeout results are classified separately from permanent business conflicts.
+
+When a provider reports a genuinely retryable deadlock/serialization conflict, retry the **whole transaction**, not an arbitrary fragment, with a bounded budget under the command's existing semantic-idempotency contract. Observe lock wait/deadlock/abort evidence during normal and reconnect/import burst tests.
+
+### Compatible schema evolution
+
+Database evolution must account for more than the currently deployed server binary. Supported old/new backend instances, skipped Workstations, pending local sync, durable jobs/messages, stored idempotency results, and rule/workflow/form snapshots may coexist.
+
+Prefer an additive sequence where practical:
+
+```text
+expand compatible schema/contract
+→ deploy readers/writers that understand the overlap
+→ backfill/migrate with bounded observable work
+→ switch authoritative reads/writes
+→ verify old consumers/work are drained or explicitly unsupported
+→ contract/remove obsolete shape
+```
+
+Before contraction, inventory the remaining readers/writers/data and document rollback versus roll-forward behavior. A backup is recovery evidence, not a substitute for a compatible migration. Destructive changes that cannot be rolled back safely require an explicit maintenance/recovery plan.
+
 ## 7. Indexing policy
 
 Indexes are justified by a real query or invariant, not by column availability.

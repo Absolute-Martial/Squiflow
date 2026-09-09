@@ -318,6 +318,7 @@ One focused document owns each detailed topic. Review docs never override curren
 Current owners include:
 - identity/session → `docs/security/IDENTITY_AND_SESSIONS.md`;
 - authorization → `docs/security/TENANT_PERMISSIONS.md`;
+- browser/API/data/file/build security → `docs/security/APPLICATION_SECURITY_BASELINE.md`;
 - platform admin/control backend → `docs/admin/ADMIN_SURFACES.md`;
 - control-plane/data-plane split → `docs/architecture/CONTROL_PLANE_AND_DATA_PLANE.md`;
 - object/backup provider boundaries → `docs/data/FILES_AND_OBJECT_STORAGE.md`;

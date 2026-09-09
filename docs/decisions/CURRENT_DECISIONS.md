@@ -81,6 +81,8 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - If PostgreSQL is selected, operational proof includes connection/backend-process cost, WAL growth, checkpoints, autovacuum, temp/sort spill, archive/log growth, restart/crash recovery, and disk-full behavior on the actual rack—not only SQL/RLS correctness.
 - Core API, Admin API, and Worker may share the same authoritative central database because they are runtime hosts of the same modular-monolith business core, not independent microservices. Shared access must preserve explicit module/data ownership and the same invariants/transaction rules.
 - If a future capability is extracted into a genuinely independent service, its authoritative data ownership becomes explicit; other services do not directly modify its private tables as a shortcut.
+- Database schema changes account for supported old/new backend processes, skipped Workstations, pending sync, durable jobs/messages, and stored rule/workflow snapshots. Prefer additive expand-migrate-switch-contract evolution; destructive contraction waits for inventory/drain/compatibility evidence.
+- Expected-version/optimistic concurrency is the ordinary edit contract. Database constraints protect uniqueness; stronger isolation/locks are selected narrowly for the actual invariant, with short transactions, stable lock ordering where relevant, and bounded whole-transaction retry only for classified deadlock/serialization conflicts.
 
 ## Consistency model
 
@@ -103,6 +105,7 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Conflict handling is aggregate-specific; no global last-write-wins policy.
 - Large collection APIs are paginated/bounded. Connection pools are bounded/measured and must not leak tenant-scoped DB context across reused connections.
 - Caching, response compression, and asynchronous telemetry logging are selective performance techniques, not default correctness mechanisms. Security/business audit is not allowed to exist only in a lossy async log buffer.
+- Any cache remains bounded, tenant-safe, disposable, and non-authoritative. Its design must define freshness/invalidation, stampede/miss amplification, outage bypass, cold-start behavior, and capacity; no Redis/Memcached/browser cache is mandatory.
 - Rate limiting/admission is multi-dimensional where needed (IP/unauthenticated abuse, account/device, tenant, endpoint/work class, expensive provider action, platform admin, downstream budget). Authorization and throttling are separate decisions.
 - Temporary HTTP throttling uses stable errors and `429`/`Retry-After` where applicable; clients back off rather than amplify overload.
 - Communication inside the modular monolith is in-process by default. Do not create HTTP/gRPC between modules merely to imitate microservices.
@@ -123,6 +126,7 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - DNS/hostname information assists routing but is never tenant authority by itself. Time synchronization is operationally important for TLS/tokens/leases/schedules/diagnostics, while business correctness still uses explicit versions/IDs where wall-clock ambiguity would be unsafe.
 - MQTT, WebRTC, FTP/SFTP, raw TCP/UDP, and gRPC are not baseline; each requires a concrete latency/streaming/device/transport/compatibility need before adoption.
 - The initial paying-customer deployment must be reproducible from version-controlled deployment/infrastructure definitions and runbooks. Exact IaC/automation/container tooling is OPEN; normal tenant/platform application settings still belong in Web/Admin API rather than YAML-only administration.
+- The initial release path promotes the same verified immutable artifact, applies compatible/preflighted migrations, runs health/smoke checks, and has explicit rollback/roll-forward and maintenance-window behavior. Blue-green/canary/progressive delivery requires enough topology, capacity, routing, compatibility, telemetry, and recovery evidence; it is not assumed for one rack node.
 - Containerization is allowed when it improves repeatability/isolation, but Kubernetes is not baseline. Revisit Kubernetes only after concrete multi-node orchestration, rollout/reconciliation, discovery, failover/replacement, or scaling pain exceeds the simpler deployment approach.
 - Scalability is finite and measured: each deployment profile has a capacity envelope and a known next move for the first-order bottlenecks. Do not add caching, replicas, sharding, extra nodes, or event-driven decomposition before the actual bottleneck is identified.
 
@@ -132,6 +136,13 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Rules/workflows are edited/published through Web administration and distributed as immutable/versioned compatible snapshots.
 - Workstation local rule evaluation cannot turn stale server-owned facts into authoritative financial/stock/security decisions.
 - Workflow is continuation-first and versioned.
+
+## Practical business scope
+
+- Do not force a universal `ready-made` versus `custom-design`, separate `social`, or one quotation-type category model. Tenant-visible kinds/categories exist only for real business distinctions while shared quotation revision/issued-history rules remain stable.
+- Owner-authorized final pricing is supported inside permission/rule limits and historical issued values remain explainable rather than being recomputed from later settings.
+- Outsourced print/production records only the actual external work/cost/payable; it does not invent supplier design work. Informal/phone supplier ordering and partial payment/outstanding payable are valid.
+- Inventory can use precise quantity, availability-only, non-stock/service, and damaged/unusable adjustment modes as needed. Universal reservation, MRP/production planning, banner/roll wastage optimization, and universal lot/serial tracking are not baseline.
 
 ## Money/currency
 
@@ -159,6 +170,15 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Telemetry-provider failure/quota exhaustion cannot block business transaction correctness.
 - Production qualification includes proving the deployment can be recreated from the versioned deployment definitions/runbook on a replacement environment and identifying the next scaling action for the measured first-order bottlenecks.
 
+## Application security
+
+- Application security is layered across ZITADEL identity, OpenFGA/ASP.NET authorization, TenantContext/data isolation, domain/field rules, parameterized data access, browser output/forgery controls, bounded files/URLs, TLS/secrets, dependency/build controls, and edge/host defense in depth.
+- Parameterized/ORM-bound data access is mandatory; untrusted values are never concatenated into SQL, and dynamic identifiers/operators use explicit allow-lists.
+- Web output is encoded by default. Any permitted rich content is narrowly sanitized; cookie-backed mutations receive CSRF protection; exact CSP/security-header policy closes with the selected Web topology.
+- Server-side outbound URLs use explicit SSRF destination/scheme/redirect/size/timeout controls. File names, templates, provider responses, and uploaded artwork/documents are untrusted inputs.
+- If containers are used, final images are trusted/minimal/pinned, least privilege/non-root where practical, secret-free, reproducible, resource-bounded, and scanned. This does not preselect containers or Kubernetes.
+- Security scanning is supporting evidence, not a substitute for tenant/resource/journey/provider/recovery tests. Detailed ownership is in `docs/security/APPLICATION_SECURITY_BASELINE.md`.
+
 ## Explicitly not baseline
 
 - formal accessibility/a11y work as a separate v0.0.15 project/gate;
@@ -177,4 +197,5 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - global CRDTs;
 - microservice-per-module design;
 - per-tenant infrastructure by default;
-- advanced peripheral suite, MRP/wastage, specialized ETL/search, or SaaS billing engine without a current customer/commercial requirement.
+- advanced peripheral suite, MRP/wastage, specialized ETL/search, or SaaS billing engine without a current customer/commercial requirement;
+- mandatory cache product, data lake, custom authentication/token system, or pattern-driven security microservice.

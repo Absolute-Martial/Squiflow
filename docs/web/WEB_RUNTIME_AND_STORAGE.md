@@ -23,6 +23,8 @@ This avoids a second complex offline client before Desktop/sync is proven.
 ### HttpOnly secure cookie / server-backed session
 Preferred for browser authentication/session where the selected Web architecture permits it.
 
+The selected topology also defines `Secure`/`SameSite`/scope behavior, CSRF/antiforgery for state-changing requests, session rotation/expiry, and Tenant Web versus Platform Admin/custom-domain separation. Owner: `docs/security/APPLICATION_SECURITY_BASELINE.md` and `docs/security/IDENTITY_AND_SESSIONS.md`.
+
 ### Memory
 Active page/query/form state.
 
@@ -38,6 +40,8 @@ Do not store access/refresh tokens, passwords, permission authority, customer/or
 Not part of the current business architecture.
 
 Normal HTTP/CDN caching of versioned static assets is fine.
+
+Web output is encoded by default. Any implemented rich content requires a narrow sanitizer and an explicit Content Security Policy/security-header design; browser storage/caching must not turn untrusted content or stale permission/tenant state into authority.
 
 ## 3. Online server-side drafts
 

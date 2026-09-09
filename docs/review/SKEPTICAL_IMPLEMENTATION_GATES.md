@@ -17,6 +17,9 @@ The gate works in both directions:
 - If something waits for another person, who finds it and how is it continued?
 - Is `Cancel` actually safe, or is refund/reversal/correction the real action?
 - Could an online server-side draft solve valuable-form loss without browser offline architecture?
+- Does this model force `ready-made` versus `custom-design`, a separate `social` category, or one universal quotation taxonomy that the real business does not use?
+- Can it express Owner-authorized final pricing, outsourced print-only work, informal supplier ordering, partial supplier payables, and damaged/unusable stock without manufacturing/MRP ceremony?
+- Is universal reservation, MRP, banner/roll wastage optimization, or lot/serial tracking being introduced without a real tenant requirement?
 
 ## Identity — ZITADEL
 
@@ -79,6 +82,19 @@ The gate works in both directions:
 - Are several retry layers multiplying calls?
 - Are body/page/batch/CPU/memory/provider-cost limits explicit where needed?
 - Does user-configured URL handling introduce SSRF?
+- Does the HTTP status and stable failure code distinguish unauthenticated, forbidden, validation, conflict/precondition, throttling, dependency, and internal failure consistently?
+
+## Application/browser/data security
+
+- Is cookie-authenticated mutation protected against CSRF for the selected Web/session topology?
+- Is untrusted output encoded by default and any real rich content narrowly sanitized?
+- Does Content Security Policy/header behavior match tenant Web, custom domains, and Platform Admin Web rather than one accidental global rule?
+- Are request/response fields allow-listed to prevent mass assignment and excessive exposure?
+- Is every SQL value parameterized and every dynamic identifier/operator allow-listed instead of concatenated?
+- Can a URL redirect/DNS answer/scheme/port reach loopback, link-local, metadata, private, or otherwise prohibited destinations?
+- Are files, file names, templates, SVG/HTML-like content, provider responses, and document previews treated as untrusted and resource bounded?
+- Could secrets/tokens/customer data appear in source, build artifacts, client packages, logs, traces, dumps, or error responses?
+- If containers are used, is the final image pinned/minimal/scanned/secret-free and run with the smallest practical identity/capability/writable/resource surface?
 
 ## Local-first Workstation
 
@@ -151,6 +167,26 @@ The gate works in both directions:
 - Who receives the alert and who can physically/private-admin recover it?
 - Is there a restore/redeploy procedure?
 - What RPO/RTO can we actually promise?
+- Is the release artifact immutable and promoted as the same bytes, with configuration/secrets outside it?
+- What preflight, drain, migration, health, authorized-smoke, stop, rollback, roll-forward, and maintenance steps are real on this exact node topology?
+- Are we claiming blue-green/canary/zero downtime without spare capacity, routing, compatible schema/contracts, telemetry, and a tested recovery path?
+
+## Schema evolution and database concurrency
+
+- Which supported old/new backends, skipped Workstations, pending sync items, jobs/messages, idempotency results, and rule/workflow/form snapshots still read or write the old shape?
+- Is the change additive/expand-migrate-switch-contract where versions coexist, and what evidence permits contraction?
+- Which exact invariant is protected by expected version, conditional update, unique/check constraint, isolation, or lock?
+- Are transactions short and free of user interaction/avoidable provider waits?
+- If multiple locks are taken, is ordering deliberate and is contention observable?
+- Is deadlock/serialization retry applied to the whole transaction with a bounded budget and semantic idempotency, rather than to an unsafe fragment?
+
+## Cache, if one is proposed
+
+- What is the authoritative source and can the cache be bypassed safely?
+- Do keys include tenant, permission, version/configuration, locale/currency, and other scope dimensions that affect meaning?
+- What are freshness/invalidation, maximum entries/bytes, eviction, privacy, and cold-start/repopulation rules?
+- What prevents stampede, miss amplification/penetration, retry storms, or cross-tenant mixing?
+- Does cache outage only reduce performance, or can it grant access, lose truth, block recovery, or make stale payment/stock/credit/permission state authoritative?
 
 ## Worker/external effects — once Worker exists
 
