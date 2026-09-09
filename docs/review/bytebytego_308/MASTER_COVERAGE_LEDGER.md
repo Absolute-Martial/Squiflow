@@ -120,7 +120,7 @@ Reference architectures and technology lists are not implementation backlogs. gR
 
 **Technology comparisons are not winner/loser decisions.** `REST vs GraphQL`, `Redis vs Memcached`, `Docker vs Kubernetes`, `Kafka vs RabbitMQ`, `JWT vs PASETO`, and similar material must be converted into a SquiFlow **fit/usage analysis**: what each option is good at, where it is weaker, what SquiFlow currently uses at that boundary and why, where another option could be beneficial, whether complementary use is sensible, and what evidence/adoption trigger is required. The authoritative method is `TECHNOLOGY_FIT_AND_USAGE_REVIEW_RULE.md`.
 
-Entries `001-060` have been **retrospectively re-audited** under that method in `RETROSPECTIVE_TECHNOLOGY_FIT_AUDIT_001_060.md`. Any older shorthand such as `deferred`, `not baseline`, `AVOID`, or `REST baseline` in the detailed studies must be interpreted through that fit audit rather than as a global rejection/winner declaration. The archive source material itself is not rewritten; only the SquiFlow interpretation is narrowed/corrected.
+Entries `001-060` have been **retrospectively re-audited** under that method in `RETROSPECTIVE_TECHNOLOGY_FIT_AUDIT_001_060.md`. Any older shorthand such as `deferred`, `not baseline`, `AVOID`, or `REST baseline` in the detailed studies must be interpreted through that fit audit rather than as a global rejection/winner declaration. The archive source material itself is not rewritten; only the SquiFlow interpretation is narrowed/corrected. Entries `061+` are reviewed under the corrected method from the start.
 
 For every current or candidate technology, the review must be able to state **what we use (or do not use), where, and why**. A current non-selection must name the missing requirement or adoption trigger rather than relying only on a negative label.
 
@@ -135,47 +135,50 @@ Material changes to accepted architecture, technology choice, trust/authority bo
 - `STUDY_031_040.md` — entries `031-040` exhaustive study plus the fourth 10-article checkpoint.
 - `STUDY_041_050.md` — entries `041-050` exhaustive study plus the fifth 10-article checkpoint.
 - `STUDY_051_060.md` — entries `051-060` exhaustive study plus the sixth 10-article checkpoint.
+- `STUDY_061_070.md` — entries `061-070` exhaustive study plus the seventh 10-article checkpoint.
 - `TECHNOLOGY_FIT_AND_USAGE_REVIEW_RULE.md` — user-approved fit-for-purpose rule for technology/comparison exposures, including the corrected interpretation of entry `060`.
 - `RETROSPECTIVE_TECHNOLOGY_FIT_AUDIT_001_060.md` — retroactive fit/use/why audit of every prior archive entry through `060`; authoritative for interpreting older technology-selection shorthand.
 - `CONCEPT_DEPENDENCY_MAP.md` — cumulative concept map through entry `060`.
+- `CONCEPT_DEPENDENCY_MAP_061_070.md` — sequential map extension for entries `061-070`; together the map is current through entry `070`.
 
 The split between study files is organizational only; the coverage ledger is authoritative.
 
 ## Current sequential progress
 
-Archive entries `001-060` are fully completed. All archive-article PDF pages `5-122` have been read. For entries `051-060`, all PDF pages `103-122` were rendered and visually inspected, with the diagram-heavy first pages `103, 105, 107, 109, 111, 113, 115, 117, 119, 121` reviewed at full-page resolution. Structural pages `1-4` were previously completed for inventory.
+Archive entries `001-070` are fully completed. All archive-article PDF pages `5-141` have been read. For entries `061-070`, all PDF pages `123-141` were rendered and visually inspected, with the diagram-heavy first pages `123, 125, 127, 129, 131, 133, 135, 137, 138, 140` reviewed in addition to parsed source text. Structural pages `1-4` were previously completed for inventory.
 
-The sixth checkpoint after sixty archive entries is recorded at the end of `STUDY_051_060.md`.
+The seventh checkpoint after seventy archive entries is recorded at the end of `STUDY_061_070.md`.
 
-The review-method refinement following entry `060` is important: the earlier shorthand `REST baseline / GraphQL deferred` is not a claim that REST is universally better. REST/task HTTP remains useful for current explicit resource/command surfaces, while GraphQL is a positive candidate for concrete read-composition surfaces where client-selected projections, nested reads, or rapidly evolving Web/Admin read requirements provide real benefit. The project decision is made per boundary and use case, and several API/transport styles may coexist deliberately.
+The fit-for-purpose review method is now applied directly rather than retrospectively. Entry `061` therefore does **not** become “tokens win over API keys”: ZITADEL/OIDC remains the fit for interactive human identity, while API keys remain a positive candidate for a future developer/public integration that needs a simple revocable application credential; OAuth client credentials, mTLS or signed-request approaches may fit other machine-identity requirements. Entry `062` likewise treats B-tree/B+/hash/bitmap/inverted structures as workload/provider-dependent access paths rather than a speed ranking. Entry `063` treats cache design as a failure/repopulation contract, not a reason to select Redis/Memcached by default.
 
-The retrospective audit extends that correction to **all earlier entries 001-060**. Examples include: Docker and Kubernetes are complementary packaging/orchestration layers; sessions/cookies/JWT/PASETO are layered identity/session/token mechanisms rather than one universal choice; queue/pub-sub/event-bus/stream semantics each remain useful for different delivery problems; Redis and Memcached remain legitimate cache candidates for different cache workloads; VMs and containers may coexist; blue-green/canary/A-B can coexist at different release maturity; Event Sourcing can be a strong fit for a domain that truly needs replay-derived authority even though it is not the current SquiFlow core-state model; RabbitMQ and Kubernetes remain positive candidates when their concrete operational problem appears.
+Entries `064-070` reinforce existing owner decisions rather than silently changing them: SquiFlow's accepted NFR model is more precise than one-quality/one-technology mappings; coding/interview patterns remain implementation vocabulary; SOLID and Clean Architecture guide cohesion/dependency direction without interface/layer ceremony; HTTP status codes are paired with stable SquiFlow failure/retry semantics; ZITADEL/OIDC SSO centralizes authentication while TenantContext/OpenFGA/domain authorization stays current; and the existing API contract already covers naming, semantic idempotency, pagination, sorting/filtering bounds, references, rate/admission, version compatibility and authentication/authorization.
 
-Notable source caveats preserved in entries `051-060` include:
+Notable source caveats preserved in entries `061-070` include:
 
-- DBMS execution component names/phases differ; semantic binding/validation is not universally owned by an optimizer;
-- RabbitMQ exchange/queue routing omits publisher confirms, ACK/redelivery, prefetch/backpressure, poison/dead-letter and broker-resource/failure semantics;
-- Kubernetes `master node` language is simplified/older terminology, PersistentVolume is not backup, and HPA can amplify a downstream bottleneck;
-- the storage-saving list mixes approximate probabilistic sketches/filters with SkipList, so exactness and storage claims are workload-specific;
-- normal-form descriptions are simplified functional-dependency teaching rules;
-- full dual-store/event-driven CQRS is one implementation form rather than the definition of command/query separation;
-- primary/clustered/secondary-index terminology and physical behavior are DBMS-specific;
-- pagination is not response streaming and API-performance techniques trade resources/correctness constraints;
-- REST vs GraphQL is a capability trade-off rather than a universal winner/loser decision; GraphQL's server-side authorization/query-cost/N+1/schema complexity and its genuine read-composition strengths are both preserved.
+- JWT/API-key validation at an API Gateway is not the full application authorization decision;
+- index taxonomy and physical behavior are DBMS-specific, and persistent bitmap-index semantics are not universal;
+- “never expire hot keys” and “use a cache cluster” are not universal cache-failure fixes;
+- load balancer/CDN/replication/transaction-log/eventual-consistency/message-queue pairings are illustrative NFR relationships, not one-to-one guarantees;
+- the “16 coding patterns” list mixes data structures, algorithmic paradigms and problem-solving techniques;
+- SOLID does not imply one interface per class, one method per class, or never modifying code under OCP;
+- `401` vs `403`, `409` vs `412`, `202`, `429`, and 5xx retry behavior need more precision than status-family labels alone;
+- Clean Architecture is a source-dependency direction, not four mandatory projects/services;
+- SSO reuses IdP session state but still issues/validates per-relying-party responses; it does not imply shared bearer tokens or shared authorization;
+- “APIs should be idempotent” is too broad: mutating retry safety is semantic and operation-specific, and POST is not inherently idempotent.
 
-No material owner-architecture technology adoption was made from this retrospective correction alone. It changes the **decision method and interpretation**, not the implementation stack automatically. Concrete adoption still follows a real SquiFlow boundary/use case, fit reasoning, evidence/POC where needed, and the agreed approval process for material architecture changes.
+No material owner-architecture technology adoption was made from entries `061-070`; the batch validates existing boundaries and records positive future candidates/triggers where appropriate.
 
-The next unprocessed page is PDF page `123`, archive entry `061`.
+The next unprocessed page is PDF page `142`, archive entry `071`.
 
-`LAST FULLY COMPLETED PDF PAGE: 122`
+`LAST FULLY COMPLETED PDF PAGE: 141`
 
-`LAST COMPLETED ARTICLE: 060 — REST API Vs. GraphQL`
+`LAST COMPLETED ARTICLE: 070 — Best Practices in API Design`
 
-`NEXT PDF PAGE: 123`
+`NEXT PDF PAGE: 142`
 
-`NEXT ARTICLE: 061 — Tokens vs API Keys`
+`NEXT ARTICLE: 071 — Key Terms in Domain-Driven Design`
 
-`COVERAGE STATUS: 122 / 308 pages sequentially completed`
+`COVERAGE STATUS: 141 / 308 pages sequentially completed`
 
 The structural inventory pages `242-244` were inspected only to establish the master inventory; this does not mean URL detailed processing has jumped ahead.
 
