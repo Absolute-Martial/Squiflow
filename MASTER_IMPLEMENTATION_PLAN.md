@@ -321,6 +321,8 @@ Rate limiting/admission is also explicit and can vary by unauthenticated source,
 
 API version compatibility is mandatory because Workstations can skip releases. Exact URI/header/media-type version mechanics are chosen when the first compatibility slice is implemented; old supported contracts must not be silently reinterpreted as new semantics.
 
+HTTP status and stable SquiFlow Problem Details codes remain consistent across controllers so unauthenticated, forbidden, validation, conflict/precondition, rate, dependency, and internal failures are distinguishable without leaking internals.
+
 Long-running work uses durable async status only when genuinely long-running; ordinary short transactions stay synchronous.
 
 Owner: `docs/api/API_CONTRACT_IDEMPOTENCY_AND_RETRY.md`.
@@ -378,6 +380,10 @@ Core API, Admin API, and Worker may intentionally share the same authoritative d
 
 If a future capability is extracted into a truly independent service, authoritative data ownership and the data-sharing contract become explicit at that point; other services do not directly modify its private tables.
 
+Expected-version/optimistic concurrency is the ordinary edit contract. Database constraints protect uniqueness; stronger isolation/locks are narrowly selected for the actual invariant. Transactions remain short and use stable lock ordering where applicable. Classified deadlock/serialization conflicts may retry the whole transaction with a bounded budget under the existing idempotency contract.
+
+Schema evolution accounts for old/new backend processes, skipped Workstations, pending sync, durable jobs/messages, stored idempotency results, and versioned rule/workflow/form snapshots. Prefer expand-migrate-switch-contract changes; remove obsolete shape only after compatibility/inventory/drain evidence and an explicit rollback/roll-forward plan.
+
 Owner: `docs/data/PERSISTENCE_SELECTION.md`.
 
 ---
@@ -420,6 +426,8 @@ Party
 Support practical walk-in/registered/organization/program/credit scenarios, quotations/tenders, purchasing/suppliers, fulfillment, payments/corrections and pragmatic inventory.
 
 Do not baseline MRP, universal reservation, complex banner-roll wastage, universal lot/serial tracking, or complex procurement workflow.
+
+Do not force `ready-made` versus `custom-design`, a separate `social` category, or one universal quotation-type list. Owner-authorized final pricing, outsourced-print-only work, informal/phone supplier ordering, partial supplier payables, and damaged/unusable stock adjustment remain expressible without introducing manufacturing/MRP machinery.
 
 ### Currency — minimal requirement
 
@@ -593,7 +601,11 @@ Time synchronization matters for TLS/tokens/leases/schedules/diagnostics, but bu
 
 The paying-customer deployment must be reproducible from version-controlled deployment/infrastructure definitions and runbooks. This does not turn normal tenant/platform application administration into YAML editing. Exact IaC/automation/container packaging remains OPEN until the deployment slice needs it.
 
+The first production release path promotes one immutable verified artifact, keeps secrets/configuration outside it, preflights compatible migrations/capacity/dependencies, drains where required, evaluates process health plus an authorized smoke journey, and states rollback/roll-forward/maintenance recovery honestly. A single node does not claim zero downtime; blue-green/canary/progressive delivery requires real spare topology, routing, compatibility, telemetry, and recovery evidence.
+
 Containerization is allowed when useful for packaging/isolation. Kubernetes is not baseline; revisit only after concrete multi-node placement/reconciliation, rollout, discovery, failover/replacement, or scaling operations become a real recurring problem that the simpler deployment cannot own reliably.
+
+If containers are chosen, final images are trusted/minimal/version-or-digest-pinned, reproducible/scanned, secret-free, least privilege/non-root where practical, and bounded for ports/capabilities/writable storage/resources/logging. This is conditional hardening, not a container selection.
 
 SquiFlow does not claim infinite scalability. Each deployment profile needs a measured capacity envelope, first-order bottlenecks, and a known next move for those bottlenecks. Diagnose the constraint before adding caching, replicas, extra nodes, sharding, distributed databases, or service extraction.
 
@@ -632,9 +644,13 @@ Common performance techniques are allowed only with explicit correctness/resourc
 - bounded asynchronous telemetry export;
 - measured query/index optimization.
 
+A future cache also defines authority/bypass, tenant/permission/configuration-safe keys, TTL/invalidation, memory/entry bounds, stampede/miss amplification, cold-start, outage, privacy, and repopulation behavior. Cache failure may slow the system but cannot grant access, lose truth, or create unbounded load.
+
 A performance optimization that makes a stale permission/payment/stock/credit answer look current is a correctness regression, not an optimization.
 
 Measure representative latency percentiles, throughput, query/dependency time, allocation/memory pressure, payload sizes, and pool wait before adding another caching/proxy/read-model layer.
+
+Application security is separately owned by `docs/security/APPLICATION_SECURITY_BASELINE.md`: encoded/sanitized Web output, CSRF protection for cookie-backed mutations, parameterized SQL and allow-listed dynamic query parts, field contracts, bounded files/templates, SSRF controls, TLS/secrets, dependency/build security, and conditional container hardening complement rather than duplicate ZITADEL/OpenFGA/tenant isolation.
 
 ---
 
@@ -646,6 +662,8 @@ Keep tests focused on real correctness risks:
 - explicit DB workload profile including reconnect/import bursts;
 - PostgreSQL WAL/checkpoint/autovacuum/temp/disk behavior if PostgreSQL is selected;
 - schema/index/query-plan behavior at representative and projected cardinalities;
+- expected-version/constraint/isolation/lock/deadlock/serialization behavior and bounded whole-transaction retry;
+- expand/backfill/switch/contract schema evolution across supported old/new readers, writers, pending sync and durable work;
 - Workstation local durability/restart;
 - Guard independent crash/hang/update recovery;
 - ZITADEL authentication/session flows;
@@ -659,10 +677,13 @@ Keep tests focused on real correctness risks:
 - derived-projection duplicate/out-of-order/staleness/rebuild behavior where implemented;
 - edge routes Core/Admin directly without collapsing authorization or backend ownership;
 - WebSocket/live-signal loss does not destroy durable business progress;
+- SQL/identifier injection, XSS, CSRF, mass assignment, SSRF, malicious file/template and secret-leak paths for implemented surfaces;
+- cache outage/cold-start/stampede/stale-sensitive/cross-tenant behavior when a cache exists;
 - DNS/hostname/clock-skew hostile cases where relevant;
 - `IObjectStore` provider contract + Hugging Face adapter;
 - `IBackupTarget` contract + encrypted Kaggle backup restore;
 - clean/replacement-environment rebuild from deployment definitions/runbook;
+- immutable-artifact promotion, migration preflight, smoke verification and failed-release rollback/roll-forward/maintenance recovery;
 - actual low-end hardware/resource/capacity limits.
 
 Do not introduce unrelated interfaces merely to increase mock/unit-test count.
@@ -722,6 +743,8 @@ Do not add these now:
 - multi-currency/FX subsystem;
 - advanced peripheral suite;
 - MRP/wastage;
+- generic social/catalog categories or universal quotation-type taxonomy not required by the business;
+- data lake/streaming platform or custom identity/token subsystem;
 - generic ETL/search/SaaS billing infrastructure without a real requirement;
 - hundreds of placeholder files/projects.
 

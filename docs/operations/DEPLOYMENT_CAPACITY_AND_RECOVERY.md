@@ -49,6 +49,27 @@ The exact IaC/automation mechanism is OPEN. A simple version-controlled host/con
 
 Production qualification includes rebuilding SquiFlow on a clean/replacement environment using these definitions/runbooks rather than relying on the original machine state.
 
+### 3.1 Release, migration, and recovery contract
+
+The first production profile needs an explicit release procedure appropriate to its real node count and spare capacity.
+
+Baseline requirements:
+
+- CI produces one immutable versioned artifact (and container image if containers are selected) with checksum/provenance evidence;
+- promote the same verified bytes between environments rather than rebuilding environment-specific binaries;
+- keep environment configuration/secrets outside the artifact;
+- run configuration, capacity/free-space, dependency, and database-migration preflight checks;
+- ensure API/schema/durable-work compatibility for supported old/new processes and skipped Workstations;
+- drain or bound in-flight requests/jobs where the change requires it;
+- deploy, then evaluate process health **and** a small authorized smoke journey rather than trusting process existence alone;
+- state whether failure uses binary rollback, database roll-forward, maintenance restore, or another tested recovery path;
+- retain the previous known-good artifact and the evidence/runbook needed to operate it for the supported rollback window;
+- record who approves, performs, observes, and can stop/recover the release without inventing a large-team ceremony.
+
+On a single active rack node, a maintenance window with honest downtime can be safer than pretending to provide zero downtime. Blue-green, canary, rolling, or feature-flagged exposure is adopted only when the deployment has the spare capacity/routing, compatible data contracts, observability, and rollback controls to make that strategy real.
+
+Database rollback is not assumed. Many schema/data migrations are safer through compatible expand-migrate-switch-contract and roll-forward. See `docs/data/PERSISTENCE_SELECTION.md`.
+
 ## 4. Containerization versus orchestration
 
 Containerization is allowed when it improves packaging, dependency isolation, reproducibility or deployment consistency.
@@ -61,6 +82,20 @@ Kubernetes is **not** baseline. It becomes a candidate only when concrete multi-
 - scaling/placement policy becoming difficult to operate with the simpler deployment.
 
 Having more than one container or more than one server is not by itself sufficient evidence for Kubernetes.
+
+### Conditional container hardening
+
+If the selected profile uses containers:
+
+- use trusted minimal base images pinned to reviewed versions/digests;
+- build reproducibly and scan the final image/dependencies;
+- do not bake production secrets into image layers;
+- run as non-root/least privilege where practical;
+- expose only required ports/capabilities and define writable-storage needs;
+- set health, shutdown/drain, CPU/memory, temp/disk, and log bounds;
+- promote the same verified image rather than rebuilding per environment.
+
+These are conditional safety requirements, not a decision to use Docker or Kubernetes.
 
 ## 5. Physical durability must be tested
 
@@ -276,6 +311,9 @@ Before accepting paying-customer production traffic, prove at least:
 - single-point-of-failure inventory;
 - public-edge/DNS/TLS/time failure and private recovery path;
 - clean/replacement-environment rebuild from version-controlled deployment definitions/runbook;
+- immutable-artifact promotion plus preflight/migration/health/smoke evidence;
+- failed-release drill proving the documented rollback/roll-forward/maintenance recovery path without corrupting authoritative or pending local work;
+- supported cross-version/schema/durable-work compatibility and obsolete-reader/writer drain evidence before destructive contraction;
 - measured capacity envelope plus next scaling move for first-order bottlenecks;
 - private recovery runbook;
 - provisional RPO/RTO;

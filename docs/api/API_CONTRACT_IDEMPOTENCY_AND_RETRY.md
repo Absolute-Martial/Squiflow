@@ -361,6 +361,17 @@ Operational logs/traces may use bounded asynchronous export/buffering so disk/ne
 ### Caching
 Use only where the freshness contract permits it. A stale cache must not become current permission, payment, stock, credit, or tenant authority.
 
+A proposed cache identifies:
+- authoritative source and whether cache bypass is always possible;
+- tenant, permission, locale/currency/configuration, and version dimensions required in the key;
+- TTL/invalidation and the user-visible meaning of stale data;
+- maximum entries/bytes and eviction behavior;
+- miss amplification, penetration/negative-lookup behavior, and stampede controls such as bounded request coalescing or TTL jitter where useful;
+- cold-start/repopulation load and what happens when the cache service/process is unavailable;
+- privacy/diagnostic rules for cached content and keys.
+
+Cache failure may reduce performance. It must not grant access, lose committed truth, corrupt authority, or cause an unbounded retry/repopulation storm. These rules do not require Redis, Memcached, an in-process cache, or browser caching before a real workload earns one.
+
 ### Payload compression
 Use for sufficiently large compressible responses/requests where CPU/memory trade-off is favorable. Do not recompress already-compressed PDFs/images/archives or buffer unbounded bodies merely to compress them.
 
@@ -449,6 +460,23 @@ InternalDefect
 ```
 
 Internal stack traces/provider details stay out of ordinary client responses.
+
+Keep the HTTP status and SquiFlow failure code consistent. The following is a baseline mapping, refined by the concrete endpoint rather than invented independently per controller:
+
+| HTTP status | Typical SquiFlow meaning |
+|---:|---|
+| `400 Bad Request` | malformed request/protocol shape that cannot be evaluated |
+| `401 Unauthorized` | no acceptable authentication/session (it does not mean authenticated-but-forbidden) |
+| `403 Forbidden` | authenticated actor is not permitted for the function/resource/field |
+| `404 Not Found` | resource is absent or deliberately non-disclosed under the endpoint's enumeration policy |
+| `409 Conflict` | current domain/workflow/uniqueness state conflicts with the requested transition |
+| `412 Precondition Failed` | supplied `If-Match`/expected version is stale or otherwise not satisfied |
+| `422 Unprocessable Content` | syntactically valid request fails stable field/business validation where this distinction is useful |
+| `429 Too Many Requests` | admission/rate limit; include `Retry-After` when meaningful |
+| `500 Internal Server Error` | unexpected SquiFlow defect; safe correlation detail only |
+| `502` / `503` / `504` | dependency/gateway unavailable, overloaded, or timed out, with retry classification and no accidental authorization bypass |
+
+Idempotent replay of an already-completed same-intent command normally returns the stored semantic result rather than manufacturing an error solely because it is a replay. `202 Accepted` is used only when a durable operation resource exists.
 
 ## 23. API implementation gate
 

@@ -72,6 +72,8 @@ Support where required:
 
 Do not force a universal `ready-made` vs `custom-design` category.
 
+Do not create a separate `social` or other generic catalog category merely because an external ERP/system-design taxonomy lists one. A tenant-visible category exists only when it represents a real item/service/reporting/pricing distinction for the business; category labels must not hard-code a product model that the tenant does not use.
+
 Price may come from:
 - standard/default price;
 - organization/program price;
@@ -81,6 +83,8 @@ Price may come from:
 - outsourced-printing resale price.
 
 Owner-authorized final pricing remains possible inside permission/rule limits.
+
+The Owner can change applicable tenant/default/organization/wholesale/negotiated/outsourced-resale prices and can authorize the final price used by a transaction. Outsourced printing may therefore use a lower Owner-decided resale price when the external printer supplied the design-ready production input. Once a quotation/invoice/other issued record is posted, corrections use the defined revision/correction flow rather than silently rewriting history.
 
 Historical issued totals retain the applied values/currency/configuration needed to explain them; later tenant settings must not silently recompute old issued truth.
 
@@ -92,6 +96,8 @@ Support version/revision history and tenant workflow only as needed:
 - revised;
 - accepted/rejected/expired;
 - tender-specific approval/revision where required.
+
+Do not freeze every business into one universal quotation type list. Add a quotation/tender kind or tenant-visible label when an implemented journey needs different fields, approvals, numbering, validity, pricing, or reporting while retaining the shared revision/issued-history rules.
 
 Issued versions should remain explainable/immutable rather than silently overwritten.
 
@@ -219,3 +225,5 @@ Do not build generic ETL now. If onboarding requires import, start with the exac
 ## 17. Small-business usability rule
 
 Owner + one Staff should be able to set up permissions, create customers/orders, print/fulfill, record payment, buy/receive materials, handle quotation/revision and understand pending/synced work without configuring dozens of enterprise modules first.
+
+Generic architecture, DDD, database, and design-pattern sources may improve how these journeys are implemented; they do not replace these business decisions with a generic catalog, manufacturing, procurement, or ERP taxonomy.

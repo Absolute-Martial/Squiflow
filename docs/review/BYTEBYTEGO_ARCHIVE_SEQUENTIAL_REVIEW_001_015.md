@@ -22,6 +22,8 @@ Reviewed in order:
 
 The source is the uploaded `ByteByteGo_Selected_Archive_plus_Web_Content_Images_URLs.pdf`, archive-generated pages 5–34.
 
+Sequential coverage continues through entry 123 in `BYTEBYTEGO_ARCHIVE_SEQUENTIAL_REVIEW_016_123.md`; the supplied Web-content continuation is completed in `BYTEBYTEGO_WEB_CONTENT_REVIEW_023_064.md`.
+
 ---
 
 ## 1. gRPC

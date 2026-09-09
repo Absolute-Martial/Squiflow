@@ -398,6 +398,74 @@ Full source application is recorded in `docs/review/BYTEBYTEGO_ARCHIVE_SEQUENTIA
 
 ---
 
+# Remaining archive question pass - articles 016-123 and Web entries 023-064
+
+Complete per-entry dispositions are recorded in `BYTEBYTEGO_ARCHIVE_SEQUENTIAL_REVIEW_016_123.md` and `BYTEBYTEGO_WEB_CONTENT_REVIEW_023_064.md`. Only the questions that materially strengthen SquiFlow are promoted here.
+
+## 18. Release question - what can this deployment actually roll back?
+
+**Applied to:** first paying-customer rack deployment and database/schema changes.
+
+**Current answer:** Promote one immutable verified artifact; preflight configuration/capacity/dependencies/migrations; preserve supported cross-version contracts; evaluate health plus a small authorized smoke journey; and state whether failure uses binary rollback, schema/data roll-forward, maintenance restore, or another tested path. One active node may require an honest maintenance window.
+
+**If unanswered:** a supposedly safe deployment can leave new code with old schema, old code with incompatible schema, or a database change that cannot be reversed even though the binary can.
+
+**Status:** Requirement ANSWERED; exact first-production strategy/tooling OPEN.
+
+**Owner/phase:** operations and persistence; Phase 10 qualification.
+
+## 19. Schema-evolution question - who still reads or writes the old shape?
+
+**Applied to:** central/local DB, API/sync, durable work, idempotency results, rules/workflow/forms.
+
+**Current answer:** Prefer expand-migrate-switch-contract. Before contraction, inventory supported old/new backends, skipped Workstations, pending sync, jobs/messages, stored results, and versioned snapshots; drain, migrate, reject explicitly, or keep compatibility according to the supported contract.
+
+**If unanswered:** an apparently successful migration can break an offline Workstation or delayed durable job later.
+
+**Status:** ANSWERED policy; exact first compatibility mechanism OPEN in Phase 3.
+
+## 20. Database-concurrency question - what protects this exact invariant?
+
+**Applied to:** orders/quotations, issued numbers, stock, credit, payments/refunds, and authorization/configuration changes.
+
+**Current answer:** Default to expected-version/conditional updates, use database constraints for uniqueness, and choose stronger isolation/locks only when needed. Transactions remain short, multi-lock order is deliberate, and only classified deadlock/serialization failures can retry the entire transaction with a bounded budget and existing idempotency.
+
+**If unanswered:** two individually valid operations can create a lost update, oversell, duplicate number, or deadlock/retry storm.
+
+**Status:** ANSWERED selection rule; each implemented invariant must close its mechanism.
+
+## 21. Cache question - what happens when it is empty, wrong, or down?
+
+**Applied to:** any future in-process/distributed/browser/edge cache.
+
+**Current answer:** Cache is disposable and non-authoritative. Define tenant/permission/configuration-safe keys, source/freshness/invalidation, bounds, stampede/miss amplification, outage bypass, cold recovery, and privacy. Sensitive stale data never becomes authority.
+
+**If unanswered:** a cache can leak across tenants, preserve revoked authority, or amplify load during expiry/outage.
+
+**Status:** NOT NEEDED NOW for a product; policy ANSWERED if a cache is introduced.
+
+## 22. Application-security question - which trust boundary handles this input and output?
+
+**Applied to:** Web/API fields, SQL/query composition, URLs/webhooks, files/artwork, templates/documents, provider responses, logs, build artifacts, and optional containers.
+
+**Current answer:** Use layered encoded/sanitized Web output, CSRF protection for cookie mutations, explicit DTO/field allow-lists, parameterized SQL plus allow-listed identifiers/operators, bounded SSRF-safe outbound access, tenant-scoped files, TLS/secrets, dependency/build controls, and conditional container hardening. ZITADEL/OpenFGA remain identity/authorization owners.
+
+**If unanswered:** a valid authenticated request can still exploit SQLi/XSS/CSRF/SSRF, cross tenant boundaries, expose secrets, or exhaust parsers/resources.
+
+**Status:** ANSWERED baseline; exact surface-specific mechanisms close in Phase 1/3/7/8.
+
+**Owner:** `docs/security/APPLICATION_SECURITY_BASELINE.md`.
+
+## 23. Business-model question - is a generic architecture taxonomy changing the product?
+
+**Applied to:** product/service categories, quotations, pricing, outsourced work, suppliers, and inventory.
+
+**Current answer:** No. System-design/DDD/database patterns implement SquiFlow's actual domain: no forced ready-made/custom-design or social category; Owner-authorized pricing; explainable quotation revisions; outsourced print-only costs; informal supplier ordering and partial payables; damaged-stock adjustments; no universal reservation/MRP/banner-wastage engine.
+
+**Status:** ANSWERED and guarded by `docs/domain/BUSINESS_MODEL.md`.
+
+---
+
 # Cross-source question families to ask on every future architecture review
 
 Regardless of article topic, ask these against the affected SquiFlow journey:
@@ -416,8 +484,12 @@ WHAT is allowed to be stale, and how can the user know?
 WHAT is the resource/capacity ceiling?
 WHAT state must survive process/node/provider failure?
 HOW is the operation recovered/reconciled rather than guessed?
+HOW do old/new readers, writers, messages, and offline clients coexist during change?
+HOW does release failure recover if the database cannot simply roll back?
 HOW does a future provider/runtime replacement happen?
 HOW is the behavior verified on the actual deployment class?
+CAN an untrusted field, URL, file, template, provider response, or cache cross a trust/tenant boundary?
+IS a generic architecture taxonomy accidentally changing the actual business model?
 DO we really need another interface/process/network hop/database/protocol?
 ```
 

@@ -14,6 +14,7 @@ These are decisions that can materially affect the current implementation baseli
 - Exact authentication-context (`acr`) mapping for high-risk step-up operations.
 - **OpenFGA is selected**; open implementation details are deployment topology, store layout, first authorization model, authorization model ID rollout procedure, and consistency policy by operation class.
 - Exact messaging/scheduling mechanism only when Phase 6 implements the first durable Worker path.
+- Exact API/schema compatibility mechanism and supported overlap/retirement windows for the first old-Workstation/new-server and old/new-backend coexistence slice; the requirement for compatible evolution is accepted.
 
 Avalonia, Blazor Web App, ZITADEL, and OpenFGA are accepted product/technology decisions and are not provider-selection questions anymore.
 
@@ -28,6 +29,19 @@ Avalonia, Blazor Web App, ZITADEL, and OpenFGA are accepted product/technology d
 - Exact persistence representation/type of `TenantAuthorizationRevision`; semantics are accepted.
 - Exact resource families that support `Own/Assigned` scope and what ownership/assignment means for each.
 - Which relationships belong in OpenFGA versus ordinary SquiFlow DB/domain facts. Domain state/workflow/financial invariants remain outside OpenFGA.
+
+## Application-security implementation decisions
+
+The layered requirements in `docs/security/APPLICATION_SECURITY_BASELINE.md` are accepted. Phase-specific implementation details remain open until the relevant surface exists:
+
+- exact ASP.NET/Blazor CSRF/antiforgery mechanism after the Web session/render topology is selected;
+- exact Content Security Policy and related response-header policy for tenant Web, custom domains, and future Platform Admin Web;
+- whether any first-slice field permits sanitized rich content rather than plain encoded text;
+- exact file scanning/quarantine/conversion mechanism for the first supported artwork/document types;
+- exact outbound URL allow-list/DNS/redirect enforcement implementation for the first webhook/fetch capability;
+- exact secret/configuration store and rotation procedure for the initial deployment profile;
+- exact CI secret/dependency/image scanning tools and triage policy;
+- exact conditional container hardening controls if the initial server packaging chooses containers.
 
 ## Workstation Guard decisions
 
@@ -53,6 +67,9 @@ Do not reopen the existence of Guard merely to reduce process count unless evide
 - Backup scope for ZITADEL/OpenFGA depends on Cloud versus self-hosted selection: exported configuration/reprovisioning evidence may be enough for managed services, while self-hosted state requires provider-supported database/config backup and restore.
 - **Exact reproducible deployment/IaC mechanism for the paying-customer single-node profile:** e.g. direct host/service definitions, container-compose style packaging, Ansible/Terraform/other automation, or a combination. The requirement is versioned/rebuildable infrastructure; Kubernetes/Flux/Terraform are not preselected.
 - **Exact initial server packaging boundary:** bare host processes versus containers for Core API/Admin API/Worker/edge/DB where applicable. Containerization is allowed when it improves repeatability/isolation, but is not a requirement by itself.
+- **Exact first-production release strategy:** maintenance-window/in-place, spare-node/blue-green, canary, or another measured approach. The accepted requirements are immutable-artifact promotion, compatible/preflighted migration, health/smoke verification, explicit rollback/roll-forward, and no unsupported zero-downtime claim.
+- Exact artifact provenance/checksum/signing mechanism and retention for the chosen build/deployment path.
+- Exact database schema contraction/retirement evidence: how supported clients, old application instances, pending sync, queued work, and stored snapshots are inventoried/drained before incompatible removal.
 - **Measured scaling thresholds and next-move table** for the first-order bottlenecks after actual load tests: DB connection/query/WAL pressure, CPU-heavy document work, Worker backlog, network/object-transfer bandwidth, external dependency latency, and node saturation.
 - Edge/gateway failure and SPOF handling, including a private recovery path that does not rely on the same public edge being healthy.
 - Certificate renewal/expiry monitoring and operational response.

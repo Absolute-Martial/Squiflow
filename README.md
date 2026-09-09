@@ -40,9 +40,11 @@ Start with [`MASTER_IMPLEMENTATION_PLAN.md`](MASTER_IMPLEMENTATION_PLAN.md).
 - **REST/task-oriented HTTP is the v0.0.15 API baseline, without claiming strict REST purity.** Ordinary resources are resource-oriented; semantic command subresources remain valid for approvals/refunds/publications/etc.
 - POST is not automatically retry-safe; retryable POST commands depend on the SquiFlow semantic-idempotency contract.
 - API compatibility/versioning is mandatory for skipped Workstation releases and independently deployed backends.
+- Database/API/sync/durable-work evolution must tolerate supported old and new readers/writers; additive expand-migrate-switch-contract changes are preferred before destructive contraction.
 - GraphQL/GraphQL Federation are deferred until a real query-composition requirement proves them worthwhile.
 - Rate limiting/admission is multi-dimensional where required rather than one global RPS number; authorization and throttling are separate decisions.
 - Pagination, bounded connection pooling, selective caching/compression, and bounded async telemetry export are evidence-driven API performance techniques.
+- A cache is always bounded, tenant-safe, disposable and non-authoritative; cache outage/cold start may reduce performance but cannot grant access, lose truth, or turn stale payment/stock/credit/permission state into authority.
 - An edge reverse proxy/API-gateway capability may route/TLS/WAF/coarsely limit traffic, but it never replaces backend authorization and never collapses Admin API into Core API.
 - A heavyweight API-management product is not baseline until concrete management/routing requirements justify it.
 - A service mesh is not baseline; revisit only if real east-west service traffic justifies the runtime/operational cost.
@@ -50,6 +52,7 @@ Start with [`MASTER_IMPLEMENTATION_PLAN.md`](MASTER_IMPLEMENTATION_PLAN.md).
 - WebSocket/SignalR, if used, is live signaling only; durable truth remains in DB/outbox/state. DNS/hostnames route traffic but are never tenant authority. SSH/private access is infrastructure operations only.
 - Currency is configurable/not hardcoded. v0.0.15 does not build a multi-currency/FX subsystem.
 - SquiFlow-native bounded rules/workflow remain in-process capabilities unless real isolation/scale proves otherwise.
+- Practical domain limits remain authoritative: no forced ready-made/custom-design or separate social category, Owner-adjustable pricing, outsourced print-only work, informal supplier ordering/partial payables, damaged-stock adjustments, and no universal reservation/MRP/banner-wastage engine.
 - **Primary bootstrap object storage:** private Hugging Face Storage Bucket, current private-storage envelope about 100 GB.
 - **Object provider boundary:** `IObjectStore`, bootstrap implementation `HuggingFaceObjectStore`.
 - **Bootstrap off-site backup carrier:** private Kaggle Dataset containing encrypted opaque backup archives only.
@@ -57,6 +60,8 @@ Start with [`MASTER_IMPLEMENTATION_PLAN.md`](MASTER_IMPLEMENTATION_PLAN.md).
 - Planned object/backup-provider migration trigger: first paying customer, or earlier if capacity/privacy/compliance/reliability/restore requirements demand it.
 - Backup covers all state required to reconstruct a usable deployment according to topology; it is not merely an application-row export.
 - Current server environment is lower-spec/desktop-class rack hardware; `stateless` does not mean automatic failover or zero downtime.
+- The initial release process promotes one verified immutable artifact and proves migration, health/smoke, rollback/roll-forward, and honest maintenance-window behavior; blue-green/canary deployment is not assumed on a single node.
+- Browser/API/data/file/build security follows a layered application-security baseline in addition to ZITADEL, OpenFGA, tenant isolation and edge controls.
 - OpenTelemetry remains the provider-neutral telemetry boundary; New Relic + Aiven OpenSearch are current managed targets and Backtrace remains the crash-diagnostics direction.
 
 ## Complexity rule: disciplined completeness
@@ -120,6 +125,7 @@ Minimalism must never remove required offline durability, recovery, authorizatio
 ### Security/admin/identity
 - [`docs/security/TENANT_PERMISSIONS.md`](docs/security/TENANT_PERMISSIONS.md) — OpenFGA authorization model/role boundary.
 - [`docs/security/IDENTITY_AND_SESSIONS.md`](docs/security/IDENTITY_AND_SESSIONS.md) — ZITADEL/OIDC/session/device boundary.
+- [`docs/security/APPLICATION_SECURITY_BASELINE.md`](docs/security/APPLICATION_SECURITY_BASELINE.md) — browser/API/injection/file/SSRF/build/container security baseline.
 - [`docs/admin/ADMIN_SURFACES.md`](docs/admin/ADMIN_SURFACES.md) — separate Admin Web/Admin API control plane.
 
 ### Web/data/integrations
@@ -138,6 +144,9 @@ Minimalism must never remove required offline durability, recovery, authorizatio
 - [`docs/review/BYTEBYTEGO_DISTRIBUTED_SYSTEMS_SOURCE_REVIEW.md`](docs/review/BYTEBYTEGO_DISTRIBUTED_SYSTEMS_SOURCE_REVIEW.md)
 - [`docs/review/BYTEBYTEGO_CODE_CONSISTENCY_DATA_API_SOURCE_REVIEW.md`](docs/review/BYTEBYTEGO_CODE_CONSISTENCY_DATA_API_SOURCE_REVIEW.md)
 - [`docs/review/BYTEBYTEGO_API_GATEWAY_SERVICE_PROTOCOL_SOURCE_REVIEW.md`](docs/review/BYTEBYTEGO_API_GATEWAY_SERVICE_PROTOCOL_SOURCE_REVIEW.md)
+- [`docs/review/BYTEBYTEGO_ARCHIVE_SEQUENTIAL_REVIEW_001_015.md`](docs/review/BYTEBYTEGO_ARCHIVE_SEQUENTIAL_REVIEW_001_015.md)
+- [`docs/review/BYTEBYTEGO_ARCHIVE_SEQUENTIAL_REVIEW_016_123.md`](docs/review/BYTEBYTEGO_ARCHIVE_SEQUENTIAL_REVIEW_016_123.md) — completes all 123 selected archive entries.
+- [`docs/review/BYTEBYTEGO_WEB_CONTENT_REVIEW_023_064.md`](docs/review/BYTEBYTEGO_WEB_CONTENT_REVIEW_023_064.md) — completes the remaining supplied Web-content entries; entries 001-022 are mapped to the thematic reviews above.
 - [`docs/review/CSV_AUDIT_AND_SOURCE_CLEANUP.md`](docs/review/CSV_AUDIT_AND_SOURCE_CLEANUP.md)
 
 ## Source-of-truth rule

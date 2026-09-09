@@ -55,7 +55,7 @@ Do not create yet:
 
 Deliver:
 - solution/build structure;
-- CI;
+- CI that produces a versioned immutable artifact/checksum, runs the first secret/dependency checks, and does not bake environment secrets into client/server artifacts;
 - Web/Workstation/Guard/Core API launchable skeletons;
 - Guard launches/supervises Workstation and records bounded lifecycle evidence;
 - basic health endpoint;
@@ -75,7 +75,8 @@ Attack:
 - provider implementation accidentally leaks Hugging Face/Kaggle types into a business contract;
 - a proposed SOLID/clean-code refactor creates an interface/helper with no real responsibility or replacement boundary;
 - a developer proposes HTTP/gRPC between two modules that run in the same host without a real process/security/fault boundary;
-- a deployment change exists only as an undocumented manual command and cannot be recreated from repository/runbook state.
+- a deployment change exists only as an undocumented manual command and cannot be recreated from repository/runbook state;
+- a secret or environment-specific credential is present in source/build output, or the same version is rebuilt into different bytes for each environment without explanation.
 
 Gate:
 - Web, Workstation, Guard and Core API build/run;
@@ -104,7 +105,9 @@ Deliver:
 - ASP.NET Core semantic authorization requirement invoking OpenFGA;
 - `TenantAuthorizationRevision` snapshot/audit correlation;
 - durable/reconcilable authorization-change operation spanning SquiFlow DB/audit state and OpenFGA tuple write;
-- chosen Blazor render/circuit/session state-placement model with known reconnect/memory behavior.
+- chosen Blazor render/circuit/session state-placement model with known reconnect/memory behavior;
+- cookie/session flags and CSRF/antiforgery behavior for the chosen Web topology;
+- encoded-output default plus first Content Security Policy/security-header baseline for the implemented Web surface.
 
 Do not:
 - trust ZITADEL token roles as current SquiFlow authorization truth;
@@ -129,7 +132,9 @@ Attack:
 - PII accidentally used in tuple IDs;
 - Web circuit/server restart during valuable draft editing;
 - syntactically valid JWT from an untrusted issuer/audience is presented;
-- ZITADEL is unavailable during new login, existing Web session use, and high-risk step-up.
+- ZITADEL is unavailable during new login, existing Web session use, and high-risk step-up;
+- cookie-authenticated mutation without valid antiforgery evidence;
+- stored/reflected/client-side XSS attempt through implemented customer/staff fields and validation/error rendering.
 
 Gate:
 - ZITADEL authenticates; OpenFGA authorizes; SquiFlow tenant/domain checks remain independent;
@@ -201,7 +206,10 @@ Deliver:
 - explicit consistency classification for authoritative versus derived state;
 - if PostgreSQL is selected: measured connection/backend-process resource cost, WAL/checkpoint behavior, autovacuum, temp/sort spill, archive/log/disk growth, and crash/restart recovery under the SquiFlow workload;
 - first explicit API/sync protocol compatibility/version contract for Workstation/server skew;
-- REST/task-oriented resource/command shape without pretending every semantic transition is generic CRUD.
+- REST/task-oriented resource/command shape without pretending every semantic transition is generic CRUD;
+- per-invariant concurrency mechanism: expected version/conditional update, database constraint, or narrowly justified isolation/lock;
+- classified deadlock/serialization/lock-timeout behavior with bounded whole-transaction retry only where safe;
+- first compatible expand-migrate-switch-contract schema change exercised across supported old/new reader/writer behavior.
 
 Attack:
 - response lost after commit;
@@ -222,7 +230,10 @@ Attack:
 - stale derived projection accidentally used as current authority;
 - out-of-order derived update overwrites a newer projection state;
 - older Workstation sends a supported old protocol version;
-- unsupported/breaking protocol version is silently interpreted as the latest contract.
+- unsupported/breaking protocol version is silently interpreted as the latest contract;
+- lost update under two valid concurrent commands;
+- deadlock/serialization conflict retries only part of a transaction or exceeds its budget;
+- contraction removes a column/shape still used by a supported Workstation, pending sync item, old backend, durable job/message, or stored snapshot.
 
 Gate:
 - no duplicate semantic effect;
@@ -234,6 +245,8 @@ Gate:
 - provider maintenance behavior fits the current rack resource/disk envelope;
 - derived state has explicit source/freshness/rebuild semantics;
 - compatible old client requests are handled deliberately and unsupported versions fail explicitly;
+- chosen locks/isolation protect the invariant without an unbounded wait/deadlock/retry loop;
+- schema contraction has reader/writer/data inventory plus drain/compatibility and rollback/roll-forward evidence;
 - no system-wide `exactly once`, `eventually consistent`, or `strictly RESTful` claim is made from one narrower mechanism.
 
 ---
@@ -419,12 +432,14 @@ Deliver only hardening relevant to implemented surfaces:
 - high-risk exact-diff/step-up Admin API flows actually implemented;
 - generated endpoint inventories for Core API and Admin API separately;
 - production CORS/cache/error/header policies;
+- implemented browser/API application-security baseline: output/template encoding or narrow sanitization, CSRF where cookie-backed, field allow-lists, parameterized/allow-listed data access, and safe error disclosure;
 - SSRF-safe outbound HTTP;
 - dependency timeout/retry budgets;
 - liveness/readiness/functional health per backend;
 - layered rate/admission policy for login/recovery, account/device, tenant, route/work class, expensive provider actions, and Admin API as applicable;
 - stable `429`/`Retry-After` behavior and client backoff;
 - measured API performance baseline using pagination, bounded connection pooling, selective cache/compression only where justified;
+- conditional cache contract where a cache exists: tenant/permission-safe keys, freshness/invalidation, capacity, stampede/miss amplification, outage bypass, and cold recovery;
 - HTTPS/TLS production routing with direct edge routes to Core API and Admin API;
 - HTTP transport-version negotiation treated as infrastructure behavior, not business semantics;
 - WebSocket/SignalR, if used, kept non-authoritative;
@@ -450,7 +465,10 @@ Attack:
 - sensitive content in logs/Guard diagnostics;
 - OpenFGA or ZITADEL degraded/unavailable and resulting fail-closed/degraded behavior;
 - Core API overload while Admin API still needs emergency application-control capability;
-- Admin API compromise attempt cannot pivot into tenant business authority without explicit platform operation path.
+- Admin API compromise attempt cannot pivot into tenant business authority without explicit platform operation path;
+- SQL/identifier/filter/sort injection, mass assignment/excessive field, XSS/unsafe template, CSRF, SSRF redirect/private-network, and malicious file/path/size cases for implemented surfaces;
+- cache outage, cold start, miss storm/stampede, cross-tenant key collision, and stale sensitive result where a cache is implemented;
+- release artifact/configuration mismatch or migration preflight failure is stopped before unsafe exposure.
 
 Gate:
 - telemetry failure does not affect committed business truth;
@@ -461,7 +479,8 @@ Gate:
 - edge/gateway routing preserves backend ownership and does not become business authority;
 - durable correctness does not depend on WebSocket/circuit/transient network state;
 - no undocumented privileged endpoint;
-- no GraphQL/service-mesh/gRPC/cache/gateway-management layer exists only because it is a common architecture pattern.
+- no GraphQL/service-mesh/gRPC/cache/gateway-management layer exists only because it is a common architecture pattern;
+- application-security controls are exercised through real Web/API/data/file paths rather than declared complete from scanner output alone.
 
 ---
 
@@ -512,13 +531,17 @@ Deliver/prove:
 - new paid `IObjectStore`/`IBackupTarget` adapter readiness;
 - **clean/replacement-environment rebuild from the version-controlled deployment/IaC definitions and runbook**;
 - **edge/DNS/TLS/certificate/time failure exercise** with a recovery path that does not rely on the same failed public edge;
-- **measured capacity envelope and next-move table** for first-order bottlenecks (DB, Worker/CPU, disk, network/object transfer, external dependency, node saturation).
+- **measured capacity envelope and next-move table** for first-order bottlenecks (DB, Worker/CPU, disk, network/object transfer, external dependency, node saturation);
+- **immutable-artifact promotion and release drill** including configuration/capacity/dependency/migration preflight, health plus authorized smoke checks, and the selected rollback/roll-forward/maintenance recovery path;
+- **cross-version schema/durable-work proof** before any destructive contraction, including supported old backends/Workstations, pending sync, jobs/messages, idempotency results, and versioned snapshots;
+- conditional final-container image hardening/scan/runtime-identity/resource proof if containers are selected.
 
 Gate:
 - do not accept a paying customer while backup restore is untested;
 - do not accept a paying customer if the production environment can only be recreated from undocumented manual knowledge;
 - migrate bootstrap storage at the first paying customer or earlier when constraints require it;
 - no HA/zero-downtime/scalability claim without measured topology/capacity evidence;
+- no blue-green/canary/progressive-delivery claim without spare capacity/routing, compatible data contracts, telemetry, and a tested stop/recovery path;
 - Kubernetes remains absent unless the actual multi-node orchestration problem has been demonstrated;
 - no simplification is accepted if it removes a core recovery/security/offline/control-plane behavior already relied on by the product.
 

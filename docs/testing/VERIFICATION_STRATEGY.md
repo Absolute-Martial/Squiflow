@@ -20,11 +20,11 @@ Use for command validation, workflow continuation, authorization composition aro
 ### Real persistence-adapter tests
 Use the real candidate DB for:
 - transactions/constraints;
-- concurrency/locking;
+- expected-version, atomic-update, isolation, concurrency/locking, deadlock/serialization and bounded whole-transaction retry behavior;
 - tenant isolation/RLS where applicable;
 - idempotency atomicity;
 - claims/leases when Worker exists;
-- migrations/recovery.
+- additive/backfill/switch/contract migrations with old/new reader/writer overlap and recovery.
 
 ### Workstation local-store tests
 Use the actual SQLite/libSQL candidate for:
@@ -73,7 +73,24 @@ Use the real ASP.NET Core pipeline for:
 - domain/workflow rejection after OpenFGA allow;
 - cross-tenant negative tests;
 - idempotency/retry;
-- request limits/custom-domain validation.
+- request limits/custom-domain validation;
+- stable HTTP status/Problem Details mappings;
+- CSRF/antiforgery for cookie-authenticated mutations;
+- mass-assignment/excessive-field and injection/SSRF defenses that live in the API pipeline.
+
+### Web/application security tests
+
+Use the real rendering/session/template/file paths as applicable for:
+
+- stored, reflected, and client-side XSS/output encoding;
+- sanitized rich content and Content Security Policy behavior where enabled;
+- cookie scope/flags and Tenant Web versus Platform Admin Web/custom-domain separation;
+- SQL/identifier/filter/sort injection through concrete data-access paths;
+- outbound URL redirects/DNS/private-network/size/timeout controls;
+- file name/path/type/size/decompression/template/parser abuse;
+- secrets/tokens/customer data absent from normal logs, traces, dumps, client artifacts, and error responses.
+
+Owner: `docs/security/APPLICATION_SECURITY_BASELINE.md`.
 
 ### Provider contract tests
 `IObjectStore` and `IBackupTarget` are intentional replacement seams and therefore get contract tests.
@@ -173,7 +190,9 @@ Automate rules such as:
 - changed intent with same key;
 - stale expected version;
 - permission revoked while pending;
-- retry storm/version mismatch.
+- retry storm/version mismatch;
+- concurrent lost-update attempt, deadlock/serialization conflict and bounded whole-transaction retry;
+- cache outage/cold start/stampede and cross-tenant/stale-sensitive cache key where a cache exists.
 
 ### Object/backup
 - Hugging Face upload succeeds/DB metadata fails;
@@ -229,6 +248,8 @@ Cover supported upgrade paths for:
 - rule/workflow/config snapshots;
 - `IObjectStore`/`IBackupTarget` provider migration.
 
+For destructive schema/contract contraction, also prove that supported old application instances, skipped Workstations, pending local sync, durable jobs/messages, stored idempotency results, and rule/workflow/form snapshots are compatible, migrated, drained, rejected explicitly, or outside the documented support window. Do not infer this from a successful migration on an empty database.
+
 ## 7. Restore verification
 
 Backup testing is incomplete until restore proves:
@@ -245,11 +266,14 @@ Backup testing is incomplete until restore proves:
 
 Use:
 - fast deterministic tests on merge;
+- secret/dependency/static checks appropriate to the implemented surface, with explicit triage rather than ignored scanner output;
 - real adapter/integration tests in CI where practical;
 - isolated ZITADEL/OpenFGA/provider contract tests on scheduled/appropriate pipelines;
 - scheduled failure/load tests;
 - release qualification on actual hardware;
 - manual restore/security exercises where automation cannot prove the behavior.
+
+Release qualification promotes the same immutable artifact, records checksum/provenance, runs deployment/migration preflight and authorized smoke checks, and exercises the selected rollback/roll-forward/maintenance recovery path. If containers are selected, scan/test the final image and its runtime identity/capability/resource configuration.
 
 CI success must never imply that actual-hardware/restore/provider-migration exercises ran when they did not.
 
