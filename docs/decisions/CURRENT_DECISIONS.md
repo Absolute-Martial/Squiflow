@@ -28,6 +28,7 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - An interface is justified when there is a concrete dependency-inversion/replacement boundary, including an already-planned near-term provider migration.
 - Clean-code/SOLID principles are design-review guidance, not reasons to create ceremonial layers. Prefer meaningful business names, cohesive responsibilities, shallow/readable control flow, and explicit policy/config values; tolerate small duplication when the alternative is a wrong generic abstraction.
 - Liskov/interface-segregation implications apply to accepted provider seams: replacement adapters must honor the same SquiFlow contract and interfaces stay narrower than the third-party SDKs they hide.
+- Secondary architecture articles/diagrams are used to surface questions and trade-offs; exact high-impact security/database/protocol/provider claims are closed against current primary specifications, official provider documentation, or foundational papers when available.
 
 ## Small-team tenant control
 
@@ -53,6 +54,7 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - OpenFGA tuples use opaque SquiFlow IDs rather than emails or other unnecessary PII.
 - Permission/relationship changes return success only after the authoritative OpenFGA change is known/applied; ambiguous external-write outcomes are reconciled rather than assumed successful.
 - `TenantAuthorizationRevision` remains SquiFlow evidence/versioning for effective authorization/configuration and Workstation snapshot freshness; it complements rather than replaces OpenFGA model/tuple state.
+- SquiFlow does not add a separate JWT/PASETO authentication subsystem. Token/session format is part of the trusted ZITADEL/OIDC integration and never substitutes for current OpenFGA authorization or TenantContext isolation.
 
 ## Web and Workstation
 
@@ -75,6 +77,8 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Core business invariants are not hidden in arbitrary JSON/EAV or tenant-specific DDL merely to avoid schema design. Bounded custom fields/forms are a separate extensibility concern.
 - Indexes are workload-driven: each important index/constraint must protect a real query/invariant and its write, storage, WAL, migration, and sync/import costs are measured. “Index every filterable column” is not baseline.
 - Tenant-local uniqueness and hot tenant-scoped queries use tenant-aware keys/indexes where appropriate, but index shape is confirmed by actual query plans/cardinality rather than a mechanical prefix rule.
+- Central DB selection/tuning starts from an explicit workload profile: read/write/delete mix, representative item sizes, tenant/data skew, normal and reconnect-burst concurrency, sync/import bursts, consistency requirements, hot query cardinalities, and the initial HA/geographic assumptions.
+- If PostgreSQL is selected, operational proof includes connection/backend-process cost, WAL growth, checkpoints, autovacuum, temp/sort spill, archive/log growth, restart/crash recovery, and disk-full behavior on the actual rack—not only SQL/RLS correctness.
 - Core API, Admin API, and Worker may share the same authoritative central database because they are runtime hosts of the same modular-monolith business core, not independent microservices. Shared access must preserve explicit module/data ownership and the same invariants/transaction rules.
 - If a future capability is extracted into a genuinely independent service, its authoritative data ownership becomes explicit; other services do not directly modify its private tables as a shortcut.
 
@@ -103,8 +107,9 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Temporary HTTP throttling uses stable errors and `429`/`Retry-After` where applicable; clients back off rather than amplify overload.
 - Communication inside the modular monolith is in-process by default. Do not create HTTP/gRPC between modules merely to imitate microservices.
 - At real process/service boundaries, choose synchronous calls only when an immediate response is required; use durable asynchronous work for long-running/after-commit consequences. Avoid long synchronous service-call chains that multiply timeout/retry/failure obligations.
+- gRPC is not baseline for Workstation sync or internal service calls. Revisit only when an implemented streaming/binary/generated-contract need materially improves the workload enough to justify another transport and compatibility surface.
 
-## Network edge and protocol boundaries
+## Network edge, deployment and protocol boundaries
 
 - An edge reverse proxy/API-gateway capability may terminate TLS, route hostnames, enforce request-size/WAF/access policy, perform transport/protocol negotiation, and apply coarse rate limiting when the deployment needs it.
 - Edge/gateway controls do not replace Core API or Admin API authentication, OpenFGA authorization, TenantContext isolation, domain validation, idempotency/concurrency, or operation-specific admission.
@@ -117,6 +122,9 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - SSH/private network access is infrastructure recovery/operations only, never a normal tenant business channel.
 - DNS/hostname information assists routing but is never tenant authority by itself. Time synchronization is operationally important for TLS/tokens/leases/schedules/diagnostics, while business correctness still uses explicit versions/IDs where wall-clock ambiguity would be unsafe.
 - MQTT, WebRTC, FTP/SFTP, raw TCP/UDP, and gRPC are not baseline; each requires a concrete latency/streaming/device/transport/compatibility need before adoption.
+- The initial paying-customer deployment must be reproducible from version-controlled deployment/infrastructure definitions and runbooks. Exact IaC/automation/container tooling is OPEN; normal tenant/platform application settings still belong in Web/Admin API rather than YAML-only administration.
+- Containerization is allowed when it improves repeatability/isolation, but Kubernetes is not baseline. Revisit Kubernetes only after concrete multi-node orchestration, rollout/reconciliation, discovery, failover/replacement, or scaling pain exceeds the simpler deployment approach.
+- Scalability is finite and measured: each deployment profile has a capacity envelope and a known next move for the first-order bottlenecks. Do not add caching, replicas, sharding, extra nodes, or event-driven decomposition before the actual bottleneck is identified.
 
 ## Rules/workflow
 
@@ -149,6 +157,7 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - OpenTelemetry/OTLP is the instrumentation boundary. New Relic + Aiven OpenSearch are current managed targets and Backtrace remains the crash-diagnostics direction.
 - Guard contributes bounded Workstation lifecycle/crash/resource evidence into diagnostics without becoming business authority.
 - Telemetry-provider failure/quota exhaustion cannot block business transaction correctness.
+- Production qualification includes proving the deployment can be recreated from the versioned deployment definitions/runbook on a replacement environment and identifying the next scaling action for the measured first-order bottlenecks.
 
 ## Explicitly not baseline
 
@@ -158,8 +167,10 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Kafka, mandatory Redis, event-sourced/full-CQRS/Saga core architecture;
 - GraphQL/GraphQL Federation;
 - service mesh;
+- Kubernetes without a concrete cluster-orchestration requirement;
 - API-management platform selected before a concrete need;
 - HTTP/gRPC between ordinary modules;
+- gRPC for Workstation sync without measured transport/contract value;
 - database-per-service rules applied to the current modular monolith;
 - eventual-consistency-everywhere;
 - denormalized authoritative core schema;
