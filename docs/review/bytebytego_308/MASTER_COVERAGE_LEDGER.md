@@ -114,7 +114,15 @@ Every relevant article receives an **Implications for the Current Implementation
 - `AVOID`
 - `NEEDS MEASUREMENT`
 
+Those labels are **surface-scoped shorthand**, not judgments about whether a technology is generally good or bad. In particular, `AVOID` means “do not use this at the stated current boundary / as a universal baseline unless a concrete reason overrides it,” while `LATER` means “no current requirement here yet.”
+
 Reference architectures and technology lists are not implementation backlogs. gRPC, Kafka, RabbitMQ, Kubernetes, sharding, distributed caches, GraphQL, CQRS, event sourcing, service mesh, microservices and similar patterns require an actual SquiFlow workload/failure/operational reason.
+
+**Technology comparisons are not winner/loser decisions.** `REST vs GraphQL`, `Redis vs Memcached`, `Docker vs Kubernetes`, `Kafka vs RabbitMQ`, `JWT vs PASETO`, and similar material must be converted into a SquiFlow **fit/usage analysis**: what each option is good at, where it is weaker, what SquiFlow currently uses at that boundary and why, where another option could be beneficial, whether complementary use is sensible, and what evidence/adoption trigger is required. The authoritative method is `TECHNOLOGY_FIT_AND_USAGE_REVIEW_RULE.md`.
+
+Entries `001-060` have been **retrospectively re-audited** under that method in `RETROSPECTIVE_TECHNOLOGY_FIT_AUDIT_001_060.md`. Any older shorthand such as `deferred`, `not baseline`, `AVOID`, or `REST baseline` in the detailed studies must be interpreted through that fit audit rather than as a global rejection/winner declaration. The archive source material itself is not rewritten; only the SquiFlow interpretation is narrowed/corrected.
+
+For every current or candidate technology, the review must be able to state **what we use (or do not use), where, and why**. A current non-selection must name the missing requirement or adoption trigger rather than relying only on a negative label.
 
 Material changes to accepted architecture, technology choice, trust/authority boundary, security model, deployment topology or major phase scope are proposed first and require user approval before owner documents are changed. Coverage/study artifacts themselves are updated continuously.
 
@@ -126,42 +134,48 @@ Material changes to accepted architecture, technology choice, trust/authority bo
 - `STUDY_021_030.md` — entries `021-030` exhaustive study plus the third 10-article checkpoint.
 - `STUDY_031_040.md` — entries `031-040` exhaustive study plus the fourth 10-article checkpoint.
 - `STUDY_041_050.md` — entries `041-050` exhaustive study plus the fifth 10-article checkpoint.
-- `CONCEPT_DEPENDENCY_MAP.md` — cumulative concept map through entry `050`.
+- `STUDY_051_060.md` — entries `051-060` exhaustive study plus the sixth 10-article checkpoint.
+- `TECHNOLOGY_FIT_AND_USAGE_REVIEW_RULE.md` — user-approved fit-for-purpose rule for technology/comparison exposures, including the corrected interpretation of entry `060`.
+- `RETROSPECTIVE_TECHNOLOGY_FIT_AUDIT_001_060.md` — retroactive fit/use/why audit of every prior archive entry through `060`; authoritative for interpreting older technology-selection shorthand.
+- `CONCEPT_DEPENDENCY_MAP.md` — cumulative concept map through entry `060`.
 
 The split between study files is organizational only; the coverage ledger is authoritative.
 
 ## Current sequential progress
 
-Archive entries `001-050` are fully completed. All archive-article PDF pages `5-102` have been read. For entries `041-050`, all PDF pages `83-102` were rendered and visually scanned; the infographic-heavy first pages `83, 85, 87, 89, 91, 93, 95, 97, 99, 101` were inspected at full-page resolution in addition to parsed source text. Structural pages `1-4` were previously completed for inventory.
+Archive entries `001-060` are fully completed. All archive-article PDF pages `5-122` have been read. For entries `051-060`, all PDF pages `103-122` were rendered and visually inspected, with the diagram-heavy first pages `103, 105, 107, 109, 111, 113, 115, 117, 119, 121` reviewed at full-page resolution. Structural pages `1-4` were previously completed for inventory.
 
-The fifth checkpoint after fifty archive entries is recorded at the end of `STUDY_041_050.md`.
+The sixth checkpoint after sixty archive entries is recorded at the end of `STUDY_051_060.md`.
 
-Notable source caveats preserved in entries `041-050` include:
+The review-method refinement following entry `060` is important: the earlier shorthand `REST baseline / GraphQL deferred` is not a claim that REST is universally better. REST/task HTTP remains useful for current explicit resource/command surfaces, while GraphQL is a positive candidate for concrete read-composition surfaces where client-selected projections, nested reads, or rapidly evolving Web/Admin read requirements provide real benefit. The project decision is made per boundary and use case, and several API/transport styles may coexist deliberately.
 
-- the system-design topic map mixes universal concerns with optional mechanisms, so service mesh/Kubernetes/sharding/etc. are not treated as maturity requirements;
-- the canonical encoder-decoder Transformer diagram is not the exact architecture of every named modern LLM, and highest-probability token selection is a simplified generation description;
-- JWT signatures do not encrypt normal JWT payloads and token validity does not replace current SquiFlow authorization;
-- the five API pillars omit several production correctness dimensions that SquiFlow already owns, including semantic idempotency, concurrency, tenant/resource authority and failure classification;
-- the HTTPS article's RSA-style “client encrypts a session key with the server public key” step is not a general description of modern TLS 1.3, and “asymmetric encryption goes one way” is inaccurate;
-- server-type lists describe roles, not one-machine-per-role deployment requirements;
-- the Amazon Key architecture is treated as an IoT/partner case study rather than a SquiFlow microservice/AWS blueprint;
-- the CI/CD article's Jira/Jenkins/JFrog/Docker/ELK/Prometheus names are examples rather than mandatory tool selections;
-- event sourcing does not automatically guarantee determinism/global ordering and is distinct from a transactional outbox;
-- a data lake needs governance/lineage/privacy/lifecycle controls and is distinct from SquiFlow object storage or encrypted backup.
+The retrospective audit extends that correction to **all earlier entries 001-060**. Examples include: Docker and Kubernetes are complementary packaging/orchestration layers; sessions/cookies/JWT/PASETO are layered identity/session/token mechanisms rather than one universal choice; queue/pub-sub/event-bus/stream semantics each remain useful for different delivery problems; Redis and Memcached remain legitimate cache candidates for different cache workloads; VMs and containers may coexist; blue-green/canary/A-B can coexist at different release maturity; Event Sourcing can be a strong fit for a domain that truly needs replay-derived authority even though it is not the current SquiFlow core-state model; RabbitMQ and Kubernetes remain positive candidates when their concrete operational problem appears.
 
-No material architecture/technology change requiring owner-document modification was discovered in this batch. The findings reinforce current SquiFlow decisions and add review caveats/implementation questions without silently changing accepted owner documents.
+Notable source caveats preserved in entries `051-060` include:
 
-The next unprocessed page is PDF page `103`, archive entry `051`.
+- DBMS execution component names/phases differ; semantic binding/validation is not universally owned by an optimizer;
+- RabbitMQ exchange/queue routing omits publisher confirms, ACK/redelivery, prefetch/backpressure, poison/dead-letter and broker-resource/failure semantics;
+- Kubernetes `master node` language is simplified/older terminology, PersistentVolume is not backup, and HPA can amplify a downstream bottleneck;
+- the storage-saving list mixes approximate probabilistic sketches/filters with SkipList, so exactness and storage claims are workload-specific;
+- normal-form descriptions are simplified functional-dependency teaching rules;
+- full dual-store/event-driven CQRS is one implementation form rather than the definition of command/query separation;
+- primary/clustered/secondary-index terminology and physical behavior are DBMS-specific;
+- pagination is not response streaming and API-performance techniques trade resources/correctness constraints;
+- REST vs GraphQL is a capability trade-off rather than a universal winner/loser decision; GraphQL's server-side authorization/query-cost/N+1/schema complexity and its genuine read-composition strengths are both preserved.
 
-`LAST FULLY COMPLETED PDF PAGE: 102`
+No material owner-architecture technology adoption was made from this retrospective correction alone. It changes the **decision method and interpretation**, not the implementation stack automatically. Concrete adoption still follows a real SquiFlow boundary/use case, fit reasoning, evidence/POC where needed, and the agreed approval process for material architecture changes.
 
-`LAST COMPLETED ARTICLE: 050 — How Data Lake Architecture Works?`
+The next unprocessed page is PDF page `123`, archive entry `061`.
 
-`NEXT PDF PAGE: 103`
+`LAST FULLY COMPLETED PDF PAGE: 122`
 
-`NEXT ARTICLE: 051 — How SQL Query Executes In A Database?`
+`LAST COMPLETED ARTICLE: 060 — REST API Vs. GraphQL`
 
-`COVERAGE STATUS: 102 / 308 pages sequentially completed`
+`NEXT PDF PAGE: 123`
+
+`NEXT ARTICLE: 061 — Tokens vs API Keys`
+
+`COVERAGE STATUS: 122 / 308 pages sequentially completed`
 
 The structural inventory pages `242-244` were inspected only to establish the master inventory; this does not mean URL detailed processing has jumped ahead.
 

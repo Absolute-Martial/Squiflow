@@ -1,9 +1,15 @@
 # ByteByteGo 308-Page Concept Dependency Map
 
 **Status:** Grows sequentially with the exhaustive study.  
-**Last mapped article:** `050 — How Data Lake Architecture Works?`
+**Last mapped article:** `060 — REST API Vs. GraphQL`
 
 The map records concepts only after their source occurrence is reached, while allowing architect-derived links to already accepted SquiFlow design. It is a dependency/reasoning map, not a mandatory technology stack.
+
+## Review-method rule
+
+Technology-comparison articles do **not** create universal winners. Each option is mapped to the SquiFlow boundary where it is strongest, what it costs, what SquiFlow currently uses there and why, and what evidence would justify complementary adoption. See `TECHNOLOGY_FIT_AND_USAGE_REVIEW_RULE.md`.
+
+Entries `001-060` have also been re-audited under that rule in `RETROSPECTIVE_TECHNOLOGY_FIT_AUDIT_001_060.md`. Any older shorthand such as `AVOID`, `not baseline`, or `deferred` is surface-scoped and must not be read as a global technology rejection.
 
 ## 1. Communication, HTTP, API, and network
 
@@ -12,7 +18,7 @@ same process
     → in-process call
 
 real process/network boundary
-    → RPC / HTTP API
+    → select protocol from boundary/workload
         → contract
         → serialization
         → transport
@@ -45,9 +51,9 @@ real process/network boundary
     → HTTP/HTTPS, DNS, NTP, SSH and other application protocols
 
 026 + 033 + 044 API design
-    → audience / protocol choice
+    → audience / use case
     → interface inputs/outputs
-    → resource-oriented defaults
+    → resource-oriented or task-oriented contract where useful
     → semantic action endpoints where clearer
     → relationships / domain navigation
     → HTTP methods / status / headers
@@ -72,6 +78,31 @@ real process/network boundary
     → maintained runtime/edge implementation
     → no insecure downgrade
 
+060 REST / GraphQL fit
+    → REST/task HTTP strengths
+        → explicit resource/command semantics
+        → familiar HTTP status/cache/idempotency behavior
+        → bounded server-owned shapes
+        → external/partner friendliness
+        → OpenAPI-style inventory/tooling
+    → GraphQL strengths
+        → client-selected fields
+        → nested/aggregate reads
+        → rapidly changing Web/Admin read composition
+        → reduce over-fetch/under-fetch where measured
+        → typed flexible query schema
+    → GraphQL costs to own
+        → query depth/complexity/result bounds
+        → field/resource/tenant authorization
+        → N+1/batching
+        → schema/deprecation/introspection policy
+        → cache/freshness and observability
+    → complementary use is allowed
+        → REST/task HTTP for suitable commands/resources
+        → GraphQL for suitable read-composition surfaces
+        → gRPC for suitable streaming/high-frequency RPC
+        → durable async for long-running/after-commit work
+
 architect rules
     → POST is not automatically retry-safe
     → HTTP method idempotence table ≠ proof of application-level retry safety
@@ -82,6 +113,7 @@ architect rules
     → gRPC is preferred to evaluate for earned synchronous boundaries, not universal
     → modern TLS 1.3 is not generally “RSA-encrypt a client-generated session key”
     → TLS termination creates an explicit edge-to-backend trust boundary
+    → `A vs B` comparison ≠ project-wide winner/loser decision
 ```
 
 ## 2. Identity, sessions, SSO, and tokens
@@ -183,6 +215,14 @@ architect rules
     → production deployment
     → post-release monitoring/alerts
 
+053 Kubernetes detail
+    → manifests / desired state
+    → API Server / etcd / controllers / scheduler
+    → worker/Kubelet/runtime/network
+    → Pod / Deployment / Service / volume
+    → HPA
+    → useful only after a real orchestration workload
+
 SquiFlow release contract
     → one verified immutable artifact
     → source commit / checksum / provenance traceability
@@ -203,6 +243,8 @@ architect rules
     → single active rack node may honestly require a maintenance window
     → binary rollback does not imply database rollback
     → canary can still have staging; A/B and canary have different objectives
+    → PersistentVolume ≠ backup
+    → HPA can amplify a downstream bottleneck
 ```
 
 ## 4. Scalability and system-design selection
@@ -296,6 +338,21 @@ architect rules
     → replayable high-volume ordered/partitioned data
         → event stream
 
+052 RabbitMQ
+    → producer
+    → exchange
+        → direct/topic/fanout routing
+    → queue
+    → consumer
+    → production correctness also requires
+        → publisher confirm / uncertain publish result
+        → consumer ACK/redelivery
+        → prefetch/backpressure
+        → poison/dead-letter handling
+        → bounded retries
+        → resource/outage/drain/recovery behavior
+    → broker delivery ≠ exactly-once business effect
+
 AWS source examples
     → SQS queue
     → SNS pub/sub
@@ -312,6 +369,7 @@ AWS source examples
 SquiFlow
     → transactional outbox + simplest durable Worker/job path first
     → normalized current state remains authoritative
+    → RabbitMQ is a positive future candidate if broker-managed queue/routing/fan-out needs exceed the simpler mechanism
     → pub/sub only for several real independent consumers
     → stream/Kafka-style log only when replay/offset/throughput need exists
     → event sourcing only if one domain truly needs replay-derived authority
@@ -320,9 +378,10 @@ architect rule
     → in-process Observer (032) ≠ durable message delivery
     → event sourcing does not automatically guarantee determinism/global ordering
     → external effects are never replayed blindly during projection rebuild
+    → RabbitMQ persistence/routing does not remove semantic idempotency/reconciliation
 ```
 
-## 7. Cache and key-value branch
+## 7. Cache, approximate structures, and key-value branch
 
 ```text
 019 storage-selection dimensions
@@ -336,6 +395,19 @@ architect rule
 023 Redis vs Memcached framing
     → Memcached: simpler key/value + LRU comparison point
     → Redis: richer structures + optional persistence/pub-sub/scripting/replication examples
+
+054 storage-saving / approximate structures
+    → Bloom Filter / Cuckoo Filter
+        → membership hint with probabilistic behavior
+    → HyperLogLog
+        → approximate cardinality
+    → MinHash
+        → approximate similarity
+    → Count-Min Sketch
+        → approximate frequency
+    → SkipList
+        → ordered expected-logarithmic access structure
+    → exactness trade-off must be explicit
 
 cache contract
     → authoritative source + bypass
@@ -351,9 +423,10 @@ architect rules
     → cache product not selected from feature matrix
     → persistence capability does not make cache authoritative
     → stale cache never becomes payment/stock/credit/tenant/authorization authority
+    → approximate structure never becomes exact payment/stock/credit/authorization/quota authority
 ```
 
-## 8. Database, SQL, query performance, and PostgreSQL
+## 8. Database, SQL, query performance, normalization, and PostgreSQL
 
 ```text
 009 database performance
@@ -380,12 +453,40 @@ architect rules
     → join semantics affect missing rows / NULLs
     → one-to-many expansion can multiply rows and corrupt aggregates if misunderstood
 
-038 SQL execution
+038 SQL logical/execution overview
     → parse / validate
     → internal relational representation
     → optimize
     → choose physical plan using statistics/indexes
     → execute
+
+051 deeper query execution
+    → connection/session/transport
+    → parse / bind / analyze
+    → optimize / plan
+    → execution engine
+    → storage engine
+        → transaction
+        → locks/concurrency
+        → buffers/cache
+        → recovery/durable logging
+    → performance depends on plan + statistics + contention + memory + I/O + pool + WAL
+
+055 normalization
+    → 1NF
+    → 2NF
+    → 3NF
+    → BCNF
+    → 4NF
+    → normalize authoritative facts/relationships/invariants
+    → denormalize only as derived read optimization
+
+058 index taxonomy
+    → primary/unique invariant indexes
+    → clustered/physical organization is provider-specific
+    → secondary/nonclustered access path
+    → composite/partial/covering/specialized choices after provider/workload evidence
+    → every index trades reads against write/WAL/storage/maintenance/migration cost
 
 logical SQL order
     → FROM/JOIN/ON
@@ -399,6 +500,7 @@ logical SQL order
 SquiFlow Phase-3 proof
     → representative tenant/cardinality workload
     → actual execution plans
+    → tenant/data skew + parameter-sensitive plan behavior
     → index benefit + write/WAL/storage/migration cost
     → connection-pool saturation
     → WAL/checkpoint/autovacuum behavior
@@ -409,11 +511,41 @@ SquiFlow Phase-3 proof
 
 architect rules
     → index availability ≠ index should always be used
+    → primary key ≠ universal physical clustering behavior
     → denormalization is not the first response to a slow join
     → tenant skew can make an average-good plan bad for one tenant
+    → normalization protects fact identity; it does not prohibit derived read projections
 ```
 
-## 9. Data engineering / analytics
+## 9. CQRS and Event Sourcing
+
+```text
+056 CQRS
+    → command responsibility
+        → business mutation intent
+    → query responsibility
+        → business-state read only
+    → may optionally split
+        → models
+        → databases
+        → services
+        → async projections
+    ≠ mandatory separate stores
+    ≠ mandatory broker
+    ≠ Event Sourcing
+
+049 Event Sourcing
+    → event log itself is authoritative state history
+    → current state/projections reconstructed from events
+
+SquiFlow
+    → command/query separation already useful inside modular monolith
+    → one authoritative relational DB initially
+    → optional read projections only when real query workload benefits
+    → Event Sourcing remains a separate domain-level decision
+```
+
+## 10. Data engineering / analytics
 
 ```text
 029 roadmap
@@ -454,7 +586,7 @@ architect rules
     → raw lake without governance can become an untrusted data swamp
 ```
 
-## 10. Design patterns and clean-code branch
+## 11. Design patterns and clean-code branch
 
 ```text
 028 broad pattern vocabulary
@@ -486,7 +618,7 @@ architect rules
     → clean-code rules are heuristics, not correctness substitutes
 ```
 
-## 11. Versioning and compatibility
+## 12. Versioning and compatibility
 
 ```text
 030 SemVer
@@ -515,13 +647,14 @@ architect rule
     → `0.x` does not permit silent customer-data/client breakage
 ```
 
-## 12. Evidence and learning-roadmap discipline
+## 13. Evidence and learning-roadmap discipline
 
 ```text
-014 architecture resources
+014 / 057 architecture resources
     → secondary sources expose concepts/questions
     → primary specifications/provider docs close exact semantics
     → representative POC closes SquiFlow-specific performance/capacity claims
+    → duplicate occurrences stay independently traceable
 
 024 / 026 / 029 / 037 learning maps
     → useful breadth prompts
@@ -532,7 +665,7 @@ architect rule
     ≠ cloud migration decision
 ```
 
-## 13. AI / probabilistic model branch
+## 14. AI / probabilistic model branch
 
 ```text
 042 canonical Transformer teaching flow
@@ -552,7 +685,7 @@ SquiFlow rule
     → probabilistic model output never silently becomes payment/stock/permission/financial authority
 ```
 
-## 14. Server roles and physical/partner integrations
+## 15. Server roles and physical/partner integrations
 
 ```text
 046 server-role vocabulary
@@ -592,7 +725,7 @@ SquiFlow connection
     ≠ copy AWS microservice topology
 ```
 
-## 15. Current SquiFlow integrated path
+## 16. Current SquiFlow integrated path
 
 ```text
 Workstation local-first operation
@@ -611,6 +744,10 @@ Workstation local-first operation
 same-runtime modules
     → in-process communication
 
+Web / Admin reads
+    → REST/task query surfaces where explicit server-owned shape is simplest
+    → GraphQL is a positive candidate for complex/nested/client-driven read composition when the implemented UI proves benefit
+
 long/after-commit consequence
     → durable outbox + Worker
     ≠ forced synchronous chain
@@ -619,11 +756,8 @@ central persistence
     → PostgreSQL strongest reference candidate
     → closes through Phase-3 workload/operational POC
     → normalized current state + explicit audit/history
-    → event sourcing remains deferred
-
-Web
-    → online-only business operations
-    → optimize measured browser bottlenecks
+    → optional derived read projections after measured need
+    → event sourcing remains separate/deferred
 
 production deployment
     → reproducible definitions/runbooks
@@ -640,17 +774,8 @@ analytics
 
 These are **not yet studied** and therefore are not treated as completed concept nodes:
 
-- `051` How SQL Query Executes In A Database? (next)
-- `052`, `083`, `114` RabbitMQ/Kafka
-- `053` Kubernetes detail
-- `054` storage-saving data structures
-- `055` database normal forms
-- `056` CQRS (to connect with event sourcing)
-- `057` duplicate architecture-resource occurrence
-- `058`, `062`, `097` deeper index/query/performance material
-- `059` duplicate API-performance occurrence
-- `060` REST vs GraphQL
-- `061` tokens vs API keys
+- `061` Tokens vs API Keys (next)
+- `062`, `097` deeper index/query/performance material
 - `063`, `080`, `085` cache failure/placement/query lifecycle
 - `067` HTTP status code detail
 - `069` additional SSO occurrence
@@ -658,6 +783,7 @@ These are **not yet studied** and therefore are not treated as completed concept
 - `074` JWT vs PASETO
 - `076`, `082` CI/CD follow-up occurrences
 - `077` and URL `040` API versioning strategies
+- `083`, `114` Kafka/RabbitMQ follow-up
 - `093` explicit modular-monolith source occurrence
 - `096` duplicate system-design concept occurrence
 - `099-122` deeper networking/DNS/HTTP/service material
