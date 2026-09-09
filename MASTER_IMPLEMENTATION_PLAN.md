@@ -36,6 +36,8 @@ Code-quality/SOLID guidance is applied pragmatically:
 - do not create an interface/class/helper merely to satisfy a pattern slogan;
 - tolerate small duplication when the alternative is a wrong shared abstraction.
 
+Secondary architecture articles/diagrams are used to expose questions and trade-offs. Exact high-impact security/database/protocol/provider claims should be checked against primary specifications, official provider documentation, or foundational papers when available before being locked into the architecture.
+
 ---
 
 ## 2. Runtime shape
@@ -160,6 +162,8 @@ No reusable native client secret and no central DB credentials on the Workstatio
 ZITADEL provides authentication/account/session/MFA/SSO capability; it does not become current business authorization truth simply because it can expose roles/claims.
 
 Platform operators also authenticate through ZITADEL, but Admin API requires separate platform-level authorization and never treats a tenant session/role as super-admin authority.
+
+SquiFlow does not create a second JWT/PASETO/password/WebAuthn subsystem around ZITADEL. Token/session form is an identity/session concern and never replaces current OpenFGA authorization or TenantContext isolation.
 
 Open Phase-1 details include ZITADEL Cloud vs self-hosted, exact instance/project/application layout, tenant-organization mapping, Web session topology, and native callback choice.
 
@@ -296,6 +300,8 @@ Material actions remain task-oriented (`ApproveQuote`, `RefundPayment`, `AdjustI
 
 GraphQL/GraphQL Federation are deferred until a real client query-composition problem justifies query-cost, field-authorization, caching, schema, and N+1 complexity.
 
+gRPC is also non-baseline. Revisit only if a real Workstation sync or extracted-service workload proves streaming, binary efficiency, generated contracts, or another transport property materially valuable enough to justify the extra protocol/version/operations surface.
+
 Retryable mutations use caller-provided semantic idempotency keys.
 
 ```text
@@ -343,7 +349,7 @@ Owner: `docs/sync/SYNC_AND_AUTHORITY.md`.
 
 ---
 
-## 10. Persistence — normalized authority, measured indexes, explicit data ownership
+## 10. Persistence — normalized authority, measured workload, explicit data ownership
 
 Exact DB products remain open until phase POCs:
 - PostgreSQL — strongest central reference candidate;
@@ -359,6 +365,10 @@ Authoritative relational business state starts normalized around real identities
 Denormalized/materialized read structures are derived optimizations. Each declares source, freshness, update/rebuild behavior, tenant/authorization scope, and what happens when stale/unavailable.
 
 Indexes are workload contracts, not decorations. Measure real query plans/cardinality **and** write/WAL/storage/migration/sync/import cost; do not “index every filterable field.”
+
+Before selecting/tuning the central DB, record the actual implemented workload shape: read/write/delete mix, representative item sizes, tenant/data skew, normal concurrency, offline reconnect/sync/import bursts, consistency requirements, hot-query cardinality, and the initial HA/geographic assumptions.
+
+If PostgreSQL wins Phase 3, qualification includes connection/backend-process resource cost, WAL/checkpoints, autovacuum, temp/sort spill, archive/log/disk growth, and crash/restart recovery on the low-resource rack—not just SQL/RLS correctness.
 
 Consistency is selected per invariant:
 - strong/current authority where temporary disagreement could create an unsafe business/security effect;
@@ -551,7 +561,7 @@ Owners:
 
 ---
 
-## 16. Edge gateway, protocols, service mesh, observability, and physical operations
+## 16. Edge, deployment reproducibility, scalability, protocols, observability, and physical operations
 
 A deployment edge/reverse proxy/API-gateway capability may terminate TLS, route hostnames, enforce request-size/WAF/private-access policy, negotiate supported HTTP transport, and apply coarse rate limiting.
 
@@ -580,6 +590,12 @@ Current external protocol baseline:
 - SSH/private network access is infrastructure recovery/operations only.
 
 Time synchronization matters for TLS/tokens/leases/schedules/diagnostics, but business correctness uses explicit versions/IDs where wall-clock ambiguity would be unsafe.
+
+The paying-customer deployment must be reproducible from version-controlled deployment/infrastructure definitions and runbooks. This does not turn normal tenant/platform application administration into YAML editing. Exact IaC/automation/container packaging remains OPEN until the deployment slice needs it.
+
+Containerization is allowed when useful for packaging/isolation. Kubernetes is not baseline; revisit only after concrete multi-node placement/reconciliation, rollout, discovery, failover/replacement, or scaling operations become a real recurring problem that the simpler deployment cannot own reliably.
+
+SquiFlow does not claim infinite scalability. Each deployment profile needs a measured capacity envelope, first-order bottlenecks, and a known next move for those bottlenecks. Diagnose the constraint before adding caching, replicas, extra nodes, sharding, distributed databases, or service extraction.
 
 Do not add gRPC, MQTT, WebRTC, FTP/SFTP, or raw TCP/UDP without a concrete latency/streaming/device/compatibility requirement.
 
@@ -627,6 +643,8 @@ Measure representative latency percentiles, throughput, query/dependency time, a
 Keep tests focused on real correctness risks:
 - business/domain invariants;
 - real DB transaction/concurrency/isolation behavior;
+- explicit DB workload profile including reconnect/import bursts;
+- PostgreSQL WAL/checkpoint/autovacuum/temp/disk behavior if PostgreSQL is selected;
 - schema/index/query-plan behavior at representative and projected cardinalities;
 - Workstation local durability/restart;
 - Guard independent crash/hang/update recovery;
@@ -644,7 +662,8 @@ Keep tests focused on real correctness risks:
 - DNS/hostname/clock-skew hostile cases where relevant;
 - `IObjectStore` provider contract + Hugging Face adapter;
 - `IBackupTarget` contract + encrypted Kaggle backup restore;
-- actual low-end hardware/resource limits.
+- clean/replacement-environment rebuild from deployment definitions/runbook;
+- actual low-end hardware/resource/capacity limits.
 
 Do not introduce unrelated interfaces merely to increase mock/unit-test count.
 
@@ -657,17 +676,17 @@ Owner: `docs/testing/VERIFICATION_STRATEGY.md`.
 Default WIP limit: **one implementation phase**, but each phase must cover its defined edge/failure behavior before being called complete.
 
 ```text
-Phase 0  Web + Workstation + Guard + Core API skeleton, provider contracts, minimal CI
+Phase 0  Web + Workstation + Guard + Core API skeleton, provider contracts, minimal CI, initial reproducible deploy representation
 Phase 1  ZITADEL identity + OpenFGA Owner/Staff/custom-role authorization
 Phase 2  first local-first Workstation Customer/Order transaction + local DB + Guard recovery
-Phase 3  authoritative sync + central DB + normalized schema/index/consistency + API-version proof + pooled tenant isolation + idempotency
+Phase 3  authoritative sync + central DB + workload/schema/index/consistency + API-version proof + pooled tenant isolation + idempotency
 Phase 4  conflict/long-offline/resnapshot recovery
 Phase 5  one native rule + workflow + bounded dynamic form
 Phase 6  create Worker + Platform Admin Web + independent Admin API; prove first platform-control and durable-work slice
 Phase 7  Hugging Face IObjectStore flow + documents/printing + Kaggle IBackupTarget restore proof
 Phase 8  API/rate/network/performance/observability/admin hardening
 Phase 9  payments/credit/inventory/correction hardening
-Phase 10 actual-rack release/resource/restore qualification + paid-provider migration readiness
+Phase 10 actual-rack release/resource/restore/rebuild/scaling qualification + paid-provider migration readiness
 ```
 
 Owner: `docs/implementation/PHASES_AND_GATES.md`.
@@ -690,10 +709,14 @@ Do not add these now:
 - global CRDTs;
 - GraphQL/GraphQL Federation;
 - service mesh;
+- Kubernetes before a real cluster-orchestration problem;
 - API-management platform selected before need;
 - HTTP/gRPC between ordinary modules;
+- gRPC sync without measured transport/contract need;
 - database-per-service rules applied to the current modular monolith;
-- MQTT/WebRTC/FTP/SFTP/raw TCP/UDP/gRPC without a concrete workload;
+- MQTT/WebRTC/FTP/SFTP/raw TCP/UDP without a concrete workload;
+- custom Raft/consistent-hashing/Merkle-repair/distributed-database machinery;
+- Operational Transformation without a real collaborative-editing requirement;
 - denormalized authoritative core schema;
 - schema/database/deployment per tenant baseline;
 - multi-currency/FX subsystem;
@@ -711,5 +734,7 @@ The accepted `IObjectStore`, `IBackupTarget`, Guard, ZITADEL, OpenFGA, and separ
 A capability is complete when the concerns that materially apply to that capability are proven: user states/recovery, tenant/authority, validation/permission, transaction/idempotency/concurrency, consistency/freshness, local-vs-server authority, async/external-unknown behavior, API/protocol version compatibility, resource/storage/rate limits, upgrade/restore implications, and relevant hostile tests.
 
 For platform administration this additionally includes proving that super-admin control uses Admin API directly and remains process-independent from Core API for the implemented operation.
+
+For deployment qualification this also includes reproducibility: a usable replacement environment must be recoverable from versioned deployment definitions/runbooks plus the verified backup/recovery set, not undocumented machine state.
 
 Do not force irrelevant checklist items onto tiny features, but do not waive required edge cases simply to keep the implementation visually minimal.
