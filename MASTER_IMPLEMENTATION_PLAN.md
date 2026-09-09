@@ -1,4 +1,4 @@
-# SquiFlow v0.0.15 — Master Implementation Plan
+# SquiFlow v0.0.16 — Master Implementation Plan
 
 **Status:** Current audited architecture/implementation baseline.  
 **Implementation state:** **pre-Phase-0**.
@@ -22,7 +22,7 @@ real requirement / failure mode
 → add further layers only when evidence earns them
 ```
 
-A design is **not** better because it has fewer processes/interfaces if that simplification destroys recovery, provider replacement, authorization freshness, offline durability, retry safety, duplicate handling, platform-control independence, or other accepted responsibilities.
+A design is **not** better because it has fewer processes/interfaces if that simplification destroys recovery, provider replacement, authorization freshness, offline durability, retry safety, duplicate handling, observability evidence, platform-control independence, or other accepted responsibilities.
 
 Likewise, a design is not better because it has more layers. Avoid forwarding-only Manager/Service/Helper/Repository hierarchies.
 
@@ -210,7 +210,7 @@ Owner: `docs/security/TENANT_PERMISSIONS.md`.
 
 ### Web
 
-Web is **online-only for business operations in v0.0.15**.
+Web is **online-only for business operations in v0.0.16**.
 
 Do not implement:
 - IndexedDB business replica;
@@ -623,24 +623,52 @@ gRPC is not a universal/default protocol, but it is the preferred candidate to e
 
 A service mesh is **not baseline**. Revisit only after real independently deployed east-west service traffic proves enough mTLS/discovery/traffic-policy/observability complexity to justify the runtime and operational cost.
 
-OpenTelemetry/OTLP is the telemetry boundary.
+OpenTelemetry/OTLP is the provider-neutral telemetry boundary. SquiFlow owns a small `SquiFlow.Observability` implementation boundary over standard .NET/OpenTelemetry primitives; business/domain code does not depend directly on observability-provider SDKs.
 
 Current managed targets:
 - New Relic — metrics/traces/APM;
 - Aiven OpenSearch — structured operational logs;
 - Backtrace — crash diagnostics direction.
 
-Operational telemetry may use bounded asynchronous buffering/export for performance, but authoritative security/business audit is not allowed to exist only in a lossy logging buffer.
+Important request/job/sync paths propagate verified tenant/security context plus the correlation data that materially applies: `CorrelationId`, `CausationId`, trace context, operation/idempotency keys, job/message/sync identifiers, and rule/config versions. `TraceId`, `CorrelationId`, and `CausationId` are distinct concepts.
+
+Significant operational events use source-controlled stable `EventId` and `EventName` values; abnormal/failure outcomes use stable `FailureCode` values. Exception/message strings are evidence, not the stable failure identity. Sync/outbox/Worker/Guard and similar operational state machines log meaningful state transitions.
+
+Runtime behavior differs by environment:
+
+```text
+Server      → central-first, bounded export/buffering
+Workstation → local-durable-first diagnostics + selective central export
+```
+
+Workstation logging/diagnostic bundles are bounded and preserve a disk reserve so diagnostics cannot endanger SQLite, OS operation, or update/recovery. Guard remains locally useful when remote observability is unavailable.
+
+Telemetry is another tenant/privacy data path. Verified opaque tenant identity may be used where useful/safe in logs/traces, but TenantId/UserId/WorkstationId/entity/job/correlation/trace IDs are not ordinary unbounded metric dimensions. Central redaction/secret protection is tested before external export where feasible.
+
+Telemetry failure cannot invalidate business transactions. Buffers, retry and local spools are bounded. The telemetry pipeline itself exposes useful self-health such as dropped signals, queue/spool pressure, exporter failures, sampling ratios, processor failures and quota state where available. Alerting should group/deduplicate/rate-limit crash loops and shared outages.
+
+Telemetry wall-clock timestamps use UTC and elapsed durations use monotonic timing. Workstation wall clock is not distributed ordering/idempotency authority.
+
+For important incidents, diagnostic output should distinguish observed symptom, evidence, probable failure class, unknowns/confidence, and safe retry/recovery/reconciliation. Telemetry must not auto-correct ambiguous money/stock/security state.
+
+Security/business history required for correctness remains in durable SquiFlow state. Operational telemetry may use bounded asynchronous buffering/export, but logs/traces or another lossy buffer are not the only audit copy.
 
 Guard supplies bounded desktop lifecycle/crash/resource evidence into the support/diagnostic path.
 
 Core API and Admin API have independent health/readiness/deployment lifecycles. Their telemetry can correlate through shared IDs, but one backend's process failure must not be interpreted as the other backend being down.
 
-Telemetry failure cannot invalidate business transactions.
-
 Current server hardware is lower-spec/desktop-class rack equipment. `Stateless` means process memory is not authoritative; it does not promise automatic failover.
 
-Owner: `docs/operations/DEPLOYMENT_CAPACITY_AND_RECOVERY.md`.
+Owners:
+- `docs/observability/OBSERVABILITY.md`
+- `docs/observability/OBSERVABILITY_IMPLEMENTATION_CONTRACT.md`
+- `docs/observability/STRUCTURED_LOGGING_AND_FAILURE_CODES.md`
+- `docs/observability/WORKSTATION_SERVER_LOG_PIPELINE.md`
+- `docs/observability/MULTI_TENANT_OBSERVABILITY.md`
+- `docs/observability/OBSERVABILITY_VERIFICATION_ACCEPTANCE.md`
+- `docs/operations/DEPLOYMENT_CAPACITY_AND_RECOVERY.md`.
+
+Review/non-accepted follow-ups are tracked in `docs/review/OBSERVABILITY_AND_OVERLOOKED_RECOMMENDATIONS.md` rather than silently promoted into product requirements.
 
 ---
 
@@ -695,11 +723,21 @@ Keep tests focused on real correctness risks:
 - `IBackupTarget` contract + encrypted Kaggle backup restore;
 - clean/replacement-environment rebuild from deployment definitions/runbook;
 - immutable-artifact promotion, migration preflight, smoke verification and failed-release rollback/roll-forward/maintenance recovery;
-- actual low-end hardware/resource/capacity limits.
+- actual low-end hardware/resource/capacity limits;
+- observability correlation across representative Workstation/API/authorization/DB/outbox paths;
+- stable EventId/EventName/FailureCode uniqueness/compatibility;
+- redaction/privacy and multi-tenant telemetry isolation;
+- metric-cardinality behavior under many tenants/entities;
+- collector/provider outage and queue/spool saturation;
+- Workstation offline logging/disk-pressure/diagnostic-bundle behavior;
+- alert-storm grouping/deduplication/rate controls;
+- observability resource-overhead regression.
 
 Do not introduce unrelated interfaces merely to increase mock/unit-test count.
 
-Owner: `docs/testing/VERIFICATION_STRATEGY.md`.
+Owners:
+- `docs/testing/VERIFICATION_STRATEGY.md`
+- `docs/observability/OBSERVABILITY_VERIFICATION_ACCEPTANCE.md`.
 
 ---
 
@@ -716,7 +754,7 @@ Phase 4  conflict/long-offline/resnapshot recovery
 Phase 5  one native rule + workflow + bounded dynamic form
 Phase 6  create Worker + Platform Admin Web + independent Admin API; prove first platform-control and durable-work slice; evaluate gRPC only if a real synchronous cross-process service boundary appears
 Phase 7  Hugging Face IObjectStore flow + documents/printing + Kaggle IBackupTarget restore proof
-Phase 8  API/rate/network/performance/observability/admin hardening
+Phase 8  API/rate/network/performance/observability/admin hardening, including stable event registry and telemetry failure tests
 Phase 9  payments/credit/inventory/correction hardening
 Phase 10 actual-rack release/resource/restore/rebuild/scaling qualification + paid-provider migration readiness
 ```
@@ -757,15 +795,17 @@ Do not add these now:
 - generic social/catalog categories or universal quotation-type taxonomy not required by the business;
 - data lake/streaming platform or custom identity/token subsystem;
 - generic ETL/search/SaaS billing infrastructure without a real requirement;
+- a dedicated observability microservice merely to route telemetry;
+- 100% production tracing by default;
 - hundreds of placeholder files/projects.
 
-The accepted `IObjectStore`, `IBackupTarget`, Guard, ZITADEL, OpenFGA, and separate Admin API boundaries are **not** examples of forbidden complexity: each has a concrete current or committed near-term responsibility.
+The accepted `IObjectStore`, `IBackupTarget`, Guard, ZITADEL, OpenFGA, `SquiFlow.Observability`, and separate Admin API boundaries are **not** examples of forbidden complexity: each has a concrete current or committed near-term responsibility.
 
 ---
 
 ## 21. Implementation-complete rule
 
-A capability is complete when the concerns that materially apply to that capability are proven: user states/recovery, tenant/authority, validation/permission, transaction/idempotency/concurrency, consistency/freshness, local-vs-server authority, async/external-unknown behavior, API/protocol version compatibility, resource/storage/rate limits, upgrade/restore implications, and relevant hostile tests.
+A capability is complete when the concerns that materially apply to that capability are proven: user states/recovery, tenant/authority, validation/permission, transaction/idempotency/concurrency, consistency/freshness, local-vs-server authority, async/external-unknown behavior, API/protocol version compatibility, resource/storage/rate limits, observability/evidence, upgrade/restore implications, and relevant hostile tests.
 
 For platform administration this additionally includes proving that super-admin control uses Admin API directly and remains process-independent from Core API for the implemented operation.
 

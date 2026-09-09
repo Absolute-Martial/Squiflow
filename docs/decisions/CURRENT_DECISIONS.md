@@ -1,6 +1,6 @@
-# Current Decisions — v0.0.15
+# Current Decisions — v0.0.16
 
-This file records accepted direction only. Detailed reasoning and changes from the decision audit live in `docs/review/DECISION_AUDIT.md`.
+This file records accepted direction only. Detailed reasoning and changes from the decision audit live in `docs/review/DECISION_AUDIT.md`. Observability-specific implementation contracts live under `docs/observability/`.
 
 ## Product and runtime
 
@@ -75,7 +75,7 @@ This file records accepted direction only. Detailed reasoning and changes from t
 
 ## Web and Workstation
 
-- Web is online-only for business operations in v0.0.15. No IndexedDB business replica, service-worker business sync, or browser offline mutation queue is baseline.
+- Web is online-only for business operations in v0.0.16. No IndexedDB business replica, service-worker business sync, or browser offline mutation queue is baseline.
 - Valuable online forms may use explicit server-side drafts/autosave when justified.
 - Workstation is the local-first/offline client.
 - Local Workstation success and server-authoritative acceptance are separate states (`LocalCommitted`, `PendingRemote`, `Authoritative`, `Conflict`, `Rejected`, `AuthorizationChanged`, `UpgradeRequired`).
@@ -190,9 +190,25 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Resource use is explicitly bounded; spare CPU/RAM is headroom rather than permission for caches/workers to grow without limit.
 - Core API and Admin API have independent process/deployment health. A Core API outage must not automatically remove the Platform Admin application control surface; an Admin API outage must not block ordinary tenant business API work.
 - OpenTelemetry/OTLP is the instrumentation boundary. New Relic + Aiven OpenSearch are current managed targets and Backtrace remains the crash-diagnostics direction.
+- SquiFlow owns a provider-neutral `SquiFlow.Observability` boundary built on standard .NET/OpenTelemetry primitives; application/domain code does not depend on provider SDKs.
+- `TraceId`, SquiFlow `CorrelationId`, and `CausationId` are distinct and are propagated deliberately across HTTP/sync/outbox/worker boundaries.
+- Significant operational logs use a source-controlled stable `EventId`/`EventName`; abnormal/failure outcomes use stable `FailureCode` values. Exception/message text is evidence, not the stable failure identity.
+- Sync/outbox/worker/Guard and similar operational state machines emit meaningful state-transition events.
+- Workstation observability is **local-durable-first** with bounded rotating evidence and selective central export; server observability is **central-first** with bounded buffering/export.
+- Workstation diagnostics must protect a disk reserve and shed low-value telemetry before threatening SQLite/OS/update recovery.
 - Guard contributes bounded Workstation lifecycle/crash/resource evidence into diagnostics without becoming business authority.
+- Tenant/user/workstation/entity/job/correlation/trace identifiers are not ordinary unbounded metric dimensions; instance-specific investigation belongs primarily in controlled logs/traces.
+- Telemetry wall-clock timestamps are UTC and elapsed durations use monotonic timing; Workstation wall clock is not distributed ordering/idempotency authority.
 - Telemetry-provider failure/quota exhaustion cannot block business transaction correctness.
-- Analytics/telemetry retention, sampling, provider outage, or dashboard deletion cannot erase authoritative consumption required by an implemented limit.
+- Operational telemetry is separate from authoritative security/business audit state.
+
+Detailed owners:
+- `docs/observability/OBSERVABILITY.md`
+- `docs/observability/OBSERVABILITY_IMPLEMENTATION_CONTRACT.md`
+- `docs/observability/STRUCTURED_LOGGING_AND_FAILURE_CODES.md`
+- `docs/observability/WORKSTATION_SERVER_LOG_PIPELINE.md`
+- `docs/observability/MULTI_TENANT_OBSERVABILITY.md`
+- `docs/observability/OBSERVABILITY_VERIFICATION_ACCEPTANCE.md`.
 - Production qualification includes proving the deployment can be recreated from the versioned deployment definitions/runbook on a replacement environment and identifying the next scaling action for the measured first-order bottlenecks.
 
 ## Application security
@@ -206,7 +222,7 @@ This file records accepted direction only. Detailed reasoning and changes from t
 
 ## Explicitly not baseline
 
-- formal accessibility/a11y work as a separate v0.0.15 project/gate;
+- formal accessibility/a11y work as a separate v0.0.16 project/gate;
 - full browser offline sync;
 - generic repository/unit-of-work/one-interface-per-class abstractions;
 - Kafka, mandatory Redis, event-sourced/full-CQRS/Saga core architecture;
