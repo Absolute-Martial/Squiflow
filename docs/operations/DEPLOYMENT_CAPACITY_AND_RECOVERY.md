@@ -29,7 +29,40 @@ That does not mean:
 
 Until redundancy is implemented and tested, physical failure can require manual recovery.
 
-## 3. Physical durability must be tested
+## 3. Reproducible deployment is required
+
+The paying-customer deployment must not exist only as undocumented shell commands or one administrator's memory.
+
+Keep version-controlled deployment/infrastructure definitions and runbooks sufficient to recreate the intended environment, including as applicable:
+- Core API/Admin API/Worker service definitions;
+- edge/reverse-proxy routing and TLS configuration;
+- environment/bootstrap configuration placement;
+- database provisioning/migration procedure;
+- backup scheduling and `IBackupTarget` configuration;
+- observability exporters/agents;
+- process restart/shutdown/resource limits;
+- private recovery access prerequisites.
+
+This is an infrastructure/deployment concern. It does **not** mean tenant or platform operators should normally edit YAML/Terraform files for business/application settings; those remain first-class Web/Admin API concerns where implemented.
+
+The exact IaC/automation mechanism is OPEN. A simple version-controlled host/container/service setup is valid if it is reproducible and testable. Do not introduce Kubernetes, Flux, Terraform or another platform solely to claim IaC/GitOps.
+
+Production qualification includes rebuilding SquiFlow on a clean/replacement environment using these definitions/runbooks rather than relying on the original machine state.
+
+## 4. Containerization versus orchestration
+
+Containerization is allowed when it improves packaging, dependency isolation, reproducibility or deployment consistency.
+
+Kubernetes is **not** baseline. It becomes a candidate only when concrete multi-node orchestration problems repeatedly appear, such as:
+- manual placement/reconciliation of replicas;
+- rollout/rollback coordination across many instances;
+- service discovery becoming operationally fragile;
+- automated failover/replacement requirements;
+- scaling/placement policy becoming difficult to operate with the simpler deployment.
+
+Having more than one container or more than one server is not by itself sufficient evidence for Kubernetes.
+
+## 5. Physical durability must be tested
 
 The selected central/local database stack must be tested on the actual hardware class for:
 - process/OS restart;
@@ -39,9 +72,11 @@ The selected central/local database stack must be tested on the actual hardware 
 - restore onto replacement hardware;
 - measured restart/recovery time.
 
+If PostgreSQL is selected, also observe connection/backend-process resource cost, WAL growth, checkpoints, autovacuum, temp spill and archive/log growth under the actual SquiFlow burst workload. Logical SQL correctness alone is not sufficient qualification on a small rack.
+
 UPS, ECC, RAID/ZFS, enterprise SSDs and similar hardware are not automatically required. Decide them from actual RPO/RTO/risk/budget.
 
-## 4. Workstation/Guard deployment reality
+## 6. Workstation/Guard deployment reality
 
 The desktop baseline is:
 
@@ -56,7 +91,32 @@ Guard must remain low-resource and bounded, but operational qualification is bas
 
 A Guard crash must not destroy Workstation business state; a Workstation crash must be observable/recoverable by Guard. See `docs/workstation/GUARD_AND_RECOVERY.md`.
 
-## 5. Capacity is bounded
+## 7. Capacity is bounded, and scalability is profile-specific
+
+SquiFlow does not claim infinite scalability.
+
+Each deployment profile needs:
+- a measured workload/capacity envelope;
+- the first-order bottlenecks;
+- warning/critical evidence;
+- the next scaling/recovery move for each bottleneck.
+
+Candidate first-order bottlenecks include:
+- database connection/query/lock/WAL pressure;
+- CPU-heavy document/image/report processing;
+- Worker backlog/queue age;
+- object-transfer/network bandwidth;
+- ZITADEL/OpenFGA/provider latency or limits;
+- disk capacity/I/O;
+- one physical node becoming saturated or unavailable.
+
+Do **not** choose the remedy before proving the bottleneck. Examples:
+- DB query/index problem → fix query/schema/index before adding replicas;
+- expensive document work → isolate/bound Worker concurrency before sharding data;
+- uplink saturation → schedule/bound transfers before adding application nodes;
+- one-node capacity/recovery limit → add a node/load-balancing/failover only when the measured requirement justifies it.
+
+Caching, read replicas, sharding, distributed databases, service extraction or Kubernetes are scaling techniques, not baseline requirements.
 
 Explicit budgets eventually cover:
 - API concurrency;
@@ -73,7 +133,7 @@ Explicit budgets eventually cover:
 
 Available CPU/RAM is headroom, not permission for unbounded cache/worker/resource growth.
 
-## 6. Hugging Face object capacity and provider migration
+## 8. Hugging Face object capacity and provider migration
 
 Treat current ~100 GB private Hugging Face capacity as finite.
 
@@ -91,7 +151,7 @@ Runtime code uses `IObjectStore`, implemented initially by `HuggingFaceObjectSto
 
 Migration to a paid object-storage provider occurs at the first paying customer, or earlier if capacity/rate/reliability/privacy/compliance requirements demand it.
 
-## 7. Bandwidth is a real resource
+## 9. Bandwidth is a real resource
 
 Measure actual rack uplink/downlink.
 
@@ -99,7 +159,7 @@ Large uploads, restores, diagnostics and backups use bounded concurrent transfer
 
 Start with explicit small limits; add a more elaborate scheduler only if measurement proves it necessary.
 
-## 8. Backup is infrastructure recovery
+## 10. Backup is infrastructure recovery
 
 Backup is not only an application-level export.
 
@@ -114,7 +174,7 @@ The recovery set must include all state needed to rebuild usable SquiFlow servic
 
 Managed services and self-hosted services require different recovery plans. If ZITADEL/OpenFGA are managed, backup may emphasize reproducible configuration/export/reprovision evidence. If self-hosted, their supported DB/config backup and restore becomes part of infrastructure recovery.
 
-## 9. Kaggle backup bootstrap through `IBackupTarget`
+## 11. Kaggle backup bootstrap through `IBackupTarget`
 
 Current off-site backup carrier is private Kaggle.
 
@@ -135,7 +195,7 @@ Rules:
 
 The first paying customer is the planned trigger to implement a purpose-built paid `IBackupTarget` adapter and migrate. Migrate earlier if requirements already demand it.
 
-## 10. Backup/restore contract
+## 12. Backup/restore contract
 
 `Backup uploaded` is not enough.
 
@@ -152,7 +212,7 @@ Restore must prove:
 
 Exact customer-facing RPO/RTO remain OPEN until production/commercial requirements are chosen.
 
-## 11. Identity/authorization dependency recovery
+## 13. Identity/authorization dependency recovery
 
 ZITADEL/OpenFGA are security-critical dependencies.
 
@@ -166,7 +226,19 @@ Recovery design must answer:
 
 Do not create a local bypass that grants authorization merely because OpenFGA/ZITADEL is down.
 
-## 12. Break-glass infrastructure recovery
+## 14. Edge/DNS/TLS/time failure is part of production recovery
+
+The edge, DNS, certificate chain and clock synchronization can make a healthy application unreachable or unable to authenticate.
+
+Before production, prove/document:
+- what happens if the public edge/reverse proxy is down while the application hosts are healthy;
+- private recovery access that does not depend on the same broken public edge;
+- certificate issuance/renewal/expiry monitoring and response;
+- DNS failure/misconfiguration recovery;
+- acceptable/monitored clock skew for OIDC/TLS/leases/schedules;
+- no insecure HTTP/TLS-validation bypass is used as a recovery shortcut.
+
+## 15. Break-glass infrastructure recovery
 
 Normal platform controls use future Platform Admin Web.
 
@@ -179,7 +251,7 @@ If the application/control plane itself is unavailable, private infrastructure r
 
 This is not a hidden Desktop/business API. Keep it private, least privilege, runbook-driven and auditable/evidenced where feasible.
 
-## 13. Operator ownership
+## 16. Operator ownership
 
 Before production answer:
 - who receives alerts;
@@ -191,16 +263,20 @@ Before production answer:
 
 Do not invent an enterprise on-call organization for a tiny team.
 
-## 14. Production qualification
+## 17. Production qualification
 
 Before accepting paying-customer production traffic, prove at least:
 - actual-node resource benchmark;
 - Workstation/Guard recovery/resource benchmark;
 - DB/restart/disk-full recovery;
+- explicit database workload profile and burst test;
 - Hugging Face capacity monitoring and `IObjectStore` migration readiness;
 - encrypted Kaggle `IBackupTarget` download/restore;
 - ZITADEL/OpenFGA recovery/reprovision procedure appropriate to selected deployment mode;
 - single-point-of-failure inventory;
+- public-edge/DNS/TLS/time failure and private recovery path;
+- clean/replacement-environment rebuild from version-controlled deployment definitions/runbook;
+- measured capacity envelope plus next scaling move for first-order bottlenecks;
 - private recovery runbook;
 - provisional RPO/RTO;
 - migration plan to paid object/backup providers.
