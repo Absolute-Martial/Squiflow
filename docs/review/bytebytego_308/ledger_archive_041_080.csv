@@ -19,16 +19,16 @@ ARCH-057,ARCHIVE,115-116,057,,24 Good Resources to Learn Software Architecture i
 ARCH-058,ARCHIVE,117-118,058,,Database Index Types Every Developer Should Know,226-227,YES,NO,COMPLETED,,visual:117; study:058 complete; DBMS-specific clustering/index terminology qualified; fit-audit:RETRO-001-060
 ARCH-059,ARCHIVE,119-120,059,,Top 5 common ways to improve API performance,232-233,YES,ARCH-DUP-02,COMPLETED,,visual:119; study:059 complete; duplicate occurrence independently inspected; pagination streaming caveat retained; fit-audit:RETRO-001-060
 ARCH-060,ARCHIVE,121-122,060,,REST API Vs. GraphQL,234-235,YES,NO,COMPLETED,,visual:121; study:060 complete; comparison reinterpreted by approved fit-for-purpose rule; REST/task HTTP and GraphQL may coexist on different SquiFlow surfaces; GraphQL candidate read-composition strengths and server-side costs both recorded; fit-audit:RETRO-001-060
-ARCH-061,ARCHIVE,123-124,061,,Tokens vs API Keys,236-237,YES,NO,NOT STARTED,,visual:123
-ARCH-062,ARCHIVE,125-126,062,,5 Data Structures That Make DB Queries Super Fast,240-241,YES,NO,NOT STARTED,,visual:125
-ARCH-063,ARCHIVE,127-128,063,,How can Cache Systems go wrong?,246-247,YES,NO,NOT STARTED,,visual:127
-ARCH-064,ARCHIVE,129-130,064,,8 System Design Concepts Explained in 1 Diagram,248-249,YES,NO,NOT STARTED,,visual:129
-ARCH-065,ARCHIVE,131-132,065,,16 Coding Patterns That Make Interviews Easy,250-251,YES,NO,NOT STARTED,,visual:131
-ARCH-066,ARCHIVE,133-134,066,,What is the SOLID Principle?,260-261,YES,NO,NOT STARTED,,visual:133
-ARCH-067,ARCHIVE,135-136,067,,Common HTTP Status Codes,262-263,YES,NO,NOT STARTED,,visual:135
-ARCH-068,ARCHIVE,137,068,,How Clean Architecture Works?,264,NO,NO,NOT STARTED,,visual:137
-ARCH-069,ARCHIVE,138-139,069,,How Does SSO Work?,268-269,YES,NO,NOT STARTED,,visual:138
-ARCH-070,ARCHIVE,140-141,070,,Best Practices in API Design,270-271,YES,NO,NOT STARTED,,visual:140
+ARCH-061,ARCHIVE,123-124,061,,Tokens vs API Keys,236-237,YES,NO,COMPLETED,,visual:123; study:061 complete; token/API-key fit analyzed by principal and credential lifecycle; OIDC remains interactive identity; API keys positive future integration candidate
+ARCH-062,ARCHIVE,125-126,062,,5 Data Structures That Make DB Queries Super Fast,240-241,YES,NO,COMPLETED,,visual:125; study:062 complete; B-tree B+ hash bitmap inverted structures reviewed; provider-specific semantics and write cost qualified
+ARCH-063,ARCHIVE,127-128,063,,How can Cache Systems go wrong?,246-247,YES,NO,COMPLETED,,visual:127; study:063 complete; herd penetration breakdown crash reviewed; cache remains non-authoritative; repopulation/outage contract retained
+ARCH-064,ARCHIVE,129-130,064,,8 System Design Concepts Explained in 1 Diagram,248-249,YES,NO,COMPLETED,,visual:129; study:064 complete; NFR pairings treated as illustrative not one-tech guarantees; accepted SquiFlow NFR model confirmed
+ARCH-065,ARCHIVE,131-132,065,,16 Coding Patterns That Make Interviews Easy,250-251,YES,NO,COMPLETED,,visual:131; study:065 complete; 16 algorithm/data-structure patterns inspected; no architecture dependency
+ARCH-066,ARCHIVE,133-134,066,,What is the SOLID Principle?,260-261,YES,NO,COMPLETED,,visual:133; study:066 complete; SOLID applied without interface/class ceremony; URL014 remains independent
+ARCH-067,ARCHIVE,135-136,067,,Common HTTP Status Codes,262-263,YES,NO,COMPLETED,,visual:135; study:067 complete; HTTP classes + visual code list inspected; SquiFlow status/failure/retry mapping confirmed
+ARCH-068,ARCHIVE,137,068,,How Clean Architecture Works?,264,NO,NO,COMPLETED,,visual:137; study:068 complete; inward dependency rule kept; literal ring/project/service ceremony rejected
+ARCH-069,ARCHIVE,138-139,069,,How Does SSO Work?,268-269,YES,NO,COMPLETED,,visual:138; study:069 complete; IdP session + per-SP token validation flow reviewed; ZITADEL/OIDC current fit confirmed
+ARCH-070,ARCHIVE,140-141,070,,Best Practices in API Design,270-271,YES,NO,COMPLETED,,visual:140; study:070 complete; naming idempotency pagination sorting/filtering references limiting versioning security reviewed; existing API contract stronger
 ARCH-071,ARCHIVE,142-143,071,,Key Terms in Domain-Driven Design,272-273,YES,NO,NOT STARTED,,visual:142
 ARCH-072,ARCHIVE,144-145,072,,The Modern Software Stack,278-279,YES,NO,NOT STARTED,,visual:144
 ARCH-073,ARCHIVE,146-147,073,,Concurrency is NOT Parallelism,280-281,YES,NO,NOT STARTED,,visual:146
