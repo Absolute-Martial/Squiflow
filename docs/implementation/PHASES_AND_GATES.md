@@ -237,6 +237,8 @@ Deliver:
 
 If the slice consumes a strict metered resource in the same authoritative store, prove whether business mutation + idempotency receipt + consumption/limit decision can commit atomically. If not, define the explicit reservation/reconciliation boundary.
 
+If the slice consumes a strict metered resource in the same authoritative store, prove whether business mutation + idempotency receipt + consumption/limit decision can commit atomically. If not, define the explicit reservation/reconciliation boundary.
+
 Attack:
 - response lost after commit;
 - duplicate same-intent POST command from caller retry;
