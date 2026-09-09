@@ -260,6 +260,144 @@ The network-protocol newsletter explicitly asks which protocol failure would be 
 
 ---
 
+# Sequential archive question pass — articles 001–015
+
+Full source application is recorded in `docs/review/BYTEBYTEGO_ARCHIVE_SEQUENTIAL_REVIEW_001_015.md`. The material questions that change or strengthen SquiFlow are kept here.
+
+## 7. gRPC question — what limitations justify not using it now?
+
+**Source-explicit question:** What are gRPC's limitations in a real project?
+
+**Applied to:** Workstation sync and future extracted services.
+
+**Current answer:** SquiFlow has no measured requirement that makes gRPC worth an additional transport/runtime contract today. The modular monolith remains in-process, and Workstation sync can start with explicit HTTP. gRPC is reconsidered only when a real streaming/binary/generated-contract need materially improves the implemented workload.
+
+**If wrong:** HTTP sync could become unnecessarily chatty/large, or a future streaming requirement could be awkward. The fix is then a measured protocol POC, not prebuilding gRPC now.
+
+**Status:** DEFERRED / NOT NEEDED NOW.
+
+**Owner/phase:** API/sync owner; revisit after Phase-3 measurements or a future service extraction.
+
+## 8. Kubernetes question — what challenge would make us switch?
+
+**Source-explicit question:** What challenges prompted switching from Docker to Kubernetes?
+
+**Applied to:** owned-rack deployment.
+
+**Current answer:** No current challenge requires Kubernetes. Revisit only when repeated multi-node placement, replica reconciliation, rollout/rollback, discovery, failover/replacement or scaling operations exceed what the simpler deployment automation can own reliably.
+
+**If wrong:** introducing Kubernetes too early wastes RAM/CPU and adds another control-plane failure surface; refusing it after orchestration pain becomes real would create manual operational risk.
+
+**Status:** ANSWERED baseline; trigger-driven revisit.
+
+**Owner/phase:** operations, Phase 10 and later topology evolution.
+
+## 9. IaC question — can the production deployment be rebuilt from versioned definitions?
+
+**Source-explicit question:** Have you used Infrastructure as Code for the project?
+
+**Applied to:** SquiFlow single-node paying-customer deployment and later topology.
+
+**Current answer:** It must be possible to reproduce the deployment from version-controlled infrastructure/deployment definitions and runbooks. This is distinct from tenant/platform application configuration, which remains Web/Admin-API driven where applicable.
+
+**If unanswered:** a disk/node replacement could require reconstructing production from undocumented manual commands.
+
+**Status:** OPEN for exact tooling, ANSWERED for the requirement.
+
+**Owner/phase:** `docs/operations/DEPLOYMENT_CAPACITY_AND_RECOVERY.md`; production mechanism closed before Phase 10 gate.
+
+**Revisit trigger:** multi-node/provider deployment may require a stronger IaC/GitOps tool, but Kubernetes/Flux/Terraform are not automatically selected.
+
+## 10. Scalability question — what is our next move when capacity is reached?
+
+**Source-explicit question:** How do you improve a system's scalability?
+
+**Applied to:** Core API/Admin API/Worker/DB/storage/network on the owned rack.
+
+**Current answer:** First measure the bottleneck. Each production profile needs a capacity envelope and a known next move for the first-order bottlenecks. A central DB is intentionally accepted until it becomes the measured constraint. Caching, replicas, extra nodes, sharding, or async decomposition are selected only for the actual bottleneck.
+
+**If unanswered:** “scalable” becomes an unverifiable claim and the team may add the wrong infrastructure under pressure.
+
+**Status:** OPEN for measured thresholds/next-move table; principle ANSWERED.
+
+**Owner/phase:** operations/Phase 10 qualification.
+
+## 11. Authentication question — session, token, JWT or PASETO?
+
+**Source-explicit question:** Which authentication approach should be used?
+
+**Applied to:** tenant Web, Admin Web, Workstation.
+
+**Current answer:** ZITADEL is the identity platform. Workstation uses OIDC Authorization Code + PKCE. Exact Web session/cookie topology remains Phase-1 OPEN. SquiFlow does not create a second JWT/PASETO authentication system, and token/session form never replaces OpenFGA authorization or TenantContext isolation.
+
+**Status:** PARTLY OPEN only for Web session topology.
+
+## 12. Production Web question — what components are missing from the generic architecture?
+
+**Source-explicit question:** What other components belong in a production Web architecture?
+
+**Applied to:** paying-customer deployment.
+
+**Current answer:** In addition to Web/API/DB/Worker/edge/observability, SquiFlow needs backup/restore, identity, authorization, tenant isolation, object storage, separate Admin API, secrets/configuration, rate/admission, certificate/time health and private recovery. Generic cache/search services remain optional until needed.
+
+**Status:** ANSWERED baseline; exact deployment inventory remains Phase 10 evidence.
+
+## 13. Database-performance question — what workload are we actually tuning?
+
+**Source-explicit question:** Which other database performance strategy should be added?
+
+**Applied to:** Phase-3 central DB selection.
+
+**Current answer:** Before choosing another performance technique, characterize the workload: read/write/delete mix, row sizes, tenant skew, normal/reconnect-burst concurrency, consistency needs, hot queries, sync/import bursts and initial HA/geographic assumptions.
+
+**If unanswered:** a database can pass toy reads yet fail under offline-reconnect write bursts or larger tenant cardinalities.
+
+**Status:** ANSWERED requirement; measurements pending Phase 3.
+
+## 14. PostgreSQL question — what else must we understand if it wins?
+
+**Source-explicit question:** What else is needed to understand PostgreSQL architecture?
+
+**Applied to:** strongest current central DB candidate on low-resource rack hardware.
+
+**Current answer:** In addition to transactions/RLS/query plans, measure connection/backend process cost, WAL growth, checkpoint spikes, autovacuum, temp spill, archive/log growth, restart/crash recovery and disk-full behavior under the SquiFlow burst workload.
+
+**If unanswered:** PostgreSQL can be logically correct but operationally unstable on the actual hardware envelope.
+
+**Status:** Phase-3 POC requirement; PostgreSQL itself remains unselected until that gate.
+
+## 15. Algorithm question — do we need to implement the standard distributed-system algorithms ourselves?
+
+**Source-explicit question:** Which algorithms belong in the system-design toolkit?
+
+**Applied to:** SquiFlow architecture selection.
+
+**Current answer:** No algorithm is adopted from the list without its problem. SquiFlow does not build its own Raft/consistent-hashing/Merkle repair layer, does not use Operational Transformation without collaborative-editing requirements, and does not confuse rsync with semantic Workstation sync. Framework-provided bucket limiters or future Bloom filters are considered only from measured need.
+
+**Status:** ANSWERED / NOT NEEDED NOW.
+
+## 16. Architecture-source question — what evidence quality closes a technical decision?
+
+**Source-explicit prompt:** What additional architecture resources should engineers use?
+
+**Applied to:** SquiFlow source review itself.
+
+**Current answer:** Secondary diagrams/newsletters are good at exposing questions and trade-offs. Exact high-impact security/database/protocol/provider claims should be checked against primary specifications, official provider docs or foundational papers when available before being locked as architecture.
+
+**Status:** ANSWERED process rule.
+
+## 17. Messaging question — queue, pub/sub, event bus or stream?
+
+**Source-explicit question:** Which of SQS/SNS/EventBridge/Kinesis-style workloads is actually present?
+
+**Applied to:** Worker/outbox/external integration.
+
+**Current answer:** one task → queue/job; several independent consequences → multiple durable deliveries/pub-sub only if present; complex routed events → event-bus semantics only if topology appears; replayable high-volume streams → stream infrastructure only from evidence. Provider products do not determine the semantic choice.
+
+**Status:** ANSWERED selection rule; Phase 6 chooses the simplest mechanism for the first real workload.
+
+---
+
 # Cross-source question families to ask on every future architecture review
 
 Regardless of article topic, ask these against the affected SquiFlow journey:
