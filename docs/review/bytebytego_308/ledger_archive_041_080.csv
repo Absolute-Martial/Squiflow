@@ -29,13 +29,13 @@ ARCH-067,ARCHIVE,135-136,067,,Common HTTP Status Codes,262-263,YES,NO,COMPLETED,
 ARCH-068,ARCHIVE,137,068,,How Clean Architecture Works?,264,NO,NO,COMPLETED,,visual:137; study:068 complete; inward dependency rule kept; literal ring/project/service ceremony rejected
 ARCH-069,ARCHIVE,138-139,069,,How Does SSO Work?,268-269,YES,NO,COMPLETED,,visual:138; study:069 complete; IdP session + per-SP token validation flow reviewed; ZITADEL/OIDC current fit confirmed
 ARCH-070,ARCHIVE,140-141,070,,Best Practices in API Design,270-271,YES,NO,COMPLETED,,visual:140; study:070 complete; naming idempotency pagination sorting/filtering references limiting versioning security reviewed; existing API contract stronger
-ARCH-071,ARCHIVE,142-143,071,,Key Terms in Domain-Driven Design,272-273,YES,NO,NOT STARTED,,visual:142
-ARCH-072,ARCHIVE,144-145,072,,The Modern Software Stack,278-279,YES,NO,NOT STARTED,,visual:144
-ARCH-073,ARCHIVE,146-147,073,,Concurrency is NOT Parallelism,280-281,YES,NO,NOT STARTED,,visual:146
-ARCH-074,ARCHIVE,148-149,074,,JWT vs PASETO: The Two Players of Token-Based Authentication,282-283,YES,NO,NOT STARTED,,visual:148
-ARCH-075,ARCHIVE,150-151,075,,The Lifecycle of a Kubernetes Pod,288-289,YES,NO,NOT STARTED,,visual:150
-ARCH-076,ARCHIVE,152,076,,CI/CD Pipeline Explained,290,NO,NO,NOT STARTED,,visual:152
-ARCH-077,ARCHIVE,153,077,,What are some of the most popular versioning strategies?,293,NO,NO,NOT STARTED,,visual:153
-ARCH-078,ARCHIVE,154,078,,The Testing Pyramid,294,NO,NO,NOT STARTED,,visual:154
-ARCH-079,ARCHIVE,155-156,079,,9 Docker Best Practices You Should Know,295-296,YES,NO,NOT STARTED,,visual:155
-ARCH-080,ARCHIVE,157-158,080,,Where Do We Cache Data?,301-302,YES,NO,NOT STARTED,,visual:157
+ARCH-071,ARCHIVE,142-143,071,,Key Terms in Domain-Driven Design,272-273,YES,NO,COMPLETED,,visual:142; study:071 complete; aggregates interpreted as invariant/consistency boundaries; domain-event vs integration-event/event-sourcing distinction recorded; critical interrogation added
+ARCH-072,ARCHIVE,144-145,072,,The Modern Software Stack,278-279,YES,NO,COMPLETED,,visual:144; study:072 complete; nine layers treated as capability map not deployment prescription; every added layer must justify problem/failure/authority boundary
+ARCH-073,ARCHIVE,146-147,073,,Concurrency is NOT Parallelism,280-281,YES,NO,COMPLETED,,visual:146; study:073 complete; concurrency safety separated from parallel performance; resource/admission bounds emphasized
+ARCH-074,ARCHIVE,148-149,074,,JWT vs PASETO: The Two Players of Token-Based Authentication,282-283,YES,NO,COMPLETED,,visual:148; study:074 complete; comparison narrowed to token format/defaults; ZITADEL OIDC interoperability and OpenFGA authorization remain current fit
+ARCH-075,ARCHIVE,150-151,075,,The Lifecycle of a Kubernetes Pod,288-289,YES,NO,COMPLETED,,visual:150; study:075 complete; kubelet/runtime/CNI/CSI and probe/termination caveats recorded; Kubernetes still requires orchestration trigger
+ARCH-076,ARCHIVE,152,076,,CI/CD Pipeline Explained,290,NO,NO,COMPLETED,,visual:152; study:076 complete; pipeline treated as release evidence/recovery system; CI green not full production qualification
+ARCH-077,ARCHIVE,153,077,,What are some of the most popular versioning strategies?,293,NO,NO,COMPLETED,,visual:153; study:077 complete; SemVer CalVer sequential and API version carriers inspected; version syntax separated from compatibility contract
+ARCH-078,ARCHIVE,154,078,,The Testing Pyramid,294,NO,NO,COMPLETED,,visual:154; study:078 complete; pyramid kept as heuristic; smallest real evidence layer rule confirmed
+ARCH-079,ARCHIVE,155-156,079,,9 Docker Best Practices You Should Know,295-296,YES,NO,COMPLETED,,visual:155; study:079 complete; image/build tips qualified with runtime secrets provenance patching health/resource controls; containers remain conditional
+ARCH-080,ARCHIVE,157-158,080,,Where Do We Cache Data?,301-302,YES,NO,COMPLETED,,visual:157; study:080 complete; cache vs queue/search/WAL/log/projection/backup distinctions recorded; copy-aware data lifecycle/privacy question preserved
