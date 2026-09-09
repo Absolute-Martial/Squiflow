@@ -24,8 +24,8 @@ Every CSV row contains: PDF page span, archive or URL entry number, title, origi
 | STRUCT-001 | 1 | GENERATED | Generated cover / archive description | COMPLETED | Inventory structure inspected; declares 123 archive-index occurrences, 237 copied archive pages and 64 supplied URL entries. |
 | STRUCT-002 | 2-3 | GENERATED | Selected Archive Index | COMPLETED | Source of archive entries 001-123. Duplicate titles/page occurrences are explicitly retained. |
 | STRUCT-003 | 4 | GENERATED | Selected Archive Articles divider | COMPLETED | Archive-section divider inspected. |
-| STRUCT-004 | 242 | URL-STRUCTURE | ByteByteGo Web Articles introduction | COMPLETED | Inventory-only inspection. States that subscription controls are not bypassed and only available content is summarized. |
-| STRUCT-005 | 243-244 | URL-STRUCTURE | Supplied URL Article Index | COMPLETED | Source of URL entries 001-064. Detailed URL processing remains sequentially deferred until PDF page 245. |
+| STRUCT-004 | 242 | URL-STRUCTURE | ByteByteGo Web Articles introduction | COMPLETED | Re-inspected sequentially after archive entry 123. Confirms subscription controls are not bypassed and only available content is summarized. |
+| STRUCT-005 | 243-244 | URL-STRUCTURE | Supplied URL Article Index | COMPLETED | Re-inspected sequentially after archive completion. Confirms 64 independent URL occurrences; detailed URL processing starts at PDF page 245. |
 
 ## Verified PDF structure
 
@@ -118,7 +118,7 @@ Those labels are **surface-scoped shorthand**, not judgments about whether a tec
 
 Reference architectures and technology lists are not implementation backlogs. gRPC, Kafka, RabbitMQ, Kubernetes, sharding, distributed caches, GraphQL, CQRS, event sourcing, service mesh, microservices and similar patterns require an actual SquiFlow workload/failure/operational reason.
 
-**Technology comparisons are not winner/loser decisions.** `REST vs GraphQL`, `Redis vs Memcached`, `Docker vs Kubernetes`, `Kafka vs RabbitMQ`, `JWT vs PASETO`, `RBAC vs ABAC vs ACL`, `API vs SDK`, `batch vs stream`, `monolith vs modular monolith vs microservices`, `process vs thread`, `HTTP vs HTTPS`, `forward vs reverse proxy`, `VM vs container`, provider comparisons, and similar material must be converted into a SquiFlow **fit/usage analysis**: what each option is good at, where it is weaker, what SquiFlow currently uses at that boundary and why, where another option could be beneficial, whether complementary use is sensible, and what evidence/adoption trigger is required. The authoritative method is `TECHNOLOGY_FIT_AND_USAGE_REVIEW_RULE.md`.
+**Technology comparisons are not winner/loser decisions.** `REST vs GraphQL`, `Redis vs Memcached`, `Docker vs Kubernetes`, `Kafka vs RabbitMQ`, `JWT vs PASETO`, `RBAC vs ABAC vs ACL`, `API vs SDK`, `batch vs stream`, `monolith vs modular monolith vs microservices`, `process vs thread`, `HTTP vs HTTPS`, `forward vs reverse proxy`, `VM vs container`, protocol/provider comparisons, and similar material must be converted into a SquiFlow **fit/usage analysis**: what each option is good at, where it is weaker, what SquiFlow currently uses at that boundary and why, where another option could be beneficial, whether complementary use is sensible, and what evidence/adoption trigger is required. The authoritative method is `TECHNOLOGY_FIT_AND_USAGE_REVIEW_RULE.md`.
 
 Entries `001-060` have been **retrospectively re-audited** under that method in `RETROSPECTIVE_TECHNOLOGY_FIT_AUDIT_001_060.md`. Any older shorthand such as `deferred`, `not baseline`, `AVOID`, or `REST baseline` in the detailed studies must be interpreted through that fit audit rather than as a global rejection/winner declaration. The archive source material itself is not rewritten; only the SquiFlow interpretation is narrowed/corrected. Entries `061+` are reviewed under the corrected method from the start.
 
@@ -145,6 +145,8 @@ Material changes to accepted architecture, technology choice, trust/authority bo
 - `STUDY_091_100.md` — entries `091-100` exhaustive study plus the tenth 10-article checkpoint.
 - `STUDY_101_110.md` — entries `101-110` exhaustive study plus the eleventh 10-article checkpoint.
 - `STUDY_111_120.md` — batch index for entries `111-120`; exhaustive per-occurrence studies are `STUDY_111.md` through `STUDY_120.md`, with the twelfth checkpoint in `STUDY_120.md`.
+- `STUDY_121_123.md` — archive-completion batch index; exhaustive studies are `STUDY_121.md`, `STUDY_122.md`, and `STUDY_123.md`.
+- `ARCHIVE_COMPLETION_CHECKPOINT_123.md` — archive completion synthesis and URL-section transition.
 - `TECHNOLOGY_FIT_AND_USAGE_REVIEW_RULE.md` — fit-for-purpose rule for technology/comparison exposures.
 - `CRITICAL_INTERROGATION_RULE.md` — user-requested rule requiring explicit challenge of what SquiFlow is doing, why, alternatives, new costs, recovery, evidence and falsification.
 - `RETROSPECTIVE_TECHNOLOGY_FIT_AUDIT_001_060.md` — retroactive fit/use/why audit of every prior archive entry through `060`; authoritative for interpreting older technology-selection shorthand.
@@ -154,49 +156,49 @@ Material changes to accepted architecture, technology choice, trust/authority bo
 - `CONCEPT_DEPENDENCY_MAP_081_090.md` — sequential map extension for entries `081-090`.
 - `CONCEPT_DEPENDENCY_MAP_091_100.md` — sequential map extension for entries `091-100`.
 - `CONCEPT_DEPENDENCY_MAP_101_110.md` — sequential map extension for entries `101-110`.
-- `CONCEPT_DEPENDENCY_MAP_111_120.md` — sequential map extension for entries `111-120`; together the map is current through entry `120`.
+- `CONCEPT_DEPENDENCY_MAP_111_120.md` — sequential map extension for entries `111-120`.
+- `CONCEPT_DEPENDENCY_MAP_121_123.md` — archive-completion extension; together the archive map is current through entry `123`.
 
 The split between study files is organizational only; the coverage ledger is authoritative.
 
 ## Current sequential progress
 
-Archive entries `001-120` are fully completed on the current study branch. All archive-article PDF pages `5-236` have been read. For entries `111-120`, every PDF page `217-236` was rendered and visually inspected, including detailed inspection of the visual-heavy first pages `217, 219, 221, 223, 225, 227, 229, 231, 233, 235`. Structural pages `1-4` were previously completed for inventory.
+All archive entries `001-123` are now fully completed on the current study branch. All archive-article PDF pages `5-241` have been read. For entries `121-123`, every PDF page `237-241` was rendered and visually inspected, including the protocol matrices on `237` and `239` and the full microservice infographic on `241`.
 
-The twelfth checkpoint after one hundred twenty archive entries is recorded at the end of `STUDY_120.md`.
+Because the sequential cursor has now reached the archive/URL transition, structural pages `242-244` were re-read and re-rendered in sequence. They confirm the URL-section access discipline and all 64 supplied URL occurrences. This advances contiguous sequential coverage through PDF page `244`; it does **not** auto-complete any URL article.
 
-This batch continues the explicit **what/where/why + alternative-fit + failure/recovery + adoption/falsification** method. Entry `111` keeps pragmatic REST/task HTTP because it fits explicit command/resource contracts while preserving GraphQL, gRPC, live signaling, and durable async as positive fits for other surfaces. Entry `112` treats hypervisors as deployment/isolation tools and keeps VM/container/bare-metal packaging actual-rack-evidence driven. Entry `113` challenges a database catalog that mixes overlapping models/storage/query capabilities and keeps new stores authority-first and workload-earned. Entry `114` treats DB-backed jobs, RabbitMQ, and Kafka as different messaging fits instead of choosing a broker winner. Entry `115` treats the HTTP mindmap as a dependency inventory, not a shopping list. Entry `116` keeps DNS as routing rather than tenant authority. Entry `117` makes live transports reconstructable UX mechanisms over durable state. Entry `118` keeps HTTP transport evolution separate from business correctness. Entry `119` turns QPS/TPS/concurrency/latency into a constrained-resource measurement discipline. Entry `120` treats Nginx as a legitimate edge-product candidate, not a selection based on popularity.
+The archive-completion checkpoint is recorded in `ARCHIVE_COMPLETION_CHECKPOINT_123.md`.
 
-Notable source caveats preserved in entries `111-120` include:
+Entries `121-123` continue the explicit **what/where/why + alternative-fit + failure/recovery + adoption/falsification** method. Entry `121` treats the protocol map as layered capabilities and records exactly why SquiFlow currently needs HTTPS/TLS, OIDC/OAuth, DNS, time/private recovery while keeping gRPC, live protocols, MQTT, file-transfer, VPN, LDAP and mail protocols requirement-driven. Entry `122` qualifies the source's HTTP/TCP, HTTPS/TLS and HTTP3 simplifications and keeps transport-version selection separate from business semantics. Entry `123` challenges nine microservice “best practices” as conditional: data ownership is stronger than mandatory physical database-per-service, independent build does not require separate repositories, containers/micro-frontends/Kubernetes are optional, stateless process memory does not mean no durable state, and DDD does not mechanically mean one microservice per bounded context.
 
-- REST Uniform Interface is broader than consistent route naming, and REST statelessness does not mean servers have no durable state;
-- Type-1/Type-2 hypervisor diagrams simplify KVM/Hyper-V architecture and VM isolation is not a separate physical failure domain;
-- database-category rows overlap and “blob database” is loose terminology; one product can satisfy several apparent categories;
-- Kafka can provide queue-like competing-consumer behavior and RabbitMQ has richer queue/stream options than a simplistic comparison; broker ack/offset never proves end-to-end exactly-once external effects;
-- the HTTP mindmap mixes layers and incorrectly groups OpenTelemetry with packet-capture tooling; WAF is not application authorization;
-- real DNS resolution may use cached delegations, CNAME/alias chains, DoH, DNSSEC, multiple A/AAAA records, and an edge/CDN rather than the origin;
-- SSE is unidirectional on the event stream but the browser can still make separate HTTP requests, and no live transport creates durable truth by itself;
-- HTTP/1.0 keep-alive existed as an extension, HTTP/2 remains subject to TCP-level transport head-of-line effects, and HTTP/3/QUIC does not universally improve every network;
-- QPS/TPS definitions and the `QPS = concurrency / average response time` relationship require a clear stable workload boundary and do not replace tail-latency/saturation/error analysis;
-- Nginx popularity and historical Apache comparison do not select an edge product; load balancing only helps with meaningful targets, TLS termination introduces a backend trust decision, and proxy caching can leak tenant-sensitive data.
+Notable archive-completion conclusions:
 
-No material owner-architecture technology adoption was made from entries `111-120`. The batch does **not** select strict REST as the only API style, a VM/hypervisor product, a specialized database, Kafka, RabbitMQ, a CDN, a mandatory live transport, HTTP/3-specific application logic, or Nginx as the final edge product. It strengthens selection/verification gates around already accepted architecture and keeps candidate technologies positive where a concrete SquiFlow boundary can justify them.
+- protocols at different layers can and should coexist when they solve different responsibilities; there is no global HTTP/gRPC/MQTT/WebSocket winner;
+- TLS/VPN/firewall/network reachability never becomes tenant/business authorization;
+- HTTP transport evolution may improve connection behavior but does not repair idempotency, authorization, compatibility, database or provider bottlenecks;
+- a true service boundary must be justified by measured independent scaling, fault/security isolation, release/team ownership, specialized runtime, residency or similarly concrete pressure;
+- a service boundary requires explicit authoritative data ownership, compatibility, distributed-failure/idempotency/reconciliation, observability and recovery;
+- many small services with shared-table writes, synchronized deployment and long synchronous chains are a distributed-monolith risk rather than evidence of independence;
+- current modular-monolith and separate-process decisions remain justified by concrete SquiFlow responsibilities, not by declaring microservices inferior.
 
-The next unprocessed page is PDF page `237`, archive entry `121`.
+No material owner-architecture technology adoption was made from entries `121-123`. The batch does **not** select MQTT, WebRTC, SFTP/SMB, VPN technology, direct LDAP, SMTP, HTTP/3-specific application logic, raw TCP/UDP protocols, microservices, micro frontends, containers or Kubernetes. It records the positive workload/adoption triggers that could make each appropriate in the future.
 
-`LAST FULLY COMPLETED PDF PAGE: 236`
+The next unprocessed detailed-content page is PDF page `245`, URL entry `001 — Container Design Patterns for Distributed Systems`.
 
-`LAST COMPLETED ARTICLE: 120 — Why Is Nginx So Popular?`
+`LAST FULLY COMPLETED PDF PAGE: 244`
 
-`NEXT PDF PAGE: 237`
+`LAST COMPLETED ARTICLE: 123 — A picture is worth a thousand words: 9 best practices for developing microservices`
 
-`NEXT ARTICLE: 121 — Common Network Protocols Every Engineer Should Know`
+`NEXT PDF PAGE: 245`
 
-`COVERAGE STATUS: 236 / 308 pages sequentially completed`
+`NEXT ARTICLE: URL 001 — Container Design Patterns for Distributed Systems`
 
-The structural inventory pages `242-244` were inspected only to establish the master inventory; this does not mean URL detailed processing has jumped ahead.
+`COVERAGE STATUS: 244 / 308 pages sequentially completed`
 
 ## Checkpoint and final-audit rule
 
-A synthesis checkpoint is produced after approximately every 10 articles. Reaching PDF page 308 does not by itself close this work. A second pass must verify every ledger row, every multi-page span, every duplicate occurrence, every URL occurrence and every visual-heavy page; no `NOT STARTED` or unresolved `NEEDS REVIEW` may remain before stating:
+A synthesis checkpoint is produced after approximately every 10 articles and at major section boundaries. Archive completion does not close the work. Every URL occurrence on pages `245-308` must still be independently reviewed, even when it exactly overlaps an archive title.
+
+Reaching PDF page 308 does not by itself close this work. A second pass must verify every ledger row, every multi-page span, every duplicate occurrence, every URL occurrence and every visual-heavy page; no `NOT STARTED` or unresolved `NEEDS REVIEW` may remain before stating:
 
 **308-page coverage audit complete.**
