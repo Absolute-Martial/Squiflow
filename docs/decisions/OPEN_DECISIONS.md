@@ -18,6 +18,49 @@ These are decisions that can materially affect the current implementation baseli
 
 Avalonia, Blazor Web App, ZITADEL, and OpenFGA are accepted product/technology decisions and are not provider-selection questions anymore.
 
+## Non-functional target decisions
+
+The semantic NFR model is accepted in `docs/requirements/NON_FUNCTIONAL_REQUIREMENTS.md`; these numerical/operational values remain open until the relevant phase can measure or justify them:
+
+- representative interactive Workstation/Web/API latency targets;
+- DB pool wait/saturation thresholds;
+- sync backlog-age/reconnect-drain targets and final supported incremental-history/long-offline window;
+- Worker oldest-item/job-duration/no-progress thresholds when Worker exists;
+- Workstation/Guard/server CPU/RAM/disk/network budgets from actual supported hardware;
+- local diagnostics/update/temp disk-reserve thresholds;
+- provider/network transfer concurrency and admission thresholds;
+- final paying-customer RPO/RTO, backup frequency and retention;
+- exact operational alert/escalation thresholds and support ownership.
+
+These are measurement/operations decisions, not a license to invent commercial plan prices/allowances.
+
+## Consumption accounting and limit-policy decisions
+
+The **existence of durable/reconcilable consumption accounting and application-level scoped limit enforcement is accepted**. Detailed owner: `docs/requirements/RESOURCE_CONSUMPTION_AND_LIMITS.md`.
+
+The following concrete choices remain OPEN until the first real resource needs them:
+
+- exact first meter registry and stable `MeterId` vocabulary;
+- exact units and consumption trigger for each meter;
+- whether a meter counts semantic effects, provider attempts, retained/current gauge, rate-window events, concurrent leases, or another explicit model;
+- which failed/retried attempts genuinely consume units/cost;
+- exact first tenant-scoped limits and default values;
+- which resources have only platform/provider hard caps versus additional tenant limits;
+- exact warning/soft-limit percentages and hard-limit thresholds;
+- exact policy precedence where platform/provider/workload/tenant limits overlap;
+- exact strict check-and-consume versus reservation/lease mechanism for concurrent hard enforcement;
+- exact temporary override/grace workflow and who can authorize it;
+- whether Tenant Owners may configure lower self-imposed limits for particular resources;
+- exact tenant-visible usage/remaining-limit UX and support/admin explanation surface;
+- exact usage-record/correction/adjustment retention;
+- exact reconciliation frequency/source for storage/provider/cost counters;
+- exact degraded behavior when the consumption/limit subsystem is unavailable per resource class;
+- exact reset/window semantics for future period quotas, including business timezone only if a real product rule needs it;
+- exact treatment of approximate/allocated shared CPU/RAM/network cost, and whether any of it ever becomes billing-grade;
+- exact first Admin API control flow for platform/tenant limit changes when implemented.
+
+Do not postpone the existence of metering/limit capability merely because commercial subscription plans are not yet defined.
+
 ## Authorization/product-control decisions
 
 - Final built-in Staff permission defaults and role-template defaults.
@@ -49,7 +92,7 @@ The layered requirements in `docs/security/APPLICATION_SECURITY_BASELINE.md` are
 
 - exact Windows IPC mechanism between Guard and Workstation;
 - heartbeat/hang-detection intervals and restart budgets after measurement;
-- update package/handoff/rollback mechanism;
+- update package signing/authenticity, handoff, staged rollout and rollback mechanism;
 - crash-dump/evidence collection mechanism and retention/privacy policy;
 - exact safe-mode UX and operator/support path;
 - whether any future native/document/driver helper is isolated under Guard supervision.
@@ -64,6 +107,9 @@ Do not reopen the existence of Guard merely to reduce process count unless evide
 - Private infrastructure break-glass mechanism and operator access policy.
 - Who operates/responds to alerts and physical failures, and what maintenance/support promise is realistic.
 - Actual rack uplink bandwidth and transfer-concurrency limits.
+- Exact edge/reverse-proxy deployment and whether it is a single point of failure for tenant/admin access. The recovery plan must distinguish `edge unavailable` from `Core API/Admin API unavailable` and must not make the same public edge the only infrastructure-recovery path.
+- DNS/TLS certificate renewal/expiry monitoring and recovery procedure for the initial deployment.
+- Acceptable system clock-skew tolerance and alert/recovery policy for OIDC/TLS/leases/schedules/limit windows; clock time must not become a substitute for versions/fencing/idempotency.
 - Backup scope for ZITADEL/OpenFGA depends on Cloud versus self-hosted selection: exported configuration/reprovisioning evidence may be enough for managed services, while self-hosted state requires provider-supported database/config backup and restore.
 - **Exact reproducible deployment/IaC mechanism for the paying-customer single-node profile:** e.g. direct host/service definitions, container-compose style packaging, Ansible/Terraform/other automation, or a combination. The requirement is versioned/rebuildable infrastructure; Kubernetes/Flux/Terraform are not preselected.
 - **Exact initial server packaging boundary:** bare host processes versus containers for Core API/Admin API/Worker/edge/DB where applicable. Containerization is allowed when it improves repeatability/isolation, but is not a requirement by itself.
@@ -71,9 +117,13 @@ Do not reopen the existence of Guard merely to reduce process count unless evide
 - Exact artifact provenance/checksum/signing mechanism and retention for the chosen build/deployment path.
 - Exact database schema contraction/retirement evidence: how supported clients, old application instances, pending sync, queued work, and stored snapshots are inventoried/drained before incompatible removal.
 - **Measured scaling thresholds and next-move table** for the first-order bottlenecks after actual load tests: DB connection/query/WAL pressure, CPU-heavy document work, Worker backlog, network/object-transfer bandwidth, external dependency latency, and node saturation.
-- Edge/gateway failure and SPOF handling, including a private recovery path that does not rely on the same public edge being healthy.
-- Certificate renewal/expiry monitoring and operational response.
-- Acceptable clock-skew threshold/monitoring for TLS/OIDC/leases/schedules on the initial topology.
+
+## API/edge questions to close with implemented surfaces
+
+- Endpoint/cacheability classification for implemented APIs: which responses are explicitly cacheable/private/no-store, for how long, and under which tenant/authorization scope. Current-authority payment/stock/credit/authorization/hard-limit responses cannot become stale cache authority.
+- Exact supported HTTP/proxy protocol configuration only after deployment measurements; HTTP/1.1, HTTP/2, or HTTP/3 transport negotiation must not change business semantics.
+- Whether WebSocket/SignalR is needed for any implemented live-update UX. If used, it remains a signal/reconnect mechanism and not durable business or usage truth.
+- Whether the simple edge/reverse proxy remains sufficient or a fuller API-management product is justified by real external-developer/version/transformation/policy requirements.
 
 ## Bootstrap storage decisions already selected
 
@@ -85,6 +135,8 @@ The initial bootstrap providers and abstraction boundaries are not open:
 - off-site backup carrier: private Kaggle Dataset containing encrypted opaque backup archives;
 - backup destination contract: infrastructure-level `IBackupTarget`;
 - bootstrap implementation: `KaggleBackupTarget`.
+
+The ~100 GB figure is a provider/account capacity fact, not a predetermined per-tenant allowance. Retained object bytes are a likely first consumption meter, but exact tenant storage limits remain OPEN.
 
 Open follow-on decisions:
 
@@ -107,12 +159,18 @@ The planned provider-migration trigger is the **first paying customer**, but mig
 
 ## Domain/commercial decisions
 
-- Jurisdiction-specific tax/invoice numbering/privacy requirements.
-- Whether v0.0.15 needs tenant SaaS self-service billing/metering, or subscriptions/entitlements remain manually managed initially.
+- Jurisdiction-specific tax/invoice numbering/privacy/retention requirements.
+- Exact money rounding/precision and tax-included/excluded rules before the first affected financial slice is production-qualified.
+- Exact tenant/business timezone/effective-date semantics before quotation expiry, scheduled business-day work, invoice dates or timezone-sensitive reporting depend on them.
+- **Commercial plan/tier names, prices, default allowances, feature packaging and subscription lifecycle are OPEN; none are accepted now.** Application-level limits may still exist independently.
+- Whether v0.0.15 needs SaaS self-service billing/invoicing at all; manual commercial/account handling remains valid initially.
+- If a later commercial plan model is introduced, it maps product/commercial rules onto versioned entitlement/limit policy; plan names must not become scattered enforcement conditions in business code.
+- Whether authoritative consumption records later feed billing is a separate commercial/accounting decision; durable metering itself does not imply automatic tenant invoicing.
 - First client-client portal implementation scope/timing and authentication/account model.
 - Initial customer-data import/migration scope for onboarding existing businesses.
 - Exact dynamic-form definition/version/migration contract before Phase 5 implements a configurable form.
 - Initial notification channels actually required by a complete journey.
+- Localization/multi-language scope if a real customer requirement introduces it.
 
 ## Currency decision boundary
 
@@ -133,7 +191,8 @@ Open only if a real requirement appears:
 - OpenID Connect Native SSO for Mobile Apps as a Windows login mechanism;
 - schema-per-tenant/database-per-tenant/deployment-per-tenant baseline;
 - event sourcing as the authoritative persistence model;
-- full SaaS metering/billing engine;
+- full SaaS billing/invoicing platform or commercial-plan engine;
+- a generic analytics/data-warehouse metering platform that records every interaction without an enforcement/cost/capacity/support reason;
 - advanced peripheral suite;
 - specialized import/ETL platform;
 - Kafka/event-log infrastructure, mandatory Redis, global CRDT model, sharding, or active-active multi-region without a measured requirement;

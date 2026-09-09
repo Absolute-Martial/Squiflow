@@ -21,7 +21,28 @@ For each phase:
 - **Phase 3:** choose the initial central DB implementation capable of authoritative transaction + pooled isolation + normalized schema/index/query-plan proof, and close the first concrete API/sync compatibility versioning mechanism required by Workstation/server skew. The DB proof begins from an explicit SquiFlow workload profile rather than generic benchmark traffic.
 - **Phase 6:** create `apps/admin-web`, **independent `services/admin-api`**, and `services/worker` only when their first real control/durable-work slice exists. Choose only the background mechanism required by that workload.
 - **Phase 7:** use private Hugging Face through `IObjectStore` and encrypted private Kaggle through `IBackupTarget`.
-- **Before paying-customer production:** actual rack inventory/recovery, reproducible deployment/rebuild, backup restore proof, provisional RPO/RTO, operator/break-glass access, printer support, edge/DNS/TLS/time recovery, scaling thresholds, and provider migration readiness must be known honestly.
+- **Before paying-customer production:** actual rack inventory/recovery, reproducible deployment/rebuild, backup restore proof, provisional RPO/RTO, operator/break-glass access, printer support, edge/DNS/TLS/time recovery, scaling thresholds, provider migration readiness, and the hard resource/usage limits required by the production profile must be known honestly.
+
+## Cross-phase consumption and limit gate
+
+Do **not** postpone resource accounting/limits to a hypothetical future billing phase.
+
+Whenever any phase introduces a resource whose usage matters for hard capacity, provider/account cost, abuse protection, tenant/manual contract policy, or another enforced limit, that same phase must define the smallest required consumption/limit contract from `docs/requirements/RESOURCE_CONSUMPTION_AND_LIMITS.md`.
+
+Where materially applicable, prove:
+- stable meter meaning, unit and scope;
+- exactly when consumption occurs;
+- whether semantic retries count once or provider attempts genuinely count multiple times;
+- durable/reconcilable usage state independent from analytics/telemetry;
+- hard versus advisory limit semantics and consistency/freshness requirements;
+- concurrency/atomic check-and-consume or bounded reservation behavior near the final unit;
+- deterministic versioned policy precedence;
+- explicit degraded behavior if limit/accounting state is unavailable;
+- Workstation offline/current-server-limit behavior where relevant;
+- restore/reconciliation behavior so usage cannot reset or double after recovery;
+- tenant isolation and Admin authority for tenant/platform limit changes.
+
+Do not build a generic metering/data-warehouse platform before the first real resource needs it. Implement only the meters/policies required by the current slice.
 
 ---
 
@@ -48,6 +69,7 @@ Do not create yet:
 - Worker;
 - generic repository/unit-of-work hierarchy;
 - one interface per class/provider API;
+- generic metering/billing/data-warehouse infrastructure;
 - GraphQL/service-mesh/event-bus infrastructure;
 - HTTP/gRPC endpoints between ordinary business modules;
 - Kubernetes manifests/cluster machinery merely because server processes may later be containerized;
@@ -113,7 +135,7 @@ Do not:
 - trust ZITADEL token roles as current SquiFlow authorization truth;
 - let Desktop write OpenFGA tuples;
 - equate a ZITADEL organization claim directly with SquiFlow TenantContext without server verification;
-- put workflow/payment/stock arithmetic into OpenFGA;
+- put workflow/payment/stock/limit arithmetic into OpenFGA;
 - rely on transient Blazor circuit memory to preserve valuable business drafts;
 - create a parallel JWT/PASETO/WebAuthn/password subsystem that duplicates ZITADEL.
 
@@ -159,6 +181,8 @@ Deliver:
 - monetary record retains applied currency code where historical meaning requires it;
 - Guard heartbeat/lifecycle integration, bounded restart/backoff, safe-start path, and update-handoff contract skeleton;
 - normal Windows printing path only if this first journey actually prints.
+
+If this slice introduces a real enforced resource limit, apply the cross-phase consumption/limit gate; otherwise do not create placeholder metering code.
 
 Attack:
 - Workstation process termination after durable local commit;
@@ -211,6 +235,8 @@ Deliver:
 - classified deadlock/serialization/lock-timeout behavior with bounded whole-transaction retry only where safe;
 - first compatible expand-migrate-switch-contract schema change exercised across supported old/new reader/writer behavior.
 
+If the slice consumes a strict metered resource in the same authoritative store, prove whether business mutation + idempotency receipt + consumption/limit decision can commit atomically. If not, define the explicit reservation/reconciliation boundary.
+
 Attack:
 - response lost after commit;
 - duplicate same-intent POST command from caller retry;
@@ -218,10 +244,12 @@ Attack:
 - same key + changed intent;
 - cross-tenant object/list/write attempt;
 - valid OpenFGA permission but wrong TenantId/resource query;
-- permission revoked while local operation pending;
+- permission or hard limit changed while local operation pending;
 - connection reused across tenants, including RLS/session-context leakage;
 - partial batch failure;
 - retry amplification across Workstation/API/provider layers;
+- same semantic operation retried without double-counting a one-per-effect meter;
+- two requests race for a final hard-limit unit when a limit exists;
 - query that is fast at 10K rows but degrades at projected cardinality;
 - Web-style read benchmark passes while Workstation reconnect burst causes unacceptable write/WAL/lock pressure;
 - over-indexed schema causing unacceptable sync/import/write cost;
@@ -236,9 +264,9 @@ Attack:
 - contraction removes a column/shape still used by a supported Workstation, pending sync item, old backend, durable job/message, or stored snapshot.
 
 Gate:
-- no duplicate semantic effect;
-- no cross-tenant leakage even if authorization relation exists incorrectly;
-- stale Workstation permission snapshot is not server authority;
+- no duplicate semantic effect or duplicate one-per-effect usage;
+- no cross-tenant leakage even if an authorization relation exists incorrectly, and no cross-tenant consumption attribution;
+- stale Workstation permission/limit snapshot is not server authority;
 - central DB behavior proven against the real adapter and real SquiFlow workload shape;
 - authoritative schema is not denormalized/EAV/JSON merely for UI convenience;
 - each important index has a named query/invariant and measured cost;
@@ -260,12 +288,14 @@ Deliver:
 - preservation of pending local intent;
 - tombstone/change-history retention policy;
 - large-backlog transfer policy;
-- refreshed OpenFGA-derived effective permission snapshot after reconnect.
+- refreshed OpenFGA-derived effective permission snapshot after reconnect;
+- refreshed authoritative usage/limit state for any server-enforced resource exposed to Workstation UX.
 
 Attack:
 - weeks/months offline;
-- old protocol/schema/rules/permissions;
+- old protocol/schema/rules/permissions/limit snapshot;
 - OpenFGA role revoked while client offline;
+- tenant/resource hard limit lowered or exhausted while client offline;
 - deleted/merged remote entity;
 - large pending backlog;
 - slow connection;
@@ -274,7 +304,7 @@ Attack:
 Gate:
 - no silent pending-work deletion;
 - client older than retained incremental history gets explicit recovery;
-- old local permissions never bypass current server OpenFGA/domain authorization.
+- old local permissions or cached limits never bypass current server OpenFGA/domain/limit authority.
 
 ---
 
@@ -334,6 +364,8 @@ Deliver:
 - explicit shared-module/data ownership rules for any state touched by both Core API and Admin API;
 - private infrastructure break-glass path when Admin API itself is unavailable.
 
+If this phase implements the first platform/tenant limit control, Admin API owns versioned policy change/audit and does not expose generic raw-counter mutation. If the Worker workload is metered, define semantic-job versus provider-attempt consumption separately.
+
 A shared edge reverse proxy/gateway may route Core API and Admin API separately. It must not make Admin API transit Core API. Do not add a service mesh unless real east-west service topology proves the need.
 
 Platform-control flow:
@@ -367,6 +399,8 @@ Attack:
 - Admin API and Core API race on shared state and violate a common invariant;
 - one host bypasses a shared business module with ad-hoc SQL against a reachable table;
 - a synchronous internal call chain is introduced where an in-process/shared-module or durable async path should own the behavior;
+- unauthorized tenant limit increase or raw usage mutation;
+- limit lowered below current usage;
 - Worker crash before/after external effect;
 - stale lease owner;
 - duplicate schedule firing;
@@ -378,9 +412,9 @@ Gate:
 - a real platform-admin operation succeeds while Core API is intentionally unavailable, provided its own underlying dependencies are healthy;
 - ordinary tenant business API operation remains possible while Admin API is intentionally unavailable;
 - no platform/super-admin endpoint exists on Core API;
-- shared DB/domain invariants are identical across Core API and Admin API where both legitimately touch the same state;
+- shared DB/domain/usage invariants are identical across Core API and Admin API where both legitimately touch the same state;
 - runtime-process separation has not accidentally become microservice/database-per-service ceremony;
-- no generic force-success/mark-complete control;
+- no generic force-success/mark-complete/set-raw-usage control;
 - break-glass is infrastructure recovery, not hidden tenant API;
 - the selected queue/job/pub-sub/event mechanism exists because the first workload needs its semantics, not because a managed messaging product was listed in an article;
 - no service-mesh/gateway component exists unless its current responsibility is concrete and measured.
@@ -392,29 +426,37 @@ Gate:
 Deliver:
 - `HuggingFaceObjectStore : IObjectStore` complete adapter;
 - object metadata/key/hash/lifecycle in DB;
-- capacity measurement/admission behavior for current ~100 GB envelope;
+- authoritative/reconcilable retained-object-byte consumption measurement;
+- capacity measurement/admission behavior for current ~100 GB provider/account envelope;
+- any required platform/tenant object-storage limit policy without inventing commercial plan packaging;
 - attachment staging/upload/retry;
 - immutable/versioned application object keys;
 - document generation for implemented journeys;
 - printing path;
 - `KaggleBackupTarget : IBackupTarget` complete adapter;
-- backup orchestrator collecting all currently required recovery state, not just application rows;
+- backup orchestrator collecting all currently required recovery state, including implemented usage/limit state, not just application rows;
 - encrypted opaque backup upload/download/restore proof.
 
 Attack:
-- object succeeds/metadata fails;
+- object succeeds/metadata fails and usage must reconcile;
 - metadata exists/object missing;
-- cross-tenant object reference;
-- storage nears hard capacity;
+- duplicate upload/retry does not double retained-byte accounting;
+- two uploads race against final available provider/tenant capacity;
+- cross-tenant object reference or usage attribution;
+- storage nears hard provider/account capacity;
+- tenant limit lowered below current retained bytes without deleting retained customer objects;
 - upload interrupted;
 - printer/spooler failure after commit;
 - Kaggle artifact corrupt/missing/wrong key;
+- restore accidentally resets/doubles usage or applies stale limit policy;
 - raw data accidentally selected for direct provider upload;
 - second fake/test adapter proves interface is not accidentally Hugging-Face/Kaggle-shaped.
 
 Gate:
 - business code has no direct Hugging Face/Kaggle dependency;
-- one encrypted off-site backup actually restores usable SquiFlow state;
+- retained-byte usage is explainable/reconcilable independently from telemetry;
+- provider/account capacity and any implemented tenant storage limit have explicit hard/soft admission behavior;
+- one encrypted off-site backup actually restores usable SquiFlow state including usage/limit state that affects enforcement;
 - interface abstractions do not hide provider-specific failures that must surface to operations;
 - large transfer does not starve normal sync/API traffic.
 
@@ -443,11 +485,13 @@ Deliver only hardening relevant to implemented surfaces:
 - HTTPS/TLS production routing with direct edge routes to Core API and Admin API;
 - HTTP transport-version negotiation treated as infrastructure behavior, not business semantics;
 - WebSocket/SignalR, if used, kept non-authoritative;
-- REST remains the baseline; no GraphQL surface unless an implemented client has already demonstrated the query-composition requirement and its authorization/query-cost design has been reviewed.
+- REST remains the baseline; no GraphQL surface unless an implemented client has already demonstrated the query-composition requirement and its authorization/query-cost design has been reviewed;
+- observability of limit evaluation failure/latency, near-capacity, rejection/defer/throttle, reconciliation drift and stale reservations where implemented.
 
 Attack:
 - applicable OWASP API cases;
-- telemetry quota/export failure;
+- telemetry quota/export failure while usage accounting/limit enforcement continues correctly;
+- analytics/metric retention disabled without losing authoritative consumption;
 - async log buffer saturation;
 - retry storm;
 - rate-limit bypass by changing route/identity dimensions;
@@ -458,12 +502,13 @@ Attack:
 - pool exhaustion/tenant-context reuse;
 - compression/buffering creates disproportionate CPU/memory usage;
 - edge routes platform traffic through Core API instead of directly to Admin API;
-- edge/gateway authentication causes backend authorization to be skipped;
+- edge/gateway authentication causes backend authorization or hard-limit enforcement to be skipped;
 - WebSocket/live signal lost after commit and system still recovers from durable state;
 - DNS/custom-host manipulation attempts to change TenantContext;
-- clock skew affects token/lease/schedule behavior;
-- sensitive content in logs/Guard diagnostics;
+- clock skew affects token/lease/schedule/limit-window behavior;
+- sensitive content in logs/Guard/usage diagnostics;
 - OpenFGA or ZITADEL degraded/unavailable and resulting fail-closed/degraded behavior;
+- consumption/limit state unavailable with resource-specific degraded behavior;
 - Core API overload while Admin API still needs emergency application-control capability;
 - Admin API compromise attempt cannot pivot into tenant business authority without explicit platform operation path;
 - SQL/identifier/filter/sort injection, mass assignment/excessive field, XSS/unsafe template, CSRF, SSRF redirect/private-network, and malicious file/path/size cases for implemented surfaces;
@@ -471,12 +516,13 @@ Attack:
 - release artifact/configuration mismatch or migration preflight failure is stopped before unsafe exposure.
 
 Gate:
-- telemetry failure does not affect committed business truth;
+- telemetry failure does not affect committed business truth or erase authoritative usage;
 - auth/authorization dependency failures never become accidental allow;
+- hard-limit decision unavailability cannot silently become universal allow;
 - Core API and Admin API have separate privileged-surface inventories;
 - rate/admission controls are bounded/fair without being one arbitrary global limit;
 - performance improvements have measured benefit and do not weaken freshness/authority/resource bounds;
-- edge/gateway routing preserves backend ownership and does not become business authority;
+- edge/gateway routing preserves backend ownership and does not become business/usage authority;
 - durable correctness does not depend on WebSocket/circuit/transient network state;
 - no undocumented privileged endpoint;
 - no GraphQL/service-mesh/gRPC/cache/gateway-management layer exists only because it is a common architecture pattern;
@@ -494,11 +540,13 @@ Deliver:
 - credit authority;
 - Owner/manual price permission/audit;
 - OpenFGA permission + SquiFlow state/invariant checks for sensitive actions;
-- minimal currency/quantity/time semantics without hardcoding.
+- minimal currency/quantity/time semantics without hardcoding;
+- any paid-provider/payment-attempt meter required by the real provider, with semantic effect versus charged-attempt distinction.
 
 Attack:
 - charge succeeds/response lost;
 - duplicate refund/webhook;
+- provider attempt is retried and genuinely incurs another provider usage/cost unit without duplicating the semantic business effect;
 - concurrent last-stock sale;
 - stale offline credit;
 - stale derived projection used as current credit/stock truth;
@@ -523,7 +571,10 @@ Deliver/prove:
 - installer/update/rollback including Guard/Workstation compatibility;
 - backup restore onto replacement environment;
 - encrypted backup key recovery;
-- Hugging Face object integrity/capacity report;
+- Hugging Face object integrity/capacity and usage-reconciliation report;
+- effective platform/provider hard limits for production resources;
+- exact tenant-scoped limits actually required for the initial production/commercial arrangement, if any, without inventing unused plan tiers;
+- restore/reconciliation proof for implemented consumption counters/ledger/policies/reservations;
 - ZITADEL/OpenFGA deployment backup/reprovision procedure appropriate to managed/self-hosted choice;
 - provisional/final RPO/RTO;
 - private recovery runbook exercise;
@@ -538,12 +589,14 @@ Deliver/prove:
 
 Gate:
 - do not accept a paying customer while backup restore is untested;
+- do not accept a paying customer with a hard provider/resource limit that lacks defined measurement/admission/recovery behavior;
+- telemetry/analytics is not the only copy of usage needed to enforce a production limit;
 - do not accept a paying customer if the production environment can only be recreated from undocumented manual knowledge;
 - migrate bootstrap storage at the first paying customer or earlier when constraints require it;
 - no HA/zero-downtime/scalability claim without measured topology/capacity evidence;
 - no blue-green/canary/progressive-delivery claim without spare capacity/routing, compatible data contracts, telemetry, and a tested stop/recovery path;
 - Kubernetes remains absent unless the actual multi-node orchestration problem has been demonstrated;
-- no simplification is accepted if it removes a core recovery/security/offline/control-plane behavior already relied on by the product.
+- no simplification is accepted if it removes a core recovery/security/offline/control-plane/usage-limit behavior already relied on by the product.
 
 ---
 
@@ -573,4 +626,5 @@ Do not spend baseline work on:
 - per-tenant schema/database/queue/stack by default;
 - multi-currency/FX system;
 - advanced peripheral suite;
-- SaaS billing/ETL/search/MRP infrastructure without a current requirement.
+- generic analytics/data-warehouse metering platform;
+- SaaS billing/plan-pricing/ETL/search/MRP infrastructure without a current requirement.
