@@ -1,7 +1,7 @@
 # Product Foundation
 
 **Status:** Initial owner for upstream product intent and evidence discipline.  
-**Baseline:** Introduced from the Product & Requirements Foundation Batch 1 review, refined by Batch 2, and extended by Batch 3 quality/traceability review.  
+**Baseline:** Introduced from the Product & Requirements Foundation Batch 1 review, refined by Batch 2, extended by Batch 3 quality/traceability review, and refined by Batch 4 integration/measurement/discovery review.  
 **Authority boundary:** This document owns the upstream product foundation: who SquiFlow is trying to serve first, the business outcome it intends to enable, the evidence behind that choice, the smallest coherent product promise, the status of important product assumptions, and the product-level reasons that justify consequential quality characteristics. It does not replace the domain, security, workflow, NFR, architecture, implementation, or verification owner documents.
 
 ## 1. Why this document exists
@@ -89,10 +89,13 @@ trigger or need
 → rules and authority
 → state or information change
 → handoff or external interaction
+→ waiting / queue / bottleneck where work stops moving
 → result
 → confirmation/evidence
 → exceptions, correction, and recovery
 ```
+
+When users describe friction such as `slow`, `takes too long`, `too many steps`, `hard to follow`, or `we do this outside the system`, do not jump directly to automation or a new feature. Identify where the work actually waits or becomes difficult, what causes that condition, who bears it, and whether the smallest response is visibility, information, responsibility, process simplification, configuration, integration, automation, a manual step, or no SquiFlow change.
 
 Then compare the two views to identify supported current structure, missing responsibility, unnecessary structure, semantic mismatch, configuration fit, missing reusable capability, customer-specific exception, or unresolved uncertainty.
 
@@ -120,6 +123,8 @@ For business-process evidence, distinguish where material:
 - **PRESCRIBED** — what a process or policy says should happen;
 - **REPORTED** — what participants say happens;
 - **OBSERVED** — what direct observation or credible artifacts show happened.
+
+AI/assistant-generated user stories, personas, journey completions, missing requirements, priorities, role taxonomies, domain concepts, and proposed product decisions are **INFERENCE / HYPOTHESIS** unless separately supported by evidence or deliberately accepted as a normative Owner decision. Coherence, detail, confidence, or repetition in generated text does not upgrade its evidence status.
 
 ### Product-understanding status
 
@@ -217,7 +222,7 @@ What exact business context is first, and who are the buyer, administrator, dail
 
 ### PFQ-003 — How is the selected work actually performed today?
 
-Investigate recent concrete cases, including paper, calls, messages, spreadsheets, device interactions, artifacts, workarounds, exceptions, and recovery.
+Investigate recent concrete cases, including paper, calls, messages, spreadsheets, device interactions, artifacts, workarounds, exceptions, waiting/handoffs, and recovery.
 
 **What it changes:** domain meaning, missing responsibilities, unnecessary structure, integration/manual boundaries, and UX.  
 **Current action:** treat repository journeys as documented models whose customer-evidence status must be established separately.
@@ -433,6 +438,8 @@ Keep these concepts distinct unless a documented link exists:
 ```text
 product-outcome evidence
 ≠ operational telemetry
+≠ delivery-progress metric
+≠ engineering diagnostic / code-quality proxy
 ≠ authoritative resource-consumption accounting
 ```
 
@@ -446,6 +453,7 @@ For each accepted material product/domain/architecture change, perform a depende
 - domain/business semantics;
 - permissions/security/identity;
 - workflow/rules/forms;
+- integrations/external providers;
 - NFRs and degraded modes;
 - local-first/sync authority;
 - architecture/current decisions;
@@ -466,12 +474,66 @@ accepted decision
 
 Do not touch unrelated documents merely for symmetry. A dependent owner needs a change only when leaving it unchanged would create contradiction, ambiguity, an unenforced obligation, or a materially stale assumption.
 
-## 18. Relationship to existing owner documents
+## 18. Constructive adversarial review
+
+Every material analysis conclusion, proposed requirement, owner-document patch, or architecture implication gets a skeptical review before acceptance. The purpose is to improve the decision and expose alternatives, not to block progress indefinitely.
+
+At minimum ask:
+
+```text
+What is the strongest plausible case that this conclusion is wrong or overstated?
+Which hidden assumptions does it depend on?
+Am I confusing a source recommendation, repository convention, or generated inference with evidence?
+What simpler response could solve the same problem?
+What genuinely different response have I failed to consider?
+What would this decision make harder, more expensive, or less reversible?
+Which actor or downstream owner bears the cost?
+What evidence would falsify or materially change the conclusion?
+Is the current SquiFlow model constraining the option space unnecessarily?
+```
+
+For assistant-produced work specifically, treat the assistant's synthesis as something to challenge, not as an authority. When the review finds a material weakness, revise the finding, narrow it, mark it uncertain, defer it, or reject it before applying a patch.
+
+The review must also preserve creativity. A challenge should surface at least one credible alternative or contrary interpretation when one exists; it should not merely argue that nothing can be known.
+
+Use this stop rule:
+
+> Stop adversarial review when further criticism is unlikely to change the current decision, required evidence, scope, safety classification, or next reversible action. Record the remaining uncertainty and proceed rather than turning skepticism into paralysis.
+
+Protected invariants still require stronger proof than reversible product-shaping choices.
+
+## 19. Documentation truth hierarchy
+
+Different artifacts answer different questions and must not silently replace one another:
+
+```text
+owner document
+= current authoritative SquiFlow semantics / decision for its topic
+
+decision or review record
+= evidence, alternatives, challenge, and why the decision was made
+
+test / executable evidence
+= proof that implemented behavior satisfies a defined requirement in a stated environment
+
+source study
+= what an external source contributes and how it was interpreted
+
+code
+= current implemented mechanism, which may still be incomplete or inconsistent with accepted intent
+```
+
+Prefer one focused owner for current semantics. Do not duplicate the same authoritative rule across several documents merely for convenience. References are preferable when the dependent document's contract has not changed.
+
+Tests complement requirements; they do not explain product intent, evidence status, historical rationale, or every non-executable constraint. Documentation should be kept only where it has a clear purpose and can be maintained.
+
+## 20. Relationship to existing owner documents
 
 - `docs/domain/BUSINESS_MODEL.md` owns the current practical business/domain model and scope.
 - `docs/domain/CROSS_CUTTING_BUSINESS_PRIMITIVES.md` owns shared business semantics.
 - `docs/workflow/WORKFLOW_DESIGN.md` owns workflow semantics.
 - `docs/rules/NATIVE_RULE_ENGINE.md` owns bounded rule behavior.
+- `docs/integrations/INTEGRATION_RESPONSIBILITY_AND_AUTHORITY.md` owns the shared responsibility/authority/failure questions every external integration must answer; provider-specific semantics remain in their focused owners.
 - `docs/requirements/NON_FUNCTIONAL_REQUIREMENTS.md` owns cross-cutting quality requirements.
 - `docs/requirements/PRODUCT_TO_QUALITY_TRACEABILITY.md` owns the lightweight bridge from product/business consequence to quality requirement/verification evidence; it does not override NFR semantics.
 - `docs/decisions/CURRENT_DECISIONS.md` owns accepted direction.
