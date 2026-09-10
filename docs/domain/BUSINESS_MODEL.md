@@ -4,6 +4,8 @@
 
 This document keeps SquiFlow grounded in the actual businesses it needs to support rather than turning every possible ERP feature into baseline architecture.
 
+Upstream product intent, customer-evidence status, product-promise scope, and unresolved product questions are owned by `docs/product/PRODUCT_FOUNDATION.md`.
+
 ## 1. Core commercial model
 
 ```text
@@ -14,6 +16,8 @@ Party
 → Workflow
 → Settlement
 ```
+
+This is a **conceptual relationship model**, not a mandatory process sequence and not a claim that every journey requires every concept. Real work may enter, skip, combine, or revisit these concerns differently. Product discovery should describe the business work independently first and then test whether this model explains it adequately.
 
 A Party can be an individual customer, organization, supplier, representative or other actor.
 
@@ -46,7 +50,7 @@ Support as slices require:
 - credit customer;
 - future client-client/end-customer portal.
 
-Typical small-shop flow:
+Illustrative small-shop flow:
 
 ```text
 walk-in customer
@@ -55,6 +59,8 @@ walk-in customer
 → pickup/fulfillment
 → payment
 ```
+
+This flow is an example used to reason about practical scope. It is not evidence that every target business follows this exact order, that every step occurs inside SquiFlow, or that the sequence is the first accepted product promise. Observed/reported work and product-evidence status are tracked separately under `docs/product/PRODUCT_FOUNDATION.md`.
 
 Do not require a complex account hierarchy for a walk-in sale.
 
@@ -225,5 +231,7 @@ Do not build generic ETL now. If onboarding requires import, start with the exac
 ## 17. Small-business usability rule
 
 Owner + one Staff should be able to set up permissions, create customers/orders, print/fulfill, record payment, buy/receive materials, handle quotation/revision and understand pending/synced work without configuring dozens of enterprise modules first.
+
+`Owner` and `Staff` in this rule are small-team authorization/default-operating templates, not research personas. Discovery must separately establish who buys, administers, performs daily work, bears operational burden, and receives the business outcome before those distinctions are treated as product segmentation or new role types.
 
 Generic architecture, DDD, database, and design-pattern sources may improve how these journeys are implemented; they do not replace these business decisions with a generic catalog, manufacturing, procurement, or ERP taxonomy.
