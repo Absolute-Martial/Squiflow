@@ -1,6 +1,6 @@
 # Product-to-Quality Traceability
 
-**Status:** Accepted lightweight traceability bridge introduced from Product & Requirements Foundation Batch 3.  
+**Status:** Accepted lightweight traceability bridge introduced from Product & Requirements Foundation Batch 3 and refined by Batch 4.  
 **Authority boundary:** This document connects accepted product/business consequences to quality requirements, architecture consequences and verification evidence. It does not replace `docs/product/PRODUCT_FOUNDATION.md`, `docs/requirements/NON_FUNCTIONAL_REQUIREMENTS.md`, focused domain/security/sync owner documents, or `docs/testing/VERIFICATION_STRATEGY.md`.
 
 ## 1. Why this bridge exists
@@ -85,7 +85,7 @@ Then the existing owner documents define the mechanics:
 
 Do not classify an operation as offline-capable merely because the desktop implementation can technically run it without a network call.
 
-## 5. Outcome evidence semantics
+## 5. Measurement semantics and proxy discipline
 
 Product-outcome measures need stable meaning before they are used for scope or strategy decisions.
 
@@ -105,22 +105,38 @@ measure / evidence name
 → what decision it may change
 ```
 
-This is not a requirement for a metrics platform, analytics warehouse or universal dashboard.
+Before collecting or elevating a measure, ask:
 
-Keep separate:
+```text
+What do we mean by this measure?
+Why do we care?
+Which decision can change because of it?
+What behavior could this metric accidentally incentivize?
+What important reality could improve or worsen while the metric moves in the desired direction?
+```
+
+Keep these categories distinct unless a documented relationship exists:
 
 ```text
 product-outcome evidence
 = evidence used to judge whether the promised business/customer result occurred
 
-operational telemetry
-= evidence about runtime health, failures and performance
+operational / NFR evidence
+= evidence about runtime quality, failures, capacity, latency, recovery, security or similar characteristics
+
+delivery-progress metric
+= evidence about completed/in-progress delivery work
+
+engineering diagnostic / code-quality proxy
+= evidence such as coverage, test count, complexity, defect counts or similar engineering signals
 
 authoritative consumption accounting
 = durable usage facts used for limits/cost/reconciliation/support
 ```
 
-A single data source may contribute to more than one category only when the ownership and semantics are explicit.
+A metric is not promoted from one category to another merely because it correlates conveniently. Test count, code coverage, story count, story points, tasks completed, hours remaining, incident count or deployment frequency may be useful for a specific decision; none automatically proves customer value or overall product quality.
+
+This is not a requirement for a metrics platform, analytics warehouse or universal dashboard. A single data source may contribute to more than one category only when the ownership and semantics are explicit.
 
 ## 6. Cross-owner consistency check
 
@@ -137,18 +153,16 @@ A dependent owner must be updated when leaving it unchanged would:
 
 Do not change a document merely for symmetry when its existing contract is already consistent.
 
-## 7. Batch 3 consistency review
+## 7. Bridge restraint
 
-The Batch 3 review checked the current Product Foundation, tenant permissions, Workstation local-first, sync/authority, NFR and verification contracts.
+This file must remain a traceability bridge, not a second NFR catalogue or a metrics governance platform.
 
-The existing downstream contracts were already consistent with the new upstream rules in these important respects:
+Use the smallest record that explains a consequential quality decision. Detailed semantics stay in the focused owner. If this file starts duplicating retry rules, authorization behavior, sync semantics, exact SLOs, provider contracts or test procedures, move that detail back to the correct owner and keep only the link and business reason here.
 
-- `LOCAL_FIRST_DESKTOP.md` already limits offline behavior to operations explicitly classified as local-capable/provisional and keeps central authority for shared financial/security facts;
-- `SYNC_AND_AUTHORITY.md` already rechecks current authentication, TenantContext, authorization, domain/rule state and concurrency on reconnect;
-- `TENANT_PERMISSIONS.md` already makes the Workstation permission snapshot non-authoritative and rechecks OpenFGA/current server state;
-- `NON_FUNCTIONAL_REQUIREMENTS.md` already separates hard invariants, operational targets and degraded modes and selects freshness/consistency per invariant;
-- `VERIFICATION_STRATEGY.md` already requires observable outcome, failure input, authoritative component, recovery and evidence layer for a testable requirement.
+## 8. Batch 3–4 consistency review
 
-Those owners therefore did not need duplicate wording in this patch. The new traceability bridge supplies the missing upstream business reason and trade-off link without changing their accepted technical semantics.
+The Batch 3 review checked Product Foundation, tenant permissions, Workstation local-first, sync/authority, NFR and verification contracts. Those downstream contracts were already consistent with the new upstream business-to-quality rules, so they were not duplicated here.
 
-Future decisions that alter one of those contracts must propagate to the affected owner documents rather than relying on this bridge alone.
+Batch 4 further checked whether product-outcome measurement should replace engineering or delivery metrics. It should not. The categories above are complementary, and each must remain tied to the decision it actually informs.
+
+Future decisions that alter downstream semantics must propagate to the affected owner documents rather than relying on this bridge alone.
