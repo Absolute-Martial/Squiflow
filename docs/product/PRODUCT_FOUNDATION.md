@@ -1,8 +1,8 @@
 # Product Foundation
 
 **Status:** Initial owner for upstream product intent and evidence discipline.  
-**Baseline:** Introduced from the Product & Requirements Foundation Batch 1 review and refined by Batch 2.  
-**Authority boundary:** This document owns the upstream product foundation: who SquiFlow is trying to serve first, the business outcome it intends to enable, the evidence behind that choice, the smallest coherent product promise, and the status of important product assumptions. It does not replace the domain, security, workflow, NFR, architecture, implementation, or verification owner documents.
+**Baseline:** Introduced from the Product & Requirements Foundation Batch 1 review, refined by Batch 2, and extended by Batch 3 quality/traceability review.  
+**Authority boundary:** This document owns the upstream product foundation: who SquiFlow is trying to serve first, the business outcome it intends to enable, the evidence behind that choice, the smallest coherent product promise, the status of important product assumptions, and the product-level reasons that justify consequential quality characteristics. It does not replace the domain, security, workflow, NFR, architecture, implementation, or verification owner documents.
 
 ## 1. Why this document exists
 
@@ -21,9 +21,11 @@ business goal
 → smallest coherent product responsibility
 → domain capability / invariant / permitted variation
 → functional and quality requirements
+→ quality-characteristic priority / trade-offs
 → architecture only where justified
 → implementation
 → verification
+→ observed product outcome
 ```
 
 ## 2. Current product-evidence state
@@ -38,6 +40,7 @@ The following are **not yet established as validated product facts merely becaus
 - the starting condition and observable completion condition for that promise;
 - which currently documented journeys are observed customer behavior versus working product hypotheses;
 - which onboarding/import/support steps are necessary for a first customer to reach useful routine operation;
+- which business work must remain usable during network loss or central-dependency failure, and for how long;
 - the product-success evidence that should determine whether the first product bet continues, narrows, changes, defers, or stops.
 
 Until evidence closes these questions, do not fill them with plausible invented stories.
@@ -61,6 +64,8 @@ Every populated field must be supported by repository evidence, customer/domain 
 A product promise is not complete merely because each listed feature works independently. Identify any missing step that prevents the customer from reaching the promised observable result even when all implemented features behave correctly.
 
 A manual or external step may remain part of the selected scope when that is deliberate, safe, and compatible with the promise.
+
+Where quality characteristics materially determine whether the promise is believable, state the business consequence of poor quality and the relevant trade-off. Do not treat `fast`, `real time`, `always available`, `offline`, or `strongly consistent` as self-justifying virtues.
 
 ## 4. Current-model pass and problem-first pass
 
@@ -241,6 +246,13 @@ Can SquiFlow observe the customer's real work, connect it to the selected produc
 **What it changes:** first-customer selection, pilot scope, generalization of domain/configuration decisions, and when evidence from one business may influence the common model.  
 **Current action:** treat first-customer findings as context-bound evidence unless repeated evidence or a justified invariant/capability argument supports generalization.
 
+### PFQ-008 — Which work must remain usable when connectivity or central dependencies are unavailable?
+
+For the first product promise, identify the affected actor/work, business consequence if it stops, acceptable interruption duration, required data accuracy/freshness, current-authority requirement, and whether the operation should be local-capable, local-provisional, or server-required.
+
+**What it changes:** Workstation scope, sync/recovery obligations, local data requirements, dependency/degraded-mode behavior, and the product meaning of `local-first`.  
+**Current action:** preserve the accepted local-first Workstation architecture, but do not classify additional operations as offline-capable merely because the desktop can technically execute them.
+
 ## 10. Scope reduction and stop conditions
 
 Discovery is allowed to conclude that:
@@ -364,15 +376,106 @@ The responsibility may be fulfilled by the same small team; this section does no
 
 Use the smallest credible evidence mechanism appropriate to the product promise. Qualitative observation, support evidence, transaction/business artifacts, targeted measurement, or a combination may be enough. Do not create metrics because they are easy to collect; measure what can distinguish whether the intended result occurred.
 
-## 15. Relationship to existing owner documents
+## 15. Quality characteristics follow business consequences
+
+Architecture characteristics are not independent technical virtues. A product may need high availability, freshness, accuracy, offline continuity, low latency, explainability, recoverability, simplicity, or another quality because failure of that quality would prevent or materially damage the selected business outcome.
+
+For every material quality requirement that can drive architecture or operating cost, record where known:
+
+```text
+business outcome / journey
+→ consequence if the quality is poor
+→ quality characteristic
+→ relative priority / trade-off
+→ measurable scenario or evidence
+→ requirement owner
+→ architecture consequence if any
+→ verification evidence
+```
+
+Examples of trade-offs that must be decided from the business context rather than slogans include:
+
+```text
+freshness vs accuracy
+latency vs current authority
+availability vs fail-closed security
+local continuity vs current shared stock/credit truth
+maximum configurability vs simple operation
+immediate synchronization vs bounded reliable recovery
+```
+
+The detailed NFR semantics remain owned by `docs/requirements/NON_FUNCTIONAL_REQUIREMENTS.md`; the product-level reason and priority belong here and in the traceability record described by `docs/requirements/PRODUCT_TO_QUALITY_TRACEABILITY.md`.
+
+## 16. Product-outcome evidence has a semantic contract
+
+When SquiFlow uses a metric, observation, artifact, or derived measure to decide whether a product outcome occurred, define enough meaning to prevent several teams/documents from silently measuring different things under the same name.
+
+Where material, record:
+
+```text
+measure / evidence name
+→ decision or outcome it informs
+→ meaning
+→ population / scope
+→ authoritative or observational source
+→ calculation / interpretation
+→ time window
+→ freshness
+→ known uncertainty / error
+→ who interprets it
+→ what decision it may change
+```
+
+Do not build a metrics platform merely to satisfy this rule.
+
+Keep these concepts distinct unless a documented link exists:
+
+```text
+product-outcome evidence
+≠ operational telemetry
+≠ authoritative resource-consumption accounting
+```
+
+## 17. Cross-owner consistency and decision propagation
+
+A material accepted change must not be made correct in one document while leaving dependent owner documents contradictory, misleading, or unable to enforce it.
+
+For each accepted material product/domain/architecture change, perform a dependency check across the owners that may be affected, including as applicable:
+
+- product foundation;
+- domain/business semantics;
+- permissions/security/identity;
+- workflow/rules/forms;
+- NFRs and degraded modes;
+- local-first/sync authority;
+- architecture/current decisions;
+- implementation phases/gates;
+- verification/testing;
+- operations/support.
+
+Use this rule:
+
+```text
+accepted decision
+→ update primary owner
+→ identify dependent contracts
+→ update every dependent owner whose meaning changed
+→ record why unaffected owners remain unchanged
+→ verify the resulting repository has one coherent story
+```
+
+Do not touch unrelated documents merely for symmetry. A dependent owner needs a change only when leaving it unchanged would create contradiction, ambiguity, an unenforced obligation, or a materially stale assumption.
+
+## 18. Relationship to existing owner documents
 
 - `docs/domain/BUSINESS_MODEL.md` owns the current practical business/domain model and scope.
 - `docs/domain/CROSS_CUTTING_BUSINESS_PRIMITIVES.md` owns shared business semantics.
 - `docs/workflow/WORKFLOW_DESIGN.md` owns workflow semantics.
 - `docs/rules/NATIVE_RULE_ENGINE.md` owns bounded rule behavior.
 - `docs/requirements/NON_FUNCTIONAL_REQUIREMENTS.md` owns cross-cutting quality requirements.
+- `docs/requirements/PRODUCT_TO_QUALITY_TRACEABILITY.md` owns the lightweight bridge from product/business consequence to quality requirement/verification evidence; it does not override NFR semantics.
 - `docs/decisions/CURRENT_DECISIONS.md` owns accepted direction.
 - `docs/decisions/OPEN_DECISIONS.md` owns current unresolved implementation decisions.
 - `MASTER_IMPLEMENTATION_PLAN.md` and `docs/implementation/PHASES_AND_GATES.md` own technical implementation sequencing.
 
-This document sits **upstream** of those owners for product intent and evidence. It does not override an accepted material product/domain/architecture decision silently. Material changes still require explicit approval and must update the appropriate owner document.
+This document sits **upstream** of those owners for product intent and evidence. It does not override an accepted material product/domain/architecture decision silently. Material changes still require explicit approval and must update the appropriate owner document and any materially dependent owners.
