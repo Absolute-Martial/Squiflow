@@ -1,10 +1,12 @@
 # Business Model and Practical Domain Scope
 
-**Version:** v0.0.15
+**Version:** v0.0.16
 
 This document keeps SquiFlow grounded in the actual businesses it needs to support rather than turning every possible ERP feature into baseline architecture.
 
 Upstream product intent, customer-evidence status, product-promise scope, and unresolved product questions are owned by `docs/product/PRODUCT_FOUNDATION.md`.
+
+Consequential business-term meaning, aliases, disputed vocabulary, and semantic evidence are owned by `docs/domain/BUSINESS_TERMS.md`. This document remains authoritative for the practical business/domain model and behavior described below.
 
 ## 1. Core commercial model
 
@@ -22,6 +24,8 @@ This is a **conceptual relationship model**, not a mandatory process sequence an
 A Party can be an individual customer, organization, supplier, representative or other actor.
 
 A Business Context can include tenant, branch/location, program/project and Workstation where relevant.
+
+Where customer or stakeholder language such as `job`, `order`, `request`, `sale`, `account`, or `customer` may conceal materially different concepts, resolve the meaning through `docs/domain/BUSINESS_TERMS.md` before hardening the distinction into persistence, workflow, permissions, APIs, reporting, or tenant segmentation.
 
 ## 2. Minimal shared business semantics
 

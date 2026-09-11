@@ -1,7 +1,7 @@
 # Product Foundation
 
 **Status:** Initial owner for upstream product intent and evidence discipline.  
-**Baseline:** Introduced from the Product & Requirements Foundation Batch 1 review, refined by Batch 2, extended by Batch 3 quality/traceability review, and refined by Batch 4 integration/measurement/discovery review.  
+**Baseline:** Introduced from the Product & Requirements Foundation Batch 1 review, refined by Batch 2, extended by Batch 3 quality/traceability review, refined by Batch 4 integration/measurement/discovery review, and refined by Batch 5 language/adoption/research review.  
 **Authority boundary:** This document owns the upstream product foundation: who SquiFlow is trying to serve first, the business outcome it intends to enable, the evidence behind that choice, the smallest coherent product promise, the status of important product assumptions, and the product-level reasons that justify consequential quality characteristics. It does not replace the domain, security, workflow, NFR, architecture, implementation, or verification owner documents.
 
 ## 1. Why this document exists
@@ -124,6 +124,8 @@ For business-process evidence, distinguish where material:
 - **REPORTED** — what participants say happens;
 - **OBSERVED** — what direct observation or credible artifacts show happened.
 
+For consequential discovery evidence, record both **who supplied the evidence** and **whose work/outcome it describes** when those are different. An Owner reporting a Staff problem is useful REPORTED evidence, but it is not equivalent to Staff reporting the problem or to direct observation/artifacts showing Staff encounter it. Do not discard stakeholder evidence; label the actor/source correctly so one person's report does not silently become another actor's observed behavior.
+
 AI/assistant-generated user stories, personas, journey completions, missing requirements, priorities, role taxonomies, domain concepts, and proposed product decisions are **INFERENCE / HYPOTHESIS** unless separately supported by evidence or deliberately accepted as a normative Owner decision. Coherence, detail, confidence, or repetition in generated text does not upgrade its evidence status.
 
 ### Product-understanding status
@@ -229,8 +231,10 @@ Investigate recent concrete cases, including paper, calls, messages, spreadsheet
 
 ### PFQ-004 — What must happen from adoption to first useful routine result?
 
+Investigate the complete path where consequential: evaluation/approval, setup, initial data entry or bounded import, initial configuration, learning/training, first real use, recovery from the first mistake or interruption, and repeated routine use. Identify which steps can remain assisted/manual, which need strong defaults, and which genuinely block the product promise.
+
 **What it changes:** onboarding/import/configuration/support scope and whether the first customer can actually realize the product promise.  
-**Current action:** do not build generic ETL/onboarding platforms; investigate the first real customer case.
+**Current action:** do not build generic ETL, onboarding, training, or change-management platforms; investigate the first real customer case and use the smallest credible response, including assisted/manual setup when sufficient.
 
 ### PFQ-005 — What evidence is sufficient to continue, narrow, change, defer, or stop a product responsibility?
 
@@ -530,6 +534,7 @@ Tests complement requirements; they do not explain product intent, evidence stat
 ## 20. Relationship to existing owner documents
 
 - `docs/domain/BUSINESS_MODEL.md` owns the current practical business/domain model and scope.
+- `docs/domain/BUSINESS_TERMS.md` owns consequential business-term meaning, distinction, aliases, ambiguity, semantic evidence/status, and historical interpretation; focused domain owners still own behavior and invariants.
 - `docs/domain/CROSS_CUTTING_BUSINESS_PRIMITIVES.md` owns shared business semantics.
 - `docs/workflow/WORKFLOW_DESIGN.md` owns workflow semantics.
 - `docs/rules/NATIVE_RULE_ENGINE.md` owns bounded rule behavior.
@@ -541,3 +546,64 @@ Tests complement requirements; they do not explain product intent, evidence stat
 - `MASTER_IMPLEMENTATION_PLAN.md` and `docs/implementation/PHASES_AND_GATES.md` own technical implementation sequencing.
 
 This document sits **upstream** of those owners for product intent and evidence. It does not override an accepted material product/domain/architecture decision silently. Material changes still require explicit approval and must update the appropriate owner document and any materially dependent owners.
+
+## 21. Proportional prototyping and design evidence
+
+A prototype is an evidence instrument, not automatically a mini-product, a required phase, or proof that the underlying customer need exists.
+
+Before choosing prototype fidelity, identify the uncertainty to resolve and use the lowest-cost representation capable of distinguishing the meaningful alternatives.
+
+Examples:
+
+```text
+terminology / information hierarchy / rough workflow
+→ sketch, paper flow, wireframe, or lightweight clickable mock may be enough
+
+interaction detail / visual trust / complex state comprehension
+→ higher-fidelity interactive prototype may be justified
+
+printing / local database / offline recovery / provider integration / performance
+→ executable spike or real vertical slice may be the cheapest credible evidence
+```
+
+No prototype is required when the uncertainty is already sufficiently closed or implementation itself is the cheapest reversible experiment.
+
+Prototype observations must still be classified by evidence provenance. A participant succeeding with a prototype may support usability/interaction conclusions; it does not by itself establish market demand, product priority, business viability, or successful real-world operation.
+
+## 22. Adoption is part of reaching the outcome, not a separate enterprise program
+
+When the first product promise depends on adoption work, treat setup and transition as part of the end-to-end journey rather than assuming value begins once software is deployed.
+
+Where relevant inspect:
+
+```text
+evaluation / approval
+→ initial setup
+→ data entry or bounded import
+→ initial configuration
+→ learning / explanation
+→ first real work
+→ first mistake / interruption / recovery
+→ repeated routine use
+→ useful business result
+```
+
+A discovered adoption blocker does **not** automatically justify an onboarding feature. Consider the smallest credible response: stronger defaults, assisted setup, a bounded import, contextual guidance, a short reference, training, a manual procedure, or no product change.
+
+Do not introduce a learning-management system, enterprise change-management process, generic onboarding platform, or automatic migration framework without evidence that the product promise requires one.
+
+## 23. Semantic discovery before long-lived commitment
+
+Capture the participant's own language during discovery before normalizing it into SquiFlow terminology.
+
+When terms such as `job`, `order`, `request`, `sale`, `customer`, `account`, `completed`, `fulfilled`, or similar language could change domain identity, lifecycle, authority, workflow, reporting, permissions, or historical meaning, resolve or explicitly mark the ambiguity before hardening it into persistence, public APIs, durable message contracts, workflow states, or irreversible migrations.
+
+Use `docs/domain/BUSINESS_TERMS.md` for consequential semantic conclusions and unresolved disputes. A vocabulary difference alone does not prove a new entity, role, workflow engine feature, or `TenantType`.
+
+## 24. Design-system/style-guide trigger
+
+SquiFlow does not currently require a formal cross-platform design system merely because Web and Workstation use different UI technologies.
+
+Preserve semantic consistency now: the same business concept, important state, danger, correction, permission consequence, and local/server authority meaning should not diverge between surfaces without an explicit reason.
+
+Revisit stronger shared style/component infrastructure when evidence shows repeated pattern implementation, semantic/state divergence, user errors caused by inconsistency, significant repeated implementation cost, reusable accessibility/visual-quality requirements, or multiple contributors making ad-hoc patterns difficult to govern.
