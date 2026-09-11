@@ -1,6 +1,6 @@
 # Business Model and Practical Domain Scope
 
-**Version:** v0.0.16
+**Version:** v0.0.17
 
 This document keeps SquiFlow grounded in the actual businesses it needs to support rather than turning every possible ERP feature into baseline architecture.
 
@@ -235,6 +235,10 @@ Do not build generic ETL now. If onboarding requires import, start with the exac
 ## 17. Small-business usability rule
 
 Owner + one Staff should be able to set up permissions, create customers/orders, print/fulfill, record payment, buy/receive materials, handle quotation/revision and understand pending/synced work without configuring dozens of enterprise modules first.
+
+Small-business usability means removing **accidental complexity** created by unnecessary ceremony, duplication, technical leakage, redundant steps, or configuration burden. It does **not** mean hiding essential business complexity such as uncertain payment outcomes, pending local work, current-authority requirements, correction history, or another state the actor needs to understand and act on safely. Essential complexity should be made understandable and proportionate to the affected actor rather than erased from the model.
+
+The discovery diagnostic for locating interaction-, journey-, structural-, integration-, information-, environment-, intention-, or institutional sources of complexity is owned by `docs/product/DISCOVERY_COMPLEXITY_AND_RESEARCH_EVIDENCE.md` under the upstream Product Foundation evidence model.
 
 `Owner` and `Staff` in this rule are small-team authorization/default-operating templates, not research personas. Discovery must separately establish who buys, administers, performs daily work, bears operational burden, and receives the business outcome before those distinctions are treated as product segmentation or new role types.
 
