@@ -1,9 +1,9 @@
 # Discovery Complexity and Research Evidence
 
-**Version:** v0.0.17
+**Version:** v0.0.18
 
 **Status:** Focused operational companion to `docs/product/PRODUCT_FOUNDATION.md`.  
-**Authority boundary:** `PRODUCT_FOUNDATION.md` remains the upstream owner for product intent, evidence discipline, product questions, and product-promise decisions. This document owns the detailed discovery rules for locating complexity/friction, classifying exploratory artifacts, and handling customer-research evidence safely. It does not create a UX process, ResearchOps function, design methodology, or product feature.
+**Authority boundary:** `PRODUCT_FOUNDATION.md` remains the upstream owner for product intent, evidence discipline, product questions, product-promise decisions, and the product-response risk check. This document owns the detailed discovery rules for locating complexity/friction, classifying exploratory artifacts, handling customer-research evidence safely, distinguishing generative from evaluative evidence, decomposing material assumptions, and designing decision-changing investigations. It does not create a UX process, ResearchOps function, experimentation platform, design methodology, or product feature.
 
 ## 1. Why this document exists
 
@@ -255,15 +255,118 @@ revisit/generalization limit
 
 Do not turn this into a compulsory form for trivial conversations. Use it when losing provenance could materially change a product/domain decision.
 
-## 9. Relationship to other owners
+## 9. Generative and evaluative evidence are different
 
-- `docs/product/PRODUCT_FOUNDATION.md` remains the upstream product/evidence authority and owns PFQ-003 plus the evidence taxonomy.
+Discovery uses at least two distinct kinds of learning. Do not silently substitute one for the other.
+
+### Generative evidence
+
+Generative work helps understand the business/customer problem space. Typical questions include:
+
+```text
+What work actually exists?
+What outcome matters?
+What information/artifact is used?
+Where does work wait or fail?
+What language do participants use?
+What workaround exists and why?
+Which authority or constraint shapes the work?
+```
+
+Interviews, contextual observation, real artifacts, recent-case walkthroughs, support evidence, and other methods can generate or refine hypotheses about the problem and context.
+
+Generative evidence does **not** by itself prove that the first proposed solution is correct.
+
+### Evaluative evidence
+
+Evaluative work tests a candidate response or a material assumption about it. Typical questions include:
+
+```text
+Can the actor understand/use this response?
+Does the response preserve the required business meaning?
+Can the technology safely meet the constraint?
+Does the response improve the intended outcome?
+Is a risky assumption sufficiently supported for the next commitment?
+```
+
+Prototype tests, executable spikes, technical proofs, targeted measurements, bounded pilots, and where justified statistical experiments can provide evaluative evidence.
+
+Evaluative evidence does **not** automatically establish that the underlying problem is important, prevalent, or worth prioritizing.
+
+Use the evidence type that matches the decision being made.
+
+## 10. Decompose material responses into assumptions
+
+A proposed response is usually a bundle of assumptions. Before treating it as one yes/no bet, surface the assumptions whose failure could materially change the decision.
+
+The Product Foundation already requires at least value, usability, feasibility, and business-viability review. Add **harm / responsibility** as another diagnostic dimension where relevant:
+
+```text
+Who receives the benefit?
+Who bears setup, monitoring, correction, privacy, security,
+financial, cognitive, or operational cost?
+
+Could the response mislead, exclude, overburden, surveil,
+financially expose, or otherwise harm an affected actor?
+
+What data would be collected, retained, or exposed, and why?
+
+Could a safer or less burdensome response achieve the same outcome?
+```
+
+This is a decision-quality check, not a separate ethics organization or mandatory ceremony.
+
+Do not test every assumption merely because it can be named. Prioritize assumptions by consequence if wrong, uncertainty, reversibility, evidence cost, and whether the evidence could change the next action.
+
+## 11. Deliberate investigations must be decision-changing
+
+Before a non-trivial deliberate test, experiment, prototype evaluation, pilot, or POC, record enough precommitment to prevent post-hoc reinterpretation:
+
+```text
+decision affected
+→ assumption / uncertainty
+→ relevant customer / actor / context
+→ method and why it fits the question
+→ observation / measure / evidence to collect
+→ interpretation limits
+→ what SUPPORTING evidence would change
+→ what REFUTING evidence would change
+→ what INCONCLUSIVE evidence would change
+```
+
+If all plausible results lead to the same action, do not spend time running the investigation unless it serves another explicit purpose such as safety qualification.
+
+Define important thresholds or interpretation rules before seeing the result when doing so materially reduces confirmation bias. Do not manufacture arbitrary statistical thresholds or treat one number as universal proof.
+
+`inconclusive` is a legitimate result. It should lead to a deliberate action: gather different evidence, narrow exposure, proceed provisionally because the decision is reversible, defer commitment, or block the affected decision when the consequence of being wrong is unacceptable.
+
+This operationalizes PFQ-005 without adding PFQ-009.
+
+## 12. Match the method to the question and sample reality
+
+SquiFlow's first customers may not provide enough volume for production A/B testing or broad statistical inference. Lack of traffic does not mean lack of learning.
+
+Use the smallest credible method that can answer the decision question. For example:
+
+- qualitative observation can reveal workflow, language, mechanisms, usability problems, exceptions, and candidate explanations;
+- small-sample interviews can expose context and hypotheses but do not estimate broad-market prevalence by themselves;
+- transaction/support artifacts can show actual repeated behavior where available;
+- targeted measurement can quantify a defined property for the measured population/environment;
+- statistical experiments require enough data, valid assignment/design, appropriate analysis, and interpretation within their assumptions.
+
+Do not claim that a qualitative finding applies to all businesses merely because it is vivid. Do not claim that nothing was learned merely because a statistical significance threshold was unavailable.
+
+Statistical evidence is one evidence mode, not an authority override. A p-value or confidence threshold must not be interpreted as the probability that a hypothesis is true or used mechanically as the sole business/product decision rule.
+
+## 13. Relationship to other owners
+
+- `docs/product/PRODUCT_FOUNDATION.md` remains the upstream product/evidence authority and owns PFQ-003, PFQ-005, the evidence taxonomy, and the product-response risk check.
 - `docs/domain/BUSINESS_MODEL.md` owns accepted practical domain behavior and the small-business usability rule.
 - `docs/domain/BUSINESS_TERMS.md` owns consequential semantic conclusions/disputes after discovery surfaces them.
 - `docs/requirements/PRODUCT_TO_QUALITY_TRACEABILITY.md` owns business-to-quality traceability when discovered complexity creates a material quality requirement.
-- focused security/privacy/domain owner documents remain authoritative for product/runtime privacy and security behavior; this file only governs research-evidence handling.
+- focused security/privacy/domain owner documents remain authoritative for product/runtime privacy and security behavior; this file only governs research-evidence handling and investigation discipline.
 
-## 10. Restraint
+## 14. Restraint
 
 This document does **not** require:
 
@@ -273,6 +376,10 @@ This document does **not** require:
 - a mandatory research repository product;
 - a prototype for every decision;
 - parallel design for every decision;
+- an A/B testing platform;
+- a universal statistical significance threshold;
+- a permanent experimentation program;
+- an ethics board/process;
 - a design-system maturity model;
 - a new product capability merely because research finds complexity.
 

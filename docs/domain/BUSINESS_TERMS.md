@@ -1,6 +1,6 @@
 # Business Terms and Semantic Glossary
 
-**Version:** v0.0.16
+**Version:** v0.0.17
 
 **Status:** Focused owner for consequential SquiFlow business/domain terminology.  
 **Authority boundary:** This document owns the meaning, distinction, ambiguity, evidence status, and relationship of consequential business terms. It does **not** duplicate detailed workflow, pricing, payment, inventory, authorization, sync, or other behavioral rules owned by their focused documents.
@@ -177,7 +177,42 @@ domain difference
 
 A stronger concept boundary is justified only when real identity, lifecycle, authority, invariant, historical meaning, reporting, or operational responsibility differs.
 
-## 7. Historical semantics
+## 7. Context-specific canonical meaning
+
+SquiFlow does not require every consequential word to have one global meaning across every business context.
+
+Where evidence shows that the same term legitimately refers to different concepts in different contexts, each context may own a precise local meaning. The boundary must be justified by real semantic differences such as identity, lifecycle, authority, invariants, historical meaning, reporting, or operational responsibility—not merely by organization charts, screen grouping, or architectural fashion.
+
+When context-specific meanings are accepted, record enough mapping to prevent accidental collapse:
+
+```text
+term
+→ context A meaning / owner
+→ context B meaning / owner
+→ shared identity or translation, if any
+→ information that may cross the boundary
+→ information that must not be assumed equivalent
+```
+
+Use this rule:
+
+```text
+same word
+≠ necessarily one global meaning
+
+legitimate semantic context
+≠ automatically a separate service
+≠ automatically a separate process
+≠ automatically a separate database
+≠ automatically a separate deployment
+≠ automatically a TenantType
+```
+
+A semantic boundary can exist inside the current modular monolith. Runtime extraction requires its own independently justified deployment, failure, scaling, security, ownership, or operational reason.
+
+Likewise, different customer-facing words may still map safely to one canonical concept when their underlying identity and rules are the same.
+
+## 8. Historical semantics
 
 Renaming a term in the UI or documentation must not silently reinterpret historical data.
 
@@ -190,13 +225,15 @@ When a concept's meaning changes materially after data has been created, decide 
 
 Long-lived persisted/API/workflow meanings require more evidence before change than reversible screen wording.
 
-## 8. Relationship to discovery
+## 9. Relationship to discovery
 
-`docs/product/PRODUCT_FOUNDATION.md` owns the product-evidence process. This glossary records semantic conclusions and unresolved ambiguity that emerge from that process.
+`docs/product/PRODUCT_FOUNDATION.md` owns the product-evidence process. `docs/product/DISCOVERY_COMPLEXITY_AND_RESEARCH_EVIDENCE.md` owns detailed discovery/investigation discipline. This glossary records semantic conclusions and unresolved ambiguity that emerge from that process.
 
 When observing real work, capture the participant's own language before normalizing it into SquiFlow terms. Record aliases and counterexamples where they expose meaning, but do not preserve every customer-specific phrase as a first-class product concept.
 
-## 9. Anti-taxonomy rule
+Collaborative modeling techniques such as Event Storming may help surface language, events, boundaries, and disagreements. Their output remains a discovery artifact/hypothesis until checked against the relevant evidence and owner decisions; an aggregate or workshop grouping does not automatically become a process/service/database boundary.
+
+## 10. Anti-taxonomy rule
 
 This document must not grow into a generic ERP ontology or an external framework vocabulary dump.
 
