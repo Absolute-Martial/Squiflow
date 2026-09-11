@@ -1,8 +1,10 @@
 # Cross-Cutting Business Primitives
 
-**Version:** v0.0.15
+**Version:** v0.0.16
 
 Keep only the cross-cutting rules that prevent expensive inconsistency across Sales, Purchasing, Inventory, Payments and Documents. Do not turn this document into a framework or a future accounting system.
+
+Consequential business-term meaning and disputed vocabulary are owned by `docs/domain/BUSINESS_TERMS.md`. This document owns the cross-cutting behavioral semantics below; the glossary should reference these rules rather than duplicate them.
 
 ## 1. Money and currency — minimal baseline
 
