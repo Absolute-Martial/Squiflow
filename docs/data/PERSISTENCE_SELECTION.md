@@ -1,12 +1,14 @@
 # Persistence Selection Policy
 
-**Version:** v0.0.15
+**Version:** v0.0.17
 
-Database products remain OPEN until the implementation phase that needs them proves a real candidate. Provider portability does not require a generic repository/unit-of-work hierarchy.
+PostgreSQL is selected as the initial central transactional database, and SQLite with WAL is selected as the initial Workstation embedded database. Their Phase-3 and Phase-2 proofs are production-qualification gates rather than product-selection contests. Provider portability does not require a generic repository/unit-of-work hierarchy.
 
-## 1. Central store — Phase 3 selection
+This supersedes the previous decision to keep both products open pending SQLite/libSQL and central-database comparisons. The decision changed because SquiFlow's authoritative business state is predominantly relational and constraint-heavy, while its variable data is bounded semi-structured configuration and its truly unstructured data belongs in object storage. Operating an additional database by default would add transaction, reconciliation, backup, tenancy, migration, and maintenance responsibilities without an established workload.
 
-The first central DB candidate must prove the properties required by the actual sync/order slice:
+## 1. Central store — PostgreSQL qualification in Phase 3
+
+The selected PostgreSQL implementation must prove the properties required by the actual sync/order slice:
 - ACID transaction correctness and constraints;
 - concurrency/isolation behavior;
 - useful indexing/query performance;
@@ -17,7 +19,7 @@ The first central DB candidate must prove the properties required by the actual 
 - mature .NET integration;
 - bounded connections/resources on the actual lower-spec server class.
 
-PostgreSQL is the strongest current central reference candidate, not an implicit final decision.
+PostgreSQL is the selected initial central transactional product. Selection does not waive or predetermine successful completion of the Phase-3 proof.
 
 Do not require future Worker/HA/reporting features to be solved before the Phase-3 slice unless the selected DB would make a known required path impossible.
 
@@ -101,9 +103,9 @@ Prove:
 
 This does not require a generic repository interface. Tenant scope can be enforced through concrete query/application/data-access code plus DB defense in depth.
 
-### PostgreSQL reference proof
+### Selected PostgreSQL proof
 
-If PostgreSQL is used:
+The PostgreSQL implementation must:
 - prove Row-Level Security on applicable tenant-owned tables;
 - runtime role is not superuser/`BYPASSRLS`;
 - table-owner/`FORCE ROW LEVEL SECURITY` behavior is deliberately handled;
@@ -239,7 +241,7 @@ Schema-per-tenant and DB-per-tenant are not baseline.
 
 Owner: `docs/architecture/MULTI_TENANCY_ISOLATION.md`.
 
-## 12. Workstation local store — Phase 2 selection
+## 12. Workstation local store — SQLite qualification in Phase 2
 
 A local candidate must prove the actual local-first requirements:
 - atomic business + outbox transaction;
@@ -252,11 +254,33 @@ A local candidate must prove the actual local-first requirements:
 - corruption/recovery path;
 - .NET/Windows packaging/integration.
 
-SQLite + WAL is the mature reference candidate. libSQL is an explicit candidate. Test both against the same small SquiFlow workload/failure cases needed to make the decision.
+SQLite with WAL is the selected initial Workstation store. Test the actual SQLite driver and configuration against the same local transaction, recovery, migration, resource, and failure cases that previously formed the candidate comparison.
+
+libSQL is deferred and is not installed beside or inside SQLite. Reopen it only when a concrete requirement benefits from a libSQL-specific capability such as embedded replication or remote access, and only when the selected .NET/Windows integration, offline write/consistency behavior, recovery, packaging, and migration path pass SquiFlow's proof.
 
 Server and Workstation may use different DB products without requiring a shared persistence interface.
 
-## 13. Selection evidence
+## 13. Dedicated NoSQL and unstructured data
+
+A dedicated server or Workstation NoSQL database is not part of the initial foundation.
+
+Bounded form, workflow, rule, module-setting, and custom-field definitions may use explicit versioned JSON/document representations where that is their natural shape. On the server, PostgreSQL JSONB is the initial mechanism when relational columns are not the natural representation; on Workstation, use an explicit SQLite representation. This flexibility must not move payments, stock movements, tenant membership, issued-document truth, idempotency, or other protected invariants into opaque arbitrary documents.
+
+A specialized document, search, graph, vector, time-series, or key-value store is introduced only when a named implemented workload proves material value beyond PostgreSQL/SQLite. That decision must define:
+
+- authoritative versus derived ownership;
+- transaction and concurrency boundaries;
+- consistency and freshness;
+- tenant isolation and authorization;
+- outbox/reconciliation and rebuild behavior;
+- backup, restore, migration, and deletion;
+- .NET support, deployment resources, and operational ownership.
+
+Do not create a distributed unit of work across PostgreSQL and another store. When PostgreSQL owns the business fact, commit the fact and outbox atomically there, then update a secondary store through idempotent, replayable Worker processing.
+
+Artwork, PDFs, images, scans, and other large unstructured objects remain behind `IObjectStore`. PostgreSQL/SQLite retain structured metadata such as ownership, object key, size/hash, lifecycle state, and business linkage.
+
+## 14. Qualification evidence
 
 Record:
 - exact product/driver/version/config;
@@ -272,4 +296,4 @@ Record:
 - known limitations;
 - migration/exit implications.
 
-Then select the product for the slice. Do not keep a decision open indefinitely merely to preserve theoretical optionality.
+If a selected product fails a material gate, record the evidence and create an explicit superseding decision. Do not silently introduce a second store or swap providers merely to preserve theoretical optionality.

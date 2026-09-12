@@ -1,6 +1,6 @@
 # Repository and Deployment Boundaries
 
-**Version:** v0.0.15
+**Version:** v0.0.18
 
 ## 1. Current state
 
@@ -18,6 +18,8 @@ SquiFlow/
 ├── services/
 │   └── core-api/         # ASP.NET Core tenant/business HTTP/composition host
 ├── modules/              # only modules required by implemented slices
+├── foundation/
+│   └── application-kernel/ # small SquiFlow-owned module/settings/feature composition
 ├── infrastructure/
 │   ├── storage/          # IObjectStore + HuggingFaceObjectStore
 │   ├── backup/           # IBackupTarget + KaggleBackupTarget
@@ -175,7 +177,26 @@ Guard owns launch/supervision, bounded restart/hang recovery, update handoff/rec
 
 Do not put business rules, OpenFGA authorization, sync semantics or central DB access in Guard.
 
-## 9. Phase-0 proof
+## 9. Application-kernel and module project shape
+
+The first slice may use a compact project layout such as:
+
+~~~text
+foundation/application-kernel/
+modules/customers/
+  SquiFlow.Customers.Domain
+  SquiFlow.Customers.Application
+  SquiFlow.Customers.Contracts
+  host adapter/UI projects only when the first slice needs them
+~~~
+
+Do not create every possible layer for every module. A simple module may remain in fewer projects until dependency or deployment pressure earns a split.
+
+Module domain/application contracts remain pure .NET and do not depend on ABP or Orchard. Workstation/server/UI/persistence contributions point inward to those contracts. Per-tenant composition is a versioned availability/settings/permission snapshot, not a per-tenant project, service provider, schema, database, or process.
+
+Detailed owner: docs/architecture/APPLICATION_KERNEL_AND_MODULES.md.
+
+## 10. Phase-0 proof
 
 Phase 0 should prove:
 - Web, Workstation, Guard and Core API build/run;
@@ -184,4 +205,7 @@ Phase 0 should prove:
 - provider-specific Hugging Face/Kaggle/ZITADEL/OpenFGA types do not leak into domain/business models;
 - `IObjectStore` and `IBackupTarget` compile as narrow provider seams without generic interface proliferation;
 - Admin Web/Admin API/Worker are documented future executable boundaries but are not empty placeholder projects before their phase;
-- no empty module/provider projects exist solely to complete a diagram.
+- no empty module/provider projects exist solely to complete a diagram;
+- first SquiFlow module descriptor/dependency graph, host filtering, typed setting, feature availability revision and module-owned permission definition are proven;
+- `Volo.Abp.*` and `OrchardCore.*` dependencies do not enter domain/application contracts;
+- per-tenant behavior uses scoped `TenantContext` and versioned data rather than per-tenant DI containers.

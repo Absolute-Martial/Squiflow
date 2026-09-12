@@ -1,6 +1,6 @@
 # Tenant Administration and Platform Administration
 
-**Version:** v0.0.15
+**Version:** v0.0.18
 
 ## 1. Tenant administration
 
@@ -42,7 +42,21 @@ Tenant Web
 
 The browser never receives OpenFGA administrative credentials.
 
-## 3. Platform administration is a separate backend boundary
+## 3. Module, feature, setting, and permission administration
+
+The tenant Settings UI consumes reviewed SquiFlow module descriptors:
+- simple typed settings may use generated editors from safe display/validation metadata;
+- complex, destructive, workflow-changing or security-sensitive settings require purpose-built screens;
+- feature enable/disable shows dependency, data, durable-work and permission effects before publication;
+- role editing lists stable module-owned permission definitions rather than accepting arbitrary permission strings;
+- disabled-feature grants are shown as dormant, not erased;
+- re-enabling a feature shows the effective permission diff and requires authorized confirmation before dormant grants reactivate.
+
+Feature availability, settings and permission assignment are separate commands and revisions. Enabling a feature never grants a role. Hiding a UI element never replaces Core API authorization.
+
+Installing/updating module assemblies is a reviewed deployment operation, not a tenant Settings action. Initial releases do not accept arbitrary uploaded plug-ins.
+
+## 4. Platform administration is a separate backend boundary
 
 The SquiFlow operator/super-admin surface is intentionally separated from the tenant/business backend.
 
@@ -70,7 +84,7 @@ for ordinary platform-control work.
 
 This separation exists because platform operators can perform cross-tenant, provider, runtime, support, and security-sensitive actions whose availability and attack surface should not be coupled to the tenant business API.
 
-## 4. Platform Admin responsibilities
+## 5. Platform Admin responsibilities
 
 Create `apps/admin-web` and `services/admin-api` when the first real platform-control/Admin slice is implemented.
 
@@ -88,7 +102,7 @@ Platform operators authenticate through ZITADEL but require separate platform-le
 
 Exact OpenFGA store/model separation for platform versus tenant authorization remains a Phase-6 implementation detail; security isolation between them is mandatory.
 
-## 5. Admin API security and dependency rules
+## 6. Admin API security and dependency rules
 
 Admin API has its own:
 - authentication/session validation;
@@ -107,7 +121,7 @@ Admin API may access platform-owned persistence/provider/control-plane dependenc
 
 Where Admin API and Core API both touch shared authoritative data, they must use the same data invariants/transactions/authorization model through shared reviewed application/domain code or explicit persistence contracts rather than duplicating business rules differently.
 
-## 6. Critical server tasks during normal operation
+## 7. Critical server tasks during normal operation
 
 When Platform Admin exists, supported application-level controls such as Worker pause/drain/retry/quarantine, provider config and cross-tenant support operations are exposed only through Admin Web → Admin API.
 
@@ -120,7 +134,7 @@ Do not expose these controls through:
 
 Do not create generic `run SQL`, `set anything`, `force success`, or `mark payment/job complete` controls.
 
-## 7. Failure independence
+## 8. Failure independence
 
 The purpose of a separate Admin API is not merely code organization. It provides an independent application control surface.
 
@@ -133,7 +147,7 @@ Required behavior:
 
 This does **not** imply that Admin API can function through a central database outage if the operation itself requires that database. Backend independence means no runtime dependency on the Core API process, not magical independence from shared infrastructure.
 
-## 8. Application control plane is not infrastructure recovery
+## 9. Application control plane is not infrastructure recovery
 
 If Admin Web/Admin API itself is unavailable, recovery cannot depend on it.
 
@@ -148,7 +162,7 @@ This is not a second hidden business API and is never exposed to tenant users or
 
 Owner: `docs/operations/DEPLOYMENT_CAPACITY_AND_RECOVERY.md`.
 
-## 9. High-risk application operations
+## 10. High-risk application operations
 
 For high-risk operations actually implemented:
 
@@ -168,7 +182,7 @@ Do not require enterprise approval workflows for ordinary low-risk tenant settin
 
 A hidden/disabled button is UX only; Admin API authorization remains authoritative.
 
-## 10. Device/workstation lifecycle
+## 11. Device/workstation lifecycle
 
 Tenant Settings may manage enrollment visibility, revocation/suspension, friendly name and supported device policy.
 
