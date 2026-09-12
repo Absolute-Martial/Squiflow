@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../../../foundation/application-kernel/SquiFlow.ApplicationKernel/SquiFlow.ApplicationKernel.csproj" />
+  </ItemGroup>
+</Project>
