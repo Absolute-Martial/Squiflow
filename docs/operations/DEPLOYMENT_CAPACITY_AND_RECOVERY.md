@@ -1,6 +1,6 @@
 # Deployment Capacity, Physical Hardware, and Recovery
 
-**Version:** v0.0.15
+**Version:** v0.0.17
 
 This document grounds SquiFlow in the current lower-spec owned rack and bootstrap external-service reality. It does not pretend the environment is an elastic cloud.
 
@@ -107,7 +107,7 @@ The selected central/local database stack must be tested on the actual hardware 
 - restore onto replacement hardware;
 - measured restart/recovery time.
 
-If PostgreSQL is selected, also observe connection/backend-process resource cost, WAL growth, checkpoints, autovacuum, temp spill and archive/log growth under the actual SquiFlow burst workload. Logical SQL correctness alone is not sufficient qualification on a small rack.
+For the selected PostgreSQL implementation, also observe connection/backend-process resource cost, WAL growth, checkpoints, autovacuum, temp spill and archive/log growth under the actual SquiFlow burst workload. Logical SQL correctness alone is not sufficient qualification on a small rack.
 
 UPS, ECC, RAID/ZFS, enterprise SSDs and similar hardware are not automatically required. Decide them from actual RPO/RTO/risk/budget.
 

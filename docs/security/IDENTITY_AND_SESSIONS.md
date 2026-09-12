@@ -1,6 +1,6 @@
 # Identity and Session Architecture
 
-**Version:** v0.0.15
+**Version:** v0.0.18
 
 ## 1. Selected identity platform
 
@@ -211,15 +211,37 @@ Where SquiFlow Core API must manage ZITADEL users/organizations/configuration, u
 
 Do not give ordinary runtime code blanket instance-owner authority merely because it is convenient. Separate identity-provisioning permissions from platform break-glass infrastructure credentials.
 
-## 15. Cloud versus self-hosted remains open
+## 15. Initial deployment: ZITADEL Cloud
 
-ZITADEL product selection is accepted. Deployment mode is still an implementation/operations decision:
-- ZITADEL Cloud reduces infrastructure burden;
-- self-hosted gives more control but adds database, upgrade, backup, availability, and operational load.
+**ZITADEL Cloud is the selected initial identity deployment.**
 
-Do not accidentally self-host it on the small rack simply because self-hosting exists; decide from resource/availability/privacy requirements during Phase 1.
+This keeps SquiFlow focused on OIDC/session/application integration instead of immediately owning another production PostgreSQL-backed security system, upgrades, signing/configuration, backups, monitoring, and high availability.
 
-## 16. Local secret/data-at-rest boundary
+Cloud hosting does not change the authority split:
+- ZITADEL authenticates and provides identity/MFA/SSO/step-up capability;
+- SquiFlow resolves accounts, tenant memberships, devices and sessions;
+- OpenFGA evaluates application relationships/permissions;
+- SquiFlow enforces module availability, tenant isolation and domain rules.
+
+Phase 1 still chooses and proves the exact ZITADEL instance/project/application layout, service-account scopes, tenant-organization mapping, callback/session behavior, and provisioning/recovery procedures.
+
+## 16. Self-hosting is a later migration, not an automatic growth step
+
+Reconsider self-hosting only when evidence shows a material need such as:
+- Cloud cost at demonstrated scale;
+- data-residency, regulatory, contractual or privacy control;
+- required availability/network/control behavior the managed service cannot meet;
+- unacceptable provider dependency or a required feature/control boundary.
+
+Self-host only when SquiFlow can own production operation: PostgreSQL, high availability where required, backup/restore, upgrades/schema migration, secrets/signing/certificates, monitoring, incident response, security patching, capacity and tested recovery.
+
+Growth alone is not the trigger. The expected benefit must exceed both steady-state and incident-time operating cost.
+
+Migration must preserve account ownership deliberately. Because the stable external key is (issuer, subject), an issuer change is an identity-key change unless an explicit, tested account-link/migration process maps it. Do not silently match by email.
+
+Keep a version-controlled inventory/export/reprovision plan for ZITADEL configuration appropriate to the managed deployment, without copying credentials or secrets into the repository.
+
+## 17. Local secret/data-at-rest boundary
 
 Use supported Windows secure-storage/data-protection mechanisms for local credentials where appropriate; do not invent encryption with a hardcoded application key.
 
@@ -228,6 +250,7 @@ Exact local at-rest mechanism remains a Windows POC.
 ## Source basis
 
 - ZITADEL OIDC/authentication docs: https://zitadel.com/docs/guides/integrate/login/oidc
+- ZITADEL self-hosting/deployment docs: https://zitadel.com/docs/self-hosting/deploy/overview
 - ZITADEL B2B organizations: https://zitadel.com/docs/guides/solution-scenarios/b2b
 - OpenID Connect specifications: https://openid.net/wg/connect/specifications/
 - OAuth 2.0 for Native Apps (RFC 8252)

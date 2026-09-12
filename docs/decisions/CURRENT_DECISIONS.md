@@ -1,4 +1,4 @@
-# Current Decisions — v0.0.16
+# Current Decisions — v0.0.18
 
 This file records accepted direction only. Detailed reasoning and changes from the decision audit live in `docs/review/DECISION_AUDIT.md`. Observability-specific implementation contracts live under `docs/observability/`.
 
@@ -9,6 +9,10 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Avalonia is the Windows Workstation UI framework.
 - Blazor Web App is the tenant Web presentation foundation and the future Platform Admin Web presentation foundation.
 - The business core is a modular monolith. A module does not become a service merely because it has a name.
+- **SquiFlow owns a small application kernel on standard .NET/ASP.NET Core primitives.** ABP and Orchard Core are reference designs, not combined runtime foundations or application authorities.
+- Trusted modules declare explicit dependencies, host contributions, features, permissions, settings, migrations/seeds and background handlers. The kernel validates a dependency DAG and composes only the current host's contributions.
+- Per-tenant feature activation is versioned data resolved through `TenantContext`; it does not create one DI container/application instance per tenant. Loaded assemblies are not hot-unloaded, and arbitrary third-party micro-plugins/scripts are not baseline.
+- A feature/module can be enabled or disabled at runtime for a tenant only through validated, versioned, audited publication. Disabling prevents new entry but never deletes authoritative data or silently loses accepted durable work.
 - `apps/web`, `apps/desktop`, and `services/core-api` are early executable boundaries.
 - `apps/admin-web` is a separate platform-control-plane UI executable and is created when the platform-admin slice needs it.
 - **`services/admin-api` is a separate Platform Admin backend executable and deployment boundary from `services/core-api`.** Platform/super-admin operations do not depend on Core API being available and are not hosted as `/platform-admin/...` routes on Core API.
@@ -24,7 +28,7 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Do not create empty projects/directories to match an architecture diagram.
 - Do not create generic helper/manager/service layers that only forward calls.
 - Do not introduce an interface merely because an implementation class exists or because mocking it is possible.
-- Generic `IRepository<T>`, `IUnitOfWork`, and one-interface-per-class conventions are not baseline.
+- Generic `IRepository<T>`, `IUnitOfWork`, and one-interface-per-class conventions are not baseline. The unit-of-work **concept** remains an explicit transaction around one authoritative application command; EF Core or a deliberate ADO.NET/Dapper transaction may implement it inside the persistence adapter.
 - An interface is justified when there is a concrete dependency-inversion/replacement boundary, including an already-planned near-term provider migration.
 - Clean-code/SOLID principles are design-review guidance, not reasons to create ceremonial layers. Prefer meaningful business names, cohesive responsibilities, shallow/readable control flow, and explicit policy/config values; tolerate small duplication when the alternative is a wrong generic abstraction.
 - Liskov/interface-segregation implications apply to accepted provider seams: replacement adapters must honor the same SquiFlow contract and interfaces stay narrower than the third-party SDKs they hide.
@@ -107,10 +111,12 @@ This file records accepted direction only. Detailed reasoning and changes from t
 
 ## Identity and authorization stack
 
-- **ZITADEL is the current identity/authentication platform choice** for interactive authentication, account/session/MFA/SSO capability, using standards-based OpenID Connect/OAuth integration.
+- **ZITADEL Cloud is the selected initial identity/authentication deployment** for interactive authentication, account/session/MFA/SSO capability, using standards-based OpenID Connect/OAuth integration. Self-hosting is reconsidered only for explicit scale/cost, residency/compliance, control/availability, or provider-dependency needs and only with proven operational capacity.
 - Workstation login uses ZITADEL through the system browser + Authorization Code + PKCE `S256`; no reusable native client secret or central DB credential is embedded in the Workstation.
 - Stable external account identity remains `(issuer, subject)`, not email.
 - **OpenFGA is the current application-authorization engine choice** for tenant roles, tenant-defined custom roles, role assignments, stable permissions/relations, and resource relationship checks where applicable.
+- SquiFlow modules own stable permission definitions and metadata. Effective authorization also requires module/feature availability, authoritative tenant/platform scope, OpenFGA decision at the required freshness, delegation ceilings, and SquiFlow domain/concurrency/limit validation.
+- Feature availability, settings, permissions, and domain validity are separate checks. Enabling a feature grants no role; hiding a UI component is not enforcement; ZITADEL role/token claims are not current business permission truth.
 - ZITADEL authentication and OpenFGA application authorization are separate concerns. ZITADEL role/token claims are not treated as current SquiFlow business authorization truth.
 - ASP.NET Core policy/requirements/`IAuthorizationService` remain the server integration point. Core API uses tenant authorization; Admin API uses separate platform authorization. SquiFlow domain/workflow/concurrency rules still run separately.
 - OpenFGA does not replace database tenant isolation, business state validation, workflow guards, idempotency, concurrency checks, consumption accounting, or limit enforcement.
@@ -136,15 +142,18 @@ This file records accepted direction only. Detailed reasoning and changes from t
 - Authentication, authorization, and tenant isolation are separate concerns.
 - Schema-per-tenant, DB-per-tenant, queue-per-tenant, and deployment-per-tenant are not baseline.
 - Shared-resource fairness/noisy-neighbor protection and tenant-scoped resource limits may be used where the implemented workload requires them. They are application/resource policies; they become commercial allowances only if a later product decision maps them to a subscription/contract.
-- PostgreSQL remains the strongest central reference candidate; if used, its proof includes RLS defense in depth and safe runtime-role/connection-pool behavior.
-- SQLite + WAL and libSQL remain Workstation-store candidates.
-- Exact central and local database products remain open until the relevant vertical-slice POCs close them.
+- **PostgreSQL is selected as the initial central transactional database.** Phase 3 remains a qualification gate for ACID behavior, normalized constraints, pooled tenant isolation, Row-Level Security defense in depth, workload/query performance, migration, backup/restore, recovery, and bounded operation on the actual rack.
+- **SQLite with WAL is selected as the initial Workstation embedded database.** Phase 2 remains a qualification gate for atomic business mutation + local outbox, concurrency, crash/restart recovery, migration, long-offline persistence, disk-full behavior, integrity recovery, encryption choice, and Windows/.NET packaging.
+- Selecting the products before their POCs separates architectural commitment from production qualification. A failed material gate requires an explicit superseding decision; it does not permit silently shipping an unqualified database.
+- **libSQL is deferred, not layered on top of SQLite.** Reopen it only for a concrete embedded-replica/remote-access or other libSQL-specific need and only after supported .NET/Windows integration, offline semantics, operations, and migration value are proven.
+- **A dedicated NoSQL database is not baseline.** Bounded semi-structured configuration may use PostgreSQL JSONB or an explicit SQLite representation without hiding core relational invariants. Add a specialized document/search/KV store only for a named workload with explicit authority, consistency, rebuild, backup, tenancy, and operating-cost contracts.
+- Artwork, PDFs, images, and other large unstructured objects belong behind `IObjectStore`; database records retain their structured ownership, integrity, lifecycle, and hash metadata.
 - Authoritative relational data is normalized around real business identities/relationships first. Denormalized/materialized read structures are derived optimizations with explicit source, freshness, rebuild, tenant-scope, and failure contracts.
 - Core business invariants are not hidden in arbitrary JSON/EAV or tenant-specific DDL merely to avoid schema design. Bounded custom fields/forms are a separate extensibility concern.
 - Indexes are workload-driven: each important index/constraint must protect a real query/invariant and its write, storage, WAL, migration, and sync/import costs are measured. “Index every filterable column” is not baseline.
 - Tenant-local uniqueness and hot tenant-scoped queries use tenant-aware keys/indexes where appropriate, but index shape is confirmed by actual query plans/cardinality rather than a mechanical prefix rule.
 - Central DB selection/tuning starts from an explicit workload profile: read/write/delete mix, representative item sizes, tenant/data skew, normal and reconnect-burst concurrency, sync/import bursts, consistency requirements, hot query cardinalities, and the initial HA/geographic assumptions.
-- If PostgreSQL is selected, operational proof includes connection/backend-process cost, WAL growth, checkpoints, autovacuum, temp/sort spill, archive/log growth, restart/crash recovery, and disk-full behavior on the actual rack—not only SQL/RLS correctness.
+- PostgreSQL operational qualification includes connection/backend-process cost, WAL growth, checkpoints, autovacuum, temp/sort spill, archive/log growth, restart/crash recovery, and disk-full behavior on the actual rack—not only SQL/RLS correctness.
 - Core API, Admin API, and Worker may share the same authoritative central database because they are runtime hosts of the same modular-monolith business core, not independent microservices. Shared access must preserve explicit module/data ownership and the same invariants/transaction rules.
 - If a future capability is extracted into a genuinely independent service, its authoritative data ownership becomes explicit; other services do not directly modify its private tables as a shortcut.
 - Database schema changes account for supported old/new backend processes, skipped Workstations, pending sync, durable jobs/messages, and stored rule/workflow snapshots. Prefer additive expand-migrate-switch-contract evolution; destructive contraction waits for inventory/drain/compatibility evidence.

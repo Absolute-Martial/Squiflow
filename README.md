@@ -1,6 +1,6 @@
 # SquiFlow
 
-**Current architecture/documentation version: `v0.0.16`**
+**Current architecture/documentation version: `v0.0.18`**
 
 Start with [`MASTER_IMPLEMENTATION_PLAN.md`](MASTER_IMPLEMENTATION_PLAN.md).
 
@@ -15,12 +15,15 @@ Start with [`MASTER_IMPLEMENTATION_PLAN.md`](MASTER_IMPLEMENTATION_PLAN.md).
 - **Platform Admin uses a separate `services/admin-api` backend**, independent of Core API for normal super-admin/control-plane operations.
 - `apps/admin-web → services/admin-api`; Core API is not the normal downstream backend for platform administration.
 - Modular-monolith business code; network/process boundaries are added when they protect a real deployment/fault/security/recovery responsibility.
+- **A small SquiFlow-owned application kernel** composes trusted modules through standard .NET dependency injection, explicit dependency/feature descriptors, typed settings and host contributions. ABP and Orchard Core are reference designs, not combined runtime foundations.
+- Per-tenant module/feature activation is versioned data resolved from `TenantContext`; it does not create a service container or application instance per tenant, and loaded assemblies are not hot-unloaded.
 - Ordinary business modules communicate in-process; HTTP/gRPC between modules is not baseline.
 - **SquiFlow.Guard** is a baseline Workstation companion for launch/supervision, bounded crash/hang recovery, update recovery, child/helper cleanup and diagnostic/resource evidence. It does not own business logic.
 - Small-team-first tenant model: Owner + Staff by default, with Owner-controlled granular permissions.
 - Tenant role/permission and rule/workflow/form administration is Web-only; Desktop consumes published authority/configuration and never grants it.
-- **ZITADEL** is the selected identity/authentication platform.
+- **ZITADEL Cloud** is the selected initial identity/authentication deployment; self-hosting is a later evidence-triggered migration, not a Phase-1 default.
 - **OpenFGA** is the selected application-authorization engine for roles/custom roles/assignments/resource relationships where applicable.
+- SquiFlow modules own stable permission definitions and availability metadata; OpenFGA evaluates current relationships, while ZITADEL claims do not become business-permission truth.
 - ASP.NET Core authorization integrates OpenFGA checks; SquiFlow domain/workflow/concurrency rules and DB tenant isolation remain separate.
 - Tenant and platform authorization scopes remain separate; a tenant role can never become super-admin authority.
 - Workstation login uses system-browser OIDC Authorization Code + PKCE against ZITADEL.
@@ -37,7 +40,7 @@ Start with [`MASTER_IMPLEMENTATION_PLAN.md`](MASTER_IMPLEMENTATION_PLAN.md).
 - Retryable mutations use semantic idempotency keys; duplicate defense covers caller/producer retry, transport redelivery, consumer/effect replay, and metered usage where one semantic effect must count once.
 - At-least-once delivery is handled by idempotent/reconcilable effects; system-wide `exactly once` is not claimed from one local transaction/broker feature.
 - **Consistency is selected per invariant**, not globally: payments/stock/credit/tenant isolation/current sensitive authorization/hard limits use current/strong authority; caches/notifications/derived reports may be eventually updated only with explicit freshness/rebuild rules.
-- PostgreSQL is the strongest central reference candidate; SQLite + WAL and libSQL are Workstation-store candidates. Exact DB products remain open until their POCs.
+- PostgreSQL is selected as the initial central transactional database, and SQLite with WAL is selected as the initial Workstation embedded database. Phase 3 and Phase 2 qualify their exact implementations. libSQL and dedicated NoSQL are deferred until a concrete workload justifies their additional integration and operational cost.
 - Authoritative relational state is normalized first; denormalized/materialized read structures are derived optimizations with explicit source/freshness/rebuild contracts.
 - Database indexes are workload-driven and measured for both query benefit and write/WAL/storage/migration/sync cost.
 - Core API, Admin API, and Worker may share the central DB as hosts of the same modular-monolith business core; shared access still has explicit module/data ownership and common invariants.
@@ -115,6 +118,7 @@ Minimalism must never remove required offline durability, recovery, authorizatio
 
 ### Architecture/runtime/operations
 - [`docs/architecture/REPOSITORY_STRUCTURE.md`](docs/architecture/REPOSITORY_STRUCTURE.md)
+- [`docs/architecture/APPLICATION_KERNEL_AND_MODULES.md`](docs/architecture/APPLICATION_KERNEL_AND_MODULES.md) — SquiFlow-owned module/DI/settings/features/application-service/transaction composition and ABP/Orchard reference boundary.
 - [`docs/architecture/CONTROL_PLANE_AND_DATA_PLANE.md`](docs/architecture/CONTROL_PLANE_AND_DATA_PLANE.md)
 - [`docs/architecture/MULTI_TENANCY_ISOLATION.md`](docs/architecture/MULTI_TENANCY_ISOLATION.md)
 - [`docs/server/CORE_API_AND_WORKER.md`](docs/server/CORE_API_AND_WORKER.md)
@@ -173,4 +177,4 @@ Generated CSV inventories/review ledgers are not architecture authority. Markdow
 
 ## Versioning
 
-The current architecture/documentation baseline is `v0.0.16`. This version records the accepted observability implementation contracts discussed after v0.0.15; it does not imply that implementation code already exists.
+The current architecture/documentation baseline is `v0.0.18`. This version adds the SquiFlow-owned application-kernel/module/settings/feature boundary, the module-owned permission catalog integrated with OpenFGA, and ZITADEL Cloud as the initial identity deployment. It retains the v0.0.17 PostgreSQL/SQLite decisions and does not imply that implementation code already exists.

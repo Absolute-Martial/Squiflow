@@ -1,6 +1,6 @@
 # Sequential Implementation Phases and Gates
 
-**Version:** v0.0.15
+**Version:** v0.0.18
 
 Implementation is sequential. Default WIP limit: **one phase**.
 
@@ -15,10 +15,10 @@ For each phase:
 
 ## Phase-start decisions
 
-- **Phase 0:** ZITADEL/OpenFGA are selected; no final central/local DB is required yet. Create the real Guard and the two already-justified provider contracts (`IObjectStore`, `IBackupTarget`) without scaffolding unrelated abstractions. Start a version-controlled `deploy/` representation, but do not select Kubernetes/Flux/Terraform merely to make the repository look production-like.
-- **Phase 1:** close ZITADEL Cloud vs self-hosted, instance/project/application layout, first OpenFGA store/model, model-ID rollout, initial consistency/reconciliation policy, and Blazor render/circuit/session topology.
-- **Phase 2:** choose the Workstation local DB after the smallest SQLite/libSQL proof needed for a real local transaction.
-- **Phase 3:** choose the initial central DB implementation capable of authoritative transaction + pooled isolation + normalized schema/index/query-plan proof, and close the first concrete API/sync compatibility versioning mechanism required by Workstation/server skew. The DB proof begins from an explicit SquiFlow workload profile rather than generic benchmark traffic.
+- **Phase 0:** The SquiFlow-owned application kernel, standard .NET DI, startup-loaded trusted modules, per-tenant data-driven feature/settings snapshots, and no automatic controller/per-tenant container are selected. Prove their smallest implementation with one module; do not implement ABP/Orchard runtimes. ZITADEL Cloud/OpenFGA, PostgreSQL for the central transactional store, and SQLite/WAL for the Workstation store are selected; no database implementation is required until its owning slice. Create the real Guard and the two already-justified provider contracts (`IObjectStore`, `IBackupTarget`) without scaffolding unrelated abstractions. Start a version-controlled `deploy/` representation, but do not select Kubernetes/Flux/Terraform merely to make the repository look production-like.
+- **Phase 1:** close the ZITADEL Cloud instance/project/application layout, first OpenFGA store/model, model-ID rollout, initial consistency/reconciliation policy, and Blazor render/circuit/session topology. Self-hosting ZITADEL is not a Phase-1 default.
+- **Phase 2:** qualify the selected SQLite/WAL Workstation store through the smallest real local transaction, outbox, restart/recovery, migration, disk-full, integrity, encryption, and Windows/.NET packaging proof.
+- **Phase 3:** qualify the selected PostgreSQL implementation through authoritative transaction + pooled isolation/RLS + normalized schema/index/query-plan + migration/backup/recovery proof, and close the first concrete API/sync compatibility versioning mechanism required by Workstation/server skew. The DB proof begins from an explicit SquiFlow workload profile rather than generic benchmark traffic.
 - **Phase 6:** create `apps/admin-web`, **independent `services/admin-api`**, and `services/worker` only when their first real control/durable-work slice exists. Choose only the background mechanism required by that workload.
 - **Phase 7:** use private Hugging Face through `IObjectStore` and encrypted private Kaggle through `IBackupTarget`.
 - **Before paying-customer production:** actual rack inventory/recovery, reproducible deployment/rebuild, backup restore proof, provisional RPO/RTO, operator/break-glass access, printer support, edge/DNS/TLS/time recovery, scaling thresholds, provider migration readiness, and the hard resource/usage limits required by the production profile must be known honestly.
@@ -55,6 +55,7 @@ apps/web
 apps/desktop/workstation
 apps/desktop/guard
 services/core-api
+foundation/application-kernel/ smallest module/feature/settings/permission composition
 modules/                 only first-slice capabilities
 infrastructure/storage/  IObjectStore + HuggingFaceObjectStore shell/contract
 infrastructure/backup/   IBackupTarget + KaggleBackupTarget shell/contract
@@ -67,6 +68,9 @@ Do not create yet:
 - `apps/admin-web`;
 - `services/admin-api`;
 - Worker;
+- ABP or Orchard as the application kernel, or both runtime frameworks together;
+- per-tenant DI containers, runtime assembly hot-unload, arbitrary micro-plugin/script loading;
+- automatic REST controller exposure or generated clients without a reviewed contract;
 - generic repository/unit-of-work hierarchy;
 - one interface per class/provider API;
 - generic metering/billing/data-warehouse infrastructure;
@@ -79,6 +83,11 @@ Deliver:
 - solution/build structure;
 - CI that produces a versioned immutable artifact/checksum, runs the first secret/dependency checks, and does not bake environment secrets into client/server artifacts;
 - Web/Workstation/Guard/Core API launchable skeletons;
+- first trusted module descriptor/dependency graph and host filtering;
+- one typed setting with deterministic platform/tenant precedence and validation;
+- one per-tenant feature enable/disable publication with dependency closure, immutable revision and no data deletion;
+- one module-owned stable permission definition wired to the SquiFlow authorization adapter boundary;
+- no per-tenant service provider; tenant behavior comes from scoped TenantContext and effective module/feature/settings/permission state;
 - Guard launches/supervises Workstation and records bounded lifecycle evidence;
 - basic health endpoint;
 - typed TenantContext boundary;
@@ -97,6 +106,11 @@ Attack:
 - provider implementation accidentally leaks Hugging Face/Kaggle types into a business contract;
 - a proposed SOLID/clean-code refactor creates an interface/helper with no real responsibility or replacement boundary;
 - a developer proposes HTTP/gRPC between two modules that run in the same host without a real process/security/fault boundary;
+- cyclic/missing module dependency or contribution for the wrong host;
+- feature disabled while its endpoint, application service, background enqueue, route or UI contribution is called directly;
+- feature disabled with pending durable work or retained data;
+- tenant A's feature/settings snapshot or scoped service leaks into tenant B;
+- module tries to register a per-tenant singleton/container or exposes an application method automatically as an endpoint;
 - a deployment change exists only as an undocumented manual command and cannot be recreated from repository/runbook state;
 - a secret or environment-specific credential is present in source/build output, or the same version is rebuilt into different bytes for each environment without explanation.
 
@@ -107,6 +121,8 @@ Gate:
 - `IObjectStore`/`IBackupTarget` are narrow enough to implement a second adapter later without mirroring whole third-party SDKs;
 - Admin Web/Admin API/Worker remain documented future boundaries without empty placeholder projects;
 - no architecture-style abstraction/network hop/orchestrator exists solely to satisfy a pattern slogan;
+- the first module proves dependency ordering, host composition, per-tenant feature/settings revision stability and module-owned permission definition without ABP/Orchard runtime dependencies;
+- disabling a feature blocks every authoritative entry path without deleting data or losing accepted work;
 - the current development/deployment skeleton is reproducible enough that a second machine/operator is not forced to infer every startup step.
 
 ---
@@ -114,12 +130,13 @@ Gate:
 ## Phase 1 — ZITADEL identity + OpenFGA smallest tenant
 
 Deliver:
-- configured ZITADEL OIDC applications for tenant Web and Workstation;
+- configured ZITADEL Cloud OIDC applications for tenant Web and Workstation;
 - Owner tenant bootstrap;
 - invite one Staff user;
 - `(issuer, subject)` account mapping;
 - Workstation system-browser Authorization Code + PKCE `S256` login/device enrollment;
 - authoritative SquiFlow membership → TenantContext resolution;
+- first SquiFlow permission catalog entries from the implemented module;
 - first OpenFGA store and pinned authorization model ID;
 - Owner/Staff relations;
 - one tenant-defined custom role flow using tuples rather than model redeployment;
@@ -133,6 +150,7 @@ Deliver:
 
 Do not:
 - trust ZITADEL token roles as current SquiFlow authorization truth;
+- use feature enablement as a role grant or UI hiding as enforcement;
 - let Desktop write OpenFGA tuples;
 - equate a ZITADEL organization claim directly with SquiFlow TenantContext without server verification;
 - put workflow/payment/stock/limit arithmetic into OpenFGA;
@@ -159,7 +177,7 @@ Attack:
 - stored/reflected/client-side XSS attempt through implemented customer/staff fields and validation/error rendering.
 
 Gate:
-- ZITADEL authenticates; OpenFGA authorizes; SquiFlow tenant/domain checks remain independent;
+- ZITADEL authenticates; SquiFlow resolves module/feature and permission definitions; OpenFGA authorizes relationships; SquiFlow tenant/domain checks remain independent;
 - role/grant UI reports applied only when intended OpenFGA state is known applied;
 - ambiguous tuple writes have reconciliation, not guesswork;
 - custom role does not require new authorization model deployment;
@@ -220,7 +238,7 @@ Deliver:
 - normalized authoritative schema for the implemented Customer/Order slice;
 - bounded custom/extensible fields kept separate from core relational invariants;
 - pooled tenant discriminator and provider-appropriate isolation proof;
-- PostgreSQL RLS proof if PostgreSQL is selected;
+- PostgreSQL RLS proof for the selected central implementation;
 - atomic business mutation + idempotency receipt + outbox where one store owns them;
 - remote change feed + cursor;
 - finite retry/backoff with an intentional retry owner for each remote path;
@@ -228,7 +246,7 @@ Deliver:
 - actual query-plan/index proof at current and projected larger cardinalities;
 - measured write/WAL/storage/migration impact of the selected indexes;
 - explicit consistency classification for authoritative versus derived state;
-- if PostgreSQL is selected: measured connection/backend-process resource cost, WAL/checkpoint behavior, autovacuum, temp/sort spill, archive/log/disk growth, and crash/restart recovery under the SquiFlow workload;
+- for the selected PostgreSQL implementation: measured connection/backend-process resource cost, WAL/checkpoint behavior, autovacuum, temp/sort spill, archive/log/disk growth, and crash/restart recovery under the SquiFlow workload;
 - first explicit API/sync protocol compatibility/version contract for Workstation/server skew;
 - REST/task-oriented resource/command shape without pretending every semantic transition is generic CRUD;
 - per-invariant concurrency mechanism: expected version/conditional update, database constraint, or narrowly justified isolation/lock;

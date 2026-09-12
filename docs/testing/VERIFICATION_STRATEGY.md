@@ -1,6 +1,6 @@
 # Verification and Failure-Injection Strategy
 
-**Version:** v0.0.16
+**Version:** v0.0.17
 
 SquiFlow uses the smallest test layer that can prove a real invariant. Lean architecture does **not** mean shallow testing: edge/failure behavior that protects core capability remains required.
 
@@ -18,7 +18,7 @@ Use for pure invariants such as:
 Use for command validation, workflow continuation, authorization composition around mocked external decisions only where the external integration itself is not under test.
 
 ### Real persistence-adapter tests
-Use the real candidate DB for:
+Use the selected real PostgreSQL implementation for:
 - transactions/constraints;
 - expected-version, atomic-update, isolation, concurrency/locking, deadlock/serialization and bounded whole-transaction retry behavior;
 - tenant isolation/RLS where applicable;
@@ -27,7 +27,7 @@ Use the real candidate DB for:
 - additive/backfill/switch/contract migrations with old/new reader/writer overlap and recovery.
 
 ### Workstation local-store tests
-Use the actual SQLite/libSQL candidate for:
+Use the selected SQLite/WAL implementation for:
 - atomic business + outbox commit;
 - restart/recovery;
 - lock contention;

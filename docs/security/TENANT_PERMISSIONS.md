@@ -1,6 +1,6 @@
 # Tenant Owner Roles, Permission IDs, and OpenFGA Authorization
 
-**Version:** v0.0.15
+**Version:** v0.0.18
 
 SquiFlow is small-team-first. `Owner` and `Staff` are default templates, not fixed product roles.
 
@@ -39,13 +39,66 @@ roles.manage
 domains.manage
 rules.manage
 workflow.manage
+settings.manage
+features.manage
 ```
 
 These are product capabilities, not Web screen names or HTTP route names.
 
 Tenant users may create custom role **instances** and choose which supported capabilities they contain. They do not invent arbitrary executable permission semantics.
 
-## 3. OpenFGA modeling rule
+## 3. Module-owned permission definitions
+
+Each trusted SquiFlow module publishes stable permission definitions into one SquiFlow permission catalog.
+
+A definition may contain:
+- stable permission ID and owning module;
+- display/localization/group/parent metadata;
+- required feature/module;
+- supported tenant/platform/resource scopes;
+- allowed delegation ceiling;
+- host applicability;
+- risk/freshness class;
+- deprecation/compatibility metadata.
+
+This borrows the useful definition/catalog idea from ABP and the module-aware composition idea from Orchard Core without adopting either permission runtime or role store.
+
+Permission definitions are trusted versioned code/module metadata. Tenants can compose supported definitions into custom roles, but cannot create arbitrary executable permission rules.
+
+## 4. Feature availability is not authorization
+
+Module/feature availability answers whether a capability exists for the deployment/tenant. Permission answers whether an actor may attempt it.
+
+~~~text
+feature available
+AND permission defined for that feature/scope
+AND current OpenFGA relationship decision
+AND tenant/platform boundary and delegation ceiling
+AND domain/workflow/concurrency/limit checks
+= action may proceed
+~~~
+
+Enabling a feature grants no role or tuple. Disabling a feature makes its permissions ineffective for new actions but does not rewrite historical audit/business records or silently delete role definitions/data. Related grants become dormant and visible; re-enabling presents an effective-permission diff and requires authorized confirmation before dormant grants become effective again.
+
+A Web or Workstation component may hide/disable unavailable or unauthorized controls for usability. The authoritative API/application service repeats the required checks; UI visibility is never security.
+
+Attributes such as RequiresFeature or RequiresPermission may declare method/controller/component requirements, but they adapt to the same SquiFlow catalog/evaluator. They do not create an alternate authorization path.
+
+## 5. ZITADEL, OpenFGA, and SquiFlow responsibilities
+
+| Responsibility | Authority |
+|---|---|
+| credential, authentication, MFA/SSO, authentication strength/recency | ZITADEL Cloud initially |
+| account, tenant membership, device and immutable TenantContext resolution | SquiFlow |
+| stable permission definitions and module/feature applicability | SquiFlow modules/catalog |
+| tenant roles, role assignments and resource relationships | OpenFGA model/tuples plus SquiFlow administrative workflow |
+| relationship/permission decision at required consistency | OpenFGA through SquiFlow authorization adapter |
+| tenant/platform separation, delegation ceiling, domain/workflow/concurrency/limit validity | SquiFlow |
+| database row reachability | tenant-scoped persistence and PostgreSQL RLS defense in depth |
+
+ZITADEL application/project roles or token claims may assist identity/bootstrap flows only when explicitly mapped and revalidated. They are not current SquiFlow business permission truth and do not replace OpenFGA.
+
+## 6. OpenFGA modeling rule
 
 Follow OpenFGA's domain-oriented custom-role pattern rather than generating a new authorization model for every tenant role edit.
 
@@ -75,7 +128,7 @@ order:01...
 
 Do not put email addresses, customer names, free-form notes or other unnecessary PII in tuple identifiers.
 
-## 4. Pin authorization model versions
+## 7. Pin authorization model versions
 
 Production OpenFGA calls specify an explicit `authorization_model_id` rather than silently targeting whichever model was most recently created.
 
@@ -93,7 +146,7 @@ create new model
 
 A tenant Owner editing a role normally changes tuples, not the model ID.
 
-## 5. Permission assignment is Web-only
+## 8. Permission assignment is Web-only
 
 Roles and grants change only through authenticated tenant Web administration:
 
@@ -116,7 +169,7 @@ The Desktop:
 
 Platform-level/operator authorization remains separate from ordinary tenant Owner authority.
 
-## 6. Cross-system change correctness
+## 9. Cross-system change correctness
 
 OpenFGA and the SquiFlow business database are separate systems, so do not pretend a role/grant change is one ACID transaction across both.
 
@@ -142,7 +195,7 @@ For revocation, do not rely on an old Workstation snapshot or token role claim a
 
 The exact durable change protocol is a Phase-1 implementation detail and is recorded as OPEN, but silent cross-system partial success is not acceptable.
 
-## 7. ASP.NET Core integration
+## 10. ASP.NET Core integration
 
 ASP.NET Core `IAuthorizationService` remains the Core API authorization integration primitive.
 
@@ -171,7 +224,7 @@ ManageRolesRequirement
 
 A handler may invoke OpenFGA, but it remains side-effect-free with respect to the business command. Authorization succeeds or fails; mutation happens afterward.
 
-## 8. OpenFGA does not own every rule
+## 11. OpenFGA does not own every rule
 
 Keep these outside OpenFGA unless a concrete model proves otherwise:
 - order/payment canonical state transitions;
@@ -193,7 +246,7 @@ SquiFlow domain: quote is currently Submitted and may transition to Approved
 
 Both must pass.
 
-## 9. Tenant isolation remains independent
+## 12. Tenant isolation remains independent
 
 OpenFGA authorization is not a substitute for pooled database tenant isolation.
 
@@ -208,7 +261,7 @@ Then perform the OpenFGA/application action check.
 
 A valid OpenFGA relation must never turn an unrestricted cross-tenant SQL query into acceptable data access.
 
-## 10. Custom roles and scopes
+## 13. Custom roles and scopes
 
 Role assignments may support:
 - Tenant;
@@ -220,7 +273,7 @@ OpenFGA is well suited to relationship-based scope, but do not create per-row re
 
 Tenant-defined roles are first-class role objects/tuples, while supported permission relations remain defined by SquiFlow's authorization model.
 
-## 11. State-aware operations
+## 14. State-aware operations
 
 Do not create a permission name for every workflow status.
 
@@ -242,7 +295,7 @@ AND quote state = Submitted
 AND Submitted → Approved transition is currently valid
 ```
 
-## 12. Property-level authorization
+## 15. Property-level authorization
 
 Request/response DTOs explicitly allow accepted/exposed properties.
 
@@ -250,7 +303,7 @@ Sensitive fields such as cost, margin, credit limit and privileged notes are exp
 
 A hidden Web field is not security. The API projection/command contract and authorization decision enforce it.
 
-## 13. Delegation safety
+## 16. Delegation safety
 
 A tenant role manager can grant only authority inside the actor's permitted delegation ceiling.
 
@@ -263,7 +316,7 @@ A role edit cannot create:
 
 The API validates the requested role/permission relationship before writing OpenFGA tuples.
 
-## 14. Authorization freshness and consistency
+## 17. Authorization freshness and consistency
 
 OpenFGA supports lower-latency and higher-consistency query modes. SquiFlow must choose consistency by operation risk rather than relying unknowingly on cache/replica behavior.
 
@@ -279,13 +332,13 @@ OpenFGA model ID, tuple state, and SquiFlow `TenantAuthorizationRevision` have d
 
 The Workstation snapshot includes the SquiFlow authorization revision and never becomes a server capability token.
 
-## 15. Owner lockout protection
+## 18. Owner lockout protection
 
 Ordinary role editing must not leave the tenant with no recoverable Owner-level administrator.
 
 Ownership transfer/removal is a separately guarded Web operation, can require ZITADEL step-up authentication, updates OpenFGA relationships deliberately, and is audited/reconciled like other high-risk authorization changes.
 
-## 16. Testing requirements
+## 19. Testing requirements
 
 At minimum test:
 - Owner/Staff default role behavior;
@@ -300,7 +353,13 @@ At minimum test:
 - cross-tenant object ID substitution;
 - PII does not appear in tuple identifiers;
 - Workstation offline action is rejected after server-side permission revocation;
-- domain state rejects an action even when OpenFGA permission is allowed.
+- domain state rejects an action even when OpenFGA permission is allowed;
+- feature disabled while a role still contains its permission;
+- feature enabled does not grant the permission;
+- feature re-enabled does not silently reactivate a dormant grant;
+- endpoint/direct application-service/background enqueue attempts cannot bypass feature + permission checks;
+- tenant feature/configuration revision changes during a request/job and one immutable effective revision is used;
+- ZITADEL role claim exists but OpenFGA/SquiFlow permission is absent.
 
 ## Source basis
 
@@ -311,3 +370,6 @@ At minimum test:
 - OpenFGA consistency modes: https://openfga.dev/docs/interacting/consistency
 - OpenFGA tuple best practices: https://openfga.dev/docs/getting-started/tuples-api-best-practices
 - ASP.NET Core resource-based authorization guidance
+- ABP authorization definitions (reference pattern only): https://abp.io/docs/latest/framework/fundamentals/authorization
+- Orchard Core features/tenant profiles/roles (reference patterns only): https://docs.orchardcore.net/en/latest/reference/modules/Features/, https://docs.orchardcore.net/en/latest/reference/modules/Tenants/, and https://docs.orchardcore.net/en/latest/reference/modules/Roles/
+- SquiFlow application-kernel owner: `docs/architecture/APPLICATION_KERNEL_AND_MODULES.md`

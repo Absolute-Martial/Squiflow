@@ -1,6 +1,6 @@
 # Multi-Tenancy Isolation Strategy
 
-**Version:** v0.0.15
+**Version:** v0.0.17
 
 ## 1. Isolation is a spectrum, not one permanent topology
 
@@ -30,7 +30,7 @@ defense-in-depth isolation at persistence boundary
 
 This is the baseline because it minimizes provisioning, migration, backup, deployment and monitoring complexity while SquiFlow is still proving the product and workload.
 
-This is an architecture/isolation decision, **not** a final database-product decision. PostgreSQL remains a reference candidate rather than a selected product.
+PostgreSQL is selected as the initial central transactional database. The pooled tenant baseline still requires Phase-3 isolation, runtime-role, connection-pool, workload, and recovery qualification before production use.
 
 ## 3. Tenant identity and tenant isolation are different
 
@@ -113,9 +113,9 @@ INDEX  (TenantId, Status, CreatedAt)
 
 Global identifiers can still be globally unique, but global uniqueness must not replace tenant scoping.
 
-## 6. PostgreSQL reference adapter: RLS is a defense-in-depth proof requirement
+## 6. Selected PostgreSQL adapter: RLS is a defense-in-depth proof requirement
 
-If PostgreSQL is selected or used as the central reference adapter, its POC must prove PostgreSQL Row-Level Security for tenant-owned pooled tables.
+The selected PostgreSQL adapter's Phase-3 POC must prove PostgreSQL Row-Level Security for tenant-owned pooled tables.
 
 The intent is:
 
@@ -143,7 +143,7 @@ A reference POC therefore must prove the equivalent of transaction-local context
 
 ## 7. RLS does not close the central database decision
 
-RLS is a strong PostgreSQL mechanism, but SquiFlow's architecture cannot require a PostgreSQL-only implementation while the central store remains OPEN.
+RLS is a strong PostgreSQL mechanism, but provider-specific code remains contained outside domain/business models. Selecting PostgreSQL does not justify leaking Npgsql/EF/provider types through module contracts or bypassing application TenantContext and authorization.
 
 Any selected central provider must prove an equivalent isolation story appropriate to that provider:
 
@@ -301,7 +301,7 @@ The pooled baseline is incomplete until automated tests prove at least:
 - connection reuse cannot preserve a previous tenant's database isolation context;
 - backup/restore/migration tooling operates with deliberate privileged identity and does not accidentally omit or mix tenant data.
 
-If PostgreSQL RLS is in the reference POC, also attack runtime-role/table-owner/BYPASSRLS behavior and verify write-side policy checks.
+The PostgreSQL RLS POC also attacks runtime-role/table-owner/BYPASSRLS behavior and verifies write-side policy checks.
 
 ## 16. What is explicitly not being built now
 

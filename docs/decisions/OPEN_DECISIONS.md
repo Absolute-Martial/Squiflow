@@ -1,12 +1,14 @@
-# Open Decisions — v0.0.15
+# Open Decisions — v0.0.18
 
 These are decisions that can materially affect the current implementation baseline. Deferred ideas are not kept here merely because they may be useful someday.
 
 ## Phase-load-bearing technical decisions
 
-- Final central transactional database after the Phase-3 workload/isolation/transaction/performance proof.
-- Final Workstation embedded database after the Phase-2 SQLite versus libSQL proof.
-- **ZITADEL is selected**; open implementation choices are Cloud versus self-hosted deployment, exact instance/project/application layout, service-account scopes, Web session pattern, and tenant-organization mapping after Phase-1 proof.
+- Exact Phase-0 application-kernel types/project packaging, module-discovery mechanism, first module descriptor, feature/settings snapshot persistence, and generated-contract tool remain implementation details to prove. The SquiFlow-owned kernel, standard .NET DI, startup-loaded trusted modules, no per-tenant container, and no automatic controller exposure are already selected.
+
+- Exact PostgreSQL version, .NET driver/data-access approach, deployment topology, pool sizing, RLS policy implementation, migration tooling, WAL/checkpoint/autovacuum configuration, backup/restore procedure, and measured rack envelope after the Phase-3 qualification proof. PostgreSQL itself is selected.
+- Exact SQLite .NET driver, connection/transaction pattern, WAL/checkpoint configuration, migration tooling, encryption-at-rest mechanism, backup/integrity/recovery procedure, and Windows packaging details after the Phase-2 qualification proof. SQLite with WAL itself is selected.
+- **ZITADEL Cloud is selected initially.** Open Phase-1 implementation choices are exact instance/project/application layout, service-account scopes, Web session pattern, tenant-organization mapping, region/contract constraints where applicable, and an export/reprovision/account-linking recovery plan. Self-hosting is not an open default; reconsider it only when scale/cost, residency/compliance, availability/control, or provider-dependency evidence justifies the operational burden.
 - Exact Blazor Web App render-mode/session topology for tenant Web and future Admin Web, including whether Interactive Server is used on each surface and what that implies for circuit memory, reconnect, draining, session affinity, distributed circuit/session persistence, and multi-node behavior. This decision must not silently introduce Redis or claim transparent failover without evidence.
 - Exact native Workstation callback mechanism after Windows packaging/security POC: app-claimed HTTPS if reliable, otherwise standards-compliant loopback IP callback.
 - Exact session-revocation persistence/rotation strategy around ZITADEL and SquiFlow Web sessions.
@@ -112,7 +114,7 @@ Do not reopen the existence of Guard merely to reduce process count unless evide
 - Exact edge/reverse-proxy deployment and whether it is a single point of failure for tenant/admin access. The recovery plan must distinguish `edge unavailable` from `Core API/Admin API unavailable` and must not make the same public edge the only infrastructure-recovery path.
 - DNS/TLS certificate renewal/expiry monitoring and recovery procedure for the initial deployment.
 - Acceptable system clock-skew tolerance and alert/recovery policy for OIDC/TLS/leases/schedules/limit windows; clock time must not become a substitute for versions/fencing/idempotency.
-- Backup scope for ZITADEL/OpenFGA depends on Cloud versus self-hosted selection: exported configuration/reprovisioning evidence may be enough for managed services, while self-hosted state requires provider-supported database/config backup and restore.
+- Backup scope for the initial managed ZITADEL Cloud deployment requires tested configuration inventory/export/reprovisioning and account-linking recovery evidence; if self-hosting is later selected, provider-supported database/config backup and restore becomes mandatory. OpenFGA backup scope follows its separately selected deployment topology.
 - **Exact reproducible deployment/IaC mechanism for the paying-customer single-node profile:** e.g. direct host/service definitions, container-compose style packaging, Ansible/Terraform/other automation, or a combination. The requirement is versioned/rebuildable infrastructure; Kubernetes/Flux/Terraform are not preselected.
 - **Exact initial server packaging boundary:** bare host processes versus containers for Core API/Admin API/Worker/edge/DB where applicable. Containerization is allowed when it improves repeatability/isolation, but is not a requirement by itself.
 - **Exact first-production release strategy:** maintenance-window/in-place, spare-node/blue-green, canary, or another measured approach. The accepted requirements are immutable-artifact promotion, compatible/preflighted migration, health/smoke verification, explicit rollback/roll-forward, and no unsupported zero-downtime claim.

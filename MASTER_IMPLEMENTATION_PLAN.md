@@ -1,4 +1,4 @@
-# SquiFlow v0.0.16 — Master Implementation Plan
+# SquiFlow v0.0.18 — Master Implementation Plan
 
 **Status:** Current audited architecture/implementation baseline.  
 **Implementation state:** **pre-Phase-0**.
@@ -60,6 +60,16 @@ services/worker           durable background execution
 ```
 
 Business capability code remains a modular monolith.
+
+### SquiFlow application kernel
+
+SquiFlow owns a small application kernel on standard .NET/ASP.NET Core primitives. ABP and Orchard Core are reference designs, not runtime foundations installed together.
+
+Trusted modules declare dependencies and host-specific application/UI/persistence/background contributions. Per-tenant modules/features/settings are versioned data resolved from authoritative TenantContext; they do not create a DI container/application instance/database per tenant, and assemblies are not hot-unloaded.
+
+SquiFlow uses selective DDD/application-service patterns, explicit application-command transactions, typed settings, module-owned permission definitions and validated feature publication. Generic IRepository<T>/IUnitOfWork, automatic controller exposure, arbitrary plugin loading, and parallel ABP/Orchard job/permission/settings systems are not baseline.
+
+Owner: docs/architecture/APPLICATION_KERNEL_AND_MODULES.md.
 
 Inside a runtime host, business modules communicate **in-process**. Do not create HTTP/gRPC calls between modules merely to imitate microservices. Network communication is reserved for real process/service/provider boundaries.
 
@@ -139,7 +149,7 @@ Owners:
 
 ## 4. Identity: ZITADEL
 
-**ZITADEL is selected as the SquiFlow identity/authentication platform.**
+**ZITADEL Cloud is selected as the initial SquiFlow identity/authentication deployment.** Self-hosting is a later evidence-triggered migration requiring operational proof, not the Phase-1 default.
 
 Stable external identity:
 
@@ -165,7 +175,7 @@ Platform operators also authenticate through ZITADEL, but Admin API requires sep
 
 SquiFlow does not create a second JWT/PASETO/password/WebAuthn subsystem around ZITADEL. Token/session form is an identity/session concern and never replaces current OpenFGA authorization or TenantContext isolation.
 
-Open Phase-1 details include ZITADEL Cloud vs self-hosted, exact instance/project/application layout, tenant-organization mapping, Web session topology, and native callback choice.
+Open Phase-1 details include the exact ZITADEL Cloud instance/project/application layout, tenant-organization mapping, service-account scope, Web session topology, configuration recovery/export, and native callback choice.
 
 Owner: `docs/security/IDENTITY_AND_SESSIONS.md`.
 
@@ -196,7 +206,7 @@ Database isolation
 
 Core API uses tenant/business policy scope. Admin API uses separate platform/super-admin policy scope. Tenant authority can never imply platform authority.
 
-Tenant-created custom roles are tuple/data changes, not a new OpenFGA model deployment per role. Stable SquiFlow permission relations live in a versioned authorization model, and production checks pin an explicit model ID.
+Tenant-created custom roles are tuple/data changes, not a new OpenFGA model deployment per role. Stable permission definitions/metadata are owned by SquiFlow modules; compatible relations live in a versioned OpenFGA model, and production checks pin an explicit model ID. Feature availability, permission, domain validity and tenant isolation remain separate checks.
 
 Web-only role/grant changes use a durable, reconcilable change path because OpenFGA and the SquiFlow DB are separate systems. Do not report a grant/revocation as applied until the OpenFGA outcome is known/applied.
 
@@ -276,7 +286,7 @@ Pooled data does not mean unbounded pooled compute. Expensive reports, documents
 
 Do not prebuild schema-per-tenant, DB-per-tenant, queue-per-tenant or deployment-per-tenant.
 
-If PostgreSQL is used, prove RLS defense in depth, safe runtime roles and safe tenant context under connection pooling. This does not silently select PostgreSQL.
+PostgreSQL is selected for the initial central transactional store. Prove RLS defense in depth, safe runtime roles, and safe tenant context under connection pooling before production qualification.
 
 Owner: `docs/architecture/MULTI_TENANCY_ISOLATION.md`.
 
@@ -359,10 +369,11 @@ Owners:
 
 ## 10. Persistence — normalized authority, measured workload, explicit data ownership
 
-Exact DB products remain open until phase POCs:
-- PostgreSQL — strongest central reference candidate;
-- SQLite + WAL — mature Workstation candidate;
-- libSQL — explicit Workstation candidate.
+Initial persistence products are selected; phase POCs qualify their exact implementations:
+- PostgreSQL — initial central transactional database;
+- SQLite with WAL — initial Workstation embedded database;
+- libSQL — deferred unless a concrete libSQL-specific requirement and production-suitable .NET/Windows integration justify reopening it;
+- dedicated NoSQL — not baseline; introduce only for a named workload with explicit authority, consistency, rebuild, backup, tenancy, and operating-cost contracts.
 
 Do **not** create generic `IRepository<T>`, `IUnitOfWork`, or one-interface-per-provider hierarchies solely to appear portable.
 
@@ -376,7 +387,7 @@ Indexes are workload contracts, not decorations. Measure real query plans/cardin
 
 Before selecting/tuning the central DB, record the actual implemented workload shape: read/write/delete mix, representative item sizes, tenant/data skew, normal concurrency, offline reconnect/sync/import bursts, consistency requirements, hot-query cardinality, and the initial HA/geographic assumptions.
 
-If PostgreSQL wins Phase 3, qualification includes connection/backend-process resource cost, WAL/checkpoints, autovacuum, temp/sort spill, archive/log/disk growth, and crash/restart recovery on the low-resource rack—not just SQL/RLS correctness.
+PostgreSQL Phase-3 qualification includes connection/backend-process resource cost, WAL/checkpoints, autovacuum, temp/sort spill, archive/log/disk growth, and crash/restart recovery on the low-resource rack—not just SQL/RLS correctness.
 
 Consistency is selected per invariant:
 - strong/current authority where temporary disagreement could create an unsafe business/security effect;
@@ -698,7 +709,7 @@ Keep tests focused on real correctness risks:
 - business/domain invariants;
 - real DB transaction/concurrency/isolation behavior;
 - explicit DB workload profile including reconnect/import bursts;
-- PostgreSQL WAL/checkpoint/autovacuum/temp/disk behavior if PostgreSQL is selected;
+- PostgreSQL WAL/checkpoint/autovacuum/temp/disk behavior for the selected central implementation;
 - schema/index/query-plan behavior at representative and projected cardinalities;
 - expected-version/constraint/isolation/lock/deadlock/serialization behavior and bounded whole-transaction retry;
 - expand/backfill/switch/contract schema evolution across supported old/new readers, writers, pending sync and durable work;
@@ -746,7 +757,7 @@ Owners:
 Default WIP limit: **one implementation phase**, but each phase must cover its defined edge/failure behavior before being called complete.
 
 ```text
-Phase 0  Web + Workstation + Guard + Core API skeleton, provider contracts, minimal CI, initial reproducible deploy representation
+Phase 0  SquiFlow application-kernel + first module composition proof; Web + Workstation + Guard + Core API skeleton, provider contracts, minimal CI, initial reproducible deploy representation
 Phase 1  ZITADEL identity + OpenFGA Owner/Staff/custom-role authorization
 Phase 2  first local-first Workstation Customer/Order transaction + local DB + Guard recovery
 Phase 3  authoritative sync + central DB + workload/schema/index/consistency + API-version proof + pooled tenant isolation + idempotency + sync transport POC/selection (HTTP baseline, gRPC preferred candidate when justified)
@@ -767,6 +778,8 @@ Owner: `docs/implementation/PHASES_AND_GATES.md`.
 
 Do not add these now:
 - dedicated accessibility/a11y workstream or conformance program;
+- ABP or Orchard as the business-host application kernel, or both frameworks installed together;
+- arbitrary runtime DLL/micro-plugin loading, per-tenant DI containers, or automatic controller exposure;
 - generic repository/unit-of-work/one-interface-per-class hierarchy;
 - full browser offline/PWA sync;
 - Kafka/event-log infrastructure;
