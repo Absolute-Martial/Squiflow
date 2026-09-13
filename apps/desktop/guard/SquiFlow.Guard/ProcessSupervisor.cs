@@ -1,18 +1,22 @@
 using System.Diagnostics;
+using Serilog;
 
 namespace SquiFlow.Guard;
 
 public sealed class ProcessSupervisor
 {
+    private readonly ILogger _logger;
     private readonly RestartBudget _restartBudget;
     private readonly TimeSpan _initialRestartDelay;
     private readonly TimeSpan _maximumRestartDelay;
 
     public ProcessSupervisor(
+        ILogger logger,
         RestartBudget restartBudget,
         TimeSpan initialRestartDelay,
         TimeSpan maximumRestartDelay)
     {
+        _logger = logger;
         _restartBudget = restartBudget;
         _initialRestartDelay = initialRestartDelay;
         _maximumRestartDelay = maximumRestartDelay;
@@ -28,7 +32,11 @@ public sealed class ProcessSupervisor
         while (!cancellationToken.IsCancellationRequested)
         {
             using var child = Start(executable, arguments);
-            Console.WriteLine($"guard.child.started pid={child.Id}");
+            _logger.Information(
+                "Guard child started {EventName} {ChildProcessId} {Executable}",
+                "GUARD.CHILD.STARTED",
+                child.Id,
+                Path.GetFileName(executable));
 
             try
             {
@@ -37,21 +45,40 @@ public sealed class ProcessSupervisor
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 TryTerminate(child);
+                _logger.Information("Guard supervision cancelled {EventName}", "GUARD.SUPERVISION.CANCELLED");
                 return 0;
             }
 
             if (child.ExitCode == 0)
             {
-                Console.WriteLine("guard.child.clean-exit");
+                _logger.Information(
+                    "Guard child exited cleanly {EventName} {ChildProcessId}",
+                    "GUARD.CHILD.CLEAN_EXIT",
+                    child.Id);
                 return 0;
             }
 
-            Console.Error.WriteLine($"guard.child.crashed exitCode={child.ExitCode}");
+            _logger.Error(
+                "Guard child crashed {EventName} {FailureCode} {ChildProcessId} {ExitCode}",
+                "GUARD.CHILD.CRASHED",
+                "GUARD.CHILD.NONZERO_EXIT",
+                child.Id,
+                child.ExitCode);
+
             if (!_restartBudget.TryRegister(DateTimeOffset.UtcNow))
             {
-                Console.Error.WriteLine("guard.restart-budget.exhausted safeModeRequired=true");
+                _logger.Fatal(
+                    "Guard restart budget exhausted {EventName} {FailureCode} {SafeModeRequired}",
+                    "GUARD.RESTART.BUDGET_EXHAUSTED",
+                    "GUARD.RESTART.BUDGET_EXHAUSTED",
+                    true);
                 return child.ExitCode;
             }
+
+            _logger.Warning(
+                "Guard scheduling child restart {EventName} {RestartDelayMs}",
+                "GUARD.CHILD.RESTART_SCHEDULED",
+                restartDelay.TotalMilliseconds);
 
             try
             {
