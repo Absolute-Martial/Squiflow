@@ -5,7 +5,7 @@
 
 ## 1. Product-owned boundary
 
-SquiFlow owns an observability boundary built on standard .NET/OpenTelemetry primitives.
+SquiFlow owns an observability boundary built on Serilog plus standard .NET/OpenTelemetry primitives.
 
 ```text
 SquiFlow runtime
@@ -13,14 +13,17 @@ SquiFlow runtime
       ▼
 SquiFlow.Observability
       │
-      ▼
-OpenTelemetry SDK
-      │ OTLP
-      ▼
-Collector / deployment routing
+      ├─ structured logs → Serilog → Serilog OTel sink → OTLP
+      ├─ traces          → Activity → OpenTelemetry SDK → OTLP
+      └─ metrics         → Meter    → OpenTelemetry SDK → OTLP
+                                          │
+                                          ▼
+                               Collector / deployment routing
 ```
 
-Provider SDKs must not leak into domain/application contracts.
+The stable `Serilog.Sinks.OpenTelemetry` sink exports logs directly as OTLP LogRecords; logs do not need to pass through the OpenTelemetry .NET SDK. Provider SDKs must not leak into domain/application contracts.
+
+The detailed logging transport contract is defined in `SERILOG_OTLP_PIPELINE.md`.
 
 ## 2. Suggested responsibility structure
 
@@ -32,6 +35,7 @@ SquiFlow.Observability
 │   ├── ExecutionContext
 │   └── DiagnosticContext
 ├── Logging/
+│   ├── StructuredLogging
 │   ├── EventRegistry
 │   ├── LogEnrichment
 │   └── SensitiveDataRedactor
