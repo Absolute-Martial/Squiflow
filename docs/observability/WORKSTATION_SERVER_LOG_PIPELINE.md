@@ -1,11 +1,11 @@
 # Workstation and Server Logging Pipeline
 
-**Version:** v0.0.16  
+**Version:** v0.0.18  
 **Status:** Accepted implementation direction
 
 ## 1. Different runtime responsibilities
 
-The server and Workstation share the same telemetry vocabulary and OpenTelemetry boundary, but they do **not** use identical retention/export behavior.
+The server and Workstation share the same telemetry vocabulary and OpenTelemetry/OTLP boundary, but they do **not** use identical retention/export behavior.
 
 ```text
 Server      → central-first, bounded buffering/export
@@ -16,23 +16,15 @@ The Workstation must remain diagnosable while offline or when telemetry provider
 
 ## 2. Shared application boundary
 
+Application logs use Serilog; traces and metrics use standard .NET/OpenTelemetry primitives.
+
 ```text
-ILogger / ActivitySource / Meter
-            │
-            ▼
-    SquiFlow.Observability
-            │
-            ▼
-     OpenTelemetry SDK
-       ┌────┼────┐
-       │    │    │
-     Logs Metrics Traces
-       └────┼────┘
-            ▼
-        OTLP/Collector
+structured logs  → Serilog → Serilog OTel sink ─┐
+Activity/traces   → OpenTelemetry SDK ───────────┼─→ OTLP/Collector
+Meter/metrics     → OpenTelemetry SDK ───────────┘
 ```
 
-Application/domain code does not depend directly on New Relic, OpenSearch, Backtrace, Grafana, or another provider API.
+`SquiFlow.Observability` owns the common bootstrap/instrumentation boundary. Application/domain code does not depend directly on New Relic, OpenSearch, Backtrace, Grafana, or another provider API.
 
 ## 3. Server pipeline
 
@@ -41,14 +33,12 @@ Recommended server path:
 ```text
 ASP.NET Core / Worker
         │
-        ▼
-structured telemetry
+        ├─ Serilog structured logs
+        ├─ Activity traces
+        └─ Meter metrics
         │
         ▼
-OpenTelemetry SDK
-        │
-        ▼
-OTLP Collector
+OTLP Collector / telemetry gateway
  ├─ enrich
  ├─ redact
  ├─ filter
@@ -65,31 +55,78 @@ Provider failure or quota exhaustion must not roll back committed business trans
 
 Server local files/spools, if used, are bounded operational buffers rather than the authoritative audit ledger.
 
-## 4. Workstation pipeline
+## 4. Workstation product/process model
 
-Recommended Workstation path:
+The Workstation logging/diagnostics boundary spans multiple processes inside one desktop product:
 
 ```text
-SquiFlow.Workstation / Guard
+SquiFlow Desktop Application
+│
+├── SquiFlow.Workstation       main local-first application
+├── SquiFlow.Guard             independent supervision/recovery companion
+└── SquiFlow.Diagnostics       on-demand heavy/offline diagnostics process when implemented
+```
+
+`SquiFlow.Guard` and `SquiFlow.Diagnostics` are process boundaries inside the desktop application, not independent products or microservices.
+
+Detailed owner: `docs/workstation/DESKTOP_PROCESS_MODEL.md`.
+
+## 5. Normal Workstation telemetry pipeline
+
+Ordinary online telemetry does **not** require `SquiFlow.Diagnostics` to be running.
+
+```text
+SquiFlow.Workstation / SquiFlow.Guard
            │
            ▼
 SquiFlow.Observability
-      ┌────┴────┐
-      │         │
-      ▼         ▼
-local bounded   OTLP/export
-telemetry       when allowed/available
+      ┌────┴──────────────┐
+      │                   │
+      ▼                   ▼
+local bounded JSONL    direct OTLP export
+      │                   │
+      │                   ▼
+      │           telemetry gateway / Collector
       │
       ├─ rolling structured logs
-      ├─ crash/recovery evidence
-      └─ diagnostic bundle inputs
+      └─ later diagnostic-bundle input when needed
 ```
 
 Local evidence must survive normal application restart and temporary loss of network/collector access.
 
 Guard remains able to supervise/recover locally when remote observability is unavailable.
 
-## 5. Local Workstation storage policy
+## 6. Heavy/offline diagnostics pipeline
+
+`SquiFlow.Diagnostics` is started only when heavyweight or offline diagnostic work exists.
+
+Typical triggers include:
+- crash/restart loop;
+- failed update/migration;
+- corruption/integrity investigation;
+- explicit support request;
+- large crash artifact handling;
+- retained local-log/spool promotion when a dedicated process is justified.
+
+```text
+Guard / Workstation
+       │ trigger
+       ▼
+SquiFlow.Diagnostics
+       ├─ collect only approved evidence
+       ├─ apply redaction/privacy policy
+       ├─ create manifest
+       ├─ compress/encrypt when required
+       ├─ persist/upload according to policy
+       └─ emit DiagnosticResult
+       │
+       ▼
+      exit
+```
+
+This process is normally stopped so diagnostics work does not permanently consume Workstation memory/CPU.
+
+## 7. Local Workstation storage policy
 
 Use an application-owned diagnostics area with ACLs appropriate to the installation model. Exact Windows paths are packaging decisions.
 
@@ -113,7 +150,7 @@ Rules:
 - do not place authoritative business state in the log directory;
 - do not let diagnostics consume the disk reserve needed by SQLite/OS/update recovery.
 
-## 6. Diagnostic disk reserve
+## 8. Diagnostic disk reserve
 
 Diagnostics must shed low-value data before they endanger the Workstation.
 
@@ -132,7 +169,7 @@ Never busy-loop trying to write telemetry to a full disk.
 
 The exact reserve/retention values are benchmarked and deployment-configurable.
 
-## 7. What is centrally promoted from Workstation
+## 9. What is centrally promoted from Workstation
 
 Central export is policy driven.
 
@@ -148,7 +185,9 @@ Prefer stronger capture for:
 
 Routine successful Info/Debug traffic may remain local or be sampled/filtered to protect bandwidth, storage and provider quotas.
 
-## 8. Diagnostic bundles
+Ordinary remote log export uses the Serilog OTLP sink directly. Diagnostics is not launched per log batch.
+
+## 10. Diagnostic bundles
 
 A diagnostic bundle is a deliberately assembled support artifact, not a zip of the entire application directory.
 
@@ -165,6 +204,7 @@ crash.json
 trace-summary.json
 sync-state.json
 resource-summary.json
+update-migration-state.json
 ```
 
 Depending on the incident, some files may be absent.
@@ -178,7 +218,9 @@ Default bundle policy:
 - tenant/support access controls;
 - upload only according to support/privacy policy.
 
-## 9. Server and Workstation share vocabulary
+Large diagnostic artifacts are uploaded through an approved HTTPS diagnostic endpoint/artifact path, not encoded into OTLP LogRecords.
+
+## 11. Server and Workstation share vocabulary
 
 Do not define separate failure naming for equivalent distributed operations.
 
@@ -192,7 +234,7 @@ Reconciler:  SYNC.RECONCILIATION.RECOVERED
 
 The same CorrelationId/SyncChangeId lets support reconstruct the operation across sides.
 
-## 10. Telemetry-provider outages
+## 12. Telemetry-provider outages
 
 ### Server
 - continue business processing according to dependency policy;
@@ -203,23 +245,28 @@ The same CorrelationId/SyncChangeId lets support reconstruct the operation acros
 ### Workstation
 - retain bounded local evidence;
 - continue local-capable work;
-- retry/upload later according to policy;
-- Guard remains operational.
+- Guard remains operational;
+- direct OTLP export may fail/drop according to bounded sink behavior;
+- heavy retained artifact/spool promotion can be attempted later by Diagnostics according to policy;
+- never turn diagnostics retry into an unbounded always-running daemon.
 
-## 11. Authoritative audit remains separate
+## 13. Authoritative audit remains separate
 
 Security/business history required for product correctness remains in durable SquiFlow state.
 
 Operational logs may explain an admin/security/business event but do not replace the authoritative audit record.
 
-## 12. Acceptance
+## 14. Acceptance
 
 Test at minimum:
 - Workstation offline for an extended period with local logs rotating correctly;
 - provider/collector unavailable;
 - local diagnostic area near/full;
 - crash while network is unavailable;
-- export recovery after network returns;
+- direct OTLP export recovery after network returns;
+- Diagnostics, once implemented, starts only when triggered and exits after work;
+- Diagnostics crash does not disable Guard/Workstation correctness;
+- retained artifact/spool upload retry is bounded;
 - bundle redaction and size limits;
 - server exporter queue saturation;
 - duplicate/replayed export behavior does not affect business correctness;
