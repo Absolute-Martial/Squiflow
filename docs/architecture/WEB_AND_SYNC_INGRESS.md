@@ -1,14 +1,14 @@
-# Web API and Workstation Sync Ingress
+# Web API and Workstation Sync Hosts
 
 **Status:** Accepted architecture direction
 
 ## 1. Decision
 
-SquiFlow uses separate backend ingress/workload hosts for interactive Web/API traffic and Workstation synchronization traffic.
+SquiFlow uses separate backend runtime hosts for interactive Web/API traffic and Workstation synchronization traffic.
 
-This is an operational/runtime separation, not a duplication of business logic or authoritative state.
+`WebApi` and `SyncApi` are **server hosts/API adapters**, not separate business backends and not merely one-way ingress pipes. They may accept commands and return/read data. They differ because their protocol, identity context, batching, cursor, backpressure, fairness, latency and scaling profiles differ.
 
-The ingress hosts are also **not** defined as thin `HTTP -> PostgreSQL` facades. They sit in front of application/capability processing and use explicit ephemeral runtime state and durable processing state where the workload requires it.
+They invoke the same capability-owned business modules.
 
 ```text
                          Cloud/edge
@@ -17,43 +17,35 @@ The ingress hosts are also **not** defined as thin `HTTP -> PostgreSQL` facades.
               |                             |
               v                             v
         SquiFlow.WebApi               SquiFlow.SyncApi
-        interactive API               workstation sync ingress
+        interactive host              workstation sync host
               |                             |
               +--------------+--------------+
                              |
-            +----------------+----------------+
-            |                                 |
-            v                                 v
-   ephemeral runtime state          durable processing state
-   cache/rate/session/temp           inbox/jobs/idempotency/outbox
-            |                                 |
-            +----------------+----------------+
+                             v
+                    business modules
+              Orders / Customers / Inventory / ...
+                             |
+                 commands / queries / admission
                              |
                              v
-                  application use cases
-                             |
-                             v
-                     Capability Cores
-                             |
-                             v
-                   persistence adapters
+                   module-owned data access
                              |
                              v
                         PostgreSQL
                  authoritative business state
-                             |
-                           Outbox
-                             |
-                           Worker
 ```
 
-Detailed state-placement owner: `docs/server/SERVER_STATE_AND_PROCESSING.md`.
+Ephemeral runtime state and durable processing state are used around this path where the workload requires them; they do not form a second business backend.
+
+Detailed owners:
+- `docs/architecture/MODULE_OWNERSHIP_PERSISTENCE_AND_PROJECT_BOUNDARIES.md`;
+- `docs/server/SERVER_STATE_AND_PROCESSING.md`.
 
 ## 2. Why separate the hosts
 
 Interactive Web requests and Workstation sync have materially different workload shapes.
 
-### Web/API ingress
+### Web/API host
 
 Optimized for:
 
@@ -61,10 +53,10 @@ Optimized for:
 - task-oriented REST/HTTP endpoints;
 - Web administration and tenant business operations;
 - ordinary request/response payloads;
-- current user/session authorization;
+- current user/session authorization context;
 - read/query workloads and authoritative commands.
 
-### Sync ingress
+### Sync host
 
 Optimized for:
 
@@ -72,34 +64,124 @@ Optimized for:
 - bounded operation batches;
 - idempotency and operation receipts;
 - sync cursor/checkpoint handling;
-- revision comparison;
+- revision/dependency evidence;
 - selective authoritative admission;
 - compression/streaming where justified;
 - per-device/tenant fairness;
 - explicit backpressure/retry-after;
+- pull/download and upload/admission flows;
 - longer-lived or higher-throughput synchronization workloads.
 
 The Sync API must not force these concerns into every ordinary interactive Web endpoint.
 
-## 3. Shared authority, different entry paths
+## 3. Hosts do not own duplicate business modules
 
-Do not implement separate business services such as `WebOrderService` and `SyncOrderService` that independently encode Order meaning.
-
-Instead:
+Bad:
 
 ```text
 WebApi
-  -> CreateOrder authoritative use case ---+
-                                           +-> Orders Capability Core
-SyncApi                                    |
-  -> AdmitProvisionalOrder operation ------+
+  -> WebOrderService
+
+SyncApi
+  -> SyncOrderService
+
+Worker
+  -> WorkerOrderService
 ```
 
-The use cases differ because the inputs and trust state differ. The business capability remains one implementation.
+when those classes independently encode Order meaning.
 
-The host supplies transport/admission context. The application/capability path owns processing. Persistence-specific code remains in infrastructure/persistence adapters rather than HTTP endpoints.
+Accepted:
 
-## 4. Three server-state classes
+```text
+WebApi
+  -> Orders.CreateOrder --------+
+                                |
+SyncApi                         +-> one Orders capability source
+  -> Orders.AdmitCreateOrder ---+
+                                |
+Worker                          |
+  -> Orders.ExpireOrder --------+
+```
+
+The entry use cases differ because their trust/workflow state differs. The business capability remains one implementation.
+
+The same compiled module assembly may be deployed with more than one host. That is binary duplication, not business-logic duplication.
+
+## 4. Web data read path
+
+WebApi can and should return data through module-owned queries.
+
+```text
+GET /orders/123
+  -> WebApi
+  -> authenticate / TenantContext / coarse request policy
+  -> Orders.GetOrder
+  -> Orders-owned query/data-access code
+  -> PostgreSQL
+  -> OrderDetails DTO
+  -> WebApi response
+```
+
+The API does not need ad-hoc SQL in controllers to read data.
+
+Read-only query code may use an optimized projection/query path and does not have to reconstruct a rich aggregate when no mutation occurs. Tenant isolation, authorization and data ownership still apply.
+
+## 5. Web authoritative mutation path
+
+For a short operation where the user needs the authoritative result now:
+
+```text
+Web
+ -> WebApi
+ -> authenticate / TenantContext / generic admission
+ -> Orders.CreateOrder
+ -> current resource/business authorization
+ -> authoritative facts/rules
+ -> business invariants
+ -> concurrency/idempotency
+ -> authoritative transaction
+ -> PostgreSQL
+ -> authoritative response
+```
+
+This is not `controller -> SQL` and it is not necessary to queue every command.
+
+## 6. Sync upload/admission path
+
+```text
+Workstation
+  -> SyncApi
+  -> device/session/protocol/batch/backpressure checks
+  -> Orders.AdmitCreateOrder
+  -> semantic idempotency
+  -> current resource/business authorization
+  -> revision/dependency comparison
+  -> selective re-evaluation where needed
+  -> authoritative transaction
+  -> PostgreSQL
+  -> authoritative receipt
+```
+
+SyncApi owns sync transport/workload policy. The owning module owns what an Order operation means and how it is authoritatively admitted.
+
+## 7. Sync pull/download path
+
+Sync is not only upload.
+
+```text
+Workstation
+  -> SyncApi
+  -> Synchronization capability
+  -> cursor/checkpoint/change-feed query
+  -> module-owned authoritative records/projections
+  -> PostgreSQL/outbox/change records
+  -> bounded response
+```
+
+Cross-capability cursor/batch/reconnect mechanics belong to the Synchronization capability/host path rather than being duplicated inside every business module.
+
+## 8. Three server-state classes
 
 The server distinguishes:
 
@@ -122,7 +204,7 @@ This is a logical separation, not a requirement for three database products.
 
 Durable processing state may initially be PostgreSQL-backed under explicit tables/schemas/ownership when that provides the simplest correct atomicity and recovery model. A broker, Redis-like cache, or dedicated processing store is introduced only when a concrete workload justifies it.
 
-## 5. Web/Cloud persistence boundary
+## 9. Web/Cloud persistence boundary
 
 Persistent SQLite is **not** an alternative persistence model for SquiFlow Web or Cloud.
 
@@ -141,46 +223,25 @@ Cloud WebApi / SyncApi / AdminApi / Worker
   PostgreSQL authoritative business state
 ```
 
-Do not create per-user or per-tenant SQLite replicas in Web clients or cloud service instances. Do not use browser `localStorage`, IndexedDB, service-worker cache, or another browser store as authoritative business state or as a durable offline outbox under the current architecture.
-
-Browser-local storage may be used only for data that can be safely recreated or abandoned, such as presentation preferences, bounded response cache, session-safe UI state, or temporary upload staging where explicitly designed. Deleting that storage must not lose committed or pending business truth.
+Do not create per-user or per-tenant SQLite replicas in Web clients or cloud service instances. Browser storage is not authoritative business state or a durable offline business outbox under the current architecture.
 
 Cloud hosts may use bounded cache, temporary/object staging, durable inbox/job/idempotency/outbox state, and Worker processing without creating a second general-purpose business database.
 
-If SquiFlow later chooses a truly offline-capable PWA/Web client with durable business operations, that requires a new explicit authority, synchronization, security, migration and recovery decision rather than reusing the Workstation SQLite model implicitly.
+If SquiFlow later chooses a truly offline-capable PWA/Web client with durable business operations, that requires a new explicit authority, synchronization, security, migration and recovery decision.
 
-## 6. Interactive synchronous path
-
-Do not queue every Web command.
-
-For a short operation where the user needs the authoritative result now:
-
-```text
-Web
- -> WebApi
- -> authenticate / authorize / validate
- -> application use case
- -> Capability Core
- -> persistence adapter
- -> PostgreSQL transaction
- -> authoritative response
-```
-
-This is not `controller -> SQL`; the owning application/capability path remains between transport and persistence.
-
-## 7. Durable asynchronous path
+## 10. Durable asynchronous path
 
 For long-running/resource-heavy work or asynchronous consequences:
 
 ```text
-WebApi
+WebApi / SyncApi
  -> authenticate / authorize / validate / idempotency
  -> durable operation or job
- -> 202 Accepted + operation resource
+ -> accepted/operation identifier
 
 Worker
  -> claim durable work
- -> application use case / Capability Core
+ -> owning module operation
  -> PostgreSQL and/or object storage
  -> persist result/status
 ```
@@ -189,7 +250,7 @@ Typical examples include document generation, reports/exports, imports, image pr
 
 When an authoritative business transaction has already committed and only consequences remain, prefer business transaction + outbox atomicity followed by Worker processing.
 
-## 8. Sync admission and durable staging
+## 11. Sync durable staging and transport acceptance
 
 Do not model reconnect traffic as:
 
@@ -197,7 +258,7 @@ Do not model reconnect traffic as:
 Workstation -> SyncApi -> immediately hammer arbitrary business tables
 ```
 
-The ingress boundary performs device/session validation, protocol/schema checks, item/byte/rate limits, deduplication, fairness and backpressure first.
+The host performs device/session validation, protocol/schema checks, item/byte/rate limits, fairness and backpressure first.
 
 Then either:
 
@@ -212,20 +273,14 @@ or, when burst isolation/long processing/recovery semantics justify it:
 SyncApi
  -> durable sync inbox / operation state
  -> admission processor / Worker
- -> Capability Core + authoritative checks
+ -> owning module authoritative checks
  -> PostgreSQL commit
  -> AuthoritativeReceipt
 ```
 
-The durable inbox is processing state. It does not become a second source of business truth.
+If an asynchronous path returns `202 Accepted`, `Received`, or equivalent before business admission completes, that means only that the server durably received/staged the operation. It does not mean the business operation is authoritatively committed.
 
-## 9. Received is not authoritatively accepted
-
-If an asynchronous SyncApi path returns `202 Accepted`, `Received`, or equivalent before business admission completes, that result means only that the server durably received/staged the operation.
-
-It does not mean the business operation is authoritatively committed.
-
-The later result remains explicit, for example:
+Later authoritative results remain explicit, for example:
 
 ```text
 Accepted
@@ -237,60 +292,50 @@ Retryable
 AlreadyApplied
 ```
 
-This preserves the Workstation provisional-execution / authoritative-admission model.
+## 12. Scaling and failure independence
 
-## 10. Scaling and failure independence
-
-The ingress hosts can scale independently.
-
-Examples:
+The hosts can scale independently.
 
 ```text
-Web/API traffic normal
-Sync backlog high after outage
--> scale SyncApi without scaling WebApi
-```
+Web traffic normal + reconnect backlog high
+-> scale/throttle SyncApi path independently
 
-or:
-
-```text
-Web reporting/dashboard spike
-sync traffic normal
--> scale WebApi independently
+Web reporting/dashboard spike + sync normal
+-> scale WebApi path independently
 ```
 
 A SyncApi overload should be throttled/backpressured rather than consuming all interactive Web capacity. A WebApi failure must not imply that already-running local Workstation operation stops; Workstations continue according to the local-first contract and synchronize later.
 
-Ephemeral cache/runtime-store failure may reduce performance or UX, but it must not erase committed business truth or durable jobs. Durable processing state must survive API/Worker process loss according to its recovery contract.
+Ephemeral cache/runtime-store failure may reduce performance or UX, but it must not erase committed business truth or durable jobs.
 
-## 11. Protocol selection
+## 13. Protocol selection
 
 - REST/task-oriented HTTP remains the ordinary Web/external API baseline.
 - gRPC remains a preferred candidate for the Workstation synchronization boundary when the implementation POC proves its value for batching/streaming/contract generation.
 - The sync semantics are transport-independent; HTTP can remain a fallback/initial transport if it is simpler during early proof.
 - GraphQL is not required merely because the Web host exists.
 
-## 12. Security boundary
+## 14. Security boundary
 
 Both hosts independently enforce server authority appropriate to their requests.
 
-WebApi derives current authenticated user/TenantContext and performs current authorization.
+WebApi derives the current authenticated user/TenantContext and performs host/coarse policy checks, while current resource/business authorization remains part of the authoritative module/application operation where required.
 
-SyncApi additionally validates device/workstation identity and treats all submitted local operations/receipts as untrusted client input. The Workstation never receives central database or OpenFGA administrative credentials.
+SyncApi additionally validates device/workstation identity and treats all submitted local operations/receipts as untrusted client input. Workstation never receives central database or OpenFGA administrative credentials.
 
 A durable inbox/job/cache does not weaken this boundary. Deferred actor operations are reauthorized at execution when their semantics require current actor authority; committed consequences execute from the already-authoritative business fact according to the Worker authorization classification.
 
-## 13. Repository direction
+## 15. Repository direction
 
 Accepted future host locations are conceptually:
 
 ```text
 services/
-|- web-api/     # create when split from the current CoreApi is implemented
-|- sync-api/    # create when first isolated synchronization ingress exists
+|- web-api/     # create when split from current CoreApi is implemented
+|- sync-api/    # create when first isolated synchronization host exists
 `- worker/      # create when first durable background workload is implemented
 ```
 
 The existing `services/core-api/SquiFlow.CoreApi` remains the compact early host until a real split is implemented. Documentation must not pretend the split already exists in code.
 
-Do not scaffold empty hosts, cache providers, brokers or processing databases only to satisfy this diagram.
+Do not scaffold empty hosts, cache providers, brokers, processing databases, or per-host business modules only to satisfy this diagram.
