@@ -101,7 +101,7 @@ static void FeaturePublicationRespectsHostAndReleaseChannel()
         new FeatureId("beta-web"),
         new ModuleId("m"),
         [],
-        ReleaseChannel: ReleaseChannel.Beta,
+        Channel: ReleaseChannel.Beta,
         SupportedHosts: new HashSet<HostKind> { HostKind.WebApi });
 
     Throws<InvalidOperationException>(() =>
@@ -111,7 +111,7 @@ static void FeaturePublicationRespectsHostAndReleaseChannel()
             [betaWebFeature.Id],
             revision: 1,
             host: HostKind.Workstation,
-            maximumChannel: ReleaseChannel.Beta));
+            audienceChannel: ReleaseChannel.Beta));
 
     Throws<InvalidOperationException>(() =>
         FeatureSnapshotBuilder.Publish(
@@ -120,7 +120,7 @@ static void FeaturePublicationRespectsHostAndReleaseChannel()
             [betaWebFeature.Id],
             revision: 1,
             host: HostKind.WebApi,
-            maximumChannel: ReleaseChannel.Stable));
+            audienceChannel: ReleaseChannel.Stable));
 
     var snapshot = FeatureSnapshotBuilder.Publish(
         [betaWebFeature],
@@ -128,7 +128,7 @@ static void FeaturePublicationRespectsHostAndReleaseChannel()
         [betaWebFeature.Id],
         revision: 2,
         host: HostKind.WebApi,
-        maximumChannel: ReleaseChannel.Beta);
+        audienceChannel: ReleaseChannel.Beta);
 
     True(snapshot.IsEnabled(betaWebFeature.Id));
 }
