@@ -23,7 +23,7 @@ namespace SquiFlow.ApplicationKernel.Features
         ModuleId ModuleId,
         IReadOnlyCollection<FeatureId> Dependencies,
         bool IsAlwaysRequired = false,
-        ReleaseChannel ReleaseChannel = ReleaseChannel.Stable,
+        ReleaseChannel Channel = ReleaseChannel.Stable,
         OfflineFeaturePolicy OfflinePolicy = OfflineFeaturePolicy.SnapshotAllowed,
         IReadOnlySet<HostKind>? SupportedHosts = null)
     {
@@ -77,7 +77,7 @@ namespace SquiFlow.ApplicationKernel.Features
             IEnumerable<FeatureId> tenantRequested,
             long revision,
             HostKind? host = null,
-            ReleaseChannel maximumChannel = ReleaseChannel.Stable)
+            ReleaseChannel audienceChannel = ReleaseChannel.Stable)
         {
             var byId = definitions.ToDictionary(definition => definition.Id);
             var allowed = platformAllowed.ToHashSet();
@@ -91,7 +91,7 @@ namespace SquiFlow.ApplicationKernel.Features
 
             foreach (var featureId in requested)
             {
-                AddWithDependencies(featureId, byId, allowed, enabled, new HashSet<FeatureId>(), host, maximumChannel);
+                AddWithDependencies(featureId, byId, allowed, enabled, new HashSet<FeatureId>(), host, audienceChannel);
             }
 
             return new EffectiveFeatureSnapshot(revision, enabled);
@@ -104,27 +104,27 @@ namespace SquiFlow.ApplicationKernel.Features
             ISet<FeatureId> enabled,
             ISet<FeatureId> visiting,
             HostKind? host,
-            ReleaseChannel maximumChannel)
+            ReleaseChannel audienceChannel)
         {
             if (enabled.Contains(featureId)) return;
             if (!definitions.TryGetValue(featureId, out var definition)) throw new InvalidOperationException($"Unknown feature '{featureId}'.");
             if (!platformAllowed.Contains(featureId)) throw new InvalidOperationException($"Feature '{featureId}' exceeds the platform/deployment capability ceiling.");
             if (host is not null && !definition.Supports(host.Value)) throw new InvalidOperationException($"Feature '{featureId}' is not supported by host '{host}'.");
-            if (!IsChannelAllowed(definition.ReleaseChannel, maximumChannel)) throw new InvalidOperationException($"Feature '{featureId}' is in release channel '{definition.ReleaseChannel}', above allowed channel '{maximumChannel}'.");
+            if (!IsVisibleToAudience(definition.Channel, audienceChannel)) throw new InvalidOperationException($"Feature '{featureId}' is in release channel '{definition.Channel}', which is not available to audience channel '{audienceChannel}'.");
             if (!visiting.Add(featureId)) throw new InvalidOperationException($"Cyclic feature dependency detected at '{featureId}'.");
 
             foreach (var dependency in definition.Dependencies)
             {
-                AddWithDependencies(dependency, definitions, platformAllowed, enabled, visiting, host, maximumChannel);
+                AddWithDependencies(dependency, definitions, platformAllowed, enabled, visiting, host, audienceChannel);
             }
 
             visiting.Remove(featureId);
             enabled.Add(featureId);
         }
 
-        private static bool IsChannelAllowed(ReleaseChannel feature, ReleaseChannel maximum)
+        private static bool IsVisibleToAudience(ReleaseChannel featureChannel, ReleaseChannel audienceChannel)
         {
-            static int Rank(ReleaseChannel channel) => channel switch
+            static int MaturityRank(ReleaseChannel channel) => channel switch
             {
                 ReleaseChannel.Internal => 0,
                 ReleaseChannel.Preview => 1,
@@ -134,7 +134,7 @@ namespace SquiFlow.ApplicationKernel.Features
                 _ => throw new ArgumentOutOfRangeException(nameof(channel))
             };
 
-            return Rank(feature) >= Rank(maximum);
+            return MaturityRank(featureChannel) >= MaturityRank(audienceChannel);
         }
     }
 }
