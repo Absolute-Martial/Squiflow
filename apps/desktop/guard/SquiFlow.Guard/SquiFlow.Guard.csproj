@@ -2,4 +2,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
   </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../../foundation/observability/SquiFlow.Observability/SquiFlow.Observability.csproj" />
+  </ItemGroup>
 </Project>

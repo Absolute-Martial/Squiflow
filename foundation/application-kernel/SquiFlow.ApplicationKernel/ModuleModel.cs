@@ -2,16 +2,66 @@ using SquiFlow.ApplicationKernel.Authorization;
 
 namespace SquiFlow.ApplicationKernel.Features
 {
-    public sealed record FeatureDefinition(FeatureId Id, ModuleId ModuleId, IReadOnlyCollection<FeatureId> Dependencies, bool IsAlwaysRequired = false);
+    public enum ReleaseChannel
+    {
+        Internal,
+        Preview,
+        Beta,
+        Stable,
+        Deprecated
+    }
+
+    public enum OfflineFeaturePolicy
+    {
+        SnapshotAllowed,
+        StableOnly,
+        ServerRequired
+    }
+
+    public sealed record FeatureDefinition(
+        FeatureId Id,
+        ModuleId ModuleId,
+        IReadOnlyCollection<FeatureId> Dependencies,
+        bool IsAlwaysRequired = false,
+        ReleaseChannel Channel = ReleaseChannel.Stable,
+        OfflineFeaturePolicy OfflinePolicy = OfflineFeaturePolicy.SnapshotAllowed,
+        IReadOnlySet<HostKind>? SupportedHosts = null)
+    {
+        public bool Supports(HostKind host) => SupportedHosts is null || SupportedHosts.Contains(host);
+    }
+
+    public sealed record ExperimentDefinition(
+        string ExperimentId,
+        FeatureId FeatureId,
+        IReadOnlyList<string> Variants,
+        string SubjectKind,
+        long Revision)
+    {
+        public string AssignVariant(string subjectId)
+        {
+            if (Variants.Count == 0)
+            {
+                throw new InvalidOperationException($"Experiment '{ExperimentId}' must define at least one variant.");
+            }
+
+            var hash = System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes($"{ExperimentId}:{Revision}:{subjectId}"));
+            var bucket = BitConverter.ToUInt32(hash, 0) % (uint)Variants.Count;
+            return Variants[(int)bucket];
+        }
+    }
 
     public sealed class EffectiveFeatureSnapshot
     {
         private readonly HashSet<FeatureId> _enabled;
+
         public EffectiveFeatureSnapshot(long revision, IEnumerable<FeatureId> enabled)
         {
             if (revision < 0) throw new ArgumentOutOfRangeException(nameof(revision));
-            Revision = revision; _enabled = enabled.ToHashSet();
+            Revision = revision;
+            _enabled = enabled.ToHashSet();
         }
+
         public long Revision { get; }
         public IReadOnlySet<FeatureId> Enabled => _enabled;
         public bool IsEnabled(FeatureId featureId) => _enabled.Contains(featureId);
@@ -21,25 +71,70 @@ namespace SquiFlow.ApplicationKernel.Features
 
     public static class FeatureSnapshotBuilder
     {
-        public static EffectiveFeatureSnapshot Publish(IEnumerable<FeatureDefinition> definitions, IEnumerable<FeatureId> platformAllowed, IEnumerable<FeatureId> tenantRequested, long revision)
+        public static EffectiveFeatureSnapshot Publish(
+            IEnumerable<FeatureDefinition> definitions,
+            IEnumerable<FeatureId> platformAllowed,
+            IEnumerable<FeatureId> tenantRequested,
+            long revision,
+            HostKind? host = null,
+            ReleaseChannel audienceChannel = ReleaseChannel.Stable)
         {
             var byId = definitions.ToDictionary(definition => definition.Id);
             var allowed = platformAllowed.ToHashSet();
             var requested = tenantRequested.ToHashSet();
             var enabled = new HashSet<FeatureId>();
-            foreach (var definition in byId.Values.Where(definition => definition.IsAlwaysRequired)) requested.Add(definition.Id);
-            foreach (var featureId in requested) AddWithDependencies(featureId, byId, allowed, enabled, new HashSet<FeatureId>());
+
+            foreach (var definition in byId.Values.Where(definition => definition.IsAlwaysRequired))
+            {
+                requested.Add(definition.Id);
+            }
+
+            foreach (var featureId in requested)
+            {
+                AddWithDependencies(featureId, byId, allowed, enabled, new HashSet<FeatureId>(), host, audienceChannel);
+            }
+
             return new EffectiveFeatureSnapshot(revision, enabled);
         }
 
-        private static void AddWithDependencies(FeatureId featureId, IReadOnlyDictionary<FeatureId, FeatureDefinition> definitions, IReadOnlySet<FeatureId> platformAllowed, ISet<FeatureId> enabled, ISet<FeatureId> visiting)
+        private static void AddWithDependencies(
+            FeatureId featureId,
+            IReadOnlyDictionary<FeatureId, FeatureDefinition> definitions,
+            IReadOnlySet<FeatureId> platformAllowed,
+            ISet<FeatureId> enabled,
+            ISet<FeatureId> visiting,
+            HostKind? host,
+            ReleaseChannel audienceChannel)
         {
             if (enabled.Contains(featureId)) return;
             if (!definitions.TryGetValue(featureId, out var definition)) throw new InvalidOperationException($"Unknown feature '{featureId}'.");
             if (!platformAllowed.Contains(featureId)) throw new InvalidOperationException($"Feature '{featureId}' exceeds the platform/deployment capability ceiling.");
+            if (host is not null && !definition.Supports(host.Value)) throw new InvalidOperationException($"Feature '{featureId}' is not supported by host '{host}'.");
+            if (!IsVisibleToAudience(definition.Channel, audienceChannel)) throw new InvalidOperationException($"Feature '{featureId}' is in release channel '{definition.Channel}', which is not available to audience channel '{audienceChannel}'.");
             if (!visiting.Add(featureId)) throw new InvalidOperationException($"Cyclic feature dependency detected at '{featureId}'.");
-            foreach (var dependency in definition.Dependencies) AddWithDependencies(dependency, definitions, platformAllowed, enabled, visiting);
-            visiting.Remove(featureId); enabled.Add(featureId);
+
+            foreach (var dependency in definition.Dependencies)
+            {
+                AddWithDependencies(dependency, definitions, platformAllowed, enabled, visiting, host, audienceChannel);
+            }
+
+            visiting.Remove(featureId);
+            enabled.Add(featureId);
+        }
+
+        private static bool IsVisibleToAudience(ReleaseChannel featureChannel, ReleaseChannel audienceChannel)
+        {
+            static int MaturityRank(ReleaseChannel channel) => channel switch
+            {
+                ReleaseChannel.Internal => 0,
+                ReleaseChannel.Preview => 1,
+                ReleaseChannel.Beta => 2,
+                ReleaseChannel.Stable => 3,
+                ReleaseChannel.Deprecated => 3,
+                _ => throw new ArgumentOutOfRangeException(nameof(channel))
+            };
+
+            return MaturityRank(featureChannel) >= MaturityRank(audienceChannel);
         }
     }
 }

@@ -4,6 +4,8 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SquiFlow.ApplicationKernel", "foundation\application-kernel\SquiFlow.ApplicationKernel\SquiFlow.ApplicationKernel.csproj", "{AE487D22-4392-51C3-B101-8B3C324F6ADB}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SquiFlow.Observability", "foundation\observability\SquiFlow.Observability\SquiFlow.Observability.csproj", "{3F0C212E-3CA8-4E09-B1F7-477AAD4A9E17}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SquiFlow.Customers", "modules\customers\SquiFlow.Customers\SquiFlow.Customers.csproj", "{49C9B54F-666D-5906-A2E9-269C6D8F3570}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SquiFlow.Customers.Workstation", "modules\customers\SquiFlow.Customers.Workstation\SquiFlow.Customers.Workstation.csproj", "{372ACD48-B063-55F3-992A-C3E5E6D8A933}"
@@ -36,6 +38,10 @@ Global
 		{AE487D22-4392-51C3-B101-8B3C324F6ADB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AE487D22-4392-51C3-B101-8B3C324F6ADB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AE487D22-4392-51C3-B101-8B3C324F6ADB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3F0C212E-3CA8-4E09-B1F7-477AAD4A9E17}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3F0C212E-3CA8-4E09-B1F7-477AAD4A9E17}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3F0C212E-3CA8-4E09-B1F7-477AAD4A9E17}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3F0C212E-3CA8-4E09-B1F7-477AAD4A9E17}.Release|Any CPU.Build.0 = Release|Any CPU
 		{49C9B54F-666D-5906-A2E9-269C6D8F3570}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{49C9B54F-666D-5906-A2E9-269C6D8F3570}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{49C9B54F-666D-5906-A2E9-269C6D8F3570}.Release|Any CPU.ActiveCfg = Release|Any CPU

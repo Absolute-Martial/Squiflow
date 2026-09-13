@@ -2,210 +2,256 @@
 
 **Version:** v0.0.18
 
-## 1. Current state
+## 1. Structural vocabulary
 
-The repository is still pre-Phase-0. Do not scaffold every future module, but do not remove accepted runtime/recovery boundaries merely to make the tree smaller.
+SquiFlow uses three code categories consistently:
 
-The initial target shape is intentionally compact but functionally complete enough for early slices:
+```text
+Foundation
+   ↓
+Capability Core
+   ↓
+Host / infrastructure adapter
+```
+
+`Foundation` replaces vague names such as `BuildingBlocks`, `Common`, or a universal `Shared` bucket.
+
+A Capability Core is the common point for one business capability. It owns business meaning and deterministic decisions; it is not a Workstation/Server/Web copy.
+
+Detailed owner: `docs/architecture/CAPABILITY_CORE_AND_HOST_EXECUTION.md`.
+
+## 2. Current and target repository shape
+
+The repository is still early-stage. Do not scaffold every future module/process/host, but preserve accepted ownership boundaries.
 
 ```text
 SquiFlow/
 ├── apps/
-│   ├── web/              # Blazor tenant Web + tenant Settings/Admin
-│   └── desktop/
-│       ├── workstation/  # Avalonia local-first Workstation
-│       └── guard/        # Workstation supervision/recovery companion
+│   ├── web/                         # Blazor tenant Web / tenant administration UX
+│   └── desktop/                     # one desktop product, multiple justified process boundaries
+│       ├── workstation/             # Avalonia local-first Workstation
+│       ├── guard/                   # always-running supervision/recovery companion
+│       ├── diagnostics/             # create with first real isolated diagnostic workflow
+│       ├── maintenance/             # create with first real isolated backup/maintenance workflow
+│       ├── sync/                    # create only if sync earns desktop process isolation
+│       └── document/                # create when heavy document work earns isolation
 ├── services/
-│   └── core-api/         # ASP.NET Core tenant/business HTTP/composition host
-├── modules/              # only modules required by implemented slices
+│   ├── core-api/                    # current compact ASP.NET Core authoritative host
+│   ├── web-api/                     # future interactive ingress host when split is implemented
+│   ├── sync-api/                    # future workstation-sync ingress host when split is implemented
+│   ├── admin-api/                   # future independent platform-control backend
+│   └── worker/                      # future durable background execution host
+├── modules/
+│   └── <capability>/
+│       ├── <Capability Core>        # shared business meaning / deterministic processing
+│       ├── *.Workstation/           # host adapter/presentation when needed
+│       ├── *.Web/                   # Web presentation adapter when needed
+│       └── *.Api/                   # API adapter when needed
 ├── foundation/
-│   └── application-kernel/ # small SquiFlow-owned module/settings/feature composition
+│   ├── application-kernel/          # module/host/settings/features/execution vocabulary
+│   ├── observability/               # Serilog + OpenTelemetry instrumentation boundary
+│   └── workstation-runtime/         # create only when stable desktop IPC contract exists
 ├── infrastructure/
-│   ├── storage/          # IObjectStore + HuggingFaceObjectStore
-│   ├── backup/           # IBackupTarget + KaggleBackupTarget
-│   ├── identity/         # ZITADEL integration
-│   └── authorization/    # OpenFGA integration
+│   ├── storage/
+│   ├── backup/
+│   ├── identity/
+│   └── authorization/
 ├── tests/
 ├── deploy/
 └── docs/
 ```
 
-Create later when their first real feature exists:
+Directories shown as future ownership locations are not permission to create empty projects. The current `services/core-api/SquiFlow.CoreApi` remains the compact server host until WebApi/SyncApi are actually split.
+
+## 3. Capability Core shape
+
+The old phrase `shared module` is deliberately avoided.
+
+The common point is a capability-owned Core, for example:
 
 ```text
-apps/admin-web/           # platform-control UI
-services/admin-api/       # independent Platform Admin backend
-services/worker/          # durable background work
+modules/orders/
+├── SquiFlow.Orders.Core/
+│   ├── Model/
+│   ├── Operations/
+│   ├── Facts/
+│   ├── Decisions/
+│   ├── Rules/
+│   ├── Events/
+│   ├── Features/
+│   ├── Permissions/
+│   └── Settings/
+├── SquiFlow.Orders.Workstation/
+├── SquiFlow.Orders.Web/
+└── SquiFlow.Orders.Api/
 ```
 
-This tree still does not authorize hundreds of placeholder files or empty module projects.
+The current compact `modules/customers/SquiFlow.Customers` project acts as the Customers Capability Core. Do not rename/split it merely for diagram purity; future separation is earned by real dependency pressure.
 
-## 2. Minimal structure must not mean incomplete behavior
+Capability Core/Foundation projects remain plain .NET and must not depend on Avalonia, ASP.NET Core, Windows APIs, EF/Npgsql/SQLite provider APIs, OpenFGA/ZITADEL SDKs, Quartz/TickerQ, Proto.Actor, MassTransit/RabbitMQ, or provider-specific infrastructure SDKs.
 
-Use the smallest structure that preserves all accepted responsibilities.
+## 4. Host-specific execution
+
+One Capability Core can be invoked through different execution paths:
+
+```text
+Workstation
+  local fact provider
+  → Capability Core
+  → provisional/local effect
+
+WebApi
+  authoritative fact provider
+  → Capability Core
+  → PostgreSQL authoritative effect
+
+SyncApi
+  operation-envelope admission
+  → authoritative fact provider
+  → Capability Core / selective re-evaluation
+  → PostgreSQL authoritative effect
+```
+
+Do not create `Orders.WorkstationBusiness`, `Orders.WebBusiness`, and `Orders.ServerBusiness` implementations that independently encode the same rules.
+
+Execution mode vocabulary is:
+
+```text
+DeviceLocal
+LocalProvisional
+ServerAuthoritative
+```
+
+## 5. Web API and Sync API separation
+
+Interactive Web/API traffic and Workstation sync traffic are accepted as separate future ingress/workload hosts because their protocols, batching, backpressure, fairness, latency and scaling profiles differ.
+
+```text
+Cloud/edge
+  ├─ WebApi  → interactive users / Web
+  └─ SyncApi → workstation device synchronization
+        │
+        └──── both reach the same authoritative Capability Cores/state
+```
+
+This is two backend ingress hosts, not two business backends and not two sources of truth.
+
+Detailed owner: `docs/architecture/WEB_AND_SYNC_INGRESS.md`.
+
+## 6. Desktop application versus process boundaries
+
+The Windows desktop product is one application. Separate executables exist only where process isolation, lifecycle independence, recovery, or resource reclamation materially helps.
+
+```text
+SquiFlow Desktop Application
+│
+├── SquiFlow.Workstation    always-running UI/local application runtime
+├── SquiFlow.Guard          always-running supervision/recovery companion
+└── capability processes    normally stopped, launched only when work exists
+    ├── SquiFlow.Diagnostics
+    ├── SquiFlow.Maintenance
+    ├── SquiFlow.Sync
+    └── SquiFlow.Document
+```
+
+A separate executable does not imply a microservice, separate product, or new business authority.
+
+Detailed owner: `docs/workstation/DESKTOP_PROCESS_MODEL.md`.
+
+## 7. Minimal structure must not mean incomplete behavior
 
 Bad simplification:
 
 ```text
 remove Guard because one process looks simpler
-remove storage interface even though provider migration is already committed
-collapse platform super-admin into Core API routes
-collapse authorization into token roles and lose current resource checks
+put backup/migration/diagnostic implementation into Guard because it already runs
+put Web and Sync workload policy into one giant endpoint set forever
+copy business logic into Workstation/Web adapters
+collapse platform super-admin into tenant API routes
+collapse authorization into token roles
 ```
 
 Good simplification:
 
 ```text
-keep Guard but do not add GuardManager → GuardService → GuardCoordinator forwarding layers
-keep IObjectStore because provider replacement is planned, but do not create one interface per SDK type
-keep separate Admin API because platform-control availability/security must not depend on Core API
-keep OpenFGA integration, but keep workflow/financial invariants in normal domain code
+keep one Capability Core and small host adapters
+keep current CoreApi until real workload evidence earns WebApi/SyncApi split
+keep Guard small and launch heavy capability processes only when needed
+keep provider interfaces only for real replacement boundaries
+keep separate Admin API because platform-control security/availability differs
 ```
 
-The goal is **low accidental complexity, not low capability**.
+The goal is low accidental complexity, not low capability.
 
-## 3. Project creation rule
+## 8. Project creation rule
 
 A separate project/executable earns its existence for a real boundary such as:
-- independently built/deployed executable;
+
+- independently running lifecycle;
 - security/fault/process isolation;
-- availability independence that matters operationally;
-- dependency direction that materially protects the codebase;
-- stable wire/inter-process/plugin contract;
-- active/committed provider migration or multiple implementations;
-- benchmark/test harness that genuinely needs its own executable.
+- materially different workload scaling/backpressure;
+- memory/resource reclamation after heavy work;
+- availability independence;
+- dependency direction that protects the codebase;
+- stable wire/IPC/plugin contract;
+- active provider migration/multiple implementations;
+- a benchmark/test harness requiring its own executable.
 
-`SquiFlow.Guard` passes this test because it must observe/recover Workstation process failure from outside that process.
+Do not create one project per folder name in an architecture diagram.
 
-`services/admin-api` passes this test because platform/super-admin control must remain a separate security/availability surface and must not require the tenant/business Core API process to be healthy.
+## 9. Foundation rule
 
-`IObjectStore` and `IBackupTarget` pass the abstraction test because provider replacement at the first paying customer is already planned.
+`foundation/` contains narrow product-wide primitives and runtime composition infrastructure. It must not become a place for Customers/Orders/Inventory/Staff/Devices business objects.
 
-## 4. Interface/abstraction rule
-
-Do not default to:
-
-```text
-IRepository<T>
-IUnitOfWork
-IManager
-IHelper
-IService for every Service
-one interface per concrete class
-```
-
-But do create a narrow interface when there is a real replacement/inversion boundary.
-
-Current justified provider interfaces:
+Current examples:
 
 ```text
-IObjectStore
-  └── HuggingFaceObjectStore
-
-IBackupTarget
-  └── KaggleBackupTarget
+foundation/application-kernel/SquiFlow.ApplicationKernel
+foundation/observability/SquiFlow.Observability
 ```
 
-Later paid providers implement the same contracts during migration.
+A future `SquiFlow.Workstation.Runtime.Contracts` is created only when stable Guard/Workstation/capability IPC requires it; it contains transport-neutral DTOs/enums/contracts only.
 
-The interfaces should reflect SquiFlow semantics and stay narrow; they should not mirror every method/feature in Hugging Face/Kaggle APIs.
+## 10. Feature/release management
 
-A separate `persistence/abstractions` or `packages/` project is still not required merely because two interfaces exist. They can live in coherent infrastructure namespaces until code/dependency growth earns a separate assembly.
+Feature management belongs to the application kernel/capability definitions and is distinct from permission/domain validity.
 
-## 5. Runtime boundaries
+Accepted concepts include:
 
-Accepted runtime direction:
-- tenant Web;
-- Windows Workstation;
-- Workstation Guard;
-- Core API for tenant/business operations;
-- future Platform Admin Web;
-- future **Admin API** for platform/super-admin operations;
-- future Worker.
+- host availability;
+- release channels (`Internal`, `Preview`, `Beta`, `Stable`, `Deprecated`);
+- tenant/deployment rollout ceiling;
+- versioned Workstation feature snapshots;
+- stable experiment/A-B assignments for allowed product/presentation experiments;
+- kill switch/rollback;
+- offline policy (`SnapshotAllowed`, `StableOnly`, `ServerRequired`).
 
-Business modules remain modular-monolith code and do not automatically become network services.
+Detailed owner: `docs/architecture/FEATURE_RELEASE_AND_EXPERIMENTS.md`.
 
-## 6. Platform backend separation
+## 11. Identity/authorization boundaries
 
-The normal control-plane route is:
+- ZITADEL is identity/authentication provider integration.
+- OpenFGA is application authorization integration.
+- WebApi/CoreApi and SyncApi independently derive/verify current server authority.
+- Workstation/Web feature visibility improves UX but never replaces server authorization.
+- Provider SDK/client types stay out of Capability Cores/Foundation business contracts.
 
-```text
-apps/admin-web
-→ services/admin-api
-```
+## 12. Observability foundation
 
-not:
+`foundation/observability/SquiFlow.Observability` is a shared instrumentation library, not the Diagnostics executable.
 
-```text
-apps/admin-web
-→ services/core-api
-```
+It owns common Serilog/OpenTelemetry bootstrap and provider-neutral instrumentation primitives. Desktop/server processes may reference it without inheriting provider-specific business dependencies.
 
-and not:
-
-```text
-apps/admin-web
-→ services/admin-api
-→ services/core-api
-```
-
-for ordinary platform administration.
-
-Core API and Admin API may share reviewed libraries/modules and may intentionally share underlying infrastructure such as the same central database, ZITADEL, OpenFGA, Worker, object store, or observability. Shared infrastructure does not make Core API the backend for Admin API.
-
-Admin API owns its own ASP.NET Core composition root, authentication/session validation, platform authorization, health/readiness, rate/admission limits, endpoint inventory, service credentials, audit/correlation, deployment and restart lifecycle.
-
-A Core API outage should not automatically remove the platform application control plane. An Admin API outage should not stop ordinary tenant business operations.
-
-## 7. Identity/authorization integrations
-
-- ZITADEL is the identity/authentication provider boundary.
-- OpenFGA is the application-authorization engine boundary.
-- Core API is the business server composition/authorization boundary for tenant Web/Workstation actions.
-- Admin API is the platform-control composition/authorization boundary for SquiFlow operators.
-- Web/Desktop do not call OpenFGA as a way to bypass server business authorization.
-- Admin Web does not receive OpenFGA administrative credentials or directly invoke infrastructure provider APIs.
-- Provider SDK/client types stay in infrastructure code rather than leaking into domain records.
-
-ASP.NET Core `IAuthorizationService` remains the host-facing integration primitive in both backends, but tenant and platform policy/model scopes remain separated.
-
-## 8. Workstation Guard process
-
-`apps/desktop/guard` is a real executable boundary because process supervision cannot reliably be owned solely by the process being supervised.
-
-Guard owns launch/supervision, bounded restart/hang recovery, update handoff/recovery, child process cleanup, and bounded diagnostic/resource evidence. See `docs/workstation/GUARD_AND_RECOVERY.md`.
-
-Do not put business rules, OpenFGA authorization, sync semantics or central DB access in Guard.
-
-## 9. Application-kernel and module project shape
-
-The first slice may use a compact project layout such as:
-
-~~~text
-foundation/application-kernel/
-modules/customers/
-  SquiFlow.Customers.Domain
-  SquiFlow.Customers.Application
-  SquiFlow.Customers.Contracts
-  host adapter/UI projects only when the first slice needs them
-~~~
-
-Do not create every possible layer for every module. A simple module may remain in fewer projects until dependency or deployment pressure earns a split.
-
-Module domain/application contracts remain pure .NET and do not depend on ABP or Orchard. Workstation/server/UI/persistence contributions point inward to those contracts. Per-tenant composition is a versioned availability/settings/permission snapshot, not a per-tenant project, service provider, schema, database, or process.
-
-Detailed owner: docs/architecture/APPLICATION_KERNEL_AND_MODULES.md.
-
-## 10. Phase-0 proof
+## 13. Phase-0 proof
 
 Phase 0 should prove:
-- Web, Workstation, Guard and Core API build/run;
-- Guard can launch/supervise Workstation and survive an independent Workstation crash without corrupting local data;
-- basic CI exists;
-- provider-specific Hugging Face/Kaggle/ZITADEL/OpenFGA types do not leak into domain/business models;
-- `IObjectStore` and `IBackupTarget` compile as narrow provider seams without generic interface proliferation;
-- Admin Web/Admin API/Worker are documented future executable boundaries but are not empty placeholder projects before their phase;
-- no empty module/provider projects exist solely to complete a diagram;
-- first SquiFlow module descriptor/dependency graph, host filtering, typed setting, feature availability revision and module-owned permission definition are proven;
-- `Volo.Abp.*` and `OrchardCore.*` dependencies do not enter domain/application contracts;
-- per-tenant behavior uses scoped `TenantContext` and versioned data rather than per-tenant DI containers.
+
+- Web, Workstation, Guard and current CoreApi build/run;
+- Customers compact project behaves as a platform-neutral Capability Core;
+- architecture tests keep Foundation/Capability Core free of host/provider dependencies;
+- host filtering distinguishes Workstation, WebApi, SyncApi and Guard eligibility;
+- feature publication supports host and release-channel filtering without becoming authorization;
+- stable experiment assignment is deterministic for the selected subject;
+- Guard survives independent Workstation failure without owning business logic;
+- no empty future hosts/processes/modules exist solely to complete a diagram;
+- per-tenant behavior uses scoped context/versioned data rather than per-tenant DI containers.

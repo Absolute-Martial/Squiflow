@@ -14,6 +14,8 @@ var specs = new (string Name, Action Run)[]
     ("host filtering is explicit", HostFilteringIsExplicit),
     ("feature publication closes dependencies", FeaturePublicationClosesDependencies),
     ("feature publication respects platform ceiling", FeaturePublicationRespectsCeiling),
+    ("feature publication respects host and release channel", FeaturePublicationRespectsHostAndReleaseChannel),
+    ("experiment assignment is stable", ExperimentAssignmentIsStable),
     ("typed setting respects tenant override and platform ceiling", SettingResolutionIsBounded),
     ("guard restart budget is bounded", GuardRestartBudgetIsBounded)
 };
@@ -65,6 +67,8 @@ static void HostFilteringIsExplicit()
 {
     var graph = ModuleGraph.Build([CustomersModule.Descriptor]);
     Equal(1, graph.ForHost(HostKind.Workstation).Count);
+    Equal(1, graph.ForHost(HostKind.WebApi).Count);
+    Equal(1, graph.ForHost(HostKind.SyncApi).Count);
     Equal(0, graph.ForHost(HostKind.Guard).Count);
 }
 
@@ -89,6 +93,58 @@ static void FeaturePublicationRespectsCeiling()
     var feature = new FeatureDefinition(new FeatureId("feature"), new ModuleId("m"), []);
     Throws<InvalidOperationException>(() =>
         FeatureSnapshotBuilder.Publish([feature], [], [feature.Id], revision: 1));
+}
+
+static void FeaturePublicationRespectsHostAndReleaseChannel()
+{
+    var betaWebFeature = new FeatureDefinition(
+        new FeatureId("beta-web"),
+        new ModuleId("m"),
+        [],
+        Channel: ReleaseChannel.Beta,
+        SupportedHosts: new HashSet<HostKind> { HostKind.WebApi });
+
+    Throws<InvalidOperationException>(() =>
+        FeatureSnapshotBuilder.Publish(
+            [betaWebFeature],
+            [betaWebFeature.Id],
+            [betaWebFeature.Id],
+            revision: 1,
+            host: HostKind.Workstation,
+            audienceChannel: ReleaseChannel.Beta));
+
+    Throws<InvalidOperationException>(() =>
+        FeatureSnapshotBuilder.Publish(
+            [betaWebFeature],
+            [betaWebFeature.Id],
+            [betaWebFeature.Id],
+            revision: 1,
+            host: HostKind.WebApi,
+            audienceChannel: ReleaseChannel.Stable));
+
+    var snapshot = FeatureSnapshotBuilder.Publish(
+        [betaWebFeature],
+        [betaWebFeature.Id],
+        [betaWebFeature.Id],
+        revision: 2,
+        host: HostKind.WebApi,
+        audienceChannel: ReleaseChannel.Beta);
+
+    True(snapshot.IsEnabled(betaWebFeature.Id));
+}
+
+static void ExperimentAssignmentIsStable()
+{
+    var experiment = new ExperimentDefinition(
+        "quotation-editor-v2",
+        new FeatureId("quotation.editor.v2"),
+        ["classic", "compact"],
+        SubjectKind: "user",
+        Revision: 4);
+
+    var first = experiment.AssignVariant("user-42");
+    var second = experiment.AssignVariant("user-42");
+    Equal(first, second);
 }
 
 static void SettingResolutionIsBounded()
