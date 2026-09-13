@@ -1,6 +1,24 @@
 namespace SquiFlow.ApplicationKernel
 {
-    public enum HostKind { Workstation, Guard, CoreApi, TenantWeb, Worker, AdminApi, AdminWeb }
+    public enum HostKind
+    {
+        Workstation,
+        Guard,
+        CoreApi,
+        WebApi,
+        SyncApi,
+        TenantWeb,
+        Worker,
+        AdminApi,
+        AdminWeb
+    }
+
+    public enum ExecutionMode
+    {
+        DeviceLocal,
+        LocalProvisional,
+        ServerAuthoritative
+    }
 
     public readonly record struct ModuleId(string Value) { public override string ToString() => Value; }
     public readonly record struct FeatureId(string Value) { public override string ToString() => Value; }
@@ -8,6 +26,8 @@ namespace SquiFlow.ApplicationKernel
     public readonly record struct SettingKey(string Value) { public override string ToString() => Value; }
     public readonly record struct TenantId(string Value) { public override string ToString() => Value; }
     public readonly record struct SubjectId(string Value) { public override string ToString() => Value; }
+    public readonly record struct DeviceId(string Value) { public override string ToString() => Value; }
+    public readonly record struct OperationId(string Value) { public override string ToString() => Value; }
 }
 
 namespace SquiFlow.ApplicationKernel.Tenancy
