@@ -1,29 +1,30 @@
 # Capability Core and Host-Specific Execution
 
-**Status:** Accepted architecture direction
+**Status:** Accepted architecture direction  
+**Version:** v0.0.19
 
 ## 1. Vocabulary
 
-SquiFlow does not use a generic `shared modules` layer. The stable conceptual model is:
+SquiFlow does not use a generic `shared modules` layer. The stable model is:
 
 ```text
 Foundation
    ↓
-Capability-owned business module
+Capability-owned business meaning
+   ├── Capability Core (host-neutral/deterministic where reusable)
+   └── Authoritative Application (server current authority/facts/commit)
    ↓
 Host / infrastructure adapters
 ```
 
-Inside a capability-owned module, **Capability Core** names the host-neutral business meaning and deterministic decisions that may be reused across execution environments. It is a conceptual responsibility first; it is not automatically a separate `.Core.csproj`.
-
 - **Foundation** contains small product-wide technical/domain primitives with no business-capability ownership.
-- **Capability-owned module** owns one business capability's commands, queries, domain meaning and application behavior.
-- **Capability Core** is the host-neutral/deterministic center of that module when such a center exists.
-- **Host/infrastructure adapters** supply host-specific facts/effects, presentation, transport and provider integration.
+- **Capability Core** owns the host-neutral/deterministic center of one business capability where such reusable logic exists.
+- **Authoritative Application** owns server-side authoritative entry use cases, current authority/facts, admission, concurrency/idempotency and commit orchestration for that capability.
+- **Host/infrastructure adapters** supply transport, presentation, provider/persistence integration and host-specific effects.
 
 Examples of capabilities are Customers, Orders, Inventory, Quotations, Staff and Devices.
 
-Detailed physical-project rules: `docs/architecture/MODULE_OWNERSHIP_PERSISTENCE_AND_PROJECT_BOUNDARIES.md`.
+Detailed server-authority owner: `docs/architecture/AUTHORITATIVE_CAPABILITY_MODULES.md`.
 
 ## 2. One capability, one business meaning
 
@@ -33,11 +34,11 @@ A capability has one source implementation of its business meaning. Do not creat
 Orders.WorkstationBusiness
 Orders.ServerBusiness
 Orders.WebBusiness
+Orders.SyncBusiness
+Orders.WorkerBusiness
 ```
 
-WebApi, SyncApi and Worker may invoke different **entry use cases** because their trust/workflow state differs, but those entry points belong to the same Orders capability.
-
-For deterministic decisions that are genuinely shared across server and Workstation, model the processor once:
+For deterministic decisions that are genuinely reusable, model the processor once:
 
 ```text
 Intent + Facts + Rule/Policy Snapshot
@@ -47,25 +48,49 @@ Intent + Facts + Rule/Policy Snapshot
            Decision
 ```
 
-The host/application path supplies facts and performs effects.
+The execution path supplies facts and performs effects.
 
 For Orders:
 
 ```text
-                    Orders capability
+                    Orders Capability
                           │
-                 deterministic core
+                  Capability Core
                     /           \
                    /             \
                   v               v
        local facts/SQLite   authoritative facts/PostgreSQL
                   │               │
-       Workstation execution   Server execution
+       Workstation execution   authoritative application
 ```
 
 The deterministic processor may be the same code even though authority and persistence differ.
 
-## 3. What belongs in a Capability Core
+## 3. Same authoritative modules behind WebApi and SyncApi
+
+Interactive Web/API traffic and Workstation synchronization are separate backend workload hosts, but they converge after transport/admission into the same authoritative modules.
+
+```text
+WebApi -----┐
+            ├──> Orders / Customers / Inventory / ... authoritative modules
+SyncApi ----┘                         │
+                                     ▼
+                              PostgreSQL + Outbox
+```
+
+`WebApi` and `SyncApi` may invoke different entry use cases because their inputs/trust states differ. Example:
+
+```text
+WebApi  -> Orders.CreateOrder
+SyncApi -> Orders.AdmitProvisionalOrder
+Worker  -> Orders.ExpireOrder
+```
+
+These entry points belong to one Orders capability and share its business meaning/invariants. They are not separate Order implementations.
+
+The API hosts own protocol/workload concerns. The authoritative module owns current business authorization where required, current facts/rules, invariants, concurrency/idempotency and authoritative commit.
+
+## 4. What belongs in a Capability Core
 
 A Capability Core may own:
 
@@ -80,7 +105,7 @@ A Capability Core may own:
 - stable setting definitions;
 - domain/business events.
 
-When a separate Core project exists, it must not depend on host/provider technologies such as:
+A Capability Core must not depend on host/provider technologies such as:
 
 - Avalonia;
 - ASP.NET Core;
@@ -92,11 +117,9 @@ When a separate Core project exists, it must not depend on host/provider technol
 - MassTransit/RabbitMQ;
 - provider-specific telemetry/storage SDKs.
 
-A compact capability project can still preserve these boundaries by convention and architecture tests until dependency pressure earns a physical split.
+`net10.0` shared projects remain the baseline. .NET 10 LTS is the selected runtime baseline for the current implementation.
 
-## 4. Host/application adapters
-
-Host/application paths are intentionally different.
+## 5. Host/application adapters
 
 ### Workstation execution
 
@@ -109,17 +132,18 @@ May own:
 - local hardware/platform integration;
 - local process/runtime integration.
 
-### Server authoritative execution
+### Server authoritative application
 
-May own:
+May own/orchestrate:
 
 - authoritative fact providers;
-- current ZITADEL/OpenFGA-backed checks through appropriate abstractions/integration;
+- current authorization through appropriate abstractions/integration;
 - PostgreSQL transaction/concurrency boundaries;
-- server-only invariants and provider integrations;
-- authoritative admission/commit.
-
-This responsibility may initially be folders/classes inside a compact `SquiFlow.Orders` project. It does not require `SquiFlow.Orders.Server` until a real compile-time boundary is useful.
+- current rule/configuration versions;
+- semantic idempotency;
+- authoritative admission/commit;
+- outbox creation;
+- provider effects through explicit boundaries.
 
 ### Web presentation adapter
 
@@ -131,37 +155,15 @@ May own:
 
 Web presentation does not contain another business implementation.
 
-The Web client does **not** own a persistent local business database. SQLite/WAL is a Workstation-only persistence choice. Browser storage, if used, is limited to disposable UI/session cache or temporary transfer state that can be deleted without losing authoritative or pending business truth. Offline-authoritative Web/PWA persistence would require a separate explicit architecture decision and is not part of the current SquiFlow design.
+The Web client does **not** own a persistent local business database. SQLite/WAL is a Workstation-only persistence choice. Browser storage, if used, is limited to disposable UI/session cache or temporary transfer state that can be deleted without losing authoritative or pending business truth. Offline-authoritative Web/PWA persistence requires a separate explicit architecture decision.
 
 ### API hosts/adapters
 
-`WebApi` and `SyncApi` are different server hosts/API adapters into the same authoritative modules. Calling them ingress hosts describes workload separation; it does not mean they only accept data.
+`WebApi` and `SyncApi` are different server workload/API adapters into the same authoritative modules. They may both support commands and reads. They differ in protocol, identity/device context, batching, cursor, fairness, rate/backpressure and scaling concerns without duplicating business meaning.
 
-They may both invoke module queries and commands. They differ in protocol, identity/session context, batching, cursor, fairness and backpressure concerns without duplicating business meaning.
+## 6. Processing modes
 
-Example read path:
-
-```text
-WebApi
-  -> Orders.GetOrder
-  -> Orders-owned query/data access
-  -> PostgreSQL
-  -> DTO
-  -> WebApi response
-```
-
-Example sync admission path:
-
-```text
-SyncApi
-  -> Orders.AdmitCreateOrder
-  -> current authoritative facts + rules
-  -> authoritative commit
-```
-
-## 5. Processing modes
-
-Each capability operation declares or documents the execution mode that applies on a host:
+Each capability operation declares/documents the execution mode that applies on a host:
 
 ```text
 DeviceLocal
@@ -185,7 +187,24 @@ Examples:
 | Printer/scanner integration | DeviceLocal | unavailable |
 | Guard/update recovery | DeviceLocal | unavailable |
 
-## 6. Presentation sharing rule
+## 7. Provisional execution is not blind double processing
+
+The accepted Workstation flow is:
+
+```text
+local intent
+  -> deterministic local execution
+  -> SQLite + local outbox
+  -> semantic OperationEnvelope + revision evidence
+  -> SyncApi
+  -> authoritative admission
+  -> fast path or selective re-evaluation
+  -> PostgreSQL authoritative commit
+```
+
+The server does not trust a local result merely because the same rule version was used. Current security/authority and protected invariants are still enforced. Revision evidence exists to avoid unnecessary recomputation, not to transfer authority to the device.
+
+## 8. Presentation sharing rule
 
 Share business/domain contracts and deterministic processing, not UI framework state.
 
@@ -199,78 +218,77 @@ Do not share one Avalonia/Web ViewModel merely to increase reuse. Workstation an
 
 They keep host-specific presentation state and navigation separate.
 
-## 7. Compact module first, compile-time split when earned
+## 9. Repository naming and project boundaries
 
 The repository category is `foundation/`, not `BuildingBlocks`, `Common`, or a universal `Shared` bucket.
 
-A small capability should normally begin compactly:
+A small capability may remain compact:
 
 ```text
 modules/orders/
-`- SquiFlow.Orders/
-   |- Domain/
-   |- Application/
-   |  |- Commands/
-   |  |- Queries/
-   |  `- Admission/
-   |- Decisions/
-   |- Rules/
-   |- Contracts/
-   `- Events/
+└── SquiFlow.Orders/
+    ├── Domain/
+    ├── Application/
+    ├── Admission/
+    ├── Queries/
+    ├── Decisions/
+    ├── Rules/
+    ├── Contracts/
+    └── Events/
 ```
 
-Concrete provider code can be isolated when it actually exists and would otherwise leak provider dependencies:
+If real cross-host reuse/provider isolation/dependency pressure earns a physical split, an explicit later shape may be:
 
 ```text
 modules/orders/
-|- SquiFlow.Orders/
-`- SquiFlow.Orders.Postgres/
+├── SquiFlow.Orders.Domain/
+├── SquiFlow.Orders.Contracts/
+├── SquiFlow.Orders.Application/
+├── SquiFlow.Orders.Postgres/
+├── SquiFlow.Orders.Sqlite/
+├── SquiFlow.Orders.Workstation/
+├── SquiFlow.Orders.Web/
+└── SquiFlow.Orders.Api/
 ```
 
-A Workstation adapter/project is created only when real local execution/persistence/platform code needs it.
+This is not a mandate to create empty projects. Physical decomposition is earned by real compile-time/provider/platform/reuse/packaging pressure.
 
-A separate `SquiFlow.Orders.Core` is created only when compiler-enforced host/provider neutrality or real server/Workstation reuse justifies it. An earned later split may be:
+## 10. Worker and Scheduler ownership
+
+Worker invokes the same authoritative capability modules; it does not own duplicate business services.
+
+Scheduler owns when work should become durable, not the mutation:
 
 ```text
-modules/orders/
-|- SquiFlow.Orders.Core/
-|- SquiFlow.Orders.Server/
-|- SquiFlow.Orders.Workstation/
-`- SquiFlow.Orders.Postgres/
+Scheduler
+  -> durable occurrence/job
+  -> Worker
+  -> owning authoritative module
+  -> PostgreSQL/object-storage effect
 ```
 
-The current compact `modules/customers/SquiFlow.Customers` project remains valid. Do not rename/split it merely for diagram purity.
+## 11. Reads and persistence ownership
 
-## 8. Why/when compile-time separation matters
+Reads remain module-owned operations. API endpoints do not bypass module ownership with arbitrary SQL merely because they can reach PostgreSQL.
 
-Folders communicate intent; separate projects can enforce dependency direction.
+Optimized read-only projections are allowed where they preserve tenant/security/data ownership and do not become a second business authority.
 
-Use a project split when, for example:
+Persistence/provider code lives behind the module/application boundary. PostgreSQL is authoritative server business state; SQLite/WAL is Workstation-local/provisional state; object storage owns large objects; caches are disposable; durable processing state has explicit ownership/recovery.
 
-- Workstation and server genuinely reference the same deterministic code;
-- the compiler should make Avalonia/ASP.NET/EF/Npgsql/SQLite/provider references impossible in the shared core;
-- provider-specific persistence needs containment;
-- module size/dependency pressure makes ownership unclear;
-- selective packaging/reference boundaries are real.
+## 12. Mechanical enforcement
 
-Do not split because a reference architecture has more projects or because every folder name looks like it could be a `.csproj`.
+Architecture tests should enforce project boundaries that actually exist and keep Foundation/physically separated Capability Core code free of forbidden host/provider dependencies.
 
-Detailed criteria and external reference rationale: `docs/architecture/MODULE_OWNERSHIP_PERSISTENCE_AND_PROJECT_BOUNDARIES.md`.
-
-## 9. Mechanical enforcement
-
-Architecture tests should enforce project boundaries that actually exist. When a Capability Core is physically separated, tests/compile-time references should keep it free of forbidden host/provider dependencies.
-
-For compact capabilities, architecture tests may enforce forbidden dependencies/namespaces without forcing premature project decomposition.
-
-The intended dependency direction remains:
+The intended dependency direction is:
 
 ```text
 Foundation
    ↑
-Capability business meaning
+Capability business meaning / Capability Core
    ↑
-Application/host/provider adapters
+Authoritative application + host/provider adapters
    ↑
 Executable composition roots
 ```
+
+Modular ownership is mandatory; physical project decomposition is earned.
