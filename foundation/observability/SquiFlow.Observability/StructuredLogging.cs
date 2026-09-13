@@ -21,7 +21,7 @@ public static class StructuredLogging
     public static Serilog.ILogger CreateLogger(StructuredLoggingOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        Directory.CreateDirectory(options.LocalLogDirectory);
+        var localLogDirectory = EnsureWritableLogDirectory(options.LocalLogDirectory, options.ServiceName);
 
         var configuration = new LoggerConfiguration()
             .MinimumLevel.Is(options.MinimumLevel)
@@ -31,7 +31,7 @@ public static class StructuredLogging
             .Enrich.WithProperty("squiflow.component", options.Component)
             .WriteTo.File(
                 new JsonFormatter(renderMessage: true),
-                Path.Combine(options.LocalLogDirectory, $"{options.ServiceName}-.jsonl"),
+                Path.Combine(localLogDirectory, $"{options.ServiceName}-.jsonl"),
                 rollingInterval: RollingInterval.Day,
                 rollOnFileSizeLimit: true,
                 fileSizeLimitBytes: options.LocalFileSizeLimitBytes,
@@ -62,9 +62,44 @@ public static class StructuredLogging
         var root = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
         if (string.IsNullOrWhiteSpace(root))
         {
+            root = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        }
+
+        if (string.IsNullOrWhiteSpace(root))
+        {
             root = AppContext.BaseDirectory;
         }
 
         return Path.Combine(root, "SquiFlow", "Diagnostics", "Logs", serviceName);
+    }
+
+    private static string EnsureWritableLogDirectory(string preferredDirectory, string serviceName)
+    {
+        try
+        {
+            Directory.CreateDirectory(preferredDirectory);
+            return preferredDirectory;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return CreateFallbackDirectory(serviceName);
+        }
+        catch (IOException)
+        {
+            return CreateFallbackDirectory(serviceName);
+        }
+    }
+
+    private static string CreateFallbackDirectory(string serviceName)
+    {
+        var localRoot = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        if (string.IsNullOrWhiteSpace(localRoot))
+        {
+            localRoot = Path.GetTempPath();
+        }
+
+        var fallback = Path.Combine(localRoot, "SquiFlow", "Diagnostics", "Logs", serviceName);
+        Directory.CreateDirectory(fallback);
+        return fallback;
     }
 }
