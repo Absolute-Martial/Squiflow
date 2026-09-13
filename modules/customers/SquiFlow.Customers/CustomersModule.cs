@@ -34,7 +34,7 @@ public static class CustomersModule
                 Feature,
                 Id,
                 Array.Empty<FeatureId>(),
-                ReleaseChannel: ReleaseChannel.Stable,
+                Channel: ReleaseChannel.Stable,
                 OfflinePolicy: OfflineFeaturePolicy.SnapshotAllowed,
                 SupportedHosts: new HashSet<HostKind>
                 {
