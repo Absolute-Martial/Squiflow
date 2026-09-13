@@ -1,8 +1,10 @@
 # Persistence Selection Policy
 
-**Version:** v0.0.17
+**Version:** v0.0.18
 
-PostgreSQL is selected as the initial central transactional database, and SQLite with WAL is selected as the initial Workstation embedded database. Their Phase-3 and Phase-2 proofs are production-qualification gates rather than product-selection contests. Provider portability does not require a generic repository/unit-of-work hierarchy.
+PostgreSQL is selected as the initial central transactional database, and SQLite with WAL is selected as the initial **Workstation-only** embedded database. Their Phase-3 and Phase-2 proofs are production-qualification gates rather than product-selection contests. Provider portability does not require a generic repository/unit-of-work hierarchy.
+
+SQLite/WAL is not an alternative persistent store for SquiFlow Web or Cloud. Web clients and cloud service hosts do not keep per-user/per-tenant SQLite business replicas under the current architecture. Cloud authoritative business state remains in PostgreSQL. Browser-local storage, if used, is limited to disposable presentation/session cache or explicitly bounded temporary transfer state that can be deleted without losing committed or pending business truth.
 
 This supersedes the previous decision to keep both products open pending SQLite/libSQL and central-database comparisons. The decision changed because SquiFlow's authoritative business state is predominantly relational and constraint-heavy, while its variable data is bounded semi-structured configuration and its truly unstructured data belongs in object storage. Operating an additional database by default would add transaction, reconciliation, backup, tenancy, migration, and maintenance responsibilities without an established workload.
 
@@ -20,6 +22,8 @@ The selected PostgreSQL implementation must prove the properties required by the
 - bounded connections/resources on the actual lower-spec server class.
 
 PostgreSQL is the selected initial central transactional product. Selection does not waive or predetermine successful completion of the Phase-3 proof.
+
+The Web/API/Sync/Admin/Worker cloud hosts use central server persistence; they do not substitute local SQLite when PostgreSQL is unavailable. A central-database outage follows the relevant degraded/unavailable behavior and recovery plan rather than silently creating a second local authority inside a cloud process.
 
 Do not require future Worker/HA/reporting features to be solved before the Phase-3 slice unless the selected DB would make a known required path impossible.
 
@@ -241,7 +245,7 @@ Schema-per-tenant and DB-per-tenant are not baseline.
 
 Owner: `docs/architecture/MULTI_TENANCY_ISOLATION.md`.
 
-## 12. Workstation local store — SQLite qualification in Phase 2
+## 12. Workstation-only local store — SQLite qualification in Phase 2
 
 A local candidate must prove the actual local-first requirements:
 - atomic business + outbox transaction;
@@ -254,9 +258,11 @@ A local candidate must prove the actual local-first requirements:
 - corruption/recovery path;
 - .NET/Windows packaging/integration.
 
-SQLite with WAL is the selected initial Workstation store. Test the actual SQLite driver and configuration against the same local transaction, recovery, migration, resource, and failure cases that previously formed the candidate comparison.
+SQLite with WAL is the selected initial **Workstation-only** store. Test the actual SQLite driver and configuration against the same local transaction, recovery, migration, resource, and failure cases that previously formed the candidate comparison.
 
-libSQL is deferred and is not installed beside or inside SQLite. Reopen it only when a concrete requirement benefits from a libSQL-specific capability such as embedded replication or remote access, and only when the selected .NET/Windows integration, offline write/consistency behavior, recovery, packaging, and migration path pass SquiFlow's proof.
+This selection does not apply to tenant Web, browser/PWA persistence, WebApi, SyncApi, AdminApi, Worker, or another cloud process. Those hosts do not gain a local persistent business authority merely because SQLite is accepted for Workstation. A future offline-capable Web/PWA business store would require an explicit new decision covering authority, synchronization, security, migration, retention and recovery.
+
+libSQL is deferred and is not installed beside or inside SQLite. Reopen it only when a concrete Workstation requirement benefits from a libSQL-specific capability such as embedded replication or remote access, and only when the selected .NET/Windows integration, offline write/consistency behavior, recovery, packaging, and migration path pass SquiFlow's proof.
 
 Server and Workstation may use different DB products without requiring a shared persistence interface.
 
