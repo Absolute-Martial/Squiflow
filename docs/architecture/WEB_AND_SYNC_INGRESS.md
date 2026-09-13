@@ -78,7 +78,30 @@ SyncApi                                  │
 
 The use cases differ because the inputs and trust state differ. The business capability remains one implementation.
 
-## 4. Scaling and failure independence
+## 4. Web/Cloud persistence boundary
+
+Persistent SQLite is **not** an alternative persistence model for SquiFlow Web or Cloud.
+
+```text
+Workstation
+  SQLite/WAL local store
+  local provisional state + durable outbox
+
+Web browser
+  no persistent local business database
+  optional disposable UI/session cache only
+
+Cloud WebApi / SyncApi / AdminApi / Worker
+  PostgreSQL authoritative persistence
+```
+
+Do not create per-user or per-tenant SQLite replicas in Web clients or cloud service instances. Do not use browser `localStorage`, IndexedDB, service-worker cache, or another browser store as authoritative business state or as a durable offline outbox under the current architecture.
+
+Browser-local storage may be used only for data that can be safely recreated or abandoned, such as presentation preferences, bounded response cache, session-safe UI state, or temporary upload staging where explicitly designed. Deleting that storage must not lose committed or pending business truth.
+
+If SquiFlow later chooses a truly offline-capable PWA/Web client with durable business operations, that requires a new explicit authority, synchronization, security, migration and recovery decision rather than reusing the Workstation SQLite model implicitly.
+
+## 5. Scaling and failure independence
 
 The ingress hosts can scale independently.
 
@@ -100,14 +123,14 @@ sync traffic normal
 
 A SyncApi overload should be throttled/backpressured rather than consuming all interactive Web capacity. A WebApi failure must not imply that already-running local Workstation operation stops; Workstations continue according to the local-first contract and synchronize later.
 
-## 5. Protocol selection
+## 6. Protocol selection
 
 - REST/task-oriented HTTP remains the ordinary Web/external API baseline.
 - gRPC remains a preferred candidate for the Workstation synchronization boundary when the implementation POC proves its value for batching/streaming/contract generation.
 - The sync semantics are transport-independent; HTTP can remain a fallback/initial transport if it is simpler during early proof.
 - GraphQL is not required merely because the Web host exists.
 
-## 6. Security boundary
+## 7. Security boundary
 
 Both hosts independently enforce server authority appropriate to their requests.
 
@@ -115,7 +138,7 @@ WebApi derives current authenticated user/TenantContext and performs current aut
 
 SyncApi additionally validates device/workstation identity and treats all submitted local operations/receipts as untrusted client input. The Workstation never receives central database or OpenFGA administrative credentials.
 
-## 7. Repository direction
+## 8. Repository direction
 
 Accepted future host locations are conceptually:
 

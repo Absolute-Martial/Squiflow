@@ -24,26 +24,11 @@ public static class CustomersModule
         {
             HostKind.Workstation,
             HostKind.CoreApi,
-            HostKind.WebApi,
-            HostKind.SyncApi,
             HostKind.TenantWeb
         },
         Features:
         [
-            new FeatureDefinition(
-                Feature,
-                Id,
-                Array.Empty<FeatureId>(),
-                Channel: ReleaseChannel.Stable,
-                OfflinePolicy: OfflineFeaturePolicy.SnapshotAllowed,
-                SupportedHosts: new HashSet<HostKind>
-                {
-                    HostKind.Workstation,
-                    HostKind.CoreApi,
-                    HostKind.WebApi,
-                    HostKind.SyncApi,
-                    HostKind.TenantWeb
-                })
+            new FeatureDefinition(Feature, Id, Array.Empty<FeatureId>())
         ],
         Permissions:
         [

@@ -120,6 +120,8 @@ May own:
 
 Web presentation does not contain another business implementation.
 
+The Web client does **not** own a persistent local business database. SQLite/WAL is a Workstation-only persistence choice. Browser storage, if used, is limited to disposable UI/session cache or temporary transfer state that can be deleted without losing authoritative or pending business truth. Offline-authoritative Web/PWA persistence would require a separate explicit architecture decision and is not part of the current SquiFlow design.
+
 ### API adapters
 
 `WebApi` and `SyncApi` are different ingress/workload adapters into the same authoritative capabilities. They may expose different protocol, rate, batching and backpressure behavior without duplicating business meaning.
@@ -183,7 +185,7 @@ Do not split a tiny capability into empty projects simply to match the diagram.
 
 ## 8. Mechanical enforcement
 
-Architecture tests must keep Capability Core and Foundation projects free of host/provider dependencies. Executable/adapter projects may depend inward on Capability Core/Foundation; the reverse dependency is prohibited.
+Architecture tests should eventually keep Capability Core and Foundation projects free of host/provider dependencies. This remains an architecture obligation; this document does not require the current PR to add implementation/test code for every accepted future boundary.
 
 The intended dependency direction is:
 
