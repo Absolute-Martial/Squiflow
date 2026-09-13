@@ -8,6 +8,7 @@
     <PackageReference Include="Avalonia.Themes.Fluent" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <ProjectReference Include="../../../../foundation/application-kernel/SquiFlow.ApplicationKernel/SquiFlow.ApplicationKernel.csproj" />
+    <ProjectReference Include="../../../../foundation/observability/SquiFlow.Observability/SquiFlow.Observability.csproj" />
     <ProjectReference Include="../../../../modules/customers/SquiFlow.Customers/SquiFlow.Customers.csproj" />
     <ProjectReference Include="../../../../modules/customers/SquiFlow.Customers.Workstation/SquiFlow.Customers.Workstation.csproj" />
   </ItemGroup>
