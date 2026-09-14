@@ -2,7 +2,8 @@
 
 **Purpose:** Establish only the shared application/module primitives that real capability work actually needs, while preserving explicit business ownership and dependency direction.
 
-**Gate-quality owner:** `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md`
+**Gate-quality owner:** `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md`  
+**Evidence/permanence owner:** `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md`
 
 ## Production intent
 
@@ -83,13 +84,31 @@ A narrow primitive is fine. A shallow primitive whose known failure/validation/d
 
 Do not build future features merely to make the kernel broad. Breadth can remain small; the depth of the declared claim cannot be prototype-grade.
 
-## Verification
+## Permanent verification
 
-As boundaries appear, add tests for the claims they introduce, such as duplicate IDs, missing/cyclic dependencies, deterministic ordering, provider/host leakage, stable validation, and dependency-direction violations.
+As concrete assemblies/boundaries appear, add executable architecture rules for the claims they create. Examples include:
 
-Architecture tests should be as small as possible while mechanically protecting real boundaries.
+- Foundation/host-neutral assemblies cannot reference UI/host/provider/persistence/identity/authorization/scheduler/actor/vendor SDK assemblies;
+- capability business assemblies cannot depend on host adapters;
+- provider types cannot leak into capability public contracts;
+- ordinary same-process modules cannot require HTTP/gRPC to communicate;
+- duplicate/missing/cyclic module/dependency IDs are rejected where a module graph exists;
+- ordering/validation semantics are deterministic where promised.
+
+These checks run `PER_MR` and remain active after 0B passes. NetArchTest or an equivalent .NET architecture-testing/static mechanism may implement the rules once concrete assemblies exist; no package is selected merely for appearance.
 
 A passing test is evidence only when it traces to an accepted invariant/contract; tests written around an implementation shortcut do not redefine that shortcut as correct.
+
+## Requalification triggers
+
+Re-run/review 0B architecture evidence when materially changing:
+
+- project/assembly decomposition;
+- Foundation ownership;
+- public capability contracts;
+- provider/host adapter placement;
+- module dependency/composition mechanism;
+- a package/reference that could cross a forbidden boundary.
 
 ## Scope contract before exit
 
@@ -97,7 +116,8 @@ Before 0B closes, record:
 
 - the production intent above as achieved by a real consumer scenario;
 - every introduced primitive/boundary as `PRODUCTION_HONEST` with evidence;
-- genuinely future items as `NOT_INTRODUCED`;
+- the exact permanent architecture checks guarding the claims;
+- genuinely future items as `NOT_INTRODUCED` with safe absence behavior where material;
 - `BLOCKED = none`.
 
 ## Exit gate
@@ -110,4 +130,5 @@ Before 0B closes, record:
 - dependency direction is mechanically protected where a compile-time boundary exists;
 - every introduced primitive is production-honest for its declared semantics rather than a phase-only stub;
 - no speculative common framework has been created;
-- there is no known introduced shortcut that must be rewritten merely to make the declared 0B guarantee trustworthy.
+- there is no known introduced shortcut that must be rewritten merely to make the declared 0B guarantee trustworthy;
+- the qualifying evidence is protected by permanent `PER_MR` regression checks.

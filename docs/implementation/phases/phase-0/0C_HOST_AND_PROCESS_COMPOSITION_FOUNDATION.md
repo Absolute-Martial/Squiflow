@@ -2,6 +2,13 @@
 
 **Purpose:** Establish sustainable executable composition/lifecycle behavior for the hosts that have actually been reintroduced, without creating future processes for symmetry.
 
+**Gate-quality owner:** `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md`  
+**Evidence/permanence owner:** `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md`
+
+## Production intent
+
+After 0C passes, every executable that actually exists can be started, stopped, cancelled, failed, observed, and composed without turning process/framework code into business authority or relying on an unjustified process split.
+
 ## Starting point after reset
 
 There are currently no product executables. Workstation, Guard, tenant Web, and compact CoreApi remain accepted architecture directions/ownership locations, not current runtime facts.
@@ -30,7 +37,7 @@ A new executable must answer:
 
 If those answers do not justify isolation, keep the responsibility in-process.
 
-## Host completeness
+## Host production-honesty bar
 
 For every introduced executable, implement the applicable subset immediately:
 
@@ -41,9 +48,11 @@ For every introduced executable, implement the applicable subset immediately:
 - version/component identity;
 - bounded loops/retries/buffers;
 - health/readiness when semantically appropriate;
-- process/IPC compatibility where another process depends on it.
+- process/IPC compatibility where another process depends on it;
+- explicit state/durability ownership across process death;
+- startup/shutdown ordering where another component depends on it.
 
-Do not postpone these merely because a later phase contains a deeper hardening gate.
+Do not postpone these merely because a later phase contains deeper qualification.
 
 ## Accepted future examples
 
@@ -55,13 +64,33 @@ Guard, when rebuilt, remains external supervision/recovery only and cannot own b
 
 Ordinary modules in one executable call each other in-process through owned application/query surfaces. Do not add localhost HTTP/gRPC merely to make module boundaries look distributed.
 
+## Evidence and permanent regression protection
+
+For each executable introduced:
+
+- configuration/startup validation tests run `PER_MR`;
+- cancellation/graceful-shutdown and bounded-loop behavior run `PER_MR` where deterministic;
+- architecture tests permanently prevent capability/business ownership leaking into the host/composition root;
+- process termination/restart/crash-loop/version/IPC scenarios run `PER_MR` where cheap and `SCHEDULED`/`PRE_RELEASE` where true process orchestration is needed;
+- lifecycle event/failure evidence is asserted without secrets/PII;
+- any health/readiness endpoint is tested against its actual semantic contract rather than merely returning 200.
+
+A host that has only ever been launched successfully is not lifecycle-qualified.
+
+## Transitional contract
+
+A host may be introduced before every future provider/process/dependency exists, but unavailable dependencies must remain explicit. Do not return fake success, fake health, or placeholder authority merely to keep the process launchable.
+
+If another process begins depending on the host before IPC/version/authentication semantics are qualified, that dependency is `BLOCKED`; either keep the processes independent or pull the required boundary forward.
+
 ## Exit gate
 
-0C is complete when every executable that exists at that point:
+0C passes when every executable that exists at that point:
 
 - has explicit composition/lifecycle/failure/security boundaries;
 - contains no duplicated business meaning;
-- is bounded and observable for its current responsibilities;
+- is bounded and observable for its declared responsibilities;
 - is independently justified as a process;
-- has lifecycle/failure tests appropriate to its role;
-- leaves unneeded future executables uncreated.
+- has named lifecycle/failure evidence plus permanent/recurring regression checks;
+- leaves unneeded future executables uncreated;
+- has no known reachable lifecycle shortcut deferred as later hardening.
