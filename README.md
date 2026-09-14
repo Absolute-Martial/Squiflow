@@ -1,7 +1,7 @@
 # SquiFlow
 
 **Current architecture/development baseline: `v0.0.20`**  
-**Implementation state:** principles-first reset; architecture and decision history retained; production projects have not yet been reintroduced.
+**Implementation state:** principles-first reset; **Phase 0A is Complete / Qualified**; executable product implementation begins with Phase 0B.
 
 SquiFlow is rebuilding from the accepted architecture rather than carrying premature implementation forward. The reset is intentional and auditable: earlier code remains in Git history, while the current implementation surface is empty so new code can be introduced under explicit boundaries, SOLID, complete KISS, YAGNI, defensive programming, security, verification, and observability rules from the beginning.
 
@@ -9,11 +9,11 @@ Reset decision: `docs/decisions/PRINCIPLES_FIRST_RESET_2026-09-14.md`.
 
 ## Read in this order
 
-1. `docs/implementation/phases/phase-0/0A_BASELINE_STATUS.md` — current repository/reset truth.
+1. `docs/implementation/phases/phase-0/0A_BASELINE_STATUS.md` — qualified 0A repository/baseline truth and handoff to 0B.
 2. `docs/architecture/ENGINEERING_PRINCIPLES.md` — mandatory development principles, including complete KISS.
 3. `docs/architecture/EXPLICIT_BOUNDARIES_AND_SOLID.md` — explicit dependency/ownership boundary rules.
 4. `docs/decisions/CURRENT_DECISIONS.md` — accepted product/technology direction summary.
-5. `docs/architecture/REPOSITORY_STRUCTURE.md` — current/target repository vocabulary and file-structure samples.
+5. `docs/architecture/REPOSITORY_STRUCTURE.md` and `docs/architecture/REPOSITORY_FOLDER_STRUCTURE.md` — current/growth repository vocabulary and file-structure samples.
 6. Focused architecture/security/data/sync/workstation/server owners.
 7. `docs/implementation/PHASES_AND_GATES.md` and detailed phase packages — cumulative maturity gates, not implementation ceilings.
 
@@ -33,7 +33,7 @@ Repository state proves what is implemented. Architecture documents may define f
 
 ## Current repository implementation boundary
 
-There are currently **no application, service, foundation-library, capability-module, or test projects** in the active reset baseline.
+There are currently **no application, service, foundation-library, capability-module, or test projects** in the active baseline.
 
 Retained repository-level assets include:
 
@@ -47,7 +47,7 @@ SquiFlow.sln                  empty solution container for the rebuild
 VERSION / CURRENT_VERSION.txt v0.0.20
 ```
 
-Directories/projects are reintroduced only when a real responsibility is being implemented and its boundary is explicit.
+This zero-project state is intentional and is now the **qualified 0A baseline**. 0A did not create Foundation or test projects merely to prove an empty architecture.
 
 ## Architecture direction retained through the reset
 
@@ -74,10 +74,24 @@ It never means “happy path only” or “fewest files/classes regardless of co
 
 File-structure samples in the architecture docs are preserved and should guide placement. They are not commands to create empty symmetry projects.
 
+## 0A → 0B handoff
+
+```text
+0A COMPLETE
+architecture / decisions / repository truth reconciled
+        ↓
+0B NEXT
+introduce first real capability/shared primitive only when earned
+        ↓
+add executable tests/specs with the real boundary they prove
+```
+
+Architecture testing must not be used as a reason to create Foundation prematurely. If 0B introduces Foundation/shared primitives, verify them in that same slice. If the first real responsibility remains capability-local, test the capability first and extract Foundation only when current consumers prove the shared boundary.
+
 ## CI/CD direction
 
-Repository CI/CD is again allowed. GitHub and GitLab should be thin orchestration layers over the same repository-owned verification commands/scripts, with self-hosted/self-managed runners preferred under hosted-minute constraints. No hosted pipeline is triggered merely by this reset.
+Repository CI/CD is allowed. GitHub and GitLab should be thin orchestration layers over repository-owned verification commands, with self-hosted/self-managed runners preferred under hosted-minute constraints. CI is introduced with executable implementation rather than used to manufacture a Phase-0A tooling project.
 
 ## Versioning
 
-`v0.0.20` marks the principles-first reset baseline. Older document version labels may remain as provenance when their decisions are still valid; focused owners and current repository status govern conflicts.
+`v0.0.20` marks the principles-first baseline and qualified Phase-0A handoff. Older document version labels may remain as provenance when their decisions are still valid; focused owners and current repository status govern conflicts.
