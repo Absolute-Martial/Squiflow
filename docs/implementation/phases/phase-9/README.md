@@ -16,6 +16,8 @@ This phase anticipates protected current-authority and external-effect workloads
 
 A real protected financial/shared-authority capability enters product scope.
 
-Its detailed gate must be derived from the actual provider, business rules, consistency/concurrency requirements and legal/accounting product promise at that time. The retired 9A–9E map is not normative.
+## On activation
+
+Derive the detailed gate from the actual provider, business rules, legal/accounting product promise, consistency requirements and concurrency model. The retired `9A–9E` package is not normative and may be replaced entirely.
 
 See `docs/implementation/FUTURE_PHASE_CARRY_FORWARD.md`.
