@@ -1,0 +1,14 @@
+stages:
+  - verify
+
+verify-dotnet:
+  stage: verify
+  image: mcr.microsoft.com/dotnet/sdk:10.0
+  variables:
+    DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+    DOTNET_NOLOGO: "1"
+  script:
+    - dotnet --info
+    - dotnet restore SquiFlow.sln
+    - dotnet build SquiFlow.sln -c Release --no-restore
+    - dotnet test SquiFlow.sln -c Release --no-build
