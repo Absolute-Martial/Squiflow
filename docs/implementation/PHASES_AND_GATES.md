@@ -2,6 +2,8 @@
 
 **Version:** v0.0.18
 
+> **Detailed execution packages:** `docs/implementation/phases/README.md` expands every Phase 0–10 into cumulative subphase files (`0A`, `0B`, … `10E`). This high-level file remains the parent roadmap; the detailed packages define implementation depth, continuing development, allowed additions, earned-only boundaries, failure/recovery obligations, and integration gates.
+
 Implementation is sequential. Default WIP limit: **one phase**.
 
 The WIP rule limits parallel unfinished work; it does **not** reduce the depth of the current phase. A phase is not complete until the edge/failure/recovery behaviors that materially belong to it are proven.
@@ -252,12 +254,6 @@ Deliver:
 - per-invariant concurrency mechanism: expected version/conditional update, database constraint, or narrowly justified isolation/lock;
 - classified deadlock/serialization/lock-timeout behavior with bounded whole-transaction retry only where safe;
 - first compatible expand-migrate-switch-contract schema change exercised across supported old/new reader/writer behavior.
-
-If the slice consumes a strict metered resource in the same authoritative store, prove whether business mutation + idempotency receipt + consumption/limit decision can commit atomically. If not, define the explicit reservation/reconciliation boundary.
-
-If the slice consumes a strict metered resource in the same authoritative store, prove whether business mutation + idempotency receipt + consumption/limit decision can commit atomically. If not, define the explicit reservation/reconciliation boundary.
-
-If the slice consumes a strict metered resource in the same authoritative store, prove whether business mutation + idempotency receipt + consumption/limit decision can commit atomically. If not, define the explicit reservation/reconciliation boundary.
 
 If the slice consumes a strict metered resource in the same authoritative store, prove whether business mutation + idempotency receipt + consumption/limit decision can commit atomically. If not, define the explicit reservation/reconciliation boundary.
 
