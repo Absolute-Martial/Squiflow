@@ -1,4 +1,5 @@
 using SquiFlow.Parties.Domain;
+using Xunit;
 
 namespace SquiFlow.Parties.Tests.Domain;
 
