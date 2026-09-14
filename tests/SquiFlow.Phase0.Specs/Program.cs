@@ -99,7 +99,7 @@ static void FeaturePublicationRespectsPlatformCeiling()
         HostKind.Workstation,
         platformAllowed: [],
         tenantRequested: [feature.Id],
-        new HashSet<ReleaseChannel> { ReleaseChannel.Stable },
+        allowedChannels: new HashSet<ReleaseChannel> { ReleaseChannel.Stable },
         revision: 1));
 }
 
