@@ -30,6 +30,31 @@ real responsibility
 
 A governance document that claims knowledge we do not yet have is itself not production-honest.
 
+## Pressures that produced the superseded model
+
+The over-specification did not arise because rigor was ignored. It arose from pressures that can easily look like rigor:
+
+- a complete Phase 0–10 roadmap feels more credible than an intentionally partial one;
+- symmetric phase folders look orderly and can be mistaken for architectural discipline;
+- detailed future subphases create a feeling of preparedness and completeness;
+- writing likely tests/failure cases early feels safer than admitting that the real evidence cannot yet be known;
+- once one detailed phase exists, structural imitation creates pressure for later phases to look equally detailed;
+- review pressure can reward visible completeness even when the detail is speculative.
+
+These pressures are specifically dangerous because each individual addition may appear reasonable. The failure emerges cumulatively when anticipation hardens into a canonical shape that later implementation is expected to obey.
+
+Therefore reviewers should treat these signals as prompts for skepticism rather than as proof of maturity:
+
+```text
+all future phases have matching A/B/C/... files
+all phase folders have similar depth
+all future phases already have evidence/cadence tables
+future provider/process failure matrices exist before the provider/process exists
+roadmap completeness is cited as the reason for adding detail
+```
+
+The correct response is not to make the future document more complete. It is to ask what current responsibility makes the additional specificity knowable.
+
 ## Resulting structure
 
 ```text
@@ -80,6 +105,20 @@ It does **not** preserve as current requirements:
 Those belong to Git history until real work makes them current again.
 
 The carry-forward entry is successful if it prevents current work from accidentally closing off a likely future need without pretending the future design is already known.
+
+## Activation-time anti-drift review
+
+Immediately before promoting a future ledger item into active governance, review the ledger entry itself before using it as design input.
+
+Ask:
+
+1. Has this entry accumulated detail that could not have been known without the real implementation/workload now in front of us?
+2. Does it imply a subphase decomposition, provider/runtime choice, evidence class, cadence, failure matrix or exit gate that was added before activation?
+3. Is any item being retained only because it has existed in the roadmap for a long time?
+4. Would a developer reasonably read any anticipation as mandatory rather than as a question/preservation constraint?
+5. If the ledger were hidden, would current requirements independently lead us to the same responsibility/shape?
+
+Premature detail is removed or demoted back to a question before the active phase/subphase is written. Activation is a fresh derivation from current facts, not a conversion of the ledger into specification.
 
 ## No loss of useful thinking
 
