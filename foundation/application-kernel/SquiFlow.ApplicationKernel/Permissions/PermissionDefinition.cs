@@ -13,6 +13,26 @@ public sealed record PermissionDefinition(
     public bool Supports(HostKind host) => SupportedHosts.Contains(host);
 }
 
+public sealed class EffectivePermissionSnapshot
+{
+    private readonly HashSet<PermissionId> _allowed;
+
+    public EffectivePermissionSnapshot(long revision, IEnumerable<PermissionId> allowed)
+    {
+        if (revision < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(revision));
+        }
+
+        ArgumentNullException.ThrowIfNull(allowed);
+        Revision = revision;
+        _allowed = allowed.ToHashSet();
+    }
+
+    public long Revision { get; }
+    public bool Allows(PermissionId permissionId) => _allowed.Contains(permissionId);
+}
+
 public interface IApplicationAuthorization
 {
     ValueTask<bool> IsAllowedAsync(
