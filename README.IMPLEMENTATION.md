@@ -41,6 +41,23 @@ verification developed with the implementation
 
 KISS is complete simplicity, not omission. YAGNI prevents speculative infrastructure, not necessary failure/recovery/security behavior for a responsibility that already exists.
 
+## 0A qualification evidence
+
+0A is qualified by repository/document reconciliation because it deliberately introduces no executable implementation.
+
+Evidence includes:
+
+- current project inventory is zero;
+- solution is the empty rebuild container;
+- accepted/open/historical decision roles are separated;
+- canonical architecture and folder owners are identified;
+- root/scoped `AGENTS.md` rules are present;
+- v0.0.20 version/toolchain markers are aligned;
+- superseded implementation attempts remain history rather than current authority;
+- no unresolved baseline contradiction blocks the next real implementation slice.
+
+There is therefore no meaningful 0A `dotnet test` command to run. Build/test evidence starts with the first real executable/project introduced after this gate.
+
 ## 0A versus 0B verification
 
 ```text
