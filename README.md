@@ -1,97 +1,94 @@
 # SquiFlow
 
 **Current architecture/development baseline: `v0.0.20`**  
-**Implementation state:** principles-first reset; **Phase 0A is Complete / Qualified**; executable product implementation begins with Phase 0B.
+**Phase-0A qualification branch:** Complete / Qualified under the production-honest governance model. This branch itself remains implementation-empty; later active work may legitimately introduce the first projects when current responsibility earns them.
 
-SquiFlow is rebuilding from the accepted architecture rather than carrying premature implementation forward. The reset is intentional and auditable: earlier code remains in Git history, while the current implementation surface is empty so new code can be introduced under explicit boundaries, SOLID, complete KISS, YAGNI, defensive programming, security, verification, and observability rules from the beginning.
+SquiFlow is rebuilding from accepted architecture and current responsibility rather than carrying premature implementation or speculative phase structure forward. Earlier code and retired plans remain in Git history as evidence/context, not current authority.
 
-Reset decision: `docs/decisions/PRINCIPLES_FIRST_RESET_2026-09-14.md`.
+Reset decision: `docs/decisions/PRINCIPLES_FIRST_RESET_2026-09-14.md`.  
+Gate model: `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md`.  
+Evidence/permanence model: `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md`.
 
 ## Read in this order
 
-1. `docs/implementation/phases/phase-0/0A_BASELINE_STATUS.md` — qualified 0A repository/baseline truth and handoff to 0B.
-2. `docs/architecture/ENGINEERING_PRINCIPLES.md` — mandatory development principles, including complete KISS.
-3. `docs/architecture/EXPLICIT_BOUNDARIES_AND_SOLID.md` — explicit dependency/ownership boundary rules.
-4. `docs/decisions/CURRENT_DECISIONS.md` — accepted product/technology direction summary.
-5. `docs/architecture/REPOSITORY_STRUCTURE.md` and `docs/architecture/REPOSITORY_FOLDER_STRUCTURE.md` — current/growth repository vocabulary and file-structure samples.
-6. Focused architecture/security/data/sync/workstation/server owners.
-7. `docs/implementation/PHASES_AND_GATES.md` and detailed phase packages — cumulative maturity gates, not implementation ceilings.
+1. `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md` — canonical scope/quality contract.
+2. `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md` — evidence permanence/requalification contract.
+3. `docs/implementation/phases/phase-0/0A_BASELINE_STATUS.md` — qualified reset baseline and enduring 0A guarantees.
+4. `docs/architecture/ENGINEERING_PRINCIPLES.md` — engineering principles.
+5. `docs/architecture/EXPLICIT_BOUNDARIES_AND_SOLID.md` — dependency/ownership rules.
+6. `docs/decisions/CURRENT_DECISIONS.md` and `OPEN_DECISIONS.md` — accepted versus unresolved direction.
+7. `docs/architecture/REPOSITORY_STRUCTURE.md` and `REPOSITORY_FOLDER_STRUCTURE.md` — 0A snapshot/growth placement maps.
+8. The focused owner for the responsibility being changed.
 
 ## Source precedence
 
 ```text
 focused canonical owner
         ↓
-CURRENT_DECISIONS / accepted focused decision record
+accepted/current decision record
         ↓
-implementation phase package
+active implementation/gate record
         ↓
-master/review/source-study/history material
+historical review/source-study/branch/MR material
 ```
 
-Repository state proves what is implemented. Architecture documents may define future ownership and sample structures without implying that those projects currently exist.
+Repository state proves what is implemented. Architecture documents may define future ownership and accepted direction without implying that a project/runtime currently exists.
 
-## Current repository implementation boundary
+## 0A qualification snapshot
 
-There are currently **no application, service, foundation-library, capability-module, or test projects** in the active baseline.
+On this branch there are **no application, service, foundation-library, capability-module, or test projects**. `SquiFlow.sln` is an empty implementation container.
 
-Retained repository-level assets include:
+That empty state proves the principles-first reset produced a clean starting point. It is **not** a permanent architecture invariant or a rule that later `v0.0.20` work must stay empty.
 
-```text
-docs/                         architecture, decisions, requirements, reviews, phase packages
-deploy/README.md              deployment/reproducibility planning record
-global.json                   .NET SDK baseline
-Directory.Build.props         shared compiler/analyzer defaults
-Directory.Packages.props      central package management enabled; no unused package versions predeclared
-SquiFlow.sln                  empty solution container for the rebuild
-VERSION / CURRENT_VERSION.txt v0.0.20
-```
+The enduring rules are:
 
-This zero-project state is intentional and is now the **qualified 0A baseline**. 0A did not create Foundation or test projects merely to prove an empty architecture.
-
-## Architecture direction retained through the reset
-
-- C# / .NET 10 LTS.
-- Avalonia Workstation and Blazor tenant Web when those surfaces are implemented.
-- ASP.NET Core server hosts when implemented.
-- Modular monolith first; ordinary capability communication stays in-process.
-- `Foundation → capability-owned business meaning → host/provider adapter → executable composition root` dependency direction.
-- One source implementation of business meaning per capability.
-- Workstation is the local-first/offline host direction; PostgreSQL is selected central authority; SQLite/WAL is selected Workstation local/provisional persistence when those slices are implemented.
-- ZITADEL identity, OpenFGA application authorization, and OpenBao/Vault-style external key-management directions remain accepted but are not implemented by the reset itself.
-- Guard remains an external supervision/recovery boundary when rebuilt; it is not business logic, database authority, Worker, scheduler, or key vault.
-- Process/project splits are earned by real compiler, provider, lifecycle, fault, security, resource, deployment, compatibility, or packaging boundaries.
+- later projects/boundaries are newly earned from current responsibility;
+- historical project trees/branches/diagrams do not authorize recreation;
+- current runtime truth is reconciled when later implementation appears;
+- future governance specificity remains earned rather than pre-written.
 
 ## Development rule
 
-A phase is a **minimum maturity and verification gate, not a maximum implementation scope or quality limit**.
+The governing rule is:
 
-KISS means:
+> **Scope is a choice; honesty is not.**
 
-> the simplest design that completely covers the current responsibility and its material edge cases, failures, recovery, security, compatibility, concurrency, resource bounds, observability, and operability.
-
-It never means “happy path only” or “fewest files/classes regardless of correctness.”
-
-File-structure samples in the architecture docs are preserved and should guide placement. They are not commands to create empty symmetry projects.
-
-## 0A → 0B handoff
+A phase is not a checklist and a phase label is not authority to build its imagined contents. Work proceeds as the smallest production-honest scope:
 
 ```text
-0A COMPLETE
-architecture / decisions / repository truth reconciled
+real responsibility
         ↓
-0B NEXT
-introduce first real capability/shared primitive only when earned
+declare production intent + exact scope
         ↓
-add executable tests/specs with the real boundary they prove
+NOT_INTRODUCED / PRODUCTION_HONEST / BLOCKED
+        ↓
+implement only what current scope earns
+        ↓
+prove claims with falsifiable evidence
+        ↓
+keep permanent/recurring regression guards
+        ↓
+qualify only with BLOCKED = none
 ```
 
-Architecture testing must not be used as a reason to create Foundation prematurely. If 0B introduces Foundation/shared primitives, verify them in that same slice. If the first real responsibility remains capability-local, test the capability first and extract Foundation only when current consumers prove the shared boundary.
+KISS reduces accidental complexity; YAGNI reduces speculative breadth. Neither permits prototype-grade depth for a responsibility already introduced.
+
+## 0A → next real implementation
+
+0A guarantees that a developer can identify authority, the qualification-time reset truth, repository ownership, and future-only scope without relying on deleted code or speculative governance.
+
+The next implementation does **not** automatically rebuild the historical ApplicationKernel or any other deleted project. Begin with a real capability/application responsibility. Introduce shared Foundation only when current reuse/change/ownership pressure actually justifies shared semantics.
+
+The closed historical 0B MR remains history. Useful ideas may be reconsidered, but its old completion model and project choices are not current authority.
+
+## Future governance
+
+Phase 0 and the already-concrete Phase 1 trust boundary have detailed governance. Phase 2–10 remain direction-only `NOT_INTRODUCED` planning until real work earns detail. `FUTURE_PHASE_CARRY_FORWARD.md` preserves anticipation without turning it into specification.
 
 ## CI/CD direction
 
-Repository CI/CD is allowed. GitHub and GitLab should be thin orchestration layers over repository-owned verification commands, with self-hosted/self-managed runners preferred under hosted-minute constraints. CI is introduced with executable implementation rather than used to manufacture a Phase-0A tooling project.
+0A has no executable code claim, so it does not manufacture a build/test project merely to create a green pipeline. Repository CI/CD may be introduced with real executable/repository verification in later active work. GitHub/GitLab should remain thin orchestration over repository-owned commands.
 
 ## Versioning
 
-`v0.0.20` marks the principles-first baseline and qualified Phase-0A handoff. Older document version labels may remain as provenance when their decisions are still valid; focused owners and current repository status govern conflicts.
+`v0.0.20` marks the principles-first reset baseline and production-honest 0A qualification. Older document labels may remain as provenance where their decisions still stand; focused owners and current repository status govern conflicts.

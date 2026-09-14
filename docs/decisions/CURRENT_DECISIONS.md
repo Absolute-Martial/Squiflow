@@ -4,9 +4,9 @@ This file records accepted direction only. Detailed reasoning and supersession h
 
 ## Principles-first implementation reset
 
-- Baseline `v0.0.20` intentionally contains no production/test projects. Earlier Phase-0 implementation remains in Git history as evidence, not current implementation authority.
+- The Phase-0A `v0.0.20` reset snapshot intentionally contains no production/test projects. That zero-project state is qualification-time reset evidence, not a permanent `v0.0.20` invariant. Later active work may add newly earned projects. Earlier Phase-0 implementation remains in Git history as evidence, not current implementation authority.
 - Development restarts from `docs/architecture/ENGINEERING_PRINCIPLES.md`, `docs/architecture/EXPLICIT_BOUNDARIES_AND_SOLID.md`, `docs/architecture/REPOSITORY_STRUCTURE.md`, and the focused owner for the responsibility being implemented.
-- A phase is a minimum maturity/verification floor, not a maximum implementation-scope or quality ceiling.
+- A phase is a minimum maturity/verification floor, not a maximum implementation-scope or quality ceiling; a phase label does not authorize its imagined project/runtime contents.
 - KISS means the simplest design that completely covers the current responsibility, including material edge/failure/recovery/security/concurrency/compatibility/resource/observability/operability cases. KISS never means happy-path-only or fewest files/classes at any cost.
 - YAGNI prevents speculative projects/providers/processes/interfaces; it does not permit omitting behavior required by a responsibility already introduced.
 - SOLID is applied pragmatically to real ownership/change/replacement/fault/security boundaries. It does not imply one interface per class, generic repositories, forwarding layers, or speculative plugin systems.

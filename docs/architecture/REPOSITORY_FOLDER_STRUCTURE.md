@@ -2,13 +2,13 @@
 
 **Version:** v0.0.20  
 **Purpose:** directory-only view of SquiFlow repository structure.  
-**Important:** directory presence is not proof that a runtime/project is implemented. The principles-first reset intentionally has no production/test `*.csproj` implementation yet.
+**Important:** directory presence is not proof that a runtime/project is implemented. The tree in section 1 is the Phase-0A qualification snapshot, not a permanent requirement that later active branches remain project-empty.
 
 This document complements `REPOSITORY_STRUCTURE.md`. It intentionally shows **folders only**. Files, project files, source files, configuration files, and documentation filenames are omitted from every tree.
 
-## 1. Current physical folder tree
+## 1. Phase-0A qualification snapshot
 
-The current repository contains these tracked directory paths:
+At 0A qualification, the repository contained these tracked directory paths:
 
 ```text
 SquiFlow/
@@ -60,7 +60,9 @@ SquiFlow/
 └── tests/
 ```
 
-Some source-area directories currently exist only because repository guidance such as scoped agent instructions is tracked there. They must not be interpreted as evidence that the previous implementation survived the reset.
+Some source-area directories existed only because repository guidance such as scoped agent instructions was tracked there. They were not evidence that the previous implementation survived the reset.
+
+Later active work may legitimately add subfolders/projects when a real responsibility earns them. Such additions update the current implementation record without changing the historical 0A snapshot above.
 
 ## 2. Accepted growth map — folders only
 
@@ -103,28 +105,25 @@ SquiFlow/
 └── docs/
 ```
 
-The `<capability>` child folders above are responsibility labels, not mandatory physical splits. A capability should stay compact until compiler/provider/platform/packaging/lifecycle pressure earns separation.
+The `<capability>` child folders above are responsibility labels, not mandatory physical splits. A capability should stay compact until compiler/provider/platform/packaging/lifecycle pressure earns separation. For exact physical `.csproj` placement, `REPOSITORY_STRUCTURE.md` is the more specific owner.
 
 ## 3. Compact capability folder shape
 
-When a real capability begins, prefer the smallest folder shape that completely expresses its current responsibility:
+A compact capability may be represented physically as one project directory directly under the capability, for example:
 
 ```text
 modules/
 └── <capability>/
-    └── core/
-        ├── domain/
-        ├── application/
-        │   ├── commands/
-        │   ├── queries/
-        │   └── admission/
-        ├── decisions/
-        ├── rules/
-        ├── contracts/
-        └── events/
+    └── SquiFlow.<Capability>/
+        ├── Domain/
+        ├── Application/
+        ├── Decisions/
+        ├── Rules/
+        ├── Contracts/
+        └── Events/
 ```
 
-Do not create every child automatically. If the capability has no real `events/`, `admission/`, or separate `decisions/` responsibility yet, those folders should not exist merely to make the tree symmetrical.
+Create only the child folders that current code actually needs. A logical core responsibility does not require a second physical `core/` layer merely to name that responsibility.
 
 ## 4. Earned provider/host expansion
 
@@ -133,21 +132,12 @@ A capability may later grow to:
 ```text
 modules/
 └── <capability>/
-    ├── core/
-    ├── postgres/
-    └── workstation/
+    ├── SquiFlow.<Capability>/
+    ├── SquiFlow.<Capability>.Postgres/
+    └── SquiFlow.<Capability>.Workstation/
 ```
 
-and, only when the compile-time/application split is genuinely useful:
-
-```text
-modules/
-└── <capability>/
-    ├── core/
-    ├── server/
-    ├── workstation/
-    └── postgres/
-```
+and, only when a further compile-time/application split is genuinely useful, additional projects may be introduced according to `REPOSITORY_STRUCTURE.md` and the focused capability owner.
 
 This is progressive growth, not a required final shape.
 
@@ -181,7 +171,7 @@ These are workload/process boundaries, not separate business implementations. Th
 
 ## 7. Testing folder growth
 
-The current reset has no test projects. As implementation is reintroduced, `tests/` may grow by verification responsibility rather than by mirroring every production folder:
+At 0A qualification there were no test projects. As implementation is reintroduced, `tests/` may grow by verification responsibility rather than by mirroring every production folder:
 
 ```text
 tests/
@@ -195,7 +185,7 @@ tests/
 └── performance/
 ```
 
-This is a classification map, not a requirement to create all categories. Use only the layers needed to prove real claims.
+This is a classification map, not a requirement to create all categories. Use only the layers needed to prove real claims. A small architecture assertion may live in an existing test project if it does not justify a separate architecture-test project.
 
 ## 8. Folder creation rule
 
@@ -213,7 +203,7 @@ If the only answer is “the architecture diagram shows it,” do not create the
 
 Scoped `AGENTS.md` files may cause an ownership directory to exist before runtime implementation exists. That is intentional: the folder can reserve local engineering rules without claiming a project or executable has been built.
 
-The folder map therefore distinguishes three concepts:
+The folder map therefore distinguishes:
 
 ```text
 folder exists

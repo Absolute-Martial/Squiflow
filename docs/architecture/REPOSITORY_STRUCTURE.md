@@ -20,11 +20,11 @@ Executable composition roots
 
 A capability owns one source implementation of its business meaning. `Core`, `Server`, `Workstation`, `Postgres`, `Contracts`, and similar labels describe responsibilities first; a separate project exists only when a real compile-time/provider/platform/packaging/lifecycle boundary earns it.
 
-## 2. Current reset state
+## 2. Phase-0A reset snapshot
 
-At baseline `v0.0.20`, the repository intentionally contains **no application/service/foundation-library/capability/test projects**. Earlier Phase-0 code remains in Git history and is not current implementation authority.
+On the 0A qualification branch, the repository intentionally contains **no application/service/foundation-library/capability/test projects**. Earlier Phase-0 code remains in Git history and is not current implementation authority.
 
-The retained root/tooling surface is:
+The retained root/tooling surface includes:
 
 ```text
 SquiFlow/
@@ -33,12 +33,14 @@ SquiFlow/
 |- global.json
 |- Directory.Build.props
 |- Directory.Packages.props
-|- SquiFlow.sln              # empty rebuild container
+|- SquiFlow.sln              # empty at the 0A qualification point
 |- VERSION
 `- CURRENT_VERSION.txt
 ```
 
-New projects are introduced only with a real current responsibility, explicit dependency/authority boundary, material edge/failure behavior, and verification.
+This empty project inventory is qualification evidence for the principles-first reset, not a permanent repository invariant. Later active work is expected to introduce newly earned projects.
+
+New projects are introduced only with a real current responsibility, explicit dependency/authority boundary, material applicable behavior, and falsifiable verification.
 
 ## 3. Accepted repository ownership map
 

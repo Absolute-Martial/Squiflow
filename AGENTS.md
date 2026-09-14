@@ -4,9 +4,11 @@ This is the repository-wide instruction map. A closer `AGENTS.md` in a subtree a
 
 ## 1. Current implementation truth
 
-SquiFlow is currently at the **v0.0.20 principles-first reset baseline**.
+This branch represents the **v0.0.20 Phase-0A qualification snapshot** under the production-honest governance model. It intentionally contains no production/test `*.csproj` projects and `SquiFlow.sln` is an empty implementation container.
 
-There are currently no production/test `*.csproj` projects in the implementation baseline. `SquiFlow.sln` is an empty rebuild container. Source-area folders may exist because architecture documentation or scoped `AGENTS.md` guidance reserves ownership, but:
+That empty state is 0A qualification evidence, not a permanent repository invariant. A later stacked/merged implementation branch may legitimately contain projects if current responsibility earns them under the active gate model.
+
+Source-area folders may exist because architecture documentation or scoped `AGENTS.md` guidance reserves ownership, but:
 
 ```text
 folder exists
@@ -15,20 +17,24 @@ folder exists
     != responsibility is implemented
 ```
 
-Do not infer implementation from directory names.
+Do not infer implementation from directory names, historical branches, old merge requests, diagrams, or phase labels.
 
 Read first:
 
-- `README.IMPLEMENTATION.md` — current reset truth and rebuild rule.
+- `README.IMPLEMENTATION.md` — 0A qualification truth and rebuild rule.
+- `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md` — canonical scope/quality gate.
+- `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md` — evidence permanence/requalification owner.
+- `docs/implementation/phases/phase-0/0A_BASELINE_STATUS.md` — qualified reset baseline and enduring 0A guarantees.
+- `docs/implementation/phases/phase-0/0B_APPLICATION_KERNEL_AND_MODULE_FOUNDATION.md` — next responsibility area, to be re-derived from real work before implementation.
 - `docs/architecture/ENGINEERING_PRINCIPLES.md` — engineering philosophy.
 - `docs/architecture/EXPLICIT_BOUNDARIES_AND_SOLID.md` — boundary/abstraction rules.
 - `docs/architecture/REPOSITORY_STRUCTURE.md` — ownership and executable growth map.
-- `docs/architecture/REPOSITORY_FOLDER_STRUCTURE.md` — folder-only current/growth map.
+- `docs/architecture/REPOSITORY_FOLDER_STRUCTURE.md` — folder-only qualification/growth map.
 - `docs/decisions/CURRENT_DECISIONS.md` — accepted current decisions.
 - `docs/decisions/OPEN_DECISIONS.md` — intentionally unresolved choices.
-- the focused owner and relevant phase package for the responsibility being implemented.
+- the focused owner for the responsibility being implemented.
 
-Historical Phase-0 rewrite documents remain evidence/history, not current implementation truth when they conflict with the principles-first reset.
+Historical implementation/review/phase material remains evidence and context, not current authority when it conflicts with a current focused owner, accepted decision, or active gate.
 
 ### Decision precedence
 
@@ -36,12 +42,32 @@ When documents differ, prefer:
 
 1. current focused canonical owner for the exact responsibility;
 2. current accepted decision record;
-3. current implementation/phase owner;
-4. historical review/source-study material.
+3. current active implementation/gate record;
+4. historical review/source-study/branch/MR material.
 
 Do not silently resolve an open decision in code.
 
-## 2. Scoped instructions
+## 2. Production-honest gate model
+
+A phase is not a checklist and a phase number does not authorize implementation.
+
+For every material active responsibility, use exactly one state:
+
+```text
+NOT_INTRODUCED
+PRODUCTION_HONEST
+BLOCKED
+```
+
+- `NOT_INTRODUCED` means the responsibility is genuinely absent and no claimed path depends on it.
+- `PRODUCTION_HONEST` means the declared scope is trustworthy for the guarantees it claims, with falsifiable evidence and a permanent/recurring regression guard.
+- `BLOCKED` means the responsibility has been introduced but is not yet trustworthy for its claim. `BLOCKED` cannot be carried forward as “later hardening.” Finish it or un-introduce it.
+
+Use the **smallest production-honest scope**. Breadth may be narrow; quality/depth of an introduced claim may not be prototype-grade.
+
+Future governance detail is also earned. Do not prebuild future subphase structures, evidence matrices, cadences, providers, or failure inventories merely because a roadmap label exists.
+
+## 3. Scoped instructions
 
 Read the closest applicable file when working below these paths:
 
@@ -58,7 +84,7 @@ docs/
 
 Do not add more nested `AGENTS.md` files unless a subtree genuinely needs different rules from its parent.
 
-## 3. Global architecture invariants
+## 4. Global architecture invariants
 
 Preserve these unless a deliberate architecture decision changes them in the same work:
 
@@ -75,7 +101,7 @@ Preserve these unless a deliberate architecture decision changes them in the sam
 - Physical projects, processes, interfaces, databases and protocols are earned by a real compile-time/provider/platform/security/fault/lifecycle/resource/workload boundary.
 - New mechanisms are selected from workload/invariants/evidence, not pattern popularity.
 
-## 4. Code conventions
+## 5. Code conventions
 
 Use these as review guidance, not ceremony quotas.
 
@@ -91,13 +117,14 @@ Use these as review guidance, not ceremony quotas.
 - Keep public surface minimal; `internal`/private by default when external use is not required.
 - SOLID is pressure-testing guidance, not one-interface-per-class.
 - DRY targets duplicated knowledge/business meaning, not every similar-looking line.
-- KISS/YAGNI do not justify omitting required durability, security, recovery, compatibility or observability for a responsibility that already exists.
+- KISS/YAGNI reduce accidental/speculative breadth; they do not justify omitting required correctness, durability, security, recovery, compatibility, resource bounds or observability for a responsibility already introduced.
 
-## 5. Explicit DO NOT list
+## 6. Explicit DO NOT list
 
-Unless a current focused owner explicitly earns it, DO NOT:
+Unless a current focused owner and declared production-honest scope explicitly earn it, DO NOT:
 
 - restore the old implementation tree by memory, symmetry or copy/paste from Git history;
+- use a phase/subphase label as authority to create code or infrastructure;
 - create empty future projects/executables/folders merely to match a diagram;
 - create fake in-memory persistence and present it as durable business storage;
 - put business rules in controllers, view models, Blazor components, Guard, serializers or provider adapters;
@@ -113,9 +140,10 @@ Unless a current focused owner explicitly earns it, DO NOT:
 - leak provider SDK types into host-neutral contracts;
 - write secrets/tokens/key material to source, committed config, logs, traces or diagnostics;
 - introduce a real boundary while deferring that boundary's correctness/security/recovery/compatibility obligations to unspecified later hardening;
+- carry an introduced `BLOCKED` responsibility into a later phase as if it were `NOT_INTRODUCED`;
 - treat architecture/review documentation as proof that runtime code already exists.
 
-## 6. Boundary validation
+## 7. Boundary validation
 
 - Treat user/wire/provider/file/persisted historical input as untrusted at its boundary.
 - Validate shape, size, count, ranges, version and owned business meaning.
@@ -126,37 +154,48 @@ Unless a current focused owner explicitly earns it, DO NOT:
 - Semantic idempotency is explicit for retryable mutations; HTTP method names are not proof of application idempotency.
 - Circuit breakers, caches, brokers and fallback paths are optional workload-earned mechanisms.
 
-## 7. Testing and validation
+## 8. Testing and evidence
 
-The current reset has **no executable test/spec projects yet**. Do not run or document old Phase-0 project commands as if they are current.
+The 0A qualification branch has **no executable test/spec projects** because its declared scope is repository/governance truth, not executable behavior.
 
-For documentation-only work:
+0A uses repository/document evidence. The empty project inventory is qualification-time evidence, not a permanent rule that prevents later earned implementation.
 
-- verify referenced paths/owners against the current repository;
-- check that accepted/current/open/implemented status is represented accurately;
-- ensure folder/project/runtime examples are explicitly marked as current versus growth/illustrative.
+When the first real implementation project is introduced by later work, that change must establish the narrowest useful verification that can falsify the claims it adds. Provider/framework/process/database/recovery claims must be tested at the real layer that owns them; mocks do not prove properties owned by real dependencies.
 
-When the first implementation project is reintroduced, that change must also establish the narrowest useful local verification path for the responsibility being added. Tests should be deterministic, independent and self-validating, while provider/framework/process claims must be tested at the real layer that can prove them.
+For every material active claim, identify:
 
-Do not mock away the property being tested.
+```text
+claim / owner
+falsifiable evidence
+permanent or recurring regression guard
+requalification trigger
+known non-claims
+```
 
-## 8. Definition of done
+Do not mock away the property being tested and do not write tests around an implementation shortcut and then redefine the shortcut as the contract.
 
-Before considering a change complete:
+## 9. Definition of done
+
+Before considering an active slice complete:
 
 1. identify the focused owner and current implementation truth;
-2. implement the smallest **complete** change, not the smallest happy path;
-3. add/update verification appropriate to the responsibility that now exists;
-4. preserve dependency/authority direction;
-5. check failure/recovery/security/compatibility obligations made applicable by the change;
-6. verify logs/errors do not disclose sensitive material;
-7. update focused architecture/decision/phase docs when behavior or a material decision changes;
-8. state validation that could not be performed; never claim an unrun check passed.
+2. state the production intent and exact declared scope;
+3. classify material responsibilities as `NOT_INTRODUCED`, `PRODUCTION_HONEST`, or `BLOCKED`;
+4. implement the smallest production-honest change, not the smallest happy path;
+5. add/update falsifiable evidence appropriate to every introduced material claim;
+6. add or name the permanent/recurring regression guard and requalification trigger;
+7. preserve dependency/authority direction;
+8. satisfy applicable failure/recovery/security/concurrency/compatibility/resource/observability obligations created by the slice;
+9. verify logs/errors do not disclose sensitive material;
+10. update focused architecture/decision/phase docs when behavior or a material decision changes;
+11. ensure `BLOCKED = none` before gate qualification;
+12. state verification that could not be performed; never claim an unrun check passed.
 
-## 9. Documentation and change discipline
+## 10. Documentation and change discipline
 
 - Code should explain itself through names and structure first; comments explain why, invariants, failure semantics, compatibility constraints or provider quirks.
 - Do not duplicate large canonical decisions in code comments or agent files; point to the owner.
 - Preserve Chesterton's Fence: understand why a boundary/check exists before removing it.
 - Leave touched code cleaner when cleanup is local and does not become an unrelated refactor.
-- If a future boundary becomes necessary earlier than the roadmap expected, pull the owning responsibility forward deliberately instead of creating a temporary unsafe shortcut.
+- If a future boundary becomes necessary earlier than the roadmap expected, pull the owning responsibility forward deliberately and qualify it now instead of creating a temporary unsafe shortcut.
+- If historical work contains a useful idea, re-earn it from current facts; history is input, not authority.
