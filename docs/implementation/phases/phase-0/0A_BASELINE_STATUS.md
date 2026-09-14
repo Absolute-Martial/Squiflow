@@ -82,9 +82,10 @@ Relevant review lineage:
 - earlier implementation/reconciliation work remains historical evidence;
 - the principles-first reset established the v0.0.20 zero-project baseline;
 - MR !59 introduced an unapproved `eng/`/CI structure and was closed as superseded;
-- MR !60 introduced a premature `tests/architecture` executable merely to qualify 0A and is superseded by this documentation-only 0A completion approach.
+- MR !60 introduced a premature `tests/architecture` executable merely to qualify 0A and is superseded by this documentation-only 0A completion approach;
+- the final 0A review path is the MR sourced from `phase0/0a-baseline-complete-v20`.
 
-Those experiments are not architecture authority.
+Those superseded experiments are not architecture authority.
 
 ## 6. Why no executable test belongs in 0A
 
