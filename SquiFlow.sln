@@ -1,0 +1,72 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SquiFlow.ApplicationKernel", "foundation\application-kernel\SquiFlow.ApplicationKernel\SquiFlow.ApplicationKernel.csproj", "{C16C2852-07AF-45B7-8940-35D3C802F353}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SquiFlow.Observability", "foundation\observability\SquiFlow.Observability\SquiFlow.Observability.csproj", "{76B4452B-F8DF-4213-9289-5FB583486DE8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SquiFlow.Customers", "modules\customers\SquiFlow.Customers\SquiFlow.Customers.csproj", "{843F8F66-1A84-44A7-A3A6-44844BA128AE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SquiFlow.Customers.Workstation", "modules\customers\SquiFlow.Customers.Workstation\SquiFlow.Customers.Workstation.csproj", "{BD14D350-F45E-4927-9303-76330EA21A49}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SquiFlow.Workstation", "apps\desktop\workstation\SquiFlow.Workstation\SquiFlow.Workstation.csproj", "{63633E91-E2C4-4B05-92B6-9C720B53CACB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SquiFlow.Guard", "apps\desktop\guard\SquiFlow.Guard\SquiFlow.Guard.csproj", "{27A4E510-8E9B-4F57-9728-3A42AEF28CAE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SquiFlow.Web", "apps\web\SquiFlow.Web\SquiFlow.Web.csproj", "{12C95098-9C67-4BFD-A48C-0A9395F85288}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SquiFlow.CoreApi", "services\core-api\SquiFlow.CoreApi\SquiFlow.CoreApi.csproj", "{DBC39439-1F6E-46CA-AD63-22F776FEBBB9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SquiFlow.Phase0.Specs", "tests\SquiFlow.Phase0.Specs\SquiFlow.Phase0.Specs.csproj", "{8367F753-6200-4A1F-A5FC-91555C844E81}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SquiFlow.Architecture.Specs", "tests\SquiFlow.Architecture.Specs\SquiFlow.Architecture.Specs.csproj", "{2FBF62A3-5E44-4715-A98D-65AB1FF71033}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C16C2852-07AF-45B7-8940-35D3C802F353}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C16C2852-07AF-45B7-8940-35D3C802F353}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C16C2852-07AF-45B7-8940-35D3C802F353}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C16C2852-07AF-45B7-8940-35D3C802F353}.Release|Any CPU.Build.0 = Release|Any CPU
+		{76B4452B-F8DF-4213-9289-5FB583486DE8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{76B4452B-F8DF-4213-9289-5FB583486DE8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{76B4452B-F8DF-4213-9289-5FB583486DE8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{76B4452B-F8DF-4213-9289-5FB583486DE8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{843F8F66-1A84-44A7-A3A6-44844BA128AE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{843F8F66-1A84-44A7-A3A6-44844BA128AE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{843F8F66-1A84-44A7-A3A6-44844BA128AE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{843F8F66-1A84-44A7-A3A6-44844BA128AE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BD14D350-F45E-4927-9303-76330EA21A49}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BD14D350-F45E-4927-9303-76330EA21A49}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BD14D350-F45E-4927-9303-76330EA21A49}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BD14D350-F45E-4927-9303-76330EA21A49}.Release|Any CPU.Build.0 = Release|Any CPU
+		{63633E91-E2C4-4B05-92B6-9C720B53CACB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{63633E91-E2C4-4B05-92B6-9C720B53CACB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{63633E91-E2C4-4B05-92B6-9C720B53CACB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{63633E91-E2C4-4B05-92B6-9C720B53CACB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{27A4E510-8E9B-4F57-9728-3A42AEF28CAE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{27A4E510-8E9B-4F57-9728-3A42AEF28CAE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{27A4E510-8E9B-4F57-9728-3A42AEF28CAE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{27A4E510-8E9B-4F57-9728-3A42AEF28CAE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{12C95098-9C67-4BFD-A48C-0A9395F85288}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{12C95098-9C67-4BFD-A48C-0A9395F85288}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{12C95098-9C67-4BFD-A48C-0A9395F85288}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{12C95098-9C67-4BFD-A48C-0A9395F85288}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DBC39439-1F6E-46CA-AD63-22F776FEBBB9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DBC39439-1F6E-46CA-AD63-22F776FEBBB9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DBC39439-1F6E-46CA-AD63-22F776FEBBB9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DBC39439-1F6E-46CA-AD63-22F776FEBBB9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8367F753-6200-4A1F-A5FC-91555C844E81}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8367F753-6200-4A1F-A5FC-91555C844E81}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8367F753-6200-4A1F-A5FC-91555C844E81}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8367F753-6200-4A1F-A5FC-91555C844E81}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2FBF62A3-5E44-4715-A98D-65AB1FF71033}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2FBF62A3-5E44-4715-A98D-65AB1FF71033}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2FBF62A3-5E44-4715-A98D-65AB1FF71033}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2FBF62A3-5E44-4715-A98D-65AB1FF71033}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
