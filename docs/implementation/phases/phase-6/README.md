@@ -21,4 +21,8 @@ A real control-plane operation must need independent security/availability, or a
 
 The first real Admin or Worker workload earns the boundary. At that time, its detailed gate is written from the actual workload, provider, authority and failure model.
 
-The retired 6A–6F decomposition is planning history, not a contract. See `docs/implementation/FUTURE_PHASE_CARRY_FORWARD.md`.
+## On activation
+
+Admin and Worker can activate separately. Do not restore the retired `6A–6F` package or assume Admin/Worker/scheduler must share one phase. Derive the decomposition and evidence from whichever real runtime boundary appears first.
+
+See `docs/implementation/FUTURE_PHASE_CARRY_FORWARD.md`.
