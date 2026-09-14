@@ -44,7 +44,7 @@ derive permanent/recurring regression protection
 qualify
 ```
 
-A future phase name is a planning label, not an implementation contract.
+A future phase name is a planning label, not an implementation contract. The labels and ordering may be reshaped if real work proves a different grouping or sequence is clearer.
 
 ## 2. Current earned-detail boundary
 
@@ -262,7 +262,7 @@ Detailed thinking that may inform Phases 2–10 is preserved in `docs/implementa
 
 That document is deliberately non-authoritative. It records likely questions, current preservation constraints and activation triggers without pretending to know future evidence/cadence/subphase design.
 
-When future work activates, its implementation owner may adopt, modify or reject those anticipations.
+When future work activates, its implementation owner may adopt, modify, merge, split, reorder, rename or reject those anticipations.
 
 ## 17. Deferred architecture remains genuinely deferred
 
