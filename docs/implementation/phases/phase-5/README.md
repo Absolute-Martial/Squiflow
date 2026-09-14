@@ -20,6 +20,8 @@ A concrete capability must demonstrate variability that cannot be represented ho
 
 A real product requirement needs configurable decision/workflow/form behavior with versioning/publication/reproducibility guarantees.
 
-At activation, create the detailed governance from the actual variability and deployment/offline needs. The former 5A–5E decomposition is not authoritative.
+## On activation
+
+Create only the detailed governance that the real variability requires. The historical `5A–5E` decomposition is not reserved structure and may be changed or discarded. Evidence, publication/version semantics and Workstation compatibility rules are derived from the actual feature and deployment model at that time.
 
 See `docs/implementation/FUTURE_PHASE_CARRY_FORWARD.md`.
