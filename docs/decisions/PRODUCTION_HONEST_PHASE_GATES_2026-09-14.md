@@ -11,6 +11,8 @@ A phase may deliberately keep breadth small, but every responsibility introduced
 
 The canonical owner is `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md`.
 
+A later clarification also applies this rule to governance itself: detailed phase/subphase/evidence structure is written only when real responsibilities have earned that specificity. See `docs/decisions/EARNED_PHASE_GOVERNANCE_2026-09-14.md`.
+
 ## Why this clarification is required
 
 Earlier wording such as:
@@ -23,9 +25,17 @@ could be interpreted circularly: define a narrow responsibility around the short
 
 That interpretation is rejected.
 
+A second circularity is also rejected:
+
+```text
+future phase label
+→ speculative detailed governance
+→ later implementation forced to fit that speculation
+```
+
 ## Accepted state model
 
-Each material responsibility is one of:
+Each material active responsibility is one of:
 
 ```text
 NOT_INTRODUCED
@@ -35,7 +45,7 @@ BLOCKED
 
 `BLOCKED` means the responsibility is introduced but not yet trustworthy for the guarantee it claims. It is a gate failure and cannot be carried forward as later hardening.
 
-A blocked responsibility must either become production-honest before sign-off or be explicitly un-introduced/isolate itself from claimed product paths.
+A blocked responsibility must either become production-honest before sign-off or be explicitly un-introduced/isolated from claimed product paths.
 
 ## Minimalism interpretation
 
@@ -49,7 +59,7 @@ rather than `minimum implementation` or `complete enough`.
 
 ## Gate evidence
 
-Every phase/integration gate must identify:
+Every active phase/integration gate must identify:
 
 - a falsifiable production intent;
 - production-honest scope;
@@ -58,6 +68,8 @@ Every phase/integration gate must identify:
 - evidence for material claims;
 - known non-claims/limits;
 - material carry-forward items that are genuinely not introduced.
+
+Future direction-only phases do not invent these artifacts before a real responsibility becomes active.
 
 ## Experiments
 
@@ -70,4 +82,5 @@ This does not reverse KISS, YAGNI, incremental phases, earned boundaries, or the
 - scope may be narrow;
 - future-only architecture remains deferred;
 - current claimed behavior may not be prototype-grade;
-- security/durability/recovery/compatibility/observability obligations follow when the responsibility that needs them is introduced.
+- security/durability/recovery/compatibility/observability obligations follow when the responsibility that needs them is introduced;
+- future phase governance remains direction-only until real work makes its detailed claims knowable.
