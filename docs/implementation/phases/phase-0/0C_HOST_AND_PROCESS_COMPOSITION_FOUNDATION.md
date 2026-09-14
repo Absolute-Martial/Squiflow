@@ -5,10 +5,6 @@
 **Gate-quality owner:** `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md`  
 **Evidence/permanence owner:** `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md`
 
-## Production intent
-
-After 0C passes, every executable that actually exists can be started, stopped, cancelled, failed, observed, and composed without turning process/framework code into business authority or relying on an unjustified process split.
-
 ## Starting point after reset
 
 There are currently no product executables. Workstation, Guard, tenant Web, and compact CoreApi remain accepted architecture directions/ownership locations, not current runtime facts.
@@ -37,9 +33,9 @@ A new executable must answer:
 
 If those answers do not justify isolation, keep the responsibility in-process.
 
-## Host production-honesty bar
+## Host production honesty
 
-For every introduced executable, implement the applicable subset immediately:
+For every introduced executable, implement the applicable current responsibilities immediately:
 
 - validated configuration and secret separation;
 - safe startup failure;
@@ -48,15 +44,23 @@ For every introduced executable, implement the applicable subset immediately:
 - version/component identity;
 - bounded loops/retries/buffers;
 - health/readiness when semantically appropriate;
-- process/IPC compatibility where another process depends on it;
-- explicit state/durability ownership across process death;
-- startup/shutdown ordering where another component depends on it.
+- process/IPC compatibility where another real process depends on it.
 
-Do not postpone these merely because a later phase contains deeper qualification.
+Do not postpone these merely because a later roadmap direction may contain broader runtime qualification.
+
+## Evidence permanence
+
+Lifecycle/fault claims for an executable are derived only after that executable and its real role exist.
+
+Once qualified, the applicable checks remain regression protection, for example process start/stop/cancellation, configuration failure, bounded restart behavior or IPC-version handling where those claims exist.
+
+Do not write failure matrices or cadences for future Worker/Admin/Sync/helper executables that have not been introduced.
 
 ## Accepted future examples
 
 Architecture docs reserve directions such as Workstation, Guard, tenant Web, compact CoreApi, later WebApi/SyncApi/Worker/Admin, and optional desktop helper processes. These are examples/ownership locations until implementation earns them.
+
+Their mention here does not create a future phase gate or require a particular process/subphase decomposition.
 
 Guard, when rebuilt, remains external supervision/recovery only and cannot own business capability, central DB, authorization authority, Worker scheduling, or key custody.
 
@@ -64,33 +68,14 @@ Guard, when rebuilt, remains external supervision/recovery only and cannot own b
 
 Ordinary modules in one executable call each other in-process through owned application/query surfaces. Do not add localhost HTTP/gRPC merely to make module boundaries look distributed.
 
-## Evidence and permanent regression protection
-
-For each executable introduced:
-
-- configuration/startup validation tests run `PER_MR`;
-- cancellation/graceful-shutdown and bounded-loop behavior run `PER_MR` where deterministic;
-- architecture tests permanently prevent capability/business ownership leaking into the host/composition root;
-- process termination/restart/crash-loop/version/IPC scenarios run `PER_MR` where cheap and `SCHEDULED`/`PRE_RELEASE` where true process orchestration is needed;
-- lifecycle event/failure evidence is asserted without secrets/PII;
-- any health/readiness endpoint is tested against its actual semantic contract rather than merely returning 200.
-
-A host that has only ever been launched successfully is not lifecycle-qualified.
-
-## Transitional contract
-
-A host may be introduced before every future provider/process/dependency exists, but unavailable dependencies must remain explicit. Do not return fake success, fake health, or placeholder authority merely to keep the process launchable.
-
-If another process begins depending on the host before IPC/version/authentication semantics are qualified, that dependency is `BLOCKED`; either keep the processes independent or pull the required boundary forward.
-
 ## Exit gate
 
-0C passes when every executable that exists at that point:
+0C is complete when every executable that actually exists at that point:
 
 - has explicit composition/lifecycle/failure/security boundaries;
 - contains no duplicated business meaning;
 - is bounded and observable for its declared responsibilities;
 - is independently justified as a process;
-- has named lifecycle/failure evidence plus permanent/recurring regression checks;
-- leaves unneeded future executables uncreated;
-- has no known reachable lifecycle shortcut deferred as later hardening.
+- has falsifiable lifecycle/failure evidence appropriate to its role;
+- has applicable permanent/recurring regression protection;
+- leaves unneeded future executables uncreated and unspeculated at evidence-map level.
