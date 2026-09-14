@@ -34,7 +34,7 @@ Phase 10 DIRECTION ONLY — NOT_INTRODUCED
 
 Phase 0 and Phase 1 retain detailed subphase documents because the current architecture/rebuild and trust-boundary decisions have earned concrete claims and constraints.
 
-Phase 2–10 contain README direction stubs only. Their former detailed A/B/C/... decomposition has been retired from the canonical roadmap. Useful ideas from that planning are preserved in `FUTURE_PHASE_CARRY_FORWARD.md` as non-authoritative anticipation.
+Phase 2–10 contain README direction stubs only. Their former detailed A/B/C/... decomposition has been retired from the canonical roadmap. Useful ideas from that planning are preserved in `FUTURE_PHASE_CARRY_FORWARD.md` as non-authoritative anticipation and remain available in Git history.
 
 ## Activation rule for a future phase
 
@@ -57,6 +57,8 @@ qualify
 ```
 
 The anticipation may be useful, wrong, incomplete, or obsolete. It is input, not a contract.
+
+A historical `2A`, `3B`, `6C`, etc. name is not reserved structure. Future work may keep, rename, merge, split, reorder or discard it.
 
 ## Breadth versus depth
 
@@ -91,6 +93,6 @@ The roadmap orders likely maturity; it does not prohibit earlier earned implemen
 
 ## Repository structure rule
 
-A future phase folder may contain only its README direction stub until real work earns more detail. Do not create empty A/B/C subphase documents, evidence templates, test matrices, or cadence tables for symmetry.
+A future phase folder contains only its README direction stub until real work earns more detail. Do not create empty A/B/C subphase documents, evidence templates, test matrices, or cadence tables for symmetry.
 
 Phase-specific documents are implementation artifacts, not speculative architecture ornaments.
