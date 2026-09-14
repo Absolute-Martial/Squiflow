@@ -58,6 +58,23 @@ dotnet test SquiFlow.sln -c Release --no-build
 
 Until those commands pass on the branch (or equivalent repository-owned CI evidence exists), the two introduced implementation claims remain `BLOCKED` and 0B cannot pass.
 
+## Static review completed
+
+Repository-side static review currently confirms:
+
+- the branch contains exactly one production capability project and one test project;
+- `SquiFlow.sln` contains exactly those two projects;
+- the capability project is in the canonical compact path `modules/parties/SquiFlow.Parties/`;
+- the test project is in `tests/unit/SquiFlow.Parties.Tests/`;
+- no Foundation/ApplicationKernel, application/service executable, provider/persistence project, or second capability was introduced;
+- the production project declares no package or project references;
+- `Directory.Packages.props` contains only the currently consumed xUnit test package version;
+- `global.json` retains the .NET 10 SDK baseline and selects Microsoft Testing Platform for the test runner;
+- current-state repository/structure/decision documents distinguish the 0A zero-project snapshot from the active 0B two-project state;
+- branch searches find no stale active wording that says 0B is still “next to re-derive” or that there is no active product/runtime/test implementation.
+
+This is static/repository evidence only. It does **not** replace the required restore/build/test execution.
+
 ## Test/runtime tooling introduced with the real code
 
 The first test project uses xUnit v3 with Microsoft Testing Platform under the .NET 10 SDK:
