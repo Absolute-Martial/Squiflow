@@ -24,6 +24,37 @@ Phase 1 is kept as a detailed package because the accepted identity/authorizatio
 
 These are active governance documents, so their claims require falsifiable evidence, permanent/recurring regression protection, and transitional restrictions where reachable intermediate states exist.
 
+## Why this shape is not a template
+
+Phase 1 has five detailed subphases because the **real responsibility currently being introduced** has that shape, not because a good SquiFlow phase is expected to have five files.
+
+This phase combines several interacting trust concerns that are already concrete:
+
+- externally reachable identity through an external identity provider;
+- tenant/account binding;
+- application authorization through OpenFGA plus SquiFlow-owned checks;
+- Web and native-client session behavior;
+- authorization/revocation changes that can race with active operations;
+- hostile input/identity/scope cases whose failure can become a security defect.
+
+Those responsibilities justify separate evidence and transition boundaries.
+
+A later phase with one narrow internal responsibility may legitimately have:
+
+```text
+README
++ one active subphase
++ one integration gate
+```
+
+or even one coherent active document if that is sufficient to express its real claims.
+
+Another phase may need more than five subphases. Neither shape is inherently more rigorous.
+
+Do **not** copy Phase 1's file count, headings, evidence categories, hostile-test inventory, provider structure, or transition model merely because it is the most recent detailed example. Copy only the global production-honesty/evidence discipline; derive the local document shape from the current responsibility.
+
+Structural similarity to Phase 1 is not a review criterion. A smaller earned structure is preferable to a larger structure created for visual completeness.
+
 ## Phase maturity added
 
 After Phase 1, externally reachable business behavior may rely on real authenticated identity and current application authorization for the specific surfaces/flows that have actually qualified. This does not imply that every future Admin/device/MFA/offline-security responsibility has been implemented.
