@@ -41,6 +41,8 @@ For each anticipated area, the entries below preserve:
 
 The listed questions are **prompts, not requirements**. When work begins, the developer/reviewer must derive the actual gate from the real implementation, workload, architecture owners, and then-current requirements. The eventual subphase decomposition may differ completely from the anticipation here.
 
+Former detailed phase files remain available in Git history. Their old names/numbers are **historical planning labels**, not reserved future structure. A later phase may merge, split, rename, reorder, or discard those anticipated subphases.
+
 No future phase has a preassigned evidence class, cadence, hostile-test list, transition contract, or exact closing gate merely because this ledger mentions it.
 
 ---
@@ -303,4 +305,4 @@ derive evidence + regression guard
 qualify
 ```
 
-The active document may use, modify, or reject the anticipation here. **Conformance to this ledger is not itself a success criterion.** The real owner/invariant/workload decides.
+The active document may use, modify, merge, split, reorder, rename, or reject the anticipation here. **Conformance to this ledger is not itself a success criterion.** The real owner/invariant/workload decides.
