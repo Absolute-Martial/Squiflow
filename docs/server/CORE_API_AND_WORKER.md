@@ -1,30 +1,31 @@
 # Core API and Worker Architecture
 
-**Version:** v0.0.15
+**Version:** v0.0.20  
+**Status:** Accepted architecture direction. No CoreApi, AdminApi, or Worker project currently exists after the v0.0.20 reset. The responsibilities below become active contracts only when a current implementation slice earns the corresponding host/workload.
 
 ## 1. Core API
 
-`services/core-api` is the ASP.NET Core tenant/business HTTP/composition host.
+`services/core-api` is the accepted repository ownership location for a compact early ASP.NET Core tenant/business HTTP/composition host **if/when a real current slice earns that host**. It is not a current project after the reset.
 
-It owns:
+When introduced, the compact tenant/business host owns:
 - request pipeline;
-- ZITADEL OIDC/session integration for tenant/business surfaces;
+- ZITADEL OIDC/session integration for tenant/business surfaces when identity scope exists;
 - tenant context resolution;
-- ASP.NET/OpenFGA tenant authorization integration;
+- ASP.NET/OpenFGA tenant authorization integration when authorization scope exists;
 - input/schema validation;
 - application command/query dispatch;
-- tenant/business rate limiting/admission control;
+- tenant/business rate limiting/admission control where applicable;
 - health/readiness;
 - correlation/trace context;
 - dependency composition.
 
-It does **not** host the Platform Admin API. Platform/super-admin HTTP operations belong to the independently deployable `services/admin-api` described in `docs/admin/ADMIN_SURFACES.md` and `docs/architecture/CONTROL_PLANE_AND_DATA_PLANE.md`.
+It does **not** host the Platform Admin API. Platform/super-admin HTTP operations belong to the independently deployable `services/admin-api` direction described in `docs/admin/ADMIN_SURFACES.md` and `docs/architecture/CONTROL_PLANE_AND_DATA_PLANE.md` when that control-plane runtime is introduced.
 
-Core API does not own business-domain implementation merely because the HTTP request arrives there. Business behavior belongs in modules/application code.
+Core API must not own business-domain implementation merely because the HTTP request arrives there. Business behavior belongs in capability-owned modules/application code.
 
 ## 2. Authorization pipeline
 
-For an existing tenant/business resource:
+For an implemented protected tenant/business resource, the accepted future path is:
 
 ```text
 ZITADEL-authenticated actor/session
@@ -40,7 +41,7 @@ ZITADEL-authenticated actor/session
 
 The endpoint path is organizational, not the security boundary.
 
-ASP.NET Core policies/requirements are the framework integration primitive. OpenFGA is the selected application-authorization engine for relationship/permission decisions. Handlers must not depend on invocation order and must not perform business mutations as side effects.
+ASP.NET Core policies/requirements are the framework integration primitive. OpenFGA is the selected application-authorization engine for relationship/permission decisions when that authorization scope is active. Handlers must not depend on invocation order and must not perform business mutations as side effects.
 
 Resource authorization is imperative when the decision requires the loaded resource. `IAuthorizationService` and typed authorization handlers are the server integration point.
 
@@ -62,7 +63,7 @@ Query
 → tenant/read authorization still applies
 ```
 
-Important business actions should be task-oriented, for example `ApproveQuote`, `RefundPayment`, or `AdjustInventory`, rather than hiding domain intent behind generic `Update`.
+Important business actions should be task-oriented, for example `ApproveQuote`, `RefundPayment`, or `AdjustInventory`, rather than hiding domain intent behind generic `Update`. These names are illustrative until the relevant capability/operation is actually introduced.
 
 This separation does **not** imply:
 - separate command/query databases;
@@ -74,11 +75,11 @@ Introduce read-optimized projections/materialized views only when an implemented
 
 ## 4. API cross-cutting concerns and pipeline ownership
 
-Authentication, safe logging/correlation, generic rate/admission limits, safe error shaping, and input/schema boundaries affect many endpoints. They should be applied uniformly through ASP.NET Core middleware, endpoint filters/metadata, policies, and shared host configuration where those mechanisms fit.
+When an API host exists, authentication, safe logging/correlation, generic rate/admission limits, safe error shaping, and input/schema boundaries affect many endpoints. Apply them uniformly through ASP.NET Core middleware, endpoint filters/metadata, policies, and shared host configuration where those mechanisms fit.
 
 Do **not** respond to cross-cutting concerns by building one giant middleware that owns all business decisions.
 
-Correct split:
+Accepted split:
 
 ```text
 request/correlation + safe logging
@@ -96,15 +97,15 @@ request/correlation + safe logging
 
 Some concerns intentionally span the whole pipeline (for example trace correlation). Others require the actual resource or domain state and therefore belong later.
 
-Every externally reachable endpoint must be classifiable by executable metadata/configuration as one of the intended audiences, with its authentication/policy/resource-limit behavior or an explicit reviewed public exception. CI/release endpoint inventory tests should fail on accidental unclassified privileged/business endpoints rather than relying on developers remembering to add security route by route.
+Every externally reachable endpoint, once such endpoints exist, must be classifiable by executable metadata/configuration as one of the intended audiences, with its authentication/policy/resource-limit behavior or an explicit reviewed public exception. CI/release endpoint inventory tests should fail on accidental unclassified privileged/business endpoints rather than relying on developers remembering to add security route by route.
 
 Health/liveness endpoints, OIDC callbacks, provider webhooks and other special routes can have different policies, but they are explicit exceptions with their own abuse/input/authenticity controls.
 
 ## 5. API security baseline
 
-Every API group is reviewed against the OWASP API Security Top 10 classes that apply.
+Every implemented API group is reviewed against the OWASP API Security Top 10 classes that apply.
 
-Required release gates include:
+Applicable release gates include:
 - object-level authorization for every client-supplied resource identifier;
 - function-level authorization for normal/tenant-admin/platform-admin operations;
 - property-level allowlists for request and response contracts;
@@ -118,12 +119,12 @@ Required release gates include:
 
 A valid ZITADEL identity/token does not itself authorize a resource. A valid OpenFGA relation does not bypass TenantContext/data isolation or SquiFlow business state checks.
 
-An endpoint inventory is generated from executable endpoint metadata/OpenAPI in CI/release. It is not a hand-maintained architecture CSV.
+An endpoint inventory is generated from executable endpoint metadata/OpenAPI in CI/release once the executable surface exists. It is not a hand-maintained architecture CSV.
 
 ## 6. API version/surface ownership
 
-Every externally reachable API surface declares:
-- owning backend: Core API or Admin API;
+Every externally reachable API surface, when introduced, declares:
+- owning backend: compact tenant/business API or Admin API;
 - audience: tenant Web, Workstation sync, client-client, tenant admin, platform admin or specific integration;
 - authentication method;
 - authorization policy family;
@@ -133,13 +134,13 @@ Every externally reachable API surface declares:
 
 Development/debug/test endpoints are not simply hidden; they are absent or inaccessible in production configuration.
 
-REST/task-oriented HTTP is the baseline, but SquiFlow does not claim strict REST purity. GraphQL/Federation are not added unless a real read-composition problem proves their extra query-cost/authorization/cache/schema complexity is worthwhile.
+REST/task-oriented HTTP is the accepted baseline direction, but SquiFlow does not claim strict REST purity. GraphQL/Federation are not added unless a real read-composition problem proves their extra query-cost/authorization/cache/schema complexity is worthwhile.
 
 ## 7. Synchronous versus asynchronous HTTP
 
 Keep ordinary short authoritative business transactions synchronous when the user needs a definitive result in the interactive request budget.
 
-Use asynchronous request-reply for long-running/resource-heavy work:
+Use asynchronous request-reply only for long-running/resource-heavy work that actually exists:
 
 ```text
 POST
@@ -163,7 +164,7 @@ OutcomeUnknown
 
 A duplicate POST with the same semantic idempotency key returns the existing operation/status resource rather than creating another Worker item.
 
-Do not queue every command merely because a Worker exists.
+Do not queue every command merely because a Worker direction exists.
 
 ## 8. API idempotency and retry
 
@@ -210,7 +211,7 @@ Rate/admission dimensions can include:
 - downstream paid/provider budget;
 - platform-admin operations on Admin API.
 
-Also bound:
+Also bound when applicable:
 - maximum body/upload sizes;
 - page/result limits;
 - sync batch count/bytes;
@@ -223,7 +224,7 @@ Also bound:
 
 Use `429`/`Retry-After` for temporary HTTP throttling where applicable. Background work still needs its own bounded admission/concurrency/fairness; an edge or HTTP limiter does not protect every downstream resource by itself.
 
-Expensive work moves to the Worker rather than keeping request threads occupied indefinitely.
+Expensive work moves to a Worker only after a real durable workload earns that runtime boundary.
 
 ## 10. API performance without correctness regression
 
@@ -240,9 +241,9 @@ Measure representative latency percentiles, throughput, dependency/query time, a
 
 ## 11. Worker
 
-`services/worker` executes durable asynchronous work that should not keep API requests open.
+`services/worker` is the accepted repository ownership location for a future durable asynchronous execution host **when the first real durable background workload earns an independent process**. No Worker project currently exists after reset.
 
-Examples:
+When introduced, Worker may execute workloads such as:
 - documents/reports;
 - image processing;
 - notifications/integrations;
@@ -251,6 +252,8 @@ Examples:
 - scheduled jobs;
 - rule/workflow snapshot distribution where asynchronous;
 - diagnostic packaging.
+
+These examples do not authorize prebuilding those workloads.
 
 ## 12. Background trigger taxonomy
 
@@ -273,7 +276,7 @@ Platform control command
   e.g. approved maintenance/reconciliation operation
 ```
 
-Important scheduled work must not rely on “cron fired” as the only truth. The scheduler creates or claims a durable occurrence/job with a stable occurrence identity before the business effect executes.
+Important scheduled work must not rely on “cron fired” as the only truth. When scheduled work is introduced, the scheduler creates or claims a durable occurrence/job with a stable occurrence identity before the business effect executes.
 
 For scheduled jobs whose meaning depends on business time, define timezone/DST behavior explicitly. Duplicate scheduler firings must not silently create duplicate business effects.
 
@@ -293,7 +296,7 @@ Event
 = zero, one, or many consumers may react
 ```
 
-Example:
+Illustrative example:
 
 ```text
 IssueInvoice command
@@ -324,7 +327,7 @@ Each derived projection/consumer should define:
 
 Late/out-of-order derived messages must not overwrite a newer business meaning. A stale report/search/cache result cannot become current stock, credit, payment, tenant-isolation, or authorization authority.
 
-Workstation `LocalCommitted`/`PendingRemote` remains a distinct local-first authority model, not a vague claim that the central business system will “eventually become consistent.”
+Workstation `LocalCommitted`/`PendingRemote` remains a distinct local-first authority direction when that local-first scope is implemented, not a vague claim that the central business system will “eventually become consistent.”
 
 ## 15. Messaging-pattern selection
 
@@ -353,6 +356,8 @@ Use when the caller needs the authoritative answer now and the work fits the bou
 
 ## 16. Durable work lifecycle
 
+When durable work exists, use an explicit lifecycle such as:
+
 ```text
 Pending
 → Claimed
@@ -360,7 +365,7 @@ Pending
 → Completed
 ```
 
-Alternative states:
+Alternative states where semantically needed:
 
 ```text
 RetryScheduled
@@ -376,7 +381,7 @@ A claim has a lease/ownership expiry. Use fencing/claim generations for work whe
 
 A process may run indefinitely. A loop may not spin indefinitely.
 
-Required:
+Applicable Worker requirements include:
 - bounded queues;
 - bounded concurrency;
 - cancellation propagation;
@@ -390,9 +395,11 @@ Required:
 - queue-age/oldest-item monitoring in addition to depth;
 - business priority classes with fairness/aging so lower-priority work cannot starve forever.
 
+The exact subset/mechanism/evidence is derived from the first real workload rather than prebuilt for an empty Worker.
+
 ## 18. Idempotent consumers and duplicate-entry points
 
-Assume at-least-once delivery/redelivery can occur.
+Assume at-least-once delivery/redelivery can occur when durable asynchronous delivery exists.
 
 Every message-driven handler must either:
 - make the semantic effect idempotent;
@@ -423,13 +430,13 @@ Reauthorize the actor/current authority at execution when that is semantically r
 
 ### C. Platform control-plane command
 
-A platform-critical command originates from Platform Admin Web through **Admin API**, passes risk/step-up/approval checks, and is persisted as a durable control-plane command/proposal. The Worker executes exactly that authorized command under system execution authority. It must not accept a second hidden set of control parameters from Desktop, Core API business routes, or arbitrary job payload.
+A future platform-critical command originates from Platform Admin Web through **Admin API**, passes risk/step-up/approval checks, and is persisted as a durable control-plane command/proposal. The Worker executes exactly that authorized command under system execution authority. It must not accept a second hidden set of control parameters from Desktop, tenant/business API routes, or arbitrary job payload.
 
 This classification prevents both unsafe stale-authority execution and the opposite error of cancelling valid committed consequences merely because a user was later suspended.
 
 ## 20. External effect safety
 
-For a side effect such as an external payment, webhook or remote provider action:
+For an introduced side effect such as an external payment, webhook or remote provider action:
 
 1. before effect — cancellation can be safe;
 2. request sent, response missing — `OutcomeUnknown`;
@@ -453,13 +460,13 @@ Use patterns only where the problem exists:
 - **Bulkhead:** isolate expensive work classes/dependencies with bounded pools/concurrency; do not build a cell architecture by default.
 - **Queue load leveling:** buffer bursty async work; do not put low-latency authoritative transactions behind a queue merely for architectural symmetry.
 - **Competing consumers:** future Worker replicas can claim independent items; ordering stays per consistency key where required.
-- **Priority queue:** honor P0–P3/business priority while preserving fairness and aging.
+- **Priority queue:** honor business priority while preserving fairness/aging only when a real priority model exists.
 - **Circuit breaker:** add only for remote dependencies where sustained/slow failure makes retries harmful; do not wrap every local component.
 - **Claim check:** keep large files/diagnostic payloads outside queue messages and pass protected references.
 
-Container design patterns do not become automatic runtime architecture. Do not add per-service sidecars/proxies/adapters, leader election, or scatter/gather fan-out solely because the server is containerized. A pattern needs a measured coordination/deployment problem and must justify its memory/network/failure/operational cost on the owned rack.
+Container design patterns do not become automatic runtime architecture. Do not add per-service sidecars/proxies/adapters, leader election, or scatter/gather fan-out solely because the server is containerized. A pattern needs a measured coordination/deployment problem and must justify its memory/network/failure/operational cost on the owned deployment.
 
-`SquiFlow.Guard` is a native Windows supervision/recovery boundary, not evidence that server components should follow a sidecar-everywhere model.
+`SquiFlow.Guard` is an accepted native Windows supervision/recovery boundary when implemented, not evidence that server components should follow a sidecar-everywhere model.
 
 ## 22. Service-to-service communication and data ownership
 
@@ -488,7 +495,7 @@ client → Core API → service A → service B → service C
 
 when the same business operation can stay one in-process application/transactional flow. Every network hop adds timeout, retry, partial-failure, versioning, authorization, observability, and deployment obligations.
 
-Core API, Admin API, and Worker can legitimately share the same central database because they are runtime hosts of the same modular-monolith business core. Shared access still requires explicit module/data ownership and common invariants. One host must not use ad-hoc SQL to bypass another module's business rules merely because the table is reachable.
+Future compact tenant/business API, Admin API, and Worker may legitimately share the same central database because they are runtime hosts of the same modular-monolith business core. Shared access still requires explicit module/data ownership and common invariants. One host must not use ad-hoc SQL to bypass another module's business rules merely because the table is reachable.
 
 If a future capability is extracted into a genuinely independent service, its authoritative data ownership becomes explicit and other services should use stable APIs/events/read models rather than directly modifying its private tables.
 
@@ -503,9 +510,9 @@ An edge reverse proxy/API-gateway capability may be useful for north-south conce
 - coarse rate limiting;
 - transport/protocol negotiation and edge observability where supported.
 
-That gateway is not the business authorization engine. Core API/Admin API still authenticate/authorize/validate resources and state independently.
+That gateway is not the business authorization engine. Tenant/business API and Admin API still authenticate/authorize/validate resources and state independently when those hosts exist.
 
-A shared edge may route to both Core API and Admin API, but it must not reintroduce a runtime dependency where Admin API calls through Core API. Platform Admin remains an independent backend/security/availability plane.
+A shared edge may route to both tenant/business API and Admin API, but it must not reintroduce a runtime dependency where Admin API calls through the tenant/business API. Platform Admin remains an independent backend/security/availability plane once implemented.
 
 Do not adopt a heavyweight API-management product merely because gateways can also offer payload transformation, analytics, version management, or authorization. Add only the edge capabilities SquiFlow actually needs and can operate on the owned deployment.
 
@@ -513,8 +520,8 @@ A service mesh is **not baseline**. Revisit only if independently deployed east-
 
 ## 24. Network protocol boundaries
 
-Current production protocol direction:
-- external Web/Core API/Admin API/Workstation sync traffic uses HTTPS/TLS;
+Accepted production-facing protocol direction once corresponding surfaces exist:
+- external Web/tenant API/Admin API/Workstation sync traffic uses HTTPS/TLS;
 - ZITADEL uses OIDC/OAuth over HTTPS;
 - HTTP/1.1, HTTP/2, or HTTP/3 may be negotiated by client/edge/server where supported, but application semantics do not depend on one transport version;
 - DNS/hostnames are routing inputs, never tenant authority by themselves;
@@ -527,17 +534,17 @@ Do not add gRPC, MQTT, WebRTC, FTP/SFTP, or raw TCP/UDP as application protocols
 
 ## 25. Server concurrency
 
-The application handles independent work in parallel. Correctness is scoped to the relevant aggregate/resource, not one global writer.
+When server execution exists, the application handles independent work in parallel. Correctness is scoped to the relevant aggregate/resource, not one global writer.
 
-Final correctness is enforced by the selected central store through transactions, constraints, optimistic concurrency and locking where appropriate.
+Final correctness is enforced by the selected central store through transactions, constraints, optimistic concurrency and locking where appropriate once persistence is introduced.
 
 ## 26. Stateless server-process semantics
 
-`Stateless` for Core API/Admin API/future Worker means their process memory is not the sole durable authority for business correctness.
+`Stateless` for a future tenant/business API, Admin API, or Worker means process memory is not the sole durable authority for business correctness.
 
 It does **not** mean SquiFlow has no state.
 
-Durable/shared state can live in:
+Durable/shared state may live in:
 - central DB;
 - object storage;
 - outbox/job store;
@@ -545,15 +552,15 @@ Durable/shared state can live in:
 - shared configuration/session state where the selected Web topology requires it;
 - backup/recovery systems.
 
-Process-local cache/circuit/temporary state is permitted only with explicit loss/freshness behavior. A server restart must not cause committed orders, idempotency receipts, durable jobs, permissions, or business documents to disappear merely because they were only in memory.
+Process-local cache/circuit/temporary state is permitted only with explicit loss/freshness behavior. A server restart must not cause committed orders, idempotency receipts, durable jobs, permissions, or business documents to disappear merely because they were only in memory once those responsibilities exist.
 
 This also does not imply automatic failover or zero downtime. If Blazor Interactive Server is used, Web circuits themselves are stateful and require an explicit circuit/session topology before multi-node failover claims are made.
 
 ## 27. Platform-critical Worker controls
 
-Pause/drain/resume/retry/quarantine/reconcile controls that can materially affect server operation are invoked through Platform Admin Web → **Admin API**. They are not Core API routes.
+When platform-critical Worker controls exist, pause/drain/resume/retry/quarantine/reconcile operations that can materially affect server operation are invoked through Platform Admin Web → **Admin API**. They are not tenant/business API routes.
 
-Do not expose those controls through Workstation, ordinary tenant Web, `/sync`, or Core API business/tenant-admin endpoints.
+Do not expose those controls through Workstation, ordinary tenant Web, `/sync`, or ordinary tenant/business endpoints.
 
 ## Source basis
 

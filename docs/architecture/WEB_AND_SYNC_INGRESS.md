@@ -1,10 +1,10 @@
 # Web API and Workstation Sync Hosts
 
-**Status:** Accepted architecture direction
+**Status:** Accepted architecture direction. No WebApi, SyncApi, Worker, or CoreApi project currently exists after the v0.0.20 reset; the host locations and flows below describe earned future topology, not current runtime.
 
 ## 1. Decision
 
-SquiFlow uses separate backend runtime hosts for interactive Web/API traffic and Workstation synchronization traffic.
+When workload pressure earns separate backend hosts, SquiFlow separates interactive Web/API traffic from Workstation synchronization traffic.
 
 `WebApi` and `SyncApi` are **server hosts/API adapters**, not separate business backends and not merely one-way ingress pipes. They may accept commands and return/read data. They differ because their protocol, identity context, batching, cursor, backpressure, fairness, latency and scaling profiles differ.
 
@@ -35,6 +35,8 @@ They invoke the same capability-owned business modules.
                  authoritative business state
 ```
 
+This diagram is architecture direction. It does not assert that any shown host, capability, or persistence adapter exists now.
+
 Ephemeral runtime state and durable processing state are used around this path where the workload requires them; they do not form a second business backend.
 
 Detailed owners:
@@ -43,7 +45,7 @@ Detailed owners:
 
 ## 2. Why separate the hosts
 
-Interactive Web requests and Workstation sync have materially different workload shapes.
+Interactive Web requests and Workstation sync have materially different workload shapes once both workloads exist.
 
 ### Web/API host
 
@@ -72,7 +74,7 @@ Optimized for:
 - pull/download and upload/admission flows;
 - longer-lived or higher-throughput synchronization workloads.
 
-The Sync API must not force these concerns into every ordinary interactive Web endpoint.
+The Sync API must not force these concerns into every ordinary interactive Web endpoint when the split is implemented.
 
 ## 3. Hosts do not own duplicate business modules
 
@@ -91,7 +93,7 @@ Worker
 
 when those classes independently encode Order meaning.
 
-Accepted:
+Accepted illustrative shape:
 
 ```text
 WebApi
@@ -104,13 +106,13 @@ Worker                          |
   -> Orders.ExpireOrder --------+
 ```
 
-The entry use cases differ because their trust/workflow state differs. The business capability remains one implementation.
+The entry use cases may differ because their trust/workflow state differs. The business capability remains one implementation.
 
-The same compiled module assembly may be deployed with more than one host. That is binary duplication, not business-logic duplication.
+The same compiled module assembly may later be deployed with more than one host. That is binary duplication, not business-logic duplication.
 
 ## 4. Web data read path
 
-WebApi can and should return data through module-owned queries.
+When WebApi exists, it can and should return data through module-owned queries.
 
 ```text
 GET /orders/123
@@ -129,7 +131,7 @@ Read-only query code may use an optimized projection/query path and does not hav
 
 ## 5. Web authoritative mutation path
 
-For a short operation where the user needs the authoritative result now:
+For a future short operation where the user needs the authoritative result now:
 
 ```text
 Web
@@ -148,6 +150,8 @@ Web
 This is not `controller -> SQL` and it is not necessary to queue every command.
 
 ## 6. Sync upload/admission path
+
+When synchronization is introduced, the accepted shape is:
 
 ```text
 Workstation
@@ -183,7 +187,7 @@ Cross-capability cursor/batch/reconnect mechanics belong to the Synchronization 
 
 ## 8. Three server-state classes
 
-The server distinguishes:
+When server state is introduced, distinguish:
 
 ```text
 Ephemeral runtime state
@@ -208,6 +212,8 @@ Durable processing state may initially be PostgreSQL-backed under explicit table
 
 Persistent SQLite is **not** an alternative persistence model for SquiFlow Web or Cloud.
 
+Accepted future placement:
+
 ```text
 Workstation
   SQLite/WAL local store
@@ -225,13 +231,13 @@ Cloud WebApi / SyncApi / AdminApi / Worker
 
 Do not create per-user or per-tenant SQLite replicas in Web clients or cloud service instances. Browser storage is not authoritative business state or a durable offline business outbox under the current architecture.
 
-Cloud hosts may use bounded cache, temporary/object staging, durable inbox/job/idempotency/outbox state, and Worker processing without creating a second general-purpose business database.
+Cloud hosts may use bounded cache, temporary/object staging, durable inbox/job/idempotency/outbox state, and Worker processing without creating a second general-purpose business database once those hosts/workloads exist.
 
 If SquiFlow later chooses a truly offline-capable PWA/Web client with durable business operations, that requires a new explicit authority, synchronization, security, migration and recovery decision.
 
 ## 10. Durable asynchronous path
 
-For long-running/resource-heavy work or asynchronous consequences:
+For long-running/resource-heavy work or asynchronous consequences once such work exists:
 
 ```text
 WebApi / SyncApi
@@ -258,7 +264,7 @@ Do not model reconnect traffic as:
 Workstation -> SyncApi -> immediately hammer arbitrary business tables
 ```
 
-The host performs device/session validation, protocol/schema checks, item/byte/rate limits, fairness and backpressure first.
+The future host performs device/session validation, protocol/schema checks, item/byte/rate limits, fairness and backpressure first.
 
 Then either:
 
@@ -294,7 +300,7 @@ AlreadyApplied
 
 ## 12. Scaling and failure independence
 
-The hosts can scale independently.
+The reason to earn separate hosts is that they can scale/throttle independently when the workload exists.
 
 ```text
 Web traffic normal + reconnect backlog high
@@ -304,20 +310,20 @@ Web reporting/dashboard spike + sync normal
 -> scale WebApi path independently
 ```
 
-A SyncApi overload should be throttled/backpressured rather than consuming all interactive Web capacity. A WebApi failure must not imply that already-running local Workstation operation stops; Workstations continue according to the local-first contract and synchronize later.
+A future SyncApi overload should be throttled/backpressured rather than consuming all interactive Web capacity. A future WebApi failure must not imply that already-running local Workstation operation stops; Workstations continue according to the local-first contract and synchronize later.
 
 Ephemeral cache/runtime-store failure may reduce performance or UX, but it must not erase committed business truth or durable jobs.
 
 ## 13. Protocol selection
 
-- REST/task-oriented HTTP remains the ordinary Web/external API baseline.
-- gRPC remains a preferred candidate for the Workstation synchronization boundary when the implementation POC proves its value for batching/streaming/contract generation.
+- REST/task-oriented HTTP remains the ordinary Web/external API baseline when that surface exists.
+- gRPC remains a preferred candidate for the Workstation synchronization boundary when a real implementation POC proves its value for batching/streaming/contract generation.
 - The sync semantics are transport-independent; HTTP can remain a fallback/initial transport if it is simpler during early proof.
-- GraphQL is not required merely because the Web host exists.
+- GraphQL is not required merely because a Web host exists.
 
 ## 14. Security boundary
 
-Both hosts independently enforce server authority appropriate to their requests.
+When WebApi and SyncApi exist, both independently enforce server authority appropriate to their requests.
 
 WebApi derives the current authenticated user/TenantContext and performs host/coarse policy checks, while current resource/business authorization remains part of the authoritative module/application operation where required.
 
@@ -331,11 +337,12 @@ Accepted future host locations are conceptually:
 
 ```text
 services/
-|- web-api/     # create when split from current CoreApi is implemented
-|- sync-api/    # create when first isolated synchronization host exists
-`- worker/      # create when first durable background workload is implemented
+|- core-api/    # compact early authoritative host only if/when a current slice earns it
+|- web-api/     # create only when an interactive workload split is real
+|- sync-api/    # create only when an isolated synchronization host is real
+`- worker/      # create only when the first durable background workload earns it
 ```
 
-The existing `services/core-api/SquiFlow.CoreApi` remains the compact early host until a real split is implemented. Documentation must not pretend the split already exists in code.
+There is currently no `services/core-api/SquiFlow.CoreApi`, WebApi, SyncApi, or Worker project after the v0.0.20 reset. A compact CoreApi remains an accepted **future early-host direction**, not an existing runtime.
 
 Do not scaffold empty hosts, cache providers, brokers, processing databases, or per-host business modules only to satisfy this diagram.

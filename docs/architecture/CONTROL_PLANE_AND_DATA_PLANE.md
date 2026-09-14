@@ -1,10 +1,11 @@
 # Control Plane and Business Data Plane
 
-**Version:** v0.0.19
+**Version:** v0.0.20  
+**Status:** Accepted architecture direction. The planes/hosts below describe responsibility and future earned topology; no WebApi, SyncApi, CoreApi, AdminApi, Worker, Web, or Workstation runtime project currently exists after the v0.0.20 reset.
 
 ## Why this distinction matters
 
-SquiFlow has materially different classes of command:
+SquiFlow has materially different classes of command when the corresponding product/runtime responsibilities are introduced:
 
 1. normal tenant business operations;
 2. tenant configuration/administration;
@@ -15,11 +16,11 @@ Mixing them would make authorization difficult and could accidentally expose pri
 
 ## 1. Business data plane
 
-Normal tenant work:
+Accepted future tenant-business path:
 
 ```text
 Web / Workstation
-→ WebApi / SyncApi / current compact CoreApi host
+→ earned compact tenant/business API and/or later WebApi / SyncApi hosts
 → transport/session/device admission
 → authoritative tenant scope
 → owning capability application/use case
@@ -30,25 +31,27 @@ Web / Workstation
 → result
 ```
 
-Examples:
+This is architecture direction, not a claim that any shown host/capability/runtime currently exists.
 
-- create/edit customer;
-- create order;
+Examples of business responsibilities that may use this plane once their capabilities are introduced include:
+
+- create/edit customer or another accepted Party/customer concept;
+- create an order/request/transaction only after that domain term is resolved for the slice;
 - quotation/tender work;
 - permitted inventory operation;
 - payment/credit operation according to authority policy;
 - purchasing/supplier transaction;
 - document/print request.
 
-The Workstation can perform specifically approved operations locally/offline and later sync them, but server authority rechecks current permissions/invariants during synchronization. Local execution is provisional where server authority matters.
+The Workstation may perform specifically approved operations locally/offline once those operations and the Workstation runtime are introduced, but server authority rechecks current permissions/invariants during synchronization. Local execution is provisional where server authority matters.
 
-WebApi and SyncApi are workload-specific hosts into the same authoritative capability modules, not separate business implementations.
+WebApi and SyncApi are accepted future workload-specific hosts into the same authoritative capability modules, not separate business implementations.
 
 ## 2. Tenant control plane
 
-Tenant administration remains server-authoritative tenant-scoped application behavior.
+Tenant administration remains server-authoritative tenant-scoped application behavior when that scope exists.
 
-The **Web is the primary/broader tenant administration surface**, but selected tenant-scoped operations may also be surfaced on an **online authorized Workstation** when the owning capability explicitly supports that host.
+The **Web is the accepted primary/broader tenant administration surface**, but selected tenant-scoped operations may also be surfaced on an **online authorized Workstation** when the owning capability explicitly supports that host.
 
 Examples that may be exposed on Web and an authorized online Workstation include:
 
@@ -59,7 +62,7 @@ Examples that may be exposed on Web and an authorized online Workstation include
 
 Broader configuration/rule/workflow/form authoring can remain Web-only when no Workstation product requirement exists.
 
-Accepted path:
+Accepted future path:
 
 ```text
 Tenant Web OR approved online Workstation surface
@@ -77,7 +80,7 @@ An online Workstation surface is only a host adapter. It does not grant/revoke a
 
 ## 3. Platform control plane is a separate backend
 
-Platform/server-critical operations use a separate application/control-plane stack:
+When platform/server-critical application control is introduced, it uses a separate application/control-plane stack:
 
 ```text
 apps/admin-web
@@ -85,9 +88,9 @@ apps/admin-web
 → platform-owned application/data/provider/control-plane dependencies
 ```
 
-`services/admin-api` is a separate ASP.NET Core executable/deployment/security boundary from ordinary tenant Web/Sync hosts.
+`services/admin-api` is the accepted ownership location for a separate ASP.NET Core executable/deployment/security boundary from ordinary tenant Web/Sync hosts when that runtime is earned. It is not a current project after reset.
 
-The platform-admin plane must **not** depend on an ordinary tenant API process being available for normal platform administration. Admin API does not call tenant WebApi/SyncApi/CoreApi as the ordinary execution path for platform commands.
+The platform-admin plane must **not** depend on an ordinary tenant API process being available for normal platform administration. A future Admin API does not call tenant WebApi/SyncApi/compact tenant API as the ordinary execution path for platform commands.
 
 Platform Admin and tenant hosts may share reviewed modules/contracts/infrastructure where appropriate, but ordinary runtime topology must not be:
 
@@ -97,7 +100,7 @@ Admin Web → Admin API → tenant business API
 
 This protects availability and limits attack surface.
 
-Examples of Admin API responsibilities:
+Examples of future Admin API responsibilities may include:
 
 - platform tenant/entitlement/capability ceilings;
 - Worker pause/drain/retry/quarantine/reconciliation controls;
@@ -109,11 +112,13 @@ Examples of Admin API responsibilities:
 - controlled cross-tenant support/break-glass application actions;
 - platform authorization/operator configuration.
 
+These examples do not authorize creating Admin/Worker/provider runtimes before a real responsibility activates them.
+
 ## 4. Platform Admin is a private zero-trust plane
 
-Network reachability is a prerequisite, not authority.
+When implemented, network reachability is a prerequisite, not authority.
 
-Current deployment direction:
+Accepted deployment direction:
 
 ```text
 approved Admin device
@@ -155,9 +160,9 @@ Detailed owners:
 
 ## 5. Authentication versus authorization
 
-ZITADEL can prove that the administrator authenticated and can provide recent/step-up authentication context. It does **not** itself grant SquiFlow platform authority.
+ZITADEL can prove that the administrator authenticated and can provide recent/step-up authentication context once identity/admin scope exists. It does **not** itself grant SquiFlow platform authority.
 
-A high-risk flow is:
+Accepted high-risk flow when that control plane exists:
 
 ```text
 Platform Admin Web
@@ -182,7 +187,7 @@ Tenant OpenFGA roles/permissions cannot imply platform authority.
 
 SquiFlow does not build a custom cryptographic vault.
 
-Normal administration path:
+Accepted future administration path:
 
 ```text
 Platform Admin Web/API
@@ -195,7 +200,7 @@ SquiFlow key-management adapter
 OpenBao / future compatible provider
 ```
 
-OpenBao/Vault owns cryptographic root/key storage and cryptographic operations. SquiFlow owns encryption policy, authorization, resource/key mapping, recovery workflow and authoritative audit semantics.
+OpenBao/Vault owns cryptographic root/key storage and cryptographic operations when key-management scope is introduced. SquiFlow owns encryption policy, authorization, resource/key mapping, recovery workflow and authoritative audit semantics.
 
 Raw KEKs/DEKs/root/seal material/recovery shares are not ordinary Admin UI/API data.
 
@@ -203,7 +208,7 @@ Encryption administration does not imply tenant customer-data browsing. Support/
 
 ## 7. Admin API independence boundaries
 
-Admin API owns its own:
+When Admin API exists, it owns its own:
 
 - request pipeline;
 - platform authentication/session validation;
@@ -217,15 +222,15 @@ Admin API owns its own:
 - service credentials/scopes;
 - deployment and restart lifecycle.
 
-It may share underlying infrastructure such as PostgreSQL, OpenFGA, ZITADEL, Worker, object storage, OpenBao or observability where intentional. Sharing a dependency does not make the ordinary tenant API the control-plane gateway.
+It may share underlying infrastructure such as PostgreSQL, OpenFGA, ZITADEL, Worker, object storage, OpenBao or observability where intentional and introduced. Sharing a dependency does not make the ordinary tenant API the control-plane gateway.
 
 If a shared database/provider/key service itself is unavailable, the operations that genuinely depend on it may also be degraded. The requirement is **process/API independence from tenant ingress**, not impossible independence from all shared infrastructure.
 
-Admin API outage alone must not stop ordinary already-provisioned tenant business operation.
+Admin API outage alone must not stop ordinary already-provisioned tenant business operation once both planes exist.
 
 ## 8. Private infrastructure/bootstrap plane
 
-If Platform Admin or OpenBao itself is unavailable, recovery cannot depend solely on Platform Admin.
+If Platform Admin or OpenBao itself is unavailable once those systems exist, recovery cannot depend solely on Platform Admin.
 
 A separate private infrastructure runbook/ceremony owns operations such as:
 
@@ -259,7 +264,7 @@ The private infrastructure plane is not a hidden tenant/business API and is neve
 
 ## 9. Edge gateway/reverse-proxy boundary
 
-An edge reverse proxy/API-gateway capability may route north-south traffic and may own generic concerns such as:
+An edge reverse proxy/API-gateway capability may be useful for north-south concerns such as:
 
 - TLS termination;
 - hostname/custom-domain routing;
@@ -295,15 +300,15 @@ private IP / Tailscale membership
 → therefore Platform Admin allowed
 ```
 
-Each backend still independently authenticates/authorizes, validates resource scope/state, enforces operation-specific admission, and emits its own audit/health evidence.
+Each backend still independently authenticates/authorizes, validates resource scope/state, enforces operation-specific admission, and emits its own audit/health evidence once those surfaces exist.
 
 A service mesh remains non-baseline until real east-west service topology earns it.
 
 ## 10. Service/data-sharing implication
 
-WebApi, SyncApi, Admin API and Worker are runtime hosts around the same modular-monolith capability architecture. Separate processes do not automatically make them independent microservices with private databases or separate business meanings.
+WebApi, SyncApi, Admin API and Worker are accepted runtime-host responsibilities around the same modular-monolith capability architecture **when those hosts are earned**. Separate processes do not automatically make them independent microservices with private databases or separate business meanings.
 
-They may intentionally share the authoritative central DB, but they must preserve explicit module/data ownership and the same domain/transaction invariants. A host must not bypass a module's rules through ad-hoc direct SQL merely because a table is physically reachable.
+They may intentionally share the authoritative central DB once introduced, but they must preserve explicit module/data ownership and the same domain/transaction invariants. A host must not bypass a module's rules through ad-hoc direct SQL merely because a table is physically reachable.
 
 If a capability is later extracted into a truly independent service, its data ownership and communication contract must be designed explicitly then.
 
@@ -311,7 +316,7 @@ If a capability is later extracted into a truly independent service, its data ow
 
 The API path is not the authorization boundary.
 
-Tenant operations use endpoint policy plus resource authorization after tenant-scoped resolution and owning-capability/domain checks.
+Tenant operations use endpoint policy plus resource authorization after tenant-scoped resolution and owning-capability/domain checks once protected tenant operations exist.
 
 Platform operations apply the same principle using platform-scoped resources and platform authorization. They must not reuse tenant request context as platform-admin authority.
 
@@ -319,7 +324,7 @@ Platform Admin entry permission and individual operation permission are separate
 
 ## 12. No direct infrastructure bypass from UI
 
-Tenant Web, Platform Admin Web and Workstation do not talk directly to PostgreSQL, object-storage admin APIs, Podman/container control, SSH, or OpenBao as normal UI behavior.
+Tenant Web, Platform Admin Web and Workstation do not talk directly to PostgreSQL, object-storage admin APIs, Podman/container control, SSH, or OpenBao as normal UI behavior once those surfaces/providers exist.
 
 Platform Admin Web talks to Admin API. Admin API may invoke narrowly authorized provider/control-plane integrations as part of an audited application operation.
 
@@ -335,15 +340,15 @@ Cross-tenant support access is separately authorized, tenant/resource scoped, re
 
 ## 14. API inventory and retirement
 
-Because privileged endpoints are security-sensitive, production surfaces are generated/inventoried from executable endpoint metadata/OpenAPI during CI/release.
+Once privileged endpoints exist, production surfaces are generated/inventoried from executable endpoint metadata/OpenAPI during CI/release.
 
 Every tenant-admin and Platform Admin endpoint declares its policy family and owner. Deprecated privileged versions have an explicit retirement plan rather than remaining available indefinitely.
 
-Do not keep `/platform-admin/...` routes on the ordinary public tenant API as a hidden compatibility surface after Admin API exists.
+Do not keep `/platform-admin/...` routes on the ordinary public tenant API as a hidden compatibility surface after a separate Admin API exists.
 
 ## 15. Safety rules
 
-If a command can alter multiple tenants, platform security/encryption policy, key lifecycle, provider/global configuration, Worker/server control behavior, secret material, or operational truth, ask why it is not an **Admin API** command.
+If an introduced command can alter multiple tenants, platform security/encryption policy, key lifecycle, provider/global configuration, Worker/server control behavior, secret material, or operational truth, ask why it is not an **Admin API** command.
 
 If a command is ordinary tenant business work, do not force users through Platform Admin merely because a server eventually processes it.
 
