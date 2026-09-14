@@ -47,6 +47,8 @@ future detailed thinking
 → explicitly non-authoritative anticipation
 ```
 
+The current earned-detail boundary is therefore after Phase 1. This boundary can move forward as real implementation earns more specificity.
+
 ## Promotion rule
 
 When future work becomes real, write/rewrite the detailed phase/subphase from current facts. The carry-forward anticipation is an input, not a success criterion.
@@ -60,12 +62,22 @@ A new detailed file is created only when a real responsibility can name:
 - permanent/recurring regression protection;
 - transition/safe-absence behavior where actually relevant.
 
+The implementation is free to use, modify, merge, split or reject the former anticipated subphase decomposition.
+
 ## No loss of useful thinking
 
 The retired future-phase documents remain in Git history. Their useful architectural questions have been consolidated into `FUTURE_PHASE_CARRY_FORWARD.md` so the reasoning is available without being mistaken for a current contract.
 
 ## Relationship to roadmap
 
-`PHASES_AND_GATES.md` remains a high-level maturity roadmap but is now direction-only after the current earned-detail boundary.
+`PHASES_AND_GATES.md` remains a high-level maturity roadmap but is direction-only after the current earned-detail boundary.
 
 Phase numbering remains planning guidance, not a requirement that responsibilities arrive in exactly that order. Pull-forward remains allowed when a real workload needs a future responsibility earlier.
+
+## Governance review question
+
+Before adding future phase detail, ask:
+
+> What real current responsibility makes this level of specificity knowable now?
+
+If the answer is only `because the roadmap says this phase will exist`, keep the detail in carry-forward anticipation rather than canonical phase governance.
