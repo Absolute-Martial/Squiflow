@@ -3,9 +3,25 @@ using System.Xml.Linq;
 var repoRoot = FindRepositoryRoot(AppContext.BaseDirectory);
 var failures = new List<string>();
 
+var moduleAdapterSuffixes = new[]
+{
+    ".Workstation",
+    ".Web",
+    ".Api",
+    ".Postgres",
+    ".Sqlite"
+};
+
 var neutralProjects = Directory
     .EnumerateFiles(Path.Combine(repoRoot, "foundation", "application-kernel"), "*.csproj", SearchOption.AllDirectories)
-    .Concat(Directory.EnumerateFiles(Path.Combine(repoRoot, "modules", "customers", "SquiFlow.Customers"), "*.csproj", SearchOption.AllDirectories))
+    .Concat(Directory.Exists(Path.Combine(repoRoot, "modules"))
+        ? Directory.EnumerateFiles(Path.Combine(repoRoot, "modules"), "*.csproj", SearchOption.AllDirectories)
+            .Where(path =>
+            {
+                var projectName = Path.GetFileNameWithoutExtension(path);
+                return !moduleAdapterSuffixes.Any(suffix => projectName.EndsWith(suffix, StringComparison.OrdinalIgnoreCase));
+            })
+        : Array.Empty<string>())
     .ToArray();
 
 var forbiddenPackages = new[]
@@ -17,7 +33,9 @@ var forbiddenPackages = new[]
     "Microsoft.Data.Sqlite",
     "OpenFGA",
     "Zitadel",
+    "OpenBao",
     "Quartz",
+    "TickerQ",
     "Proto.Actor",
     "MassTransit",
     "RabbitMQ"
@@ -28,23 +46,16 @@ foreach (var project in neutralProjects)
     var document = XDocument.Load(project);
     var packages = document.Descendants("PackageReference")
         .Select(element => (string?)element.Attribute("Include"))
-        .Where(value => value is not null)
-        .Cast<string>();
+        .OfType<string>();
 
     foreach (var package in packages)
     {
         if (forbiddenPackages.Any(prefix => package.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
         {
-            failures.Add($"{Relative(project)}: forbidden host/provider package '{package}' in shared code.");
+            failures.Add($"{Relative(project)}: forbidden host/provider package '{package}' in host-neutral code.");
         }
     }
 }
-
-var sharedSourceRoots = new[]
-{
-    Path.Combine(repoRoot, "foundation", "application-kernel"),
-    Path.Combine(repoRoot, "modules", "customers", "SquiFlow.Customers")
-};
 
 var forbiddenNamespaces = new[]
 {
@@ -53,12 +64,17 @@ var forbiddenNamespaces = new[]
     "using Microsoft.EntityFrameworkCore",
     "using Npgsql",
     "using Microsoft.Data.Sqlite",
+    "using OpenFGA",
+    "using Zitadel",
     "using Quartz",
-    "using Proto"
+    "using Proto.Actor",
+    "using MassTransit",
+    "using RabbitMQ"
 };
 
-foreach (var sourceRoot in sharedSourceRoots)
+foreach (var project in neutralProjects)
 {
+    var sourceRoot = Path.GetDirectoryName(project)!;
     foreach (var source in Directory.EnumerateFiles(sourceRoot, "*.cs", SearchOption.AllDirectories))
     {
         var text = File.ReadAllText(source);
@@ -66,20 +82,52 @@ foreach (var sourceRoot in sharedSourceRoots)
         {
             if (text.Contains(forbidden, StringComparison.Ordinal))
             {
-                failures.Add($"{Relative(source)}: shared code contains '{forbidden}'.");
+                failures.Add($"{Relative(source)}: host-neutral code contains '{forbidden}'.");
             }
         }
     }
 }
 
-if (Directory.Exists(Path.Combine(repoRoot, "services", "worker")))
+var guardProject = Path.Combine(repoRoot, "apps", "desktop", "guard", "SquiFlow.Guard", "SquiFlow.Guard.csproj");
+if (File.Exists(guardProject))
 {
-    failures.Add("services/worker exists before Phase 6 first durable workload.");
+    var guardText = File.ReadAllText(guardProject);
+    if (guardText.Contains("modules/", StringComparison.OrdinalIgnoreCase) ||
+        guardText.Contains("modules\\", StringComparison.OrdinalIgnoreCase))
+    {
+        failures.Add("Guard must not reference business capability projects.");
+    }
+}
+
+var unearnedExecutables = new[]
+{
+    Path.Combine("services", "web-api"),
+    Path.Combine("services", "sync-api"),
+    Path.Combine("services", "admin-api"),
+    Path.Combine("services", "worker"),
+    Path.Combine("apps", "admin-web"),
+    Path.Combine("apps", "desktop", "diagnostics"),
+    Path.Combine("apps", "desktop", "maintenance"),
+    Path.Combine("apps", "desktop", "sync"),
+    Path.Combine("apps", "desktop", "document")
+};
+
+foreach (var relativePath in unearnedExecutables)
+{
+    if (Directory.Exists(Path.Combine(repoRoot, relativePath)))
+    {
+        failures.Add($"Unearned executable directory exists: {relativePath.Replace('\\', '/')}.");
+    }
+}
+
+if (File.Exists(Path.Combine(repoRoot, ".gitlab-ci.yml")))
+{
+    failures.Add(".gitlab-ci.yml is present even though the current documentation-first rewrite explicitly removes repository CI/CD by user direction.");
 }
 
 if (failures.Count == 0)
 {
-    Console.WriteLine("PASS platform/provider boundaries remain outside shared kernel/module code.");
+    Console.WriteLine("PASS current Phase-0 dependency and repository boundaries.");
     return 0;
 }
 
@@ -97,7 +145,8 @@ static string FindRepositoryRoot(string start)
     var current = new DirectoryInfo(start);
     while (current is not null)
     {
-        if (File.Exists(Path.Combine(current.FullName, "Directory.Build.props")))
+        if (Directory.Exists(Path.Combine(current.FullName, "docs")) &&
+            File.Exists(Path.Combine(current.FullName, "Directory.Build.props")))
         {
             return current.FullName;
         }

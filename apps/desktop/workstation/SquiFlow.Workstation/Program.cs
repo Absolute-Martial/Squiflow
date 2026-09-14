@@ -1,36 +1,39 @@
+using System.Reflection;
 using Avalonia;
-using Avalonia.Fonts.Inter;
-using Serilog;
+using SquiFlow.Observability.Logging;
 
 namespace SquiFlow.Workstation;
 
 internal static class Program
 {
     [STAThread]
-    public static void Main(string[] args)
+    public static int Main(string[] args)
     {
-        Log.Logger = WorkstationLogging.Create();
+        var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "0.0.0";
+        var logDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "SquiFlow",
+            "Logs");
+
+        using var logger = StructuredLogging.Create("SquiFlow.Workstation", version, logDirectory);
+        logger.Information("Workstation starting");
 
         try
         {
-            Log.Information("Workstation started {EventName}", "WORKSTATION.STARTED");
-            BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+            return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
         }
         catch (Exception exception)
         {
-            Log.Fatal(exception, "Workstation unhandled failure {EventName} {FailureCode}", "WORKSTATION.UNHANDLED_FAILURE", "WORKSTATION.PROCESS.UNHANDLED");
-            throw;
+            logger.Fatal(exception, "Workstation terminated unexpectedly");
+            return 1;
         }
         finally
         {
-            Log.Information("Workstation stopping {EventName}", "WORKSTATION.STOPPING");
-            Log.CloseAndFlush();
+            logger.Information("Workstation stopped");
         }
     }
 
-    public static AppBuilder BuildAvaloniaApp() => AppBuilder
-        .Configure<App>()
-        .UsePlatformDetect()
-        .WithInterFont()
-        .LogToTrace();
+    public static AppBuilder BuildAvaloniaApp() =>
+        AppBuilder.Configure<App>()
+            .UsePlatformDetect();
 }

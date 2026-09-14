@@ -1,40 +1,50 @@
-using Serilog;
-using SquiFlow.Guard;
+using System.Reflection;
+using SquiFlow.Guard.Supervision;
+using SquiFlow.Observability.Logging;
 
-if (args.Length == 0)
+namespace SquiFlow.Guard;
+
+internal static class Program
 {
-    Console.Error.WriteLine("Usage: SquiFlow.Guard <workstation-executable> [workstation arguments...]");
-    return 2;
-}
+    private const string WorkstationPathEnvironmentVariable = "SQUIFLOW_WORKSTATION_PATH";
 
-Log.Logger = GuardLogging.Create();
-
-try
-{
-    Log.Information("Guard started {EventName}", "GUARD.STARTED");
-
-    using var shutdown = new CancellationTokenSource();
-    Console.CancelKeyPress += (_, eventArgs) =>
+    public static async Task<int> Main(string[] args)
     {
-        eventArgs.Cancel = true;
-        shutdown.Cancel();
-    };
+        var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "0.0.0";
+        var logDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "SquiFlow",
+            "Logs");
 
-    var supervisor = new ProcessSupervisor(
-        Log.Logger.ForContext<ProcessSupervisor>(),
-        new RestartBudget(maximumRestarts: 3, window: TimeSpan.FromMinutes(2)),
-        initialRestartDelay: TimeSpan.FromSeconds(1),
-        maximumRestartDelay: TimeSpan.FromSeconds(15));
+        using var logger = StructuredLogging.Create("SquiFlow.Guard", version, logDirectory);
+        var workstationPath = args.FirstOrDefault() ?? Environment.GetEnvironmentVariable(WorkstationPathEnvironmentVariable);
 
-    return await supervisor.RunAsync(args[0], args.Skip(1).ToArray(), shutdown.Token);
-}
-catch (Exception exception)
-{
-    Log.Fatal(exception, "Guard unhandled failure {EventName} {FailureCode}", "GUARD.UNHANDLED_FAILURE", "GUARD.PROCESS.UNHANDLED");
-    return 1;
-}
-finally
-{
-    Log.Information("Guard stopping {EventName}", "GUARD.STOPPING");
-    await Log.CloseAndFlushAsync();
+        if (string.IsNullOrWhiteSpace(workstationPath))
+        {
+            logger.Error(
+                "Guard requires the Workstation executable path as the first argument or {EnvironmentVariable}",
+                WorkstationPathEnvironmentVariable);
+            return 2;
+        }
+
+        using var shutdown = new CancellationTokenSource();
+        Console.CancelKeyPress += (_, eventArgs) =>
+        {
+            eventArgs.Cancel = true;
+            shutdown.Cancel();
+        };
+
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => shutdown.Cancel();
+
+        // Exact production thresholds remain a measured Guard decision. These bootstrap values are finite by design.
+        var supervisor = new WorkstationSupervisor(
+            logger,
+            new RestartBudget(maximumRestarts: 3, window: TimeSpan.FromMinutes(2)),
+            restartBackoff: TimeSpan.FromSeconds(2));
+
+        logger.Information("Guard supervision starting");
+        var result = await supervisor.RunAsync(workstationPath, shutdown.Token).ConfigureAwait(false);
+        logger.Information("Guard supervision stopped with result {Result}", result);
+        return result;
+    }
 }

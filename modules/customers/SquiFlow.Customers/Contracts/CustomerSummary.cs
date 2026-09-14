@@ -1,3 +1,3 @@
 namespace SquiFlow.Customers.Contracts;
 
-public sealed record CustomerSummary(Guid CustomerId, string DisplayName);
+public sealed record CustomerSummary(string CustomerId, string DisplayName);

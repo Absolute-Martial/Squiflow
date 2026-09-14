@@ -1,62 +1,36 @@
-using SquiFlow.ApplicationKernel;
-using SquiFlow.ApplicationKernel.Authorization;
-using SquiFlow.ApplicationKernel.Features;
+using System.Reflection;
+using SquiFlow.ApplicationKernel.Hosting;
 using SquiFlow.ApplicationKernel.Modules;
-using SquiFlow.ApplicationKernel.Settings;
-using SquiFlow.ApplicationKernel.Tenancy;
 using SquiFlow.Customers;
-using SquiFlow.Customers.Api;
+using SquiFlow.Observability.Logging;
+
+var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "0.0.0";
+using var logger = StructuredLogging.Create("SquiFlow.CoreApi", version);
+
+var moduleGraph = ModuleGraph.Build([CustomersModule.Descriptor]);
+var coreApiModules = moduleGraph.ForHost(HostKind.CoreApi);
+if (coreApiModules.Count == 0)
+{
+    throw new InvalidOperationException("CoreApi composition contains no supported capability modules.");
+}
 
 var builder = WebApplication.CreateBuilder(args);
-
-var graph = ModuleGraph.Build([CustomersModule.Descriptor]);
-var coreApiModules = graph.ForHost(HostKind.CoreApi);
-var featureDefinitions = coreApiModules.SelectMany(module => module.Features).ToArray();
-var featureSnapshot = FeatureSnapshotBuilder.Publish(
-    featureDefinitions,
-    platformAllowed: [CustomersModule.Feature],
-    tenantRequested: [CustomersModule.Feature],
-    revision: 1);
-
-var effectiveSearchLimit = SettingResolver.ResolveBoundedInt(
-    CustomersModule.SearchResultLimit,
-    platformCeiling: 100,
-    tenantOverride: 75);
-
-builder.Services.AddSingleton(graph);
-builder.Services.AddSingleton<IFeatureSnapshotAccessor>(new FixedFeatureSnapshotAccessor(featureSnapshot));
-builder.Services.AddScoped(_ => new TenantContext(new TenantId("phase0-tenant"), new SubjectId("phase0-subject")));
-builder.Services.AddSingleton<IPermissionEvaluator, Phase0PermissionEvaluator>();
+builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
-app.MapGet("/health", () => Results.Ok(new
+app.MapHealthChecks("/health/live");
+app.MapHealthChecks("/health/ready");
+app.MapGet("/", () => Results.Ok(new
 {
-    status = "ok",
-    host = "core-api",
-    moduleCount = coreApiModules.Count,
-    featureRevision = featureSnapshot.Revision,
-    effectiveCustomerSearchLimit = effectiveSearchLimit
+    service = "SquiFlow.CoreApi",
+    version,
+    phase = "0",
+    authority = "No business persistence endpoints are implemented in Phase 0"
 }));
 
-app.MapCustomerEndpoints();
+app.Lifetime.ApplicationStarted.Register(() =>
+    logger.Information("CoreApi started with {ModuleCount} composed module(s)", coreApiModules.Count));
+app.Lifetime.ApplicationStopping.Register(() => logger.Information("CoreApi stopping"));
+
 app.Run();
-
-file sealed class FixedFeatureSnapshotAccessor(EffectiveFeatureSnapshot current) : IFeatureSnapshotAccessor
-{
-    public EffectiveFeatureSnapshot Current { get; } = current;
-}
-
-file sealed class Phase0PermissionEvaluator : IPermissionEvaluator
-{
-    public ValueTask<bool> IsAllowedAsync(
-        TenantContext tenantContext,
-        PermissionId permissionId,
-        CancellationToken cancellationToken = default)
-    {
-        // Phase 0 proves the SquiFlow permission boundary only. OpenFGA replaces this in Phase 1.
-        var allowed = tenantContext.TenantId.Value == "phase0-tenant"
-            && permissionId == CustomersModule.ViewPermission;
-        return ValueTask.FromResult(allowed);
-    }
-}

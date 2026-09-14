@@ -1,6 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <ItemGroup>
-    <ProjectReference Include="../../../foundation/application-kernel/SquiFlow.ApplicationKernel/SquiFlow.ApplicationKernel.csproj" />
-    <ProjectReference Include="../../../modules/customers/SquiFlow.Customers/SquiFlow.Customers.csproj" />
+    <ProjectReference Include="../../../foundation/observability/SquiFlow.Observability/SquiFlow.Observability.csproj" />
   </ItemGroup>
 </Project>

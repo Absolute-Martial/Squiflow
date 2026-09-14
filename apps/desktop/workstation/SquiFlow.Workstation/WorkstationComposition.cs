@@ -1,9 +1,9 @@
 using Avalonia.Controls;
-using Microsoft.Extensions.DependencyInjection;
 using SquiFlow.ApplicationKernel;
-using SquiFlow.ApplicationKernel.Authorization;
 using SquiFlow.ApplicationKernel.Features;
+using SquiFlow.ApplicationKernel.Hosting;
 using SquiFlow.ApplicationKernel.Modules;
+using SquiFlow.ApplicationKernel.Permissions;
 using SquiFlow.ApplicationKernel.Presentation;
 using SquiFlow.Customers;
 using SquiFlow.Customers.Workstation;
@@ -12,40 +12,44 @@ namespace SquiFlow.Workstation;
 
 internal static class WorkstationComposition
 {
-    public static ServiceProvider Build()
+    public static IReadOnlyList<IWorkspaceContribution<Control>> CreateWorkspaceContributions()
     {
-        var services = new ServiceCollection();
+        var moduleGraph = ModuleGraph.Build([CustomersModule.Descriptor]);
+        var workstationModules = moduleGraph.ForHost(HostKind.Workstation);
 
-        var graph = ModuleGraph.Build([CustomersModule.Descriptor]);
-        var workstationModules = graph.ForHost(HostKind.Workstation);
         var featureDefinitions = workstationModules.SelectMany(module => module.Features).ToArray();
-
         var featureSnapshot = FeatureSnapshotBuilder.Publish(
             featureDefinitions,
+            HostKind.Workstation,
             platformAllowed: [CustomersModule.Feature],
             tenantRequested: [CustomersModule.Feature],
+            allowedChannels: new HashSet<ReleaseChannel> { ReleaseChannel.Stable },
             revision: 1);
 
+        // Phase 0 proves snapshot-aware UX composition only. This snapshot is not server authorization.
         var permissionSnapshot = new EffectivePermissionSnapshot(
             revision: 1,
             allowed: [CustomersModule.ViewPermission]);
 
-        services.AddSingleton(graph);
-        services.AddSingleton<IFeatureSnapshotAccessor>(new FixedFeatureSnapshotAccessor(featureSnapshot));
-        services.AddSingleton(permissionSnapshot);
-        services.AddSingleton<IWorkspaceContribution<Control>, CustomersWorkstationContribution>();
-        services.AddSingleton<MainWindow>();
+        IWorkspaceContribution<Control>[] candidates =
+        [
+            new CustomersWorkspaceContribution()
+        ];
 
-        return services.BuildServiceProvider(new ServiceProviderOptions
+        var duplicates = candidates
+            .GroupBy(contribution => contribution.Metadata.WorkspaceId)
+            .FirstOrDefault(group => group.Count() > 1);
+        if (duplicates is not null)
         {
-            ValidateOnBuild = true,
-            ValidateScopes = true
-        });
-    }
+            throw new InvalidOperationException($"Duplicate workspace id '{duplicates.Key}'.");
+        }
 
-    private sealed class FixedFeatureSnapshotAccessor(EffectiveFeatureSnapshot current)
-        : IFeatureSnapshotAccessor
-    {
-        public EffectiveFeatureSnapshot Current { get; } = current;
+        var moduleIds = workstationModules.Select(module => module.Id).ToHashSet();
+        return candidates
+            .Where(contribution => moduleIds.Contains(contribution.Metadata.OwnerModuleId))
+            .Where(contribution => contribution.Metadata.RequiredFeature is not FeatureId feature || featureSnapshot.IsEnabled(feature))
+            .Where(contribution => contribution.Metadata.RequiredPermission is not PermissionId permission || permissionSnapshot.Allows(permission))
+            .OrderBy(contribution => contribution.Metadata.Order)
+            .ToArray();
     }
 }
