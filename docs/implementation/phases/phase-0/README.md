@@ -5,7 +5,8 @@
 **Completed subphase:** 0A  
 **Next subphase:** 0B  
 **High-level owner:** `docs/implementation/PHASES_AND_GATES.md`  
-**Gate-quality owner:** `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md`
+**Gate-quality owner:** `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md`  
+**Evidence/permanence owner:** `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md`
 
 Phase 0 remains a cumulative maturity foundation, but its descriptions are **minimum scope/maturity gates, not quality ceilings**.
 
@@ -20,6 +21,7 @@ Read first:
 - `0A_ARCHITECTURE_BASELINE_RECONCILIATION.md`;
 - `0A_BASELINE_STATUS.md`;
 - `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md`;
+- `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md`;
 - `docs/architecture/ENGINEERING_PRINCIPLES.md`;
 - `docs/architecture/EXPLICIT_BOUNDARIES_AND_SOLID.md`;
 - `docs/architecture/REPOSITORY_STRUCTURE.md`;
@@ -87,3 +89,35 @@ Tests do not get to redefine a shortcut as the contract. The claim comes from re
 ## CI/CD
 
 Repository CI/CD is allowed again. The preferred model is repository-owned verification commands used locally and by thin GitHub/GitLab workflows, primarily on self-hosted/self-managed runners under current hosted-minute constraints. CI is introduced with executable implementation rather than used to manufacture an 0A tooling project.
+
+## Phase-specific evidence and regression map
+
+Every subphase exit inherits the evidence/permanence contract.
+
+- **0A — baseline reconciliation:** evidence is repository/document/decision truth, not invented runtime tests. Requalification is required when source precedence, reset status, or canonical ownership changes materially. The permanent guard is review/static consistency of current repository truth; 0A may not be cited as evidence for runtime properties.
+- **0B — Foundation/module boundaries:** deterministic primitive/invariant tests plus mechanical architecture/dependency tests run `PER_MR` once real assemblies exist. NetArchTest or an equivalent may implement those rules, but the property—not the library—is authoritative. Forbidden provider/host leakage and dependency direction become permanent regression checks.
+- **0C — host/process composition:** configuration/startup/shutdown/cancellation/lifecycle tests run for every introduced executable. Cheap lifecycle cases run `PER_MR`; process termination/restart/version/IPC failure cases run `PER_MR` where practical and `SCHEDULED`/`PRE_RELEASE` where broader fault injection is required.
+- **0D — engineering safety:** repository-owned build/test/architecture/secret checks become blocking CI/local checks. Reproducibility and failure-injection claims receive recurring evidence rather than one-time sign-off.
+- **0E — real capability slices:** business invariants and scope/authority claims are protected by capability tests and architecture rules on every relevant change. A new capability may not silently bypass an already-qualified boundary.
+- **0F — integration:** sign-off records named evidence and the permanent guard for every introduced Phase-0 claim; `BLOCKED = none`.
+
+## Transitional rule
+
+A Phase-0 component may exist before later identity/persistence/sync/etc. foundations, but it must not claim the guarantees of those future boundaries. Transitional restrictions must be explicit and mechanically enforced where risk is material.
+
+Examples:
+
+```text
+no persistence foundation
+→ do not label process-memory state durable
+
+no production identity/authorization
+→ do not expose protected production mutation as if trusted
+
+no Sync authority
+→ do not present local state as centrally accepted
+```
+
+## Carry-forward absence behavior
+
+Every material Phase-0 deferral records what the repository/runtime does while that item is absent. “Nothing yet” is acceptable only when no reachable path relies on the missing responsibility. An accidental framework/provider default is not an accepted policy.
