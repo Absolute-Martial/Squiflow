@@ -3,6 +3,7 @@ using SquiFlow.ApplicationKernel;
 using SquiFlow.ApplicationKernel.Features;
 using SquiFlow.ApplicationKernel.Hosting;
 using SquiFlow.ApplicationKernel.Modules;
+using SquiFlow.ApplicationKernel.Permissions;
 using SquiFlow.ApplicationKernel.Presentation;
 using SquiFlow.Customers;
 using SquiFlow.Customers.Workstation;
@@ -16,14 +17,19 @@ internal static class WorkstationComposition
         var moduleGraph = ModuleGraph.Build([CustomersModule.Descriptor]);
         var workstationModules = moduleGraph.ForHost(HostKind.Workstation);
 
-        var definitions = workstationModules.SelectMany(module => module.Features).ToArray();
-        var snapshot = FeatureSnapshotBuilder.Publish(
-            definitions,
+        var featureDefinitions = workstationModules.SelectMany(module => module.Features).ToArray();
+        var featureSnapshot = FeatureSnapshotBuilder.Publish(
+            featureDefinitions,
             HostKind.Workstation,
             platformAllowed: [CustomersModule.Feature],
             tenantRequested: [CustomersModule.Feature],
             allowedChannels: new HashSet<ReleaseChannel> { ReleaseChannel.Stable },
             revision: 1);
+
+        // Phase 0 proves snapshot-aware UX composition only. This snapshot is not server authorization.
+        var permissionSnapshot = new EffectivePermissionSnapshot(
+            revision: 1,
+            allowed: [CustomersModule.ViewPermission]);
 
         IWorkspaceContribution<Control>[] candidates =
         [
@@ -41,7 +47,8 @@ internal static class WorkstationComposition
         var moduleIds = workstationModules.Select(module => module.Id).ToHashSet();
         return candidates
             .Where(contribution => moduleIds.Contains(contribution.Metadata.OwnerModuleId))
-            .Where(contribution => contribution.Metadata.RequiredFeature is not FeatureId feature || snapshot.IsEnabled(feature))
+            .Where(contribution => contribution.Metadata.RequiredFeature is not FeatureId feature || featureSnapshot.IsEnabled(feature))
+            .Where(contribution => contribution.Metadata.RequiredPermission is not PermissionId permission || permissionSnapshot.Allows(permission))
             .OrderBy(contribution => contribution.Metadata.Order)
             .ToArray();
     }
