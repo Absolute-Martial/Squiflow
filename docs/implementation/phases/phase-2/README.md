@@ -26,6 +26,16 @@ Until activated:
 
 The first real operation must be accepted durably on the Workstation before server confirmation or another real local-state requirement makes the same durability contract necessary.
 
-At that point, create the actual Phase-2 subphase/evidence structure from the real operation and current workload. Do **not** restore the retired 2A–2E files merely because they previously existed.
+## On activation
+
+When that trigger becomes real:
+
+1. inspect the actual capability/workload and then-current architecture;
+2. decide whether a `2A` subphase is still useful or whether a different decomposition is clearer;
+3. write the exact production intent and scope from current facts;
+4. derive evidence, failure cases, transition restrictions and permanence cadence only then;
+5. promote only the responsibilities that are actually being introduced.
+
+Do **not** restore the retired `2A–2E` files merely because they previously existed.
 
 See `docs/implementation/FUTURE_PHASE_CARRY_FORWARD.md` for non-authoritative anticipated questions worth reconsidering when this phase activates.
