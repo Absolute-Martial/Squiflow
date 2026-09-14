@@ -1,27 +1,27 @@
-# Phase-0 deployment representation
+# Deployment and CI/CD representation
 
-This remains intentionally a runbook, not a premature Kubernetes/Terraform/CI/CD selection.
+**Current state:** principles-first reset; no product executable is currently implemented.
 
-## Executables currently justified
+This directory records deployment/reproducibility direction. It must not imply that a target process exists merely because architecture reserves a path for it.
 
-- `apps/web/SquiFlow.Web`
-- `apps/desktop/workstation/SquiFlow.Workstation`
-- `apps/desktop/guard/SquiFlow.Guard`
-- `services/core-api/SquiFlow.CoreApi`
+## Current executable inventory
 
-`services/web-api`, `services/sync-api`, `services/admin-api`, `services/worker`, Admin Web, Diagnostics, Maintenance, Sync and Document helper executables are not created until their owning responsibility is implemented and earns the process boundary.
+None.
 
-## Development startup
+Potential executable ownership locations remain documented in `docs/architecture/REPOSITORY_STRUCTURE.md`, including Workstation, Guard, tenant Web, compact CoreApi, and later earned WebApi/SyncApi/Worker/Admin/helper processes.
 
-1. Build locally from `SquiFlow.sln`.
-2. Start CoreApi and confirm `/health/live` and `/health/ready`.
-3. Start tenant Web and confirm `/health/live`.
-4. Start Workstation directly for UI development, or launch Guard with the built Workstation executable path to exercise external supervision.
+## Reintroduction rule
 
-Guard can receive the Workstation path as its first argument or from `SQUIFLOW_WORKSTATION_PATH`.
+When the first executable is implemented, its change must include the minimum operational representation needed to run and verify it: configuration inputs, startup/shutdown behavior, health/liveness semantics where applicable, structured diagnostics, secret handling, and local verification commands.
 
-## Current limits
+Do not add Kubernetes/Terraform/container/service-manager complexity merely because deployment will eventually exist. Add the simplest reproducible packaging/deployment mechanism appropriate to the actual current topology.
 
-This Phase-0 runbook does not claim production deployment, TLS termination, PostgreSQL, SQLite, synchronization, Worker, Admin control plane, backup/restore, update orchestration or process-manager integration.
+## CI/CD
 
-Repository CI/CD is intentionally absent under the current documentation-first rewrite directive. Environment-specific addresses, service definitions and production supervision remain later deployment decisions. Do not place credentials in this directory.
+Repository CI/CD is allowed. GitHub and GitLab workflows should be thin wrappers around the same repository-owned verification commands/scripts, with self-hosted/self-managed runners preferred under hosted-minute constraints.
+
+Runner registration credentials, SSH private keys, PATs, provider secrets, and deployment secrets must never be committed here.
+
+## Production claims
+
+The reset baseline makes no production deployment, availability, TLS, persistence, sync, Worker, Admin, backup/restore, update, or recovery qualification claim. Those properties are proven with the owning implementation rather than inferred from this directory.

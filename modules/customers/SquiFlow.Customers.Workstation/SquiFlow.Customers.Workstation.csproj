@@ -1,9 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <ItemGroup>
-    <ProjectReference Include="../SquiFlow.Customers/SquiFlow.Customers.csproj" />
-    <ProjectReference Include="../../../foundation/application-kernel/SquiFlow.ApplicationKernel/SquiFlow.ApplicationKernel.csproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="Avalonia" />
-  </ItemGroup>
-</Project>
