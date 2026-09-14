@@ -1,14 +1,14 @@
 # Phase Gate Evidence, Regression, and Transition Contract
 
 **Status:** Canonical implementation-governance owner  
-**Applies to:** every phase, subphase, pull-forward, integration gate, and post-gate regression guard  
+**Applies to:** every active/qualifying phase, subphase, pull-forward, integration gate, and post-gate regression guard  
 **Companion owner:** `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md`
 
 ## 1. Core rule
 
 A gate property is not production-honest merely because it was true during one review.
 
-For every material gate claim, SquiFlow requires:
+For every material **active claim**, SquiFlow requires:
 
 ```text
 CLAIM
@@ -32,6 +32,8 @@ and protected from silent regression by <permanent/recurring check>.
 
 A gate that cannot identify its evidence and regression guard is not ready to pass.
 
+A future direction that is still wholly `NOT_INTRODUCED` has no active claim to prove yet and must not invent an evidence map merely for roadmap completeness.
+
 ## 2. Evidence is owned by the claim, not by the current implementation
 
 Tests, drills, static checks, provider exercises, and measurements prove a claim that already has an owner in requirements, architecture, security policy, protocol semantics, workload profile, or an explicit scope contract.
@@ -45,10 +47,18 @@ implementation shortcut
 → shortcut declared correct
 ```
 
+or:
+
+```text
+future phase label
+→ speculative evidence map
+→ later implementation forced to match it
+```
+
 Use:
 
 ```text
-owned invariant / contract / production intent
+real owned invariant / contract / production intent
 → falsifiable claim
 → implementation
 → evidence at the layer that owns the property
@@ -57,7 +67,7 @@ owned invariant / contract / production intent
 
 ## 3. Evidence classes
 
-Every material claim names the strongest applicable evidence class.
+Every material active claim names the strongest applicable evidence class.
 
 ### `STATIC`
 
@@ -105,9 +115,11 @@ For authentication, authorization, tenant isolation, CSRF/XSS/injection/SSRF, de
 
 For procedures whose truth depends on real operational execution rather than code alone: break-glass, key recovery, restore, certificate/DNS recovery, provider migration, or physical/operator ceremonies.
 
+These classes are a vocabulary for real claims, not a checklist to preassign to future phases.
+
 ## 4. Regression cadence classes
 
-Every material claim gets at least one cadence appropriate to cost and risk:
+Every material active claim gets at least one cadence appropriate to cost and risk:
 
 ```text
 PER_COMMIT
@@ -121,21 +133,23 @@ PRODUCTION_MONITOR
 
 Use the cheapest cadence capable of catching ordinary regressions quickly, while keeping expensive/destructive/provider/hardware exercises on a deliberate recurring or release schedule.
 
-Examples:
+Examples for already-real classes of property:
 
 - architecture dependency rules: `PER_MR`;
 - deterministic domain invariants: `PER_COMMIT` or `PER_MR`;
 - real DB tenant-isolation/idempotency tests: `PER_MR` where practical;
 - process crash/fault injection: `PER_MR` for bounded local scenarios plus `SCHEDULED` for broader combinations;
 - provider sandbox/integration behavior: `SCHEDULED` and/or `PRE_RELEASE` when continuous execution is impractical;
-- replacement restore: `OPERATOR_DRILL` plus `PRE_RELEASE`/production-readiness freshness requirement;
+- replacement restore: `OPERATOR_DRILL` plus a production-readiness freshness requirement;
 - actual rack capacity: `RELEASE_CANDIDATE` and whenever workload/topology materially changes.
 
 `Manual once` is not a regression strategy.
 
+Do not assign a cadence to a future responsibility before its actual cost/risk/topology is known.
+
 ## 5. Permanent gate protection
 
-After a gate passes, its claims remain active constraints.
+After an active gate passes, its claims remain active constraints.
 
 A later phase does not inherit only the prose; it inherits the checks.
 
@@ -153,7 +167,7 @@ Do not treat an old green pipeline or old restore drill as permanent proof after
 
 ## 6. Evidence record
 
-A material claim should be traceable to a durable evidence record containing, as applicable:
+A material active claim should be traceable to a durable evidence record containing, as applicable:
 
 ```text
 ClaimId / stable claim name
@@ -174,7 +188,7 @@ Do not create empty evidence files for every theoretical future claim. Record ev
 
 ## 7. Systematic threat modeling
 
-Whenever a phase/subphase introduces or materially changes a trust boundary, perform a structured threat review rather than relying only on ad-hoc creativity.
+Whenever an active phase/subphase introduces or materially changes a trust boundary, perform a structured threat review rather than relying only on ad-hoc creativity.
 
 At minimum, consider categories equivalent to:
 
@@ -193,11 +207,13 @@ STRIDE is an acceptable vocabulary, not a mandatory ceremony. The requirement is
 
 Threat-model findings that affect current claimed scope are either fixed before the gate passes or become `BLOCKED`. Future-only threats may be `NOT_INTRODUCED` only when the vulnerable surface truly does not exist.
 
+Do not pre-write threat scenarios for a future surface whose data flow, identity, provider, protocol and deployment do not yet exist; preserve likely concerns as anticipation instead.
+
 ## 8. Failure injection is recurring evidence
 
 Failure tests are not one-time gate theatre.
 
-For responsibilities that depend on process/network/provider/storage behavior:
+For active responsibilities that depend on process/network/provider/storage behavior:
 
 1. define the expected steady/healthy state;
 2. inject a realistic bounded failure;
@@ -219,11 +235,13 @@ Examples include:
 
 Do not run destructive experiments against real customer traffic merely to imitate large-scale chaos practices. Start in isolated/representative environments, minimize blast radius, and expand only when justified by the deployment profile.
 
+Do not invent failure matrices for not-yet-introduced providers/processes/storage mechanisms.
+
 ## 9. Hard invariants versus SLOs/error budgets
 
 Do not convert correctness/security invariants into probabilistic targets.
 
-These have **no product error budget**:
+These have **no product error budget** when they are relevant to introduced scope:
 
 ```text
 cross-tenant data leakage
@@ -245,9 +263,9 @@ provider transfer latency
 recovery-time targets
 ```
 
-When an operational error budget is exhausted, the owning team pauses or limits risky feature/release work as appropriate and prioritizes restoring the reliability target. Exact SLO numbers are workload/product decisions, not invented by this governance document.
+When an operational error budget is exhausted, the owning team pauses or limits risky feature/release work as appropriate and prioritizes restoring the reliability target. Exact SLO numbers are workload/product decisions, not invented by this governance document or by a future phase stub.
 
-## 10. Transitional contracts between subphases
+## 10. Transitional contracts between active subphases
 
 Subphase ordering can create real intermediate states. Those states require an explicit **transitional contract** whenever a partially matured surface is reachable.
 
@@ -261,7 +279,7 @@ ALLOWED
 - operations safe under the currently qualified guarantees
 
 FORBIDDEN / DISABLED
-- operations that require a later subphase guarantee
+- operations that require a later active guarantee
 
 CURRENT GUARANTEES
 - security/durability/authority/recovery properties actually qualified
@@ -272,17 +290,19 @@ ABSENT GUARANTEES
 ENFORCEMENT
 - feature/route/permission/build/deployment mechanism that prevents accidental use
 
-CLOSING GATE
-- subphase/phase that removes the transitional restriction
+CLOSING CONDITION
+- the real next responsibility that removes the transitional restriction
 ```
 
 A transitional state must not rely on developer memory or roadmap prose alone. Where the risk is material, enforce the restriction mechanically.
 
+Do not invent transition contracts between future subphases that have not been activated; there is no real reachable intermediate state to govern yet.
+
 ## 11. Deferred-item safe-absence contract
 
-Every material carry-forward item now records not only why it is deferred but what the system does **while it is absent**.
+Every material carry-forward item records not only why it is deferred but what the system does **while it is absent**.
 
-Required fields:
+Required fields when materially knowable:
 
 ```text
 Item
@@ -295,17 +315,19 @@ Why the absence behavior is safe for current scope
 Evidence that the absence behavior is enforced/tested
 Preservation constraint
 Trigger
-Latest closing gate
-Current regression guard
+Latest closing gate when honestly knowable
+Current regression guard where one exists
 ```
 
 If the absence behavior comes from a provider/framework/default configuration, that default must be consciously accepted, pinned/configured where feasible, and tested. Accidental inherited defaults are not an architecture decision.
 
 If no safe absence behavior exists for the current reachable scope, the item is not deferrable; the responsibility is `BLOCKED`.
 
+For future items whose provider/mechanism does not exist yet, do not fabricate an absence test/cadence. Protect the current system with the preservation constraints that are actually enforceable now.
+
 ## 12. Policy/authorization/configuration change versus active operations
 
-For every mutable authority/policy that can change while operations are pending or executing, define the **decision point** explicitly.
+For every mutable authority/policy that can change while real operations are pending or executing, define the **decision point** explicitly.
 
 Examples:
 
@@ -317,7 +339,7 @@ Examples:
 - key/policy rotation;
 - provider/account status change.
 
-For each operation class, record whether authority is evaluated:
+For each real operation class, record whether authority is evaluated:
 
 ```text
 at local proposal
@@ -335,13 +357,15 @@ A stale local decision never overrides a later authoritative admission check whe
 
 Ambiguous authority-change state must have an explicit behavior. Security-sensitive operations normally fail closed or wait/reconcile when current permission cannot be established, while already-admitted atomic work follows its declared transaction semantics.
 
+Do not predeclare decision points for future operations that do not yet exist.
+
 ## 13. Small, falsifiable batches
 
 Large phase documents are not permission to create large implementation batches.
 
 Prefer the smallest slice that yields one falsifiable production intent and production-honest result.
 
-If a subphase contains multiple independent claims that cannot be implemented/reviewed/verified coherently, split the work further inside the subphase without renumbering the whole roadmap.
+If an active subphase contains multiple independent claims that cannot be implemented/reviewed/verified coherently, split the work further inside the active subphase without renumbering the whole roadmap.
 
 A smaller batch is not lower quality. It should make the quality bar easier to prove.
 
@@ -361,11 +385,13 @@ Use coherent slices whose merged state preserves all reached gates.
 
 ## 14. Exit-gate wording rule
 
-Every subphase exit statement is interpreted as shorthand for:
+Every **active** subphase exit statement is interpreted as shorthand for:
 
 > This claim is demonstrated by named evidence, all currently applicable hostile/failure cases pass, and the property is protected from silent regression by named permanent/recurring checks.
 
-If a subphase file only says `X is true`, the evidence/regression contract in this document still applies. Parent phase READMEs should identify the phase-specific evidence and permanence strategy so this requirement is visible rather than implicit.
+If an active subphase file only says `X is true`, the evidence/regression contract in this document still applies.
+
+A future phase README that is direction-only must **not** contain an exit gate/evidence map merely to satisfy this section. It becomes subject to the exit-gate wording rule only when real work activates a concrete gate.
 
 ## 15. Architecture enforcement in .NET
 
@@ -373,7 +399,7 @@ When compile-time project/namespace/reference boundaries exist, enforce importan
 
 Possible implementation mechanisms include a .NET architecture-testing library (for example NetArchTest or an equivalent), custom Roslyn/static checks, or repository-specific tests. Do not select a tool before the concrete boundary exists, and do not confuse tool adoption with proving the architecture rule.
 
-Typical permanent rules include:
+Typical permanent rules may include, once those boundaries exist:
 
 ```text
 Foundation does not depend on host/provider/UI/data SDKs
@@ -385,9 +411,43 @@ host adapters do not become duplicate business implementations
 
 ## 16. Phase inheritance
 
-Every file under `docs/implementation/phases/phase-*` inherits both:
+Every **active detailed** file under `docs/implementation/phases/phase-*` inherits both:
 
 - `PHASE_GATE_PRODUCTION_HONESTY.md`;
 - this evidence/regression/transition contract.
 
-A phase README may strengthen the rules for its specific risks. A subphase may add narrower evidence. Neither may weaken the global production-honesty or permanence bar.
+A phase README may strengthen the rules for risks that actually exist. An active subphase may add narrower evidence. Neither may weaken the global production-honesty or permanence bar.
+
+A future direction-only README inherits the rule that any responsibility pulled forward becomes subject to these contracts immediately; it does **not** need speculative evidence/cadence tables while everything it describes remains `NOT_INTRODUCED`.
+
+## 17. Governance specificity is earned
+
+The governance hierarchy itself follows the same dependency direction as implementation:
+
+```text
+global invariant
+    ↓
+real responsibility / workload
+    ↓
+active phase/subphase claim
+    ↓
+evidence and cadence
+    ↓
+permanent regression guard
+```
+
+Not:
+
+```text
+future phase number
+    ↓
+pre-written detailed governance
+    ↓
+future implementation forced to conform
+```
+
+Use future phase READMEs for direction, dependencies, preservation constraints, and activation triggers. Preserve useful speculation in a clearly non-authoritative carry-forward/anticipation ledger.
+
+When the real responsibility arrives, the developer/reviewer must be free to reject the old anticipated decomposition if current requirements, workload, provider, topology or product semantics point elsewhere.
+
+A governance document is not made better by being more detailed than the evidence available to justify its detail.
