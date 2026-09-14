@@ -1,180 +1,83 @@
 # SquiFlow
 
-**Current architecture/documentation version: `v0.0.18`**
+**Current architecture/development baseline: `v0.0.20`**  
+**Implementation state:** principles-first reset; architecture and decision history retained; production projects have not yet been reintroduced.
 
-Start with [`MASTER_IMPLEMENTATION_PLAN.md`](MASTER_IMPLEMENTATION_PLAN.md).
+SquiFlow is rebuilding from the accepted architecture rather than carrying premature implementation forward. The reset is intentional and auditable: earlier code remains in Git history, while the current implementation surface is empty so new code can be introduced under explicit boundaries, SOLID, complete KISS, YAGNI, defensive programming, security, verification, and observability rules from the beginning.
 
-> **Implementation state:** pre-Phase-0. The repository currently contains the audited architecture/implementation baseline. A directory described in a document is not implemented merely because it appears in a target tree.
+Reset decision: `docs/decisions/PRINCIPLES_FIRST_RESET_2026-09-14.md`.
 
-## Current baseline
+## Read in this order
 
-- C# / modern .NET.
-- Avalonia for the Windows Workstation.
-- Blazor Web App for tenant Web and future separate Platform Admin Web.
-- ASP.NET Core Core API for tenant/business operations.
-- **Platform Admin uses a separate `services/admin-api` backend**, independent of Core API for normal super-admin/control-plane operations.
-- `apps/admin-web → services/admin-api`; Core API is not the normal downstream backend for platform administration.
-- Modular-monolith business code; network/process boundaries are added when they protect a real deployment/fault/security/recovery responsibility.
-- **A small SquiFlow-owned application kernel** composes trusted modules through standard .NET dependency injection, explicit dependency/feature descriptors, typed settings and host contributions. ABP and Orchard Core are reference designs, not combined runtime foundations.
-- Per-tenant module/feature activation is versioned data resolved from `TenantContext`; it does not create a service container or application instance per tenant, and loaded assemblies are not hot-unloaded.
-- Ordinary business modules communicate in-process; HTTP/gRPC between modules is not baseline.
-- **SquiFlow.Guard** is a baseline Workstation companion for launch/supervision, bounded crash/hang recovery, update recovery, child/helper cleanup and diagnostic/resource evidence. It does not own business logic.
-- Small-team-first tenant model: Owner + Staff by default, with Owner-controlled granular permissions.
-- Tenant role/permission and rule/workflow/form administration is Web-only; Desktop consumes published authority/configuration and never grants it.
-- **ZITADEL Cloud** is the selected initial identity/authentication deployment; self-hosting is a later evidence-triggered migration, not a Phase-1 default.
-- **OpenFGA** is the selected application-authorization engine for roles/custom roles/assignments/resource relationships where applicable.
-- SquiFlow modules own stable permission definitions and availability metadata; OpenFGA evaluates current relationships, while ZITADEL claims do not become business-permission truth.
-- ASP.NET Core authorization integrates OpenFGA checks; SquiFlow domain/workflow/concurrency rules and DB tenant isolation remain separate.
-- Tenant and platform authorization scopes remain separate; a tenant role can never become super-admin authority.
-- Workstation login uses system-browser OIDC Authorization Code + PKCE against ZITADEL.
-- Pooled multi-tenancy is the ordinary baseline; tenant isolation is separate from authentication/OpenFGA authorization.
-- Shared compute is tenant-aware: expensive jobs/reports/provider work use bounded/fair operational protection and scoped limits where needed to prevent resource takeover.
-- **Durable/reconcilable resource-consumption accounting and application-level scoped limits are baseline capabilities when an implemented resource requires them.** Usage needed for enforcement is application state, not optional analytics/telemetry.
-- Limits may be platform/provider, workload/resource, tenant, integration/destination, or another explicit bounded scope. A tenant-specific limit does not itself imply a subscription plan.
-- **No commercial tenant plan/tier/pricing/default-allowance model is accepted in v0.0.15.** A future commercial plan may map onto the same versioned limit policies without changing the usage-accounting foundation.
-- Cross-cutting non-functional requirements are modeled as hard invariants, measurement-driven operational targets, and degraded-mode contracts rather than generic quality slogans.
-- Workstation is local-first/offline; Web is online-only for business operations in v0.0.15.
-- Commands and queries have separate responsibilities in code, but separate CQRS databases/services/event sourcing are not baseline.
-- Short authoritative work remains synchronous; after-commit consequences may use transactional outbox + Worker.
-- Queue/job, pub/sub, event stream, and direct synchronous calls are treated as different tools selected from the real semantic need; Kafka/event-stream infrastructure is not baseline.
-- Retryable mutations use semantic idempotency keys; duplicate defense covers caller/producer retry, transport redelivery, consumer/effect replay, and metered usage where one semantic effect must count once.
-- At-least-once delivery is handled by idempotent/reconcilable effects; system-wide `exactly once` is not claimed from one local transaction/broker feature.
-- **Consistency is selected per invariant**, not globally: payments/stock/credit/tenant isolation/current sensitive authorization/hard limits use current/strong authority; caches/notifications/derived reports may be eventually updated only with explicit freshness/rebuild rules.
-- PostgreSQL is selected as the initial central transactional database, and SQLite with WAL is selected as the initial Workstation embedded database. Phase 3 and Phase 2 qualify their exact implementations. libSQL and dedicated NoSQL are deferred until a concrete workload justifies their additional integration and operational cost.
-- Authoritative relational state is normalized first; denormalized/materialized read structures are derived optimizations with explicit source/freshness/rebuild contracts.
-- Database indexes are workload-driven and measured for both query benefit and write/WAL/storage/migration/sync cost.
-- Core API, Admin API, and Worker may share the central DB as hosts of the same modular-monolith business core; shared access still has explicit module/data ownership and common invariants.
-- **REST/task-oriented HTTP is the v0.0.15 API baseline, without claiming strict REST purity.** Ordinary resources are resource-oriented; semantic command subresources remain valid for approvals/refunds/publications/etc.
-- POST is not automatically retry-safe; retryable POST commands depend on the SquiFlow semantic-idempotency contract.
-- API compatibility/versioning is mandatory for skipped Workstation releases and independently deployed backends.
-- Database/API/sync/durable-work evolution must tolerate supported old and new readers/writers; additive expand-migrate-switch-contract changes are preferred before destructive contraction.
-- GraphQL/GraphQL Federation are deferred until a real query-composition requirement proves them worthwhile.
-- Rate limiting/admission is multi-dimensional where required rather than one global RPS number; authorization and throttling are separate decisions. Durable quota/usage accounting is separate from transient rate-limit telemetry where authoritative usage is required.
-- Pagination, bounded connection pooling, selective caching/compression, and bounded async telemetry export are evidence-driven API performance techniques.
-- A cache is always bounded, tenant-safe, disposable and non-authoritative; cache outage/cold start may reduce performance but cannot grant access, lose truth, or turn stale payment/stock/credit/permission state into authority.
-- An edge reverse proxy/API-gateway capability may route/TLS/WAF/coarsely limit traffic, but it never replaces backend authorization/usage authority and never collapses Admin API into Core API.
-- A heavyweight API-management product is not baseline until concrete management/routing requirements justify it.
-- A service mesh is not baseline; revisit only if real east-west service traffic justifies the runtime/operational cost.
-- Production external traffic uses HTTPS/TLS; ZITADEL uses OIDC/OAuth over HTTPS. HTTP/1.1/2/3 negotiation is transport detail, not business semantics.
-- WebSocket/SignalR, if used, is live signaling only; durable truth remains in DB/outbox/state. DNS/hostnames route traffic but are never tenant authority. SSH/private access is infrastructure operations only.
-- Currency is configurable/not hardcoded. v0.0.16 does not build a multi-currency/FX subsystem.
-- SquiFlow-native bounded rules/workflow remain in-process capabilities unless real isolation/scale proves otherwise.
-- Practical domain limits remain authoritative: no forced ready-made/custom-design or separate social category, Owner-adjustable pricing, outsourced print-only work, informal supplier ordering/partial payables, damaged-stock adjustments, and no universal reservation/MRP/banner-wastage engine.
-- **Primary bootstrap object storage:** private Hugging Face Storage Bucket, current private-storage envelope about 100 GB. This is a provider/account capacity fact; retained bytes are a likely first consumption meter, not an automatically divided tenant allowance.
-- **Object provider boundary:** `IObjectStore`, bootstrap implementation `HuggingFaceObjectStore`.
-- **Bootstrap off-site backup carrier:** private Kaggle Dataset containing encrypted opaque backup archives only.
-- **Backup provider boundary:** infrastructure-level `IBackupTarget`, bootstrap implementation `KaggleBackupTarget`.
-- Planned object/backup-provider migration trigger: first paying customer, or earlier if capacity/privacy/compliance/reliability/restore requirements demand it.
-- Backup covers all state required to reconstruct a usable deployment according to topology, including implemented usage/limit state needed for enforcement; it is not merely an application-row export.
-- Current server environment is lower-spec/desktop-class rack hardware; `stateless` does not mean automatic failover or zero downtime.
-- The initial release process promotes one verified immutable artifact and proves migration, health/smoke, rollback/roll-forward, and honest maintenance-window behavior; blue-green/canary deployment is not assumed on a single node.
-- Browser/API/data/file/build security follows a layered application-security baseline in addition to ZITADEL, OpenFGA, tenant isolation and edge controls.
-- OpenTelemetry remains the provider-neutral telemetry boundary; New Relic + Aiven OpenSearch are current managed targets and Backtrace remains the crash-diagnostics direction.
-- `SquiFlow.Observability` owns the implementation boundary over standard .NET/OpenTelemetry primitives, with shared execution/correlation context, stable EventId/EventName/FailureCode vocabulary, structured state-transition logging, bounded metric cardinality, Workstation local-durable-first diagnostics, server central-first telemetry, diagnostic disk reserve, telemetry self-health and hostile acceptance tests.
+1. `docs/implementation/phases/phase-0/0A_BASELINE_STATUS.md` — current repository/reset truth.
+2. `docs/architecture/ENGINEERING_PRINCIPLES.md` — mandatory development principles, including complete KISS.
+3. `docs/architecture/EXPLICIT_BOUNDARIES_AND_SOLID.md` — explicit dependency/ownership boundary rules.
+4. `docs/decisions/CURRENT_DECISIONS.md` — accepted product/technology direction summary.
+5. `docs/architecture/REPOSITORY_STRUCTURE.md` — current/target repository vocabulary and file-structure samples.
+6. Focused architecture/security/data/sync/workstation/server owners.
+7. `docs/implementation/PHASES_AND_GATES.md` and detailed phase packages — cumulative maturity gates, not implementation ceilings.
 
-## Complexity rule: disciplined completeness
-
-SquiFlow is not optimizing for the smallest number of files/processes/interfaces. It is optimizing for the smallest **correct** structure.
-
-Keep a boundary when it protects a real capability or committed replacement:
+## Source precedence
 
 ```text
-SquiFlow.Guard          process supervision/recovery
-SquiFlow.Observability  provider-neutral telemetry/evidence contract
-services/admin-api      independent platform/super-admin backend
-IObjectStore            known near-term primary-storage migration
-IBackupTarget           known near-term backup-provider migration
-ZITADEL                 identity/authentication
-OpenFGA                 application authorization
+focused canonical owner
+        ↓
+CURRENT_DECISIONS / accepted focused decision record
+        ↓
+implementation phase package
+        ↓
+master/review/source-study/history material
 ```
 
-Apply clean-code/SOLID principles pragmatically: meaningful business names, cohesive responsibilities, explicit policy/config values, narrow provider interfaces, and contract-compatible replacements. Do not turn DRY/SOLID into helper/interface proliferation; small duplication is preferable to a wrong shared abstraction.
+Repository state proves what is implemented. Architecture documents may define future ownership and sample structures without implying that those projects currently exist.
 
-Avoid ceremony that does not protect anything:
+## Current repository implementation boundary
+
+There are currently **no application, service, foundation-library, capability-module, or test projects** in the active reset baseline.
+
+Retained repository-level assets include:
 
 ```text
-IRepository<T> / IUnitOfWork by default
-one-interface-per-class
-generic Manager → Service → Handler forwarding chains
-HTTP/gRPC between ordinary modules
-arbitrary helper processes
-empty projects/directories for future architecture
-generic data warehouse that records every click as "metering"
+docs/                         architecture, decisions, requirements, reviews, phase packages
+deploy/README.md              deployment/reproducibility planning record
+global.json                   .NET SDK baseline
+Directory.Build.props         shared compiler/analyzer defaults
+Directory.Packages.props      central package management enabled; no unused package versions predeclared
+SquiFlow.sln                  empty solution container for the rebuild
+VERSION / CURRENT_VERSION.txt v0.0.20
 ```
 
-Minimalism must never remove required offline durability, recovery, authorization freshness, tenant isolation, backup restore, retry/idempotency guarantees, observability evidence, control-plane independence, consistency/freshness behavior, or edge-case handling.
+Directories/projects are reintroduced only when a real responsibility is being implemented and its boundary is explicit.
 
-## Documentation map
+## Architecture direction retained through the reset
 
-### Start here
-- [`MASTER_IMPLEMENTATION_PLAN.md`](MASTER_IMPLEMENTATION_PLAN.md) — current implementation plan.
-- [`docs/requirements/NON_FUNCTIONAL_REQUIREMENTS.md`](docs/requirements/NON_FUNCTIONAL_REQUIREMENTS.md) — business/platform NFRs, degraded modes, operational targets and capability-completeness gates.
-- [`docs/requirements/RESOURCE_CONSUMPTION_AND_LIMITS.md`](docs/requirements/RESOURCE_CONSUMPTION_AND_LIMITS.md) — durable usage accounting, scoped limit policy/enforcement, retry/concurrency/offline/reconciliation behavior, and separation from analytics/commercial plans.
-- [`docs/review/NFR_DECISION_CHALLENGE.md`](docs/review/NFR_DECISION_CHALLENGE.md) — common/edge/failure/recovery challenge of major decisions, including usage/limits, consistency, gateway/protocol and no-commercial-plan handling.
-- [`docs/review/DECISION_AUDIT.md`](docs/review/DECISION_AUDIT.md) — KEEP / SIMPLIFY / DEFER / REMOVE / OPEN / RESTORE decision audit.
-- [`docs/decisions/CURRENT_DECISIONS.md`](docs/decisions/CURRENT_DECISIONS.md) — accepted direction.
-- [`docs/decisions/OPEN_DECISIONS.md`](docs/decisions/OPEN_DECISIONS.md) — unresolved implementation details.
-- [`docs/implementation/PHASES_AND_GATES.md`](docs/implementation/PHASES_AND_GATES.md) — sequential implementation order and edge/failure gates.
+- C# / .NET 10 LTS.
+- Avalonia Workstation and Blazor tenant Web when those surfaces are implemented.
+- ASP.NET Core server hosts when implemented.
+- Modular monolith first; ordinary capability communication stays in-process.
+- `Foundation → capability-owned business meaning → host/provider adapter → executable composition root` dependency direction.
+- One source implementation of business meaning per capability.
+- Workstation is the local-first/offline host direction; PostgreSQL is selected central authority; SQLite/WAL is selected Workstation local/provisional persistence when those slices are implemented.
+- ZITADEL identity, OpenFGA application authorization, and OpenBao/Vault-style external key-management directions remain accepted but are not implemented by the reset itself.
+- Guard remains an external supervision/recovery boundary when rebuilt; it is not business logic, database authority, Worker, scheduler, or key vault.
+- Process/project splits are earned by real compiler, provider, lifecycle, fault, security, resource, deployment, compatibility, or packaging boundaries.
 
-### Architecture/runtime/operations
-- [`docs/architecture/REPOSITORY_STRUCTURE.md`](docs/architecture/REPOSITORY_STRUCTURE.md)
-- [`docs/architecture/APPLICATION_KERNEL_AND_MODULES.md`](docs/architecture/APPLICATION_KERNEL_AND_MODULES.md) — SquiFlow-owned module/DI/settings/features/application-service/transaction composition and ABP/Orchard reference boundary.
-- [`docs/architecture/CONTROL_PLANE_AND_DATA_PLANE.md`](docs/architecture/CONTROL_PLANE_AND_DATA_PLANE.md)
-- [`docs/architecture/MULTI_TENANCY_ISOLATION.md`](docs/architecture/MULTI_TENANCY_ISOLATION.md)
-- [`docs/server/CORE_API_AND_WORKER.md`](docs/server/CORE_API_AND_WORKER.md)
-- [`docs/api/API_CONTRACT_IDEMPOTENCY_AND_RETRY.md`](docs/api/API_CONTRACT_IDEMPOTENCY_AND_RETRY.md)
-- [`docs/operations/DEPLOYMENT_CAPACITY_AND_RECOVERY.md`](docs/operations/DEPLOYMENT_CAPACITY_AND_RECOVERY.md)
+## Development rule
 
-### Business/domain
-- [`docs/domain/BUSINESS_MODEL.md`](docs/domain/BUSINESS_MODEL.md)
-- [`docs/domain/CROSS_CUTTING_BUSINESS_PRIMITIVES.md`](docs/domain/CROSS_CUTTING_BUSINESS_PRIMITIVES.md)
-- [`docs/workflow/WORKFLOW_DESIGN.md`](docs/workflow/WORKFLOW_DESIGN.md)
-- [`docs/rules/NATIVE_RULE_ENGINE.md`](docs/rules/NATIVE_RULE_ENGINE.md)
+A phase is a **minimum maturity and verification gate, not a maximum implementation scope or quality limit**.
 
-### Workstation/sync
-- [`docs/workstation/LOCAL_FIRST_DESKTOP.md`](docs/workstation/LOCAL_FIRST_DESKTOP.md)
-- [`docs/workstation/GUARD_AND_RECOVERY.md`](docs/workstation/GUARD_AND_RECOVERY.md)
-- [`docs/sync/SYNC_AND_AUTHORITY.md`](docs/sync/SYNC_AND_AUTHORITY.md)
+KISS means:
 
-### Security/admin/identity
-- [`docs/security/TENANT_PERMISSIONS.md`](docs/security/TENANT_PERMISSIONS.md) — OpenFGA authorization model/role boundary.
-- [`docs/security/IDENTITY_AND_SESSIONS.md`](docs/security/IDENTITY_AND_SESSIONS.md) — ZITADEL/OIDC/session/device boundary.
-- [`docs/security/APPLICATION_SECURITY_BASELINE.md`](docs/security/APPLICATION_SECURITY_BASELINE.md) — browser/API/injection/file/SSRF/build/container security baseline.
-- [`docs/admin/ADMIN_SURFACES.md`](docs/admin/ADMIN_SURFACES.md) — separate Admin Web/Admin API control plane.
+> the simplest design that completely covers the current responsibility and its material edge cases, failures, recovery, security, compatibility, concurrency, resource bounds, observability, and operability.
 
-### Web/data/integrations
-- [`docs/web/WEB_RUNTIME_AND_STORAGE.md`](docs/web/WEB_RUNTIME_AND_STORAGE.md)
-- [`docs/web/CUSTOM_DOMAINS.md`](docs/web/CUSTOM_DOMAINS.md)
-- [`docs/data/PERSISTENCE_SELECTION.md`](docs/data/PERSISTENCE_SELECTION.md)
-- [`docs/data/FILES_AND_OBJECT_STORAGE.md`](docs/data/FILES_AND_OBJECT_STORAGE.md) — `IObjectStore`, `IBackupTarget`, Hugging Face/Kaggle bootstrap and migration.
-- [`docs/integrations/NOTIFICATIONS_AND_EXTERNAL_DELIVERY.md`](docs/integrations/NOTIFICATIONS_AND_EXTERNAL_DELIVERY.md)
+It never means “happy path only” or “fewest files/classes regardless of correctness.”
 
-### Observability
-- [`docs/observability/OBSERVABILITY.md`](docs/observability/OBSERVABILITY.md) — high-level owner.
-- [`docs/observability/OBSERVABILITY_IMPLEMENTATION_CONTRACT.md`](docs/observability/OBSERVABILITY_IMPLEMENTATION_CONTRACT.md) — execution context, OpenTelemetry, metrics/traces, sampling and health.
-- [`docs/observability/STRUCTURED_LOGGING_AND_FAILURE_CODES.md`](docs/observability/STRUCTURED_LOGGING_AND_FAILURE_CODES.md) — stable event/failure registry and state-transition logging.
-- [`docs/observability/WORKSTATION_SERVER_LOG_PIPELINE.md`](docs/observability/WORKSTATION_SERVER_LOG_PIPELINE.md) — Workstation/server pipeline differences and diagnostic bundles.
-- [`docs/observability/MULTI_TENANT_OBSERVABILITY.md`](docs/observability/MULTI_TENANT_OBSERVABILITY.md) — tenant/privacy/cardinality/support boundaries.
-- [`docs/observability/OBSERVABILITY_VERIFICATION_ACCEPTANCE.md`](docs/observability/OBSERVABILITY_VERIFICATION_ACCEPTANCE.md) — hostile acceptance tests.
+File-structure samples in the architecture docs are preserved and should guide placement. They are not commands to create empty symmetry projects.
 
-### Verification/review
-- [`docs/testing/VERIFICATION_STRATEGY.md`](docs/testing/VERIFICATION_STRATEGY.md)
-- [`docs/review/OBSERVABILITY_AND_OVERLOOKED_RECOMMENDATIONS.md`](docs/review/OBSERVABILITY_AND_OVERLOOKED_RECOMMENDATIONS.md)
-- [`docs/review/SKEPTICAL_IMPLEMENTATION_GATES.md`](docs/review/SKEPTICAL_IMPLEMENTATION_GATES.md)
-- [`docs/review/SECURITY_AUTHORIZATION_SOURCE_REVIEW.md`](docs/review/SECURITY_AUTHORIZATION_SOURCE_REVIEW.md)
-- [`docs/review/RELIABILITY_API_AND_PATTERN_SOURCE_REVIEW.md`](docs/review/RELIABILITY_API_AND_PATTERN_SOURCE_REVIEW.md)
-- [`docs/review/BYTEBYTEGO_DISTRIBUTED_SYSTEMS_SOURCE_REVIEW.md`](docs/review/BYTEBYTEGO_DISTRIBUTED_SYSTEMS_SOURCE_REVIEW.md)
-- [`docs/review/BYTEBYTEGO_CODE_CONSISTENCY_DATA_API_SOURCE_REVIEW.md`](docs/review/BYTEBYTEGO_CODE_CONSISTENCY_DATA_API_SOURCE_REVIEW.md)
-- [`docs/review/BYTEBYTEGO_API_GATEWAY_SERVICE_PROTOCOL_SOURCE_REVIEW.md`](docs/review/BYTEBYTEGO_API_GATEWAY_SERVICE_PROTOCOL_SOURCE_REVIEW.md)
-- [`docs/review/BYTEBYTEGO_ARCHIVE_SEQUENTIAL_REVIEW_001_015.md`](docs/review/BYTEBYTEGO_ARCHIVE_SEQUENTIAL_REVIEW_001_015.md)
-- [`docs/review/BYTEBYTEGO_ARCHIVE_SEQUENTIAL_REVIEW_016_123.md`](docs/review/BYTEBYTEGO_ARCHIVE_SEQUENTIAL_REVIEW_016_123.md) — completes all 123 selected archive entries.
-- [`docs/review/BYTEBYTEGO_WEB_CONTENT_REVIEW_023_064.md`](docs/review/BYTEBYTEGO_WEB_CONTENT_REVIEW_023_064.md) — completes the remaining supplied Web-content entries; entries 001-022 are mapped to the thematic reviews above.
-- [`docs/review/CSV_AUDIT_AND_SOURCE_CLEANUP.md`](docs/review/CSV_AUDIT_AND_SOURCE_CLEANUP.md)
+## CI/CD direction
 
-## Source-of-truth rule
-
-Generated CSV inventories/review ledgers are not architecture authority. Markdown can drift too, so each detailed topic has one owning document. Review/source files explain reasoning but do not override accepted decisions.
+Repository CI/CD is again allowed. GitHub and GitLab should be thin orchestration layers over the same repository-owned verification commands/scripts, with self-hosted/self-managed runners preferred under hosted-minute constraints. No hosted pipeline is triggered merely by this reset.
 
 ## Versioning
 
-The current architecture/documentation baseline is `v0.0.18`. This version adds the SquiFlow-owned application-kernel/module/settings/feature boundary, the module-owned permission catalog integrated with OpenFGA, and ZITADEL Cloud as the initial identity deployment. It retains the v0.0.17 PostgreSQL/SQLite decisions and does not imply that implementation code already exists.
+`v0.0.20` marks the principles-first reset baseline. Older document version labels may remain as provenance when their decisions are still valid; focused owners and current repository status govern conflicts.

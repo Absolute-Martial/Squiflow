@@ -1,30 +1,48 @@
 # Repository and Deployment Boundaries
 
-**Version:** v0.0.19
+**Version:** v0.0.20
 
 ## 1. Structural vocabulary
 
-SquiFlow uses these code categories consistently:
+SquiFlow uses these categories consistently:
 
 ```text
 Foundation
    ↓
-Capability-owned business modules
+Capability-owned business meaning
    ↓
 Host / infrastructure adapters
+   ↓
+Executable composition roots
 ```
 
-`Foundation` replaces vague names such as `BuildingBlocks`, `Common`, or a universal `Shared` bucket.
+`Foundation` is narrow product-wide technical/domain infrastructure. It is not a universal `Shared`, `Common`, or `Utils` business bucket.
 
-A capability-owned module is the common business point for Orders, Customers, Inventory, Staff, Devices, etc. A **Capability Core** is the host-neutral/deterministic center of that module when one exists; it is not automatically a separate project.
+A capability owns one source implementation of its business meaning. `Core`, `Server`, `Workstation`, `Postgres`, `Contracts`, and similar labels describe responsibilities first; a separate project exists only when a real compile-time/provider/platform/packaging/lifecycle boundary earns it.
 
-Detailed owners:
-- `docs/architecture/CAPABILITY_CORE_AND_HOST_EXECUTION.md`;
-- `docs/architecture/MODULE_OWNERSHIP_PERSISTENCE_AND_PROJECT_BOUNDARIES.md`.
+## 2. Current reset state
 
-## 2. Current and target repository shape
+At baseline `v0.0.20`, the repository intentionally contains **no application/service/foundation-library/capability/test projects**. Earlier Phase-0 code remains in Git history and is not current implementation authority.
 
-The repository is still early-stage. Do not scaffold every future module/process/host, but preserve accepted ownership boundaries.
+The retained root/tooling surface is:
+
+```text
+SquiFlow/
+|- docs/
+|- deploy/
+|- global.json
+|- Directory.Build.props
+|- Directory.Packages.props
+|- SquiFlow.sln              # empty rebuild container
+|- VERSION
+`- CURRENT_VERSION.txt
+```
+
+New projects are introduced only with a real current responsibility, explicit dependency/authority boundary, material edge/failure behavior, and verification.
+
+## 3. Accepted repository ownership map
+
+The following is a **growth map**, not scaffolding instructions:
 
 ```text
 SquiFlow/
@@ -32,28 +50,28 @@ SquiFlow/
 |  |- web/                         # Blazor tenant Web / tenant administration UX
 |  `- desktop/
 |     |- workstation/             # Avalonia local-first Workstation
-|     |- guard/                   # always-running supervision/recovery companion
-|     |- diagnostics/             # create with first real isolated diagnostic workflow
-|     |- maintenance/             # create with first real isolated backup/maintenance workflow
-|     |- sync/                    # create only if sync earns desktop process isolation
-|     `- document/                # create when heavy document work earns isolation
+|     |- guard/                   # supervision/recovery companion
+|     |- diagnostics/             # only if diagnostics earns process isolation
+|     |- maintenance/             # only if maintenance/backup earns process isolation
+|     |- sync/                    # only if desktop sync earns process isolation
+|     `- document/                # only if heavy document work earns process isolation
 |- services/
-|  |- core-api/                   # current compact ASP.NET Core authoritative host
-|  |- web-api/                    # future interactive API host when split is implemented
-|  |- sync-api/                   # future workstation-sync host when split is implemented
-|  |- admin-api/                  # future independent platform-control backend
-|  `- worker/                     # future durable background execution host
+|  |- core-api/                   # compact authoritative host if/when reintroduced
+|  |- web-api/                    # interactive API host when workload split is real
+|  |- sync-api/                   # Workstation sync host when workload split is real
+|  |- admin-api/                  # private platform-control backend when needed
+|  `- worker/                     # durable background execution host when needed
 |- modules/
 |  `- <capability>/
-|     |- SquiFlow.<Capability>/   # compact capability-owned business module by default
-|     |- SquiFlow.<Capability>.Postgres/       # create when real provider code earns isolation
-|     `- SquiFlow.<Capability>.Workstation/    # create when real local adapter code exists
+|     |- SquiFlow.<Capability>/
+|     |- SquiFlow.<Capability>.Postgres/       # only with real provider code
+|     `- SquiFlow.<Capability>.Workstation/    # only with real local adapter code
 |- foundation/
-|  |- application-kernel/
-|  |- observability/
-|  `- workstation-runtime/        # only when stable desktop IPC contract exists
+|  |- application-kernel/         # only as current consumers earn shared primitives
+|  |- observability/              # only with real instrumentation consumers
+|  `- workstation-runtime/        # only with stable desktop IPC/runtime contracts
 |- infrastructure/
-|  |- storage/                    # truly cross-capability/provider infrastructure only
+|  |- storage/
 |  |- backup/
 |  |- identity/
 |  `- authorization/
@@ -62,13 +80,11 @@ SquiFlow/
 `- docs/
 ```
 
-Directories shown as future ownership locations are not permission to create empty projects. The current `services/core-api/SquiFlow.CoreApi` remains the compact server host until WebApi/SyncApi are actually split.
+A path in this map is an ownership reservation, not proof that the corresponding component exists or should be created now.
 
-## 3. Compact capability shape is the default
+## 4. Compact capability shape
 
-Do not assume every module needs Domain/Application/Infrastructure/Core/Server/Workstation projects on day one.
-
-Preferred initial shape:
+When the first real capability is implemented, prefer a compact capability-owned project until pressure proves a split is useful:
 
 ```text
 modules/orders/
@@ -84,9 +100,9 @@ modules/orders/
    `- Events/
 ```
 
-The current compact `modules/customers/SquiFlow.Customers` project remains valid.
+This is a sample shape, not a requirement to create every folder. Only folders with real responsibilities should exist.
 
-If concrete PostgreSQL/EF/Npgsql code would contaminate the host-neutral business module, add a capability-owned adapter **when implementation exists**:
+A provider split is earned when provider code would contaminate host-neutral business code:
 
 ```text
 modules/orders/
@@ -94,13 +110,11 @@ modules/orders/
 `- SquiFlow.Orders.Postgres/
 ```
 
-If real Workstation-specific local execution/persistence/platform code exists, add its adapter/project then.
+A Workstation adapter is created when actual Workstation-specific presentation/local execution/platform code exists.
 
-## 4. Earned Core/Server/Workstation split
+## 5. Earned Core/Server/Workstation split
 
-`Core`, `Server`, and `Workstation` are conceptual responsibilities first.
-
-A later compile-time split may be appropriate:
+A later compile-time split may be:
 
 ```text
 modules/orders/
@@ -110,249 +124,78 @@ modules/orders/
 `- SquiFlow.Orders.Postgres/
 ```
 
-but only when real pressure exists, such as:
+Only use it when at least one concrete pressure exists: genuine cross-host deterministic reuse, compiler-enforced provider/platform neutrality, package/reference isolation, module size/ownership clarity, selective packaging, or materially different application responsibilities.
 
-- shared deterministic code is executed by both server and Workstation;
-- compile-time protection from Avalonia/ASP.NET/EF/Npgsql/SQLite/provider dependencies is valuable;
-- module size/dependency ownership is becoming unclear;
-- selective packaging/reference/test boundaries are useful;
-- platform/provider dependencies genuinely differ.
+Do not split merely to match a diagram.
 
-Do not create the split merely to match an architecture diagram.
+## 6. Host/process rule
 
-Detailed rule: `docs/architecture/MODULE_OWNERSHIP_PERSISTENCE_AND_PROJECT_BOUNDARIES.md`.
+Runtime hosts/adapters invoke capability-owned application behavior; they do not own duplicate business implementations.
 
-## 5. Server hosts use the same modules
-
-Interactive Web/API, Workstation sync, Worker and Admin API are runtime hosts/adapters, not separate business backends.
+Conceptually:
 
 ```text
 WebApi -----+
-SyncApi ----+---> SquiFlow.Orders
-Worker -----+---> SquiFlow.Customers
-AdminApi ---+---> SquiFlow.Inventory
-                     |
-                     v
-                  PostgreSQL
+SyncApi ----+---> Orders / Customers / Inventory / ...
+Worker -----+
+AdminApi ---+
 ```
 
-Different hosts may call different module entry points, but they do not own duplicate business implementations.
+Different hosts may enter different use cases because trust/workload context differs, but business invariants remain capability-owned.
 
-The same module assembly may be present in multiple deployments. That is binary/deployment duplication, not source/business duplication.
+Inside one process, modules communicate in-process by default. HTTP/gRPC is not introduced between ordinary modules to imitate microservices.
 
-## 6. Host-specific execution
+## 7. Workstation/process map
 
-One capability can be invoked through different execution paths:
-
-```text
-Workstation
-  local facts / snapshots
-  -> capability deterministic logic where shared
-  -> provisional/local effect
-
-WebApi
-  -> module command/query
-  -> current authoritative facts/rules
-  -> PostgreSQL authoritative result
-
-SyncApi
-  -> sync/device/protocol admission
-  -> module admission/query
-  -> current authoritative facts/rules
-  -> PostgreSQL authoritative result
-
-Worker
-  -> durable work claim/retry context
-  -> owning module operation
-  -> PostgreSQL/object-store result
-```
-
-Do not create `Orders.WorkstationBusiness`, `Orders.WebBusiness`, `Orders.SyncBusiness`, and `Orders.WorkerBusiness` implementations that independently encode the same rules.
-
-Execution mode vocabulary remains:
-
-```text
-DeviceLocal
-LocalProvisional
-ServerAuthoritative
-```
-
-## 7. Reads do not bypass module ownership
-
-The phrase `persistence adapter` does not mean every read must reconstruct a rich aggregate or go through a generic repository.
-
-A Web read can be:
-
-```text
-WebApi
-  -> Orders.GetOrder
-  -> Orders-owned query/data access
-  -> PostgreSQL
-  -> DTO
-```
-
-A mutation remains:
-
-```text
-WebApi/SyncApi/Worker
-  -> owning module application operation
-  -> business rules/invariants/concurrency/idempotency
-  -> authoritative transaction
-  -> PostgreSQL
-```
-
-A read-only query may use a direct optimized module-owned projection/query path when it preserves tenant/security/data ownership and does not mutate business state.
-
-## 8. Persistence/state placement
-
-Persistence means state survives process loss according to its durability contract. It does not imply a separate database per host.
-
-Current state classes:
-
-- ephemeral runtime/cache/session/rate state: disposable/rebuildable;
-- durable processing state: inbox/jobs/idempotency/outbox/operation status, initially allowed in PostgreSQL;
-- authoritative server business state: PostgreSQL;
-- large files/objects: object storage plus authoritative metadata;
-- Workstation local provisional/pending state: SQLite/WAL.
-
-Do not create a generic `WebApiDB -> CoreDB` chain. Purpose-specific cache/processing/object state is allowed without creating a second business authority.
-
-Owner: `docs/server/SERVER_STATE_AND_PROCESSING.md`.
-
-## 9. Web API and Sync API separation
-
-Interactive Web/API traffic and Workstation sync traffic are accepted as separate future hosts because their protocols, batching, backpressure, fairness, latency and scaling profiles differ.
-
-Calling them ingress hosts describes the operational boundary; it does not mean they only accept data.
-
-```text
-Cloud/edge
-  |- WebApi  -> interactive commands and queries
-  `- SyncApi -> workstation upload/admission and pull/download
-        |
-        `---- both invoke the same authoritative business modules/state
-```
-
-Detailed owner: `docs/architecture/WEB_AND_SYNC_INGRESS.md`.
-
-## 10. Desktop application versus process boundaries
-
-The Windows desktop product is one application. Separate executables exist only where process isolation, lifecycle independence, recovery, or resource reclamation materially helps.
+The desktop product may eventually contain:
 
 ```text
 SquiFlow Desktop Application
-|
-|- SquiFlow.Workstation    always-running UI/local application runtime
-|- SquiFlow.Guard          always-running supervision/recovery companion
-`- capability processes    normally stopped, launched only when work exists
-   |- SquiFlow.Diagnostics
-   |- SquiFlow.Maintenance
-   |- SquiFlow.Sync
-   `- SquiFlow.Document
+|- Workstation      UI/local application runtime
+|- Guard            supervision/recovery companion
+`- earned helpers   Diagnostics / Maintenance / Sync / Document only when isolation is justified
 ```
 
-A separate executable does not imply a microservice, separate product, or new business authority.
+A separate executable is justified by process/fault/security/lifecycle/resource isolation, not aesthetics.
 
-Detailed owner: `docs/workstation/DESKTOP_PROCESS_MODEL.md`.
+## 8. Persistence/state placement
 
-## 11. Minimal structure must not mean incomplete behavior
+Accepted directions remain:
 
-Bad simplification:
+- PostgreSQL: authoritative central transactional state;
+- SQLite/WAL: Workstation local/provisional state;
+- object storage: large object bytes with authoritative metadata elsewhere;
+- durable processing state: explicit owner/recovery contract;
+- cache/session/rate state: disposable unless explicitly defined otherwise.
 
-```text
-remove Guard because one process looks simpler
-put backup/migration/diagnostic implementation into Guard because it already runs
-put all Web and Sync workload policy into one giant endpoint set forever
-copy business logic into Workstation/Web/Sync/Worker adapters
-collapse platform super-admin into tenant API routes
-collapse authorization into token roles
-```
+These selections do not create projects until their owning implementation slice is developed.
 
-Good simplification:
+## 9. Explicit project-creation rule
 
-```text
-keep one capability source implementation and small host adapters
-keep a compact capability project until a real compile-time split earns itself
-keep current CoreApi until real workload evidence earns WebApi/SyncApi split
-keep Guard small and launch heavy capability processes only when needed
-keep provider interfaces only for real replacement boundaries
-keep separate Admin API because platform-control security/availability differs
-```
+A project/executable earns existence for a real reason such as:
+
+- independent lifecycle;
+- process/fault/security isolation;
+- materially different workload/backpressure/scaling;
+- resource reclamation after heavy work;
+- availability independence;
+- compiler-enforced dependency direction;
+- genuine cross-host shared code needing provider/platform neutrality;
+- stable wire/IPC/plugin contract;
+- active provider migration/multiple concrete implementations;
+- selective packaging/reference requirements;
+- benchmark/test executable needs.
+
+If none applies, prefer a cohesive existing boundary.
+
+## 10. KISS and file structure
 
 The goal is low accidental complexity, not low capability.
 
-## 12. Project creation rule
+KISS does **not** justify collapsing boundaries that protect authority/security/recovery, and it does not justify omitting edge/failure behavior. YAGNI prevents future-only scaffolding, not current correctness.
 
-A separate project/executable earns its existence for a real boundary such as:
+Detailed engineering rule: `docs/architecture/ENGINEERING_PRINCIPLES.md`.
 
-- independently running lifecycle;
-- security/fault/process isolation;
-- materially different workload scaling/backpressure;
-- memory/resource reclamation after heavy work;
-- availability independence;
-- dependency direction that protects the codebase;
-- real shared code that needs compiler-enforced provider/platform neutrality;
-- stable wire/IPC/plugin contract;
-- active provider migration/multiple implementations;
-- selective packaging/reference requirements;
-- a benchmark/test harness requiring its own executable.
+## 11. Verification direction
 
-Do not create one project per folder name in an architecture diagram.
-
-## 13. Foundation rule
-
-`foundation/` contains narrow product-wide primitives and runtime composition infrastructure. It must not become a place for Customers/Orders/Inventory/Staff/Devices business objects.
-
-Current examples:
-
-```text
-foundation/application-kernel/SquiFlow.ApplicationKernel
-foundation/observability/SquiFlow.Observability
-```
-
-A future `SquiFlow.Workstation.Runtime.Contracts` is created only when stable Guard/Workstation/capability IPC requires it; it contains transport-neutral DTOs/enums/contracts only.
-
-## 14. Feature/release management
-
-Feature management belongs to the application kernel/capability definitions and is distinct from permission/domain validity.
-
-Accepted concepts include:
-
-- host availability;
-- release channels (`Internal`, `Preview`, `Beta`, `Stable`, `Deprecated`);
-- tenant/deployment rollout ceiling;
-- versioned Workstation feature snapshots;
-- stable experiment/A-B assignments for allowed product/presentation experiments;
-- kill switch/rollback;
-- offline policy (`SnapshotAllowed`, `StableOnly`, `ServerRequired`).
-
-Detailed owner: `docs/architecture/FEATURE_RELEASE_AND_EXPERIMENTS.md`.
-
-## 15. Identity/authorization boundaries
-
-- ZITADEL is identity/authentication provider integration.
-- OpenFGA is application authorization integration.
-- WebApi/CoreApi and SyncApi independently derive/verify current server authority appropriate to the operation.
-- API-host authentication/coarse policy does not replace module/resource/domain authorization.
-- Workstation/Web feature visibility improves UX but never replaces server authorization.
-- Provider SDK/client types stay out of a physically separated Capability Core/Foundation business contract.
-
-## 16. Observability foundation
-
-`foundation/observability/SquiFlow.Observability` is a shared instrumentation library, not the Diagnostics executable.
-
-It owns common Serilog/OpenTelemetry bootstrap and provider-neutral instrumentation primitives. Desktop/server processes may reference it without inheriting provider-specific business dependencies.
-
-## 17. Verification direction
-
-Architecture verification should enforce boundaries that actually exist rather than force speculative projects.
-
-Prove, as implementation grows:
-
-- Web, Workstation, Guard and current CoreApi build/run;
-- compact capability modules do not leak forbidden host/provider dependencies into code intended for cross-host reuse;
-- any physically separated `*.Core` stays plain .NET/provider-neutral;
-- host filtering/feature publication remain separate from authorization;
-- Guard survives independent Workstation failure without owning business logic;
-- no empty future hosts/processes/modules exist solely to complete a diagram;
-- per-tenant behavior uses scoped context/versioned data rather than per-tenant DI containers.
+As projects are reintroduced, architecture verification must prove the boundaries that actually exist rather than requiring speculative ones. Examples include provider/host leakage checks, executable-to-executable reference restrictions, Guard business-module isolation, capability ownership, and dependency direction.

@@ -1,189 +1,67 @@
 # Phase 0D — Engineering Safety, Observability, and Reproducibility
 
-**Detailed phase index:** `docs/implementation/phases/README.md`
+**Purpose:** Ensure safety, observability, verification, and reproducibility grow with implementation rather than being postponed to late hardening.
 
-**Purpose:** Establish the safety rails that all subsequent feature development inherits instead of postponing them to a late hardening phase.
+## Starting point after reset
 
-## 1. Principle
+There is currently no `SquiFlow.Observability` project and no production/test project. Observability/library boundaries are reintroduced only with real consumers. CI/CD is allowed again.
 
-Phase 0 does not need production-scale telemetry, security tooling, deployment automation, or failure catalogs.
+## Core rule
 
-It **does** need the mechanisms that prevent future work from becoming unobservable, unreproducible, or architecturally unconstrained.
+> Introduce the safety mechanism with the class of behavior that needs it; do not create every possible safety abstraction in advance and do not postpone necessary current safety to a later phase.
 
-The rule is:
+## CI/build foundation
 
-> Introduce the safety mechanism at the same time as the class of behavior that needs it; do not create every possible instance in advance.
+Repository verification should be locally runnable and shared by thin GitHub/GitLab wrappers. Under current build-minute constraints, self-hosted/self-managed runners are preferred primary compute.
 
-This rule continues through every later phase. Phase 8 qualification is therefore a cross-system proof of controls already introduced, not the first time observability/security/recovery appear.
-
-## 2. CI/build foundation
-
-CI should prove at least:
+As code appears, CI/local verification should cover the applicable subset of:
 
 ```text
 restore
-build Release
-deterministic kernel/spec tests
-architecture dependency tests
-basic secret detection appropriate to current repo
-basic dependency/vulnerability review/triage path
+Release build
+unit/property/contract/integration specs
+architecture dependency checks
+secret detection
+package/dependency review
 artifact/version identity
 ```
 
-Where the pipeline already does more, preserve it.
+CI success never proves provider/recovery/security/hardware properties the pipeline did not exercise.
 
-CI success must not be described as proof of future provider, rack, restore, or security exercises that did not actually run.
+## Observability rule
 
-## 3. Architecture tests
+Do not create a large observability framework before consumers exist. When the first executable/provider/process flow appears, add the smallest product-owned instrumentation boundary that preserves stable semantics and can expand.
 
-Continue expanding `SquiFlow.Architecture.Specs` as real boundaries appear.
+Use structured events with stable names/codes for material operational outcomes. Add logs, metrics, and traces according to the questions and boundaries that actually exist; not every method needs all three.
 
-Phase-0 checks should protect things such as:
+Telemetry must be bounded, redacted, non-authoritative, and unable to break business correctness merely because export fails.
 
-- shared capability/kernel code does not reference host/provider frameworks;
-- Guard does not depend on business modules/ORM/provider authorization code;
-- presentation projects do not obtain central DB credentials/persistence dependencies;
-- provider contracts use SquiFlow-owned types rather than mirroring third-party SDKs;
-- ordinary module composition remains in-process;
-- future Worker/Admin projects are not created as empty architecture decoration.
+## Failure vocabulary
 
-Do not build a huge custom architecture-test framework if simple project/source checks prove the rule.
+Introduce stable `FailureCode`, event names/IDs, correlation/causation concepts only as real failures/flows need them. Never make free-form exception text the stable support/API contract and never preallocate hundreds of unused codes.
 
-## 4. Failure vocabulary
+## Secrets/configuration
 
-Introduce stable source-controlled vocabulary as real failures appear:
+No production secret, provider token, DB credential, private key, OpenBao root/unseal material, or reusable native client secret belongs in source, artifacts, ordinary logs, or committed configuration.
 
-```text
-FailureCode
-EventId / EventName
-OperationId / CorrelationId / CausationId
-```
+## Reproducibility
 
-Do not rely on exception message text as the stable support/API identity.
+For every current executable/project, a developer should be able to discover required SDK/tooling, restore/build/test/run commands, non-secret configuration, architecture owners, and relevant failure/recovery procedures from the repository.
 
-Do not preallocate hundreds of unused event codes.
+`deploy/` documents only components that actually exist plus accepted deployment direction; it must not pretend target processes are running.
 
-## 5. Observability foundation
+## Resource safety
 
-`SquiFlow.Observability` already exists and should remain the product-owned boundary over Serilog/OpenTelemetry concepts.
+Queues, retries, restart loops, buffers, telemetry, payloads, concurrency, connections, and retained files/logs are bounded whenever exhaustion is possible. Obvious unbounded behavior is a correctness defect, not “performance tuning for later.”
 
-During Phase 0 prove the basics on current hosts:
+## Exit gate
 
-- structured logs;
-- service/component/version identity;
-- correlation foundation;
-- stable lifecycle/failure events;
-- safe redaction rules for secrets/credentials;
-- bounded exporter/buffering behavior appropriate to current implementation;
-- telemetry failure never becomes business-authority failure.
+0D is complete when the implementation that exists at that time has:
 
-As later phases add DB/sync/Worker/provider paths, those paths extend this same foundation.
-
-## 6. Authoritative audit versus telemetry
-
-Phase 0 should already preserve the conceptual distinction:
-
-```text
-operational telemetry
-= diagnosable but potentially sampled/lossy
-
-business/security audit
-= durable authoritative evidence when a later operation requires it
-```
-
-Do not store future security/business audit only in OpenSearch/New Relic because telemetry exists first.
-
-## 7. Secrets and build safety
-
-Current repositories/artifacts must not contain:
-
-- production passwords/tokens;
-- reusable Workstation client secrets;
-- central DB credentials embedded in desktop/Web artifacts;
-- OpenBao root/unseal/recovery material;
-- provider management credentials;
-- unredacted secrets in normal logs/build output.
-
-Environment-specific configuration remains external to immutable application artifacts.
-
-## 8. Reproducible deployment foundation
-
-`deploy/` should describe how the components that **actually exist** are started/stopped/configured.
-
-It may evolve toward the current Podman server profile as server components are containerized.
-
-Phase 0 does not require Kubernetes/Terraform/Flux merely to claim infrastructure-as-code.
-
-A simple version-controlled Podman/service/runbook representation is acceptable when it is rebuildable and testable.
-
-## 9. Developer/repository reproducibility
-
-A second developer/machine should be able to discover:
-
-```text
-required .NET version
-restore/build commands
-test/spec commands
-launch commands
-required non-secret configuration
-where each host begins
-where architecture rules live
-```
-
-without relying on undocumented chat/history.
-
-## 10. Other components continue evolving during 0D
-
-0D is not an infrastructure-only phase.
-
-Developers may continue:
-
-- Customers/other capability work;
-- Workstation/Web UI composition;
-- Guard behavior;
-- CoreApi endpoints;
-- provider-contract work;
-- tests;
-- deployment definitions.
-
-New real paths should add the minimum observability/failure/security evidence required by the path rather than waiting for a future observability phase.
-
-## 11. Failure tests
-
-Exercise current reality:
-
-- secret accidentally added to a test config/source file is detected by the selected check where feasible;
-- architecture dependency violation fails CI;
-- invalid required host configuration fails explicitly;
-- telemetry exporter unavailable does not crash a healthy host merely because telemetry cannot export;
-- Guard crash/restart evidence is bounded;
-- a crash loop does not create an unbounded logging/alert/restart storm;
-- deployment/start instructions can be reproduced from repository/runbook state;
-- build artifacts do not require embedded production secrets.
-
-## 12. Resource bounds
-
-Any Phase-0 queue/buffer/retry/restart mechanism must be bounded.
-
-Examples:
-
-```text
-Guard restart attempts
-telemetry buffers
-local lifecycle log retention
-HTTP request/body limits where exposed
-```
-
-Exact production numbers can remain provisional, but no mechanism is allowed to default to unbounded growth because a later phase will supposedly tune it.
-
-## 13. Exit gate
-
-0D is complete when:
-
-- CI protects the most important current architecture rules;
-- current hosts emit usable, safe structured lifecycle/failure evidence;
-- correlation/failure vocabulary has a stable extension pattern;
-- secrets/configuration are not embedded in source/artifacts;
-- current deployment/startup can be reconstructed from repository/runbook information;
-- telemetry failure is non-authoritative and bounded;
-- new feature development has a clear path to add tests/observability rather than inventing a parallel mechanism.
+- repository-owned local/CI verification;
+- mechanical architecture checks for material boundaries;
+- safe secret/configuration handling;
+- structured diagnosability appropriate to real runtime paths;
+- bounded telemetry/retry/resource behavior;
+- reproducible build/start/deployment instructions;
+- no observability/security claim stronger than the evidence actually run.

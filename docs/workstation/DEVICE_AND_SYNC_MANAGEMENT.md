@@ -18,7 +18,7 @@ Conceptually it includes:
 DeviceId
 TenantId
 FriendlyName
-DeviceType / HostKind
+DeviceType / ClientApplicationKind
 Enrollment/authorization state
 Application/protocol version
 LastSeenAt
@@ -27,6 +27,8 @@ LastKnownSyncRevision/cursor
 Revoked/Suspended state
 created/updated/audit metadata
 ```
+
+`ClientApplicationKind` describes the enrolled client/device category when such classification is actually needed (for example a SquiFlow Workstation). It is not the application-kernel executable/process topology and must not enumerate backend processes such as CoreApi, SyncApi, Worker or AdminApi.
 
 Do not treat a locally editable machine name or Workstation SQLite row as authority for enrollment or revocation.
 

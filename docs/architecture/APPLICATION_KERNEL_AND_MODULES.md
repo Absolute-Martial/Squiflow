@@ -1,7 +1,7 @@
 # SquiFlow Application Kernel, Capability Cores, Modules, Settings, and Features
 
-**Version:** v0.0.18  
-**Status:** Accepted architecture direction; Phase 0 must prove the smallest implementation.  
+**Version:** v0.0.19  
+**Status:** Accepted architecture direction; Phase 0 must prove the smallest durable implementation.  
 **Authority:** This document owns application composition, module/feature lifecycle, dependency injection, settings, application-service and transaction conventions, capability-provided endpoints/UI/background work, data seeding, and framework-adoption boundaries. Business-meaning ownership is defined by `docs/architecture/CAPABILITY_CORE_AND_HOST_EXECUTION.md`. Permission semantics remain owned by `docs/security/TENANT_PERMISSIONS.md`; identity remains owned by `docs/security/IDENTITY_AND_SESSIONS.md`.
 
 ## 1. Decision
@@ -26,11 +26,13 @@ versioned tenant feature/settings/permission snapshots
 
 The term **Capability Core** is the common business point. The term **module** in this document means reviewed composition metadata/contributions around a capability; it does not mean a second shared-business layer and does not imply one deployable service per module.
 
-Workstation, Web, WebApi/CoreApi, SyncApi, Worker and Admin hosts can compose different adapters/contributions around the same Capability Cores without depending on `Volo.Abp.*` or `OrchardCore.*`.
+Workstation, Web, CoreApi and future earned ingress/Worker/Admin executables can compose different adapters/contributions around the same Capability Cores without depending on `Volo.Abp.*` or `OrchardCore.*`.
+
+Executable/process names are **not** stable application-kernel vocabulary. The kernel must not maintain an enum of current/future executable names. Each executable composition root chooses the capability modules and adapters it actually references.
 
 An optional Orchard CMS may still be evaluated later as a separate content host for accepted editorial/public-content responsibilities. It does not become the business application kernel.
 
-## 2. Foundation, Capability Core, and module descriptor
+## 2. Foundation, Capability Core, module descriptor, and adapter
 
 Use these terms precisely:
 
@@ -42,10 +44,14 @@ Capability Core
 = one capability's business meaning + deterministic decisions
 
 Module descriptor
-= stable composition metadata describing where/how the capability is available
+= stable capability-owned composition metadata: identity/version, dependencies,
+  features, permissions, settings and other host-neutral contribution contracts
 
 Host adapter
 = Workstation/Web/API/Sync/persistence/provider-specific presentation/facts/effects
+
+Executable composition root
+= the place that selects which modules/adapters are loaded into that executable
 ```
 
 Do not create:
@@ -60,24 +66,26 @@ when the underlying business decision is the same. Prefer one `Orders.Core` deci
 
 The current compact `modules/customers/SquiFlow.Customers` project acts as the Customers Capability Core and also owns its small descriptor. This compactness is intentional; split projects only when dependency pressure earns them.
 
+Host/process applicability is not encoded by a process-name set on the descriptor. If Workstation loads Customers, its composition root references Customers and the Workstation adapter. If CoreApi loads Customers, its composition root references Customers. Guard references no business capability module.
+
 ## 3. What is borrowed and what is not
 
 | Concern | SquiFlow direction | Useful reference idea | Explicitly not adopted |
 |---|---|---|---|
 | Dependency injection | Microsoft.Extensions.DependencyInjection with one composition root per executable | ABP/Orchard registration conventions | service locator, automatic property injection, per-tenant container forests |
-| Capability composition | trusted C# descriptor, dependency DAG, ordered startup and host contributions around Capability Cores | ABP dependency/lifecycle graph; Orchard module/feature split | two runtimes, arbitrary untrusted DLL loading, module-per-service |
+| Capability composition | trusted C# descriptor, dependency DAG, ordered startup and explicit executable/adaptor composition around Capability Cores | ABP dependency/lifecycle graph; Orchard module/feature split | two runtimes, arbitrary untrusted DLL loading, module-per-service, process-name registry in Foundation |
 | Tenant composition | versioned effective feature/settings/permission snapshot resolved from TenantContext | Orchard tenant feature profiles | separate app/service provider/database per tenant by default |
 | DDD/application services | use-case-oriented services and selective aggregates/value objects/domain services | ABP DDD guidance | mandatory layer/project/type for every CRUD feature |
 | Transactions | explicit transaction per authoritative command where one store can own it | unit-of-work intent | generic IUnitOfWork baseline or cross-store ACID fiction |
 | Data access | EF Core candidate for aggregate writes/migrations; Dapper candidate for measured read paths | ABP provider options | generic IRepository<T>, framework entities, unrestricted ad-hoc SQL |
 | HTTP/API clients | explicit reviewed endpoints; generated OpenAPI/Protobuf clients when valuable | ABP generation convenience | automatic controller exposure for every application method |
 | Settings | typed definitions, ordered value sources, validation, sensitivity and UI metadata | ABP settings providers | security ceilings/invariants overridable by tenant values |
-| Features | capability-declared features, dependencies, host support, release channel and tenant activation | Orchard enable/disable/dependency model | hot unloading CLR assemblies; features as authorization |
-| Permissions | capability-owned stable definitions, SquiFlow evaluator, OpenFGA relationship decisions | ABP definition/catalog concept | ABP/Orchard role store; ZITADEL claims as business permission truth |
+| Features | capability-declared features, dependencies, release channel and tenant activation | Orchard enable/disable/dependency model | hot unloading CLR assemblies; features as authorization; backend process names on definitions |
+| Permissions | capability-owned stable definitions, SquiFlow evaluator, OpenFGA relationship decisions | ABP definition/catalog concept | ABP/Orchard role store; ZITADEL claims as business permission truth; process-name permission filtering |
 | Background work | capability-declared handlers plus SquiFlow durable Worker lifecycle | pluggable job-provider idea | ABP and Orchard queues concurrently; losing outbox/reconciliation semantics |
 | Seeding | idempotent C# system seeds plus validated declarative JSON recipes | ABP contributors; Orchard recipes | arbitrary JSON-selected CLR types/scripts or unaudited production mutation |
 | Audit | explicit security/administrative/business evidence with bounded technical tracing | ABP interception and Orchard content history as references | blanket payload/property capture or content revisions as business audit truth |
-| UI contributions | reviewed navigation/page/block descriptors per host | Orchard admin/navigation composition | generated UI as authorization enforcement or universal CRUD product |
+| UI contributions | reviewed navigation/page/block descriptors in the adapter that owns the presentation surface | Orchard admin/navigation composition | generated UI as authorization enforcement or universal CRUD product |
 
 These are pattern choices, not copied framework implementations.
 
@@ -89,16 +97,17 @@ Each built-in capability may declare a stable descriptor containing only composi
 ModuleId and ModuleVersion
 direct capability/module dependencies
 feature definitions and feature dependencies
-supported host kinds
 permission definitions
 setting definitions
-migration/seed contributors
-application use-case contributions
-endpoint/generated-contract contributions
-UI/navigation contributions
-background handler contributions
+migration/seed contributor contracts when actually needed
+application use-case contribution contracts when actually needed
+endpoint/generated-contract contribution contracts in the owning adapter
+UI/navigation contribution contracts in the owning adapter
+background handler contribution contracts when a Worker workload exists
 compatibility requirements
 ```
+
+The descriptor must not enumerate `Workstation`, `Guard`, `CoreApi`, `WebApi`, `SyncApi`, `Worker`, `AdminApi`, `AdminWeb`, or any future executable as a stable capability property. Those are deployment/composition decisions and can change without changing business-capability meaning.
 
 The kernel validates the graph before serving traffic for missing dependencies, cycles, duplicate identifiers, incompatible versions, or invalid contributions.
 
@@ -113,7 +122,7 @@ Initial releases load only assemblies shipped in the verified SquiFlow artifact.
 Runtime tenant feature publication changes availability data, not the process service graph:
 
 ```text
-host-supported features
+features present in this executable's composed capability set
 ∩ platform capability ceiling
 ∩ tenant-published activation
 ∩ dependency closure
@@ -140,9 +149,25 @@ Disabling a feature:
 
 A loaded assembly is not hot-unloaded. Untrusted micro-plugins, dynamic replacement and arbitrary tenant scripting remain deferred until signing, compatibility, isolation/sandboxing, upgrade, rollback, resource and support responsibilities are proven.
 
-## 6. Dependency injection
+## 6. Dependency injection and executable composition
 
-Each executable owns one ordinary .NET composition root. Capability adapters contribute registrations only for hosts they support.
+Each executable owns one ordinary .NET composition root. It explicitly references and composes only the capability modules/adapters it needs.
+
+Examples:
+
+```text
+SquiFlow.Workstation
+→ SquiFlow.Customers
+→ SquiFlow.Customers.Workstation
+
+SquiFlow.CoreApi
+→ SquiFlow.Customers
+
+SquiFlow.Guard
+→ no business capability module
+```
+
+A future executable does not require a kernel enum change. When its first real responsibility earns the process/project, its composition root selects the applicable modules/adapters.
 
 Rules:
 - constructor injection by default;
@@ -151,7 +176,8 @@ Rules:
 - no retaining one tenant's service/context across requests/jobs;
 - provider SDK types behind narrow adapters;
 - replacement interfaces only for real provider/strategy boundaries;
-- decorators/pipelines may own cross-cutting validation/authorization/transaction/idempotency/audit only with explicit ordering/failure semantics.
+- decorators/pipelines may own cross-cutting validation/authorization/transaction/idempotency/audit only with explicit ordering/failure semantics;
+- no reflection-discovered future host registry merely to avoid explicit composition.
 
 Per-tenant behavior comes from scoped context and policy/data, not rebuilt DI containers.
 
@@ -196,7 +222,7 @@ Simple reference data/read-only projections need not become elaborate aggregates
 
 Application services expose SquiFlow contracts; they do not inherit ABP application-service bases or use Orchard content items as business entities.
 
-## 8. Execution modes and host authority
+## 8. Execution modes and authority
 
 The application kernel vocabulary includes:
 
@@ -210,9 +236,11 @@ ServerAuthoritative
 - `LocalProvisional`: Workstation may execute/store a provisional local result and later submit semantic intent for authoritative admission.
 - `ServerAuthoritative`: current server authority required; cannot become authoritative offline.
 
+These values are semantic execution/authority categories, not process names.
+
 The Workstation/server two-stage contract is `Provisional Execution + Authoritative Admission`, not blind double execution. See `docs/decisions/DUAL_PROCESSING_AND_IN_PROCESS_COORDINATION.md` and `docs/sync/SYNC_AND_AUTHORITY.md`.
 
-Web normally enters authoritative application use cases directly. SyncApi receives semantic Workstation operations and performs current admission/reconciliation. Both reach the same Capability Core semantics rather than parallel business implementations.
+Web normally enters authoritative application use cases directly. A future SyncApi receives semantic Workstation operations and performs current admission/reconciliation. Both reach the same Capability Core semantics rather than parallel business implementations.
 
 ## 9. Persistence, repositories, and unit of work
 
@@ -282,7 +310,7 @@ Metadata may generate basic Admin/Settings editors for simple safe values. Compl
 ## 12. Features, release channels, experiments, permissions, and domain validity
 
 ```text
-feature availability = is capability exposed here?
+feature availability = is capability exposed by the composed application and enabled by current policy?
 release channel      = what maturity audience may receive it?
 experiment           = which safe approved variant is assigned?
 setting              = how is it configured?
@@ -303,7 +331,9 @@ Detailed owner: `docs/architecture/FEATURE_RELEASE_AND_EXPERIMENTS.md`.
 
 ## 13. Permission integration
 
-Capabilities publish stable permission definitions to the SquiFlow catalog. Definitions may include group/parent metadata, supported hosts/scopes, feature dependency, delegation risk and freshness class.
+Capabilities publish stable permission definitions to the SquiFlow catalog. Definitions may include group/parent metadata, resource/scope semantics, feature dependency, delegation risk and freshness class where those concepts are actually needed.
+
+Permission definitions do not enumerate executable/process names. The presence of a Workstation/Web/API adapter does not change the permission's business meaning, and UI availability never grants authority.
 
 The effective authoritative path is:
 
@@ -340,7 +370,7 @@ SyncApi → workstation batching/idempotency/cursor/revision/backpressure worklo
 
 Both use the same authoritative application/Capability Core semantics and PostgreSQL; they are not two business backends.
 
-The current `CoreApi` remains the compact early host until real implementation pressure earns the split. Do not create empty host projects.
+The current `CoreApi` remains the compact early host until real implementation pressure earns the split. Do not create empty host projects and do not pre-register their names in Foundation.
 
 gRPC remains a preferred candidate for the Workstation sync boundary when the POC proves value; sync semantics remain transport-independent. GraphQL remains deferred until a concrete query-composition use case pays for its cost/authorization/complexity.
 
@@ -350,7 +380,7 @@ Detailed owner: `docs/architecture/WEB_AND_SYNC_INGRESS.md`.
 
 ## 15. Background work
 
-Capabilities declare job/handler kinds and compatibility metadata. The SquiFlow Worker owns durable execution when the first real workload exists.
+Capabilities may declare job/handler kinds and compatibility metadata when a real durable workload exists. The SquiFlow Worker owns durable execution when the first real workload earns that executable.
 
 The job envelope identifies at least tenant/scope, capability/handler kind/version, semantic operation/idempotency identity, payload/schema version, material configuration/feature revision, attempts/timing and trace/audit correlation.
 
@@ -382,40 +412,47 @@ Keep distinct evidence:
 
 Do not enable blanket request/body/entity-property capture. Redact secrets/sensitive fields, bound payload/cardinality/retention and measure overhead. High-risk capability/feature/setting/permission changes require durable audit even when technical traces are sampled.
 
-## 18. Host composition
+## 18. Executable composition
 
-| Host | Kernel/capability use |
+The following table describes runtime responsibilities. It is architecture narrative, **not an application-kernel enum**.
+
+| Executable/surface | Composition responsibility |
 |---|---|
-| Workstation | compose local-capable UI/store/fact/effect adapters; consume published feature/permission/settings/rule snapshots; execute only approved DeviceLocal/LocalProvisional operations |
-| Guard | supervision/update/diagnostic trigger contributions only; no business Capability Cores, tenant authorization or central DB |
-| CoreApi | current compact authoritative tenant/business composition host until WebApi/SyncApi split is implemented |
-| WebApi | future interactive authoritative ingress for Web/tenant operations; no duplicate business model |
-| SyncApi | future Workstation sync/admission ingress with device/batch/backpressure semantics; no duplicate business model |
-| Tenant Web | tenant business UI + broader Owner/Settings contributions; presentation only, server authority remains backend |
-| Worker | created for first durable workload; background handlers without UI/controllers |
-| Admin API/Web | separate platform-control host/surface with platform permission scope |
-| Customer Web | least-privilege customer-facing adapter subset if boundary is accepted |
+| Workstation | explicitly reference local-capable capability cores plus Workstation adapters; consume published feature/permission/settings/rule snapshots; execute only approved DeviceLocal/LocalProvisional operations |
+| Guard | supervision/update/diagnostic trigger responsibilities only; reference no business Capability Core, tenant authorization or central DB |
+| CoreApi | current compact authoritative tenant/business composition root until a real WebApi/SyncApi split is implemented |
+| Tenant Web | tenant business UI + broader Owner/Settings adapters; presentation only, server authority remains backend |
+| WebApi | future earned interactive authoritative ingress; compose capability application adapters without duplicating business meaning |
+| SyncApi | future earned Workstation sync/admission ingress; compose synchronization/application adapters without duplicating business meaning |
+| Worker | future earned durable background executable; compose handlers for the workloads it actually owns |
+| Admin API/Web | future separate platform-control executable/surface with platform permission scope |
+| Customer Web | least-privilege customer-facing adapter subset if that boundary is accepted |
 | Optional Orchard CMS | separate content authority only; no orders/payments/stock/roles as Orchard content |
 
-One Capability Core can have different host adapters/contributions without forcing every host to reference every adapter/UI package.
+One Capability Core can have different adapters/contributions without forcing every executable to reference every adapter/UI package.
 
 ## 19. Phase-0 proof obligations
 
-Phase 0 implements only the kernel slice needed by the first launchable hosts and one sample capability.
+Phase 0 implements the kernel foundation needed by current development, but the phase is a minimum gate rather than a quality ceiling. Any introduced primitive must be coherent for its current responsibility rather than a disposable phase-only stub.
 
 Prove:
-- graph ordering, missing/cyclic dependency failure and host filtering;
+- graph ordering, missing/cyclic dependency failure and explicit executable composition;
+- duplicate module/feature/permission/setting identifiers fail deterministically;
 - Foundation/Capability Core stay free of host/provider dependencies;
 - standard DI composition without per-tenant containers;
-- one tenant feature publication with dependency closure, host filtering and revision stability;
+- one tenant feature publication with dependency closure, platform ceiling and revision stability;
 - release-channel filtering and stable experiment assignment;
 - one typed setting with platform ceiling and tenant override;
-- one capability-owned permission definition evaluated through SquiFlow/OpenFGA adapter boundary;
-- disabled feature cannot be reached through endpoint/direct app-service/background enqueue/UI route;
-- disabling never deletes data or loses accepted durable work;
+- one capability-owned permission definition evaluated through the SquiFlow authorization boundary when the authorization slice exists;
+- disabled feature cannot be reached through an applicable endpoint/direct app-service/background enqueue/UI route once those routes exist;
+- disabling never deletes data or loses accepted durable work once durable work exists;
 - Workstation does not reference ABP/Orchard/OpenFGA administration/central persistence packages;
+- Guard does not reference business capability modules;
 - no empty future WebApi/SyncApi/Worker/process projects exist only to complete a diagram;
-- startup/memory cost measured before adding reflection scanning/dynamic loading/UI auto-generation.
+- no process/executable-name enum exists in host-neutral capability metadata merely to describe current/future topology;
+- startup/memory cost is measured before adding reflection scanning/dynamic loading/UI auto-generation.
+
+A proof obligation applies when its underlying responsibility exists. It is not an instruction to create that responsibility prematurely.
 
 ## 20. Alternatives and revisit triggers
 
@@ -426,9 +463,10 @@ Rejected as initial application kernel:
 - maximum custom scripting/plugin loading;
 - separate per-tenant service containers;
 - feature flags implemented as permission checks;
-- ZITADEL application roles as business authorization source.
+- ZITADEL application roles as business authorization source;
+- a central enum/registry of executable process names used to filter capability/feature/permission meaning.
 
-Revisit framework/package adoption only if measured implementation/support burden is materially lower than dependency, upgrade, security and replacement cost, and an executable proof shows it preserves current SquiFlow authority/offline/tenancy/persistence/host boundaries.
+Revisit framework/package adoption only if measured implementation/support burden is materially lower than dependency, upgrade, security and replacement cost, and an executable proof shows it preserves current SquiFlow authority/offline/tenancy/persistence/composition boundaries.
 
 ## Source basis
 
