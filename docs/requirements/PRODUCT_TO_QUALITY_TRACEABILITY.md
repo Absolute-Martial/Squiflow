@@ -166,3 +166,37 @@ The Batch 3 review checked Product Foundation, tenant permissions, Workstation l
 Batch 4 further checked whether product-outcome measurement should replace engineering or delivery metrics. It should not. The categories above are complementary, and each must remain tied to the decision it actually informs.
 
 Future decisions that alter downstream semantics must propagate to the affected owner documents rather than relying on this bridge alone.
+
+## 9. Handoff to workload-driven architecture selection
+
+When the trace above creates a **material architecture choice**, hand the accepted product/quality consequence to `docs/architecture/WORKLOAD_STRATEGY_SELECTION.md`.
+
+The responsibilities remain separate:
+
+```text
+Product-to-Quality Traceability
+    -> why a quality matters
+    -> who is affected
+    -> consequence if poor
+    -> relative priority / requirement class
+    -> evidence or target
+
+Workload Strategy Selection
+    -> which plausible mechanism best satisfies those requirements
+    -> which candidates violate HardInvariants
+    -> complexity / total-cost obligations
+    -> primary + degraded/recovery behavior
+    -> rejected alternatives
+    -> verification + falsification/revisit trigger
+```
+
+Do not let the architecture-selection comparison manufacture a product requirement that has no upstream consequence/evidence. Conversely, do not force this traceability bridge to name a technology before the workload and owner-specific constraints have been evaluated.
+
+For a consequential selection, it can be useful to add only these links to the trace record rather than duplicating the architecture decision here:
+
+- selected strategy / decision reference;
+- why that mechanism is an architecture consequence of this quality need;
+- verification evidence;
+- revisit trigger.
+
+This preserves the bridge as lightweight traceability while making the chain from product consequence to architecture choice auditable.

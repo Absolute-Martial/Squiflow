@@ -176,3 +176,29 @@ That retrospective audit is authoritative for interpreting older shorthand in `S
 - complementary use is allowed and should be preferred when different technologies solve different boundaries better.
 
 Future 10-article checkpoints must also verify that no earlier wording has accidentally been interpreted as a universal winner/loser rule.
+
+## Promoted architecture-governance owner
+
+The review method above now feeds the canonical cross-cutting selection process in:
+
+`docs/architecture/WORKLOAD_STRATEGY_SELECTION.md`
+
+For a **material** technology/pattern choice, the fit review must additionally provide enough evidence for that owner to answer, where relevant:
+
+```text
+workload / boundary
+-> authority + HardInvariants
+-> latency/freshness/completeness/capacity/offline/compatibility profile
+-> simplest credible current mechanism
+-> plausible alternatives
+-> total failure/recovery/compatibility/operations/business cost
+-> selected primary strategy
+-> degraded/fallback + recovery/reconciliation where meaningful
+-> rejected alternatives and why
+-> verification evidence
+-> falsification/revisit trigger
+```
+
+This does not turn every source review into an ADR or require a numeric score. The extra structure is required only when the review supports or challenges a consequential architecture choice.
+
+A technology that wins one benchmark or one dimension still does not win the architecture decision if it violates a hard invariant or creates disproportionate system/recovery/operational cost. Conversely, a more complex mechanism can be correct when the business or reliability consequence of the simpler option is materially worse.

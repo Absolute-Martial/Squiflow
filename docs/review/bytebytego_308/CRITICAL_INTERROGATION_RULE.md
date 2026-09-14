@@ -73,3 +73,21 @@ Review artifacts and coverage ledgers may continue to be updated without that ap
 ## Starting point
 
 The rule is applied explicitly from archive batch `071-080` onward. Earlier entries remain governed by the existing fit/use retrospective audit and may be challenged again when later sources expose a contradiction or stronger question.
+
+## Workload-strategy promotion
+
+For material choices, the interrogation now hands off to `docs/architecture/WORKLOAD_STRATEGY_SELECTION.md` rather than stopping at `technology X is a candidate`.
+
+Before recommending a consequential mechanism, also make explicit:
+
+1. **Which requirements are non-tradable HardInvariants?** Eliminate candidates that violate them before comparing latency, cost or convenience.
+2. **What workload evidence actually changes the choice?** Include only relevant dimensions such as latency/freshness, completeness, size/volume/burst, ordering/event time/late data, availability/degraded mode, offline, consistency, replay/recovery, compatibility, client diversity, security/privacy and resource/operator constraints.
+3. **What is the total complexity/TCO obligation?** Include infrastructure, implementation, operations, verification, failure/recovery, security, compatibility/migration/exit and business cost of latency/staleness/unavailability where material.
+4. **What is the primary strategy and what happens when it cannot run?** Name degraded/fail-closed/fallback behavior without silently weakening authority.
+5. **How does recovery/reconciliation return the system to a trustworthy state?** A fallback that merely hides divergence is not recovery.
+6. **Which plausible alternatives were rejected for this workload and why?** Preserve the reason so later evidence can reopen the decision.
+7. **What evidence closes the decision and what evidence reopens it?** Adoption and falsification/revisit triggers are both required for material decisions.
+
+`Complexity budget` in this context is qualitative. Do not invent a universal numeric score or let weighted optimization trade away a HardInvariant.
+
+Likewise, hybrid architecture is allowed only when each mechanism has a distinct job. `REST + GraphQL + gRPC + broker + stream + cache` is not automatically more adaptable; each added surface must earn its own failure, compatibility, recovery and operator cost.
