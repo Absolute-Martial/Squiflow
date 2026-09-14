@@ -99,7 +99,7 @@ public sealed class WorkstationSupervisor
             if (!process.HasExited)
             {
                 process.Kill(entireProcessTree: true);
-                process.WaitForExit(TimeSpan.FromSeconds(5));
+                process.WaitForExit(milliseconds: 5_000);
             }
         }
         catch
