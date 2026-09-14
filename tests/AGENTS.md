@@ -4,9 +4,20 @@ These rules apply below `tests/` in addition to the root instructions.
 
 ## Current test model
 
-The principles-first reset currently has **no executable test/spec projects**. The `tests/` directory is an ownership/instruction location only until implementation work reintroduces verification projects.
+The first executable verification project now exists because the first real capability boundary exists:
 
-Do not restore the removed Phase-0 spec projects by memory merely because historical docs or Git history mention them. The first new implementation slice should introduce the narrowest useful verification needed for that real responsibility.
+```text
+tests/unit/SquiFlow.Parties.Tests/SquiFlow.Parties.Tests.csproj
+```
+
+It proves only claims owned by the active Parties slice:
+
+- accepted Party structural kinds are exactly `Person` and `Organization`;
+- the current Parties capability project has no outward project/package dependency.
+
+It does **not** prove a complete Party capability, persistence, API, runtime, authorization, sync, Customer/Account semantics, or Foundation/kernel behavior.
+
+Do not restore removed Phase-0 spec projects by memory. Add another test project only when a distinct real verification responsibility earns it.
 
 ## Test qualities
 
@@ -27,7 +38,7 @@ Use the narrowest layer that can actually prove the claim:
 
 - pure value/invariant → pure test/spec;
 - application orchestration → application test with controlled ports where appropriate;
-- dependency-direction/forbidden package rule → architecture test/spec;
+- dependency-direction/forbidden package rule → architecture test/spec, which may live in an existing test project when the rule does not justify another project;
 - ASP.NET middleware/session/routing → real test host/pipeline when introduced;
 - SQLite WAL/locking/encryption/migration → real SQLite implementation;
 - PostgreSQL transaction/RLS/pool behavior → real PostgreSQL;
@@ -54,7 +65,7 @@ For protected/durable/versioned behavior, include negative cases such as:
 - malformed/oversized input;
 - secret/sensitive-data leakage where observable.
 
-Only add cases relevant to behavior that actually exists.
+Only add cases relevant to behavior that actually exists. None of those runtime/durable cases is implied by the current Party-kind-only slice.
 
 ## Compatibility fixtures
 
@@ -65,6 +76,8 @@ Once a serialized/durable contract or schema version is released/supported:
 - test old-reader/new-writer and new-reader/old-writer directions where that contract family requires them;
 - test destructive contraction only after supported old readers/writers/pending work are demonstrably drained.
 
+The current `PartyKind` is an internal capability semantic; no serialized numeric compatibility contract is claimed by the current slice.
+
 ## Test data
 
 - Use explicit synthetic data with clear tenant/identity boundaries.
@@ -74,7 +87,19 @@ Once a serialized/durable contract or schema version is released/supported:
 
 ## Architecture verification
 
-Architecture tests/specs should become executable architecture documentation as real code boundaries return. When introducing a new forbidden dependency or structural invariant, add mechanical verification where it provides durable value without creating a fragile custom framework.
+Architecture tests/specs are executable architecture documentation for boundaries that actually exist.
+
+The current Parties dependency test deliberately rejects all outward `ProjectReference` and `PackageReference` entries in the production capability project. If a future real dependency is earned, do not merely weaken the test: update the active scope/owner and replace the old guard with one that protects the newly accepted dependency direction.
+
+## Current executable commands
+
+```text
+dotnet restore SquiFlow.sln
+dotnet build SquiFlow.sln -c Release --no-restore
+dotnet test SquiFlow.sln -c Release --no-build
+```
+
+Do not claim these pass unless actual executable evidence exists.
 
 ## DO NOT
 
