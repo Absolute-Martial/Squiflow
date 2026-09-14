@@ -1,7 +1,4 @@
-using SquiFlow.ApplicationKernel.Features;
 using SquiFlow.ApplicationKernel.Hosting;
-using SquiFlow.ApplicationKernel.Permissions;
-using SquiFlow.ApplicationKernel.Settings;
 
 namespace SquiFlow.ApplicationKernel.Modules;
 
@@ -40,7 +37,7 @@ public sealed class ModuleGraph
             }
         }
 
-        ValidateFeatureReferences(list, byId);
+        ValidateFeatureReferences(list);
 
         var visiting = new HashSet<ModuleId>();
         var visited = new HashSet<ModuleId>();
@@ -131,13 +128,11 @@ public sealed class ModuleGraph
         ValidateUnique(modules.SelectMany(module => module.Settings.Select(setting => setting.Key.Value)), "setting");
     }
 
-    private static void ValidateFeatureReferences(
-        IReadOnlyCollection<ModuleDescriptor> modules,
-        IReadOnlyDictionary<ModuleId, ModuleDescriptor> modulesById)
+    private static void ValidateFeatureReferences(IReadOnlyCollection<ModuleDescriptor> modules)
     {
         var featureOwners = modules
-            .SelectMany(module => module.Features.Select(feature => (feature.Id, module.Id)))
-            .ToDictionary(item => item.Id, item => item.Id1);
+            .SelectMany(module => module.Features.Select(feature => (FeatureId: feature.Id, ModuleId: module.Id)))
+            .ToDictionary(item => item.FeatureId, item => item.ModuleId);
 
         foreach (var module in modules)
         {
