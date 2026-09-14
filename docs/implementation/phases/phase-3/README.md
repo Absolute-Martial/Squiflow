@@ -23,6 +23,10 @@ A real capability must already expose enough domain/application semantics to def
 
 A real capability needs central authoritative commit and/or a Workstation operation needs server admission/synchronization.
 
-Only then should detailed Phase-3 subphases, evidence classes, compatibility matrices, failure cases and regression cadences be written.
+## On activation
+
+Create the detailed governance from current facts. The active work may use a `3A/3B/...` decomposition, a different split, or no lettered split at all. Evidence classes, compatibility fixtures, failure cases and regression cadences are chosen only after the actual authority/sync contract exists.
+
+Do not restore the retired `3A–3E` files by default.
 
 See `docs/implementation/FUTURE_PHASE_CARRY_FORWARD.md` for anticipation, not specification.
