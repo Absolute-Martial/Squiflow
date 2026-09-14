@@ -165,6 +165,54 @@ material change
 
 Do not treat an old green pipeline or old restore drill as permanent proof after the relevant system changed materially.
 
+### 5.1 Detect materiality automatically where practical
+
+A requalification trigger is weaker when it depends only on the author of a change remembering to declare that their own change is material.
+
+Therefore, once a real claim and repository boundary exist, prefer mechanical trigger detection where the changed artifact is observable.
+
+Examples, when those artifacts actually exist:
+
+```text
+schema/migration files changed
+→ run/require the applicable migration + compatibility evidence
+
+provider adapter or provider configuration changed
+→ run/require the applicable provider integration evidence
+
+public/durable contract changed
+→ run/require compatibility fixtures and supported-version checks
+
+identity/authorization policy/model changed
+→ run/require affected hostile/authorization regression evidence
+
+deployment/topology/container/runtime definition changed
+→ invalidate affected startup/recovery/capacity/security evidence
+
+backup/recovery/key-policy definition changed
+→ require the affected restore/recovery evidence to be fresh again
+```
+
+The exact mapping is created only after the corresponding real files/claims exist. Do not prebuild a speculative trigger matrix for future components.
+
+Where reliable automatic detection is not possible, the MR/gate records the materiality judgment explicitly and names the reviewer/owner capable of challenging it. The implementation author is not treated as the only authority on whether old evidence remains valid.
+
+The long-term preference is:
+
+```text
+observable change
+→ deterministic affected-claim mapping where practical
+→ automatic evidence selection/invalidation
+```
+
+rather than:
+
+```text
+author remembers to notice
+→ author decides own change is non-material
+→ old proof silently survives
+```
+
 ## 6. Evidence record
 
 A material active claim should be traceable to a durable evidence record containing, as applicable:
