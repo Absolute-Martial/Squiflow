@@ -2,6 +2,7 @@
 
 **Status:** cumulative implementation maturity structure  
 **High-level roadmap:** `docs/implementation/PHASES_AND_GATES.md`  
+**Gate-quality owner:** `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md`  
 **Development rules:** `docs/architecture/ENGINEERING_PRINCIPLES.md` and `docs/architecture/EXPLICIT_BOUNDARIES_AND_SOLID.md`
 
 ## Purpose
@@ -25,13 +26,59 @@ minimal happy-path code is acceptable until a later phase
 create implementation/tests solely so the phase can say it ran something
 ```
 
-## Complete-current-responsibility rule
+## Breadth versus depth
 
-Deferring an unneeded boundary is healthy. Deferring correctness after introducing a responsibility is not.
+Phase scope has two independent axes:
 
-KISS means the simplest design that fully covers the current responsibility and its material edge/failure/recovery/security/concurrency/compatibility/resource/observability cases. YAGNI prevents speculative breadth, not necessary current behavior.
+```text
+BREADTH
+= how much product/platform scope is introduced
+= may be intentionally narrow
 
-SOLID, DRY, CQS, Law of Demeter, immutability, defensive programming, idempotency, resilience, performance, security, database, API, CI/CD, and observability principles are applied according to `ENGINEERING_PRINCIPLES.md`; none is used mechanically to create ceremony or a technology shopping list.
+DEPTH / PRODUCTION HONESTY
+= whether the introduced scope is trustworthy for the guarantee it claims
+= non-negotiable
+```
+
+The preferred development target is the **smallest production-honest scope**.
+
+Deferring an unneeded boundary is healthy. Deferring correctness/security/durability/recovery/compatibility/resource/observability obligations after introducing the responsibility that needs them is not.
+
+KISS/YAGNI reduce speculative breadth and accidental complexity; they do not reduce the quality floor of claimed behavior.
+
+## Mandatory responsibility states
+
+Every material responsibility at gate sign-off is:
+
+```text
+NOT_INTRODUCED
+PRODUCTION_HONEST
+BLOCKED
+```
+
+`BLOCKED` means introduced but not yet trustworthy for its claimed scope. It is a gate failure and cannot be carried forward as later hardening.
+
+Before the gate can pass, a blocked responsibility must either become `PRODUCTION_HONEST` or be explicitly un-introduced/isolated so it truthfully becomes `NOT_INTRODUCED`.
+
+Detailed rules, production-honesty categories, experiment isolation, evidence requirements, and the gate template are owned by `PHASE_GATE_PRODUCTION_HONESTY.md`.
+
+## Mandatory intent and scope contract
+
+Every integration gate must record, when it is actually qualified:
+
+```text
+PRODUCTION INTENT
+WITHIN SCOPE — PRODUCTION_HONEST
+NOT YET IN SCOPE — NOT_INTRODUCED
+BLOCKED — must be empty
+EVIDENCE
+KNOWN LIMITS / NON-CLAIMS
+CARRY-FORWARD ITEMS
+```
+
+The intent answers: **what real user/operator/developer scenario becomes safe and honest to depend on after this gate passes?**
+
+A green test suite does not define the claim by itself. Evidence must trace to accepted requirements, owner contracts, failure/recovery promises, workload targets, or security/authority rules.
 
 ## Repository/file-structure rule
 
@@ -73,7 +120,8 @@ If a real requirement needs a later foundation earlier:
 real requirement
 → identify owning architecture responsibility
 → pull the required subphase/gate forward explicitly
-→ implement it correctly and completely for current use
+→ declare the current scope
+→ satisfy the production-honesty bar now
 → update roadmap/decision evidence
 → use it
 ```
@@ -82,4 +130,8 @@ Do not create a temporary unsafe workaround just because the roadmap originally 
 
 ## Carry-forward rule
 
-Every material deferral records owner, preservation constraint, trigger, latest closing gate, and the current check preventing accidental violation. This is stronger than an unowned `TODO`.
+Only responsibilities genuinely in `NOT_INTRODUCED` state may be carried forward as future scope.
+
+Every material deferral records owner, preservation constraint, trigger, latest closing gate, and the current check preventing accidental introduction/violation. This is stronger than an unowned `TODO`.
+
+`BLOCKED` cannot be carried forward.

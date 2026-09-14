@@ -4,9 +4,10 @@
 **Current baseline:** v0.0.20  
 **Completed subphase:** 0A  
 **Next subphase:** 0B  
-**High-level owner:** `docs/implementation/PHASES_AND_GATES.md`
+**High-level owner:** `docs/implementation/PHASES_AND_GATES.md`  
+**Gate-quality owner:** `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md`
 
-Phase 0 remains a cumulative maturity foundation, but its descriptions are **minimum gates, not maximum implementation scope or quality limits**.
+Phase 0 remains a cumulative maturity foundation, but its descriptions are **minimum scope/maturity gates, not quality ceilings**.
 
 ## Current repository state
 
@@ -18,6 +19,7 @@ Read first:
 
 - `0A_ARCHITECTURE_BASELINE_RECONCILIATION.md`;
 - `0A_BASELINE_STATUS.md`;
+- `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md`;
 - `docs/architecture/ENGINEERING_PRINCIPLES.md`;
 - `docs/architecture/EXPLICIT_BOUNDARIES_AND_SOLID.md`;
 - `docs/architecture/REPOSITORY_STRUCTURE.md`;
@@ -25,13 +27,15 @@ Read first:
 
 ## Rebuild rule
 
-Do not rebuild by reproducing the previous folder/project list. Reintroduce a project only when a current responsibility needs it and the boundary is earned.
+Do not rebuild by reproducing the previous folder/project list. Reintroduce a project only when a real declared scope needs it and the boundary is earned.
 
-A component introduced during any Phase-0 subphase must be coherent for its **current accepted responsibility**, including applicable edge cases, failure/recovery/security/concurrency/compatibility/resource/observability behavior. Do not intentionally leave disposable phase-only code for a later phase to repair.
+A component introduced during any Phase-0 subphase must be **production-honest within its declared scope**, including the applicable edge/failure/recovery/security/concurrency/compatibility/resource/observability behavior needed to make that scope trustworthy.
+
+A component that is introduced but not yet production-honest is `BLOCKED`; it is not deferred debt that a later phase may silently repair.
 
 ## KISS rule
 
-KISS means minimum accidental complexity with complete current behavior. It never means:
+KISS means minimum accidental complexity and the **smallest production-honest scope**. It never means:
 
 ```text
 happy path only
@@ -45,6 +49,18 @@ hide edge cases because they are inconvenient
 
 YAGNI still applies: future-only projects/providers/processes/interfaces are not created until required.
 
+## Scope states
+
+For Phase-0 sign-off, material responsibilities are classified as:
+
+```text
+NOT_INTRODUCED
+PRODUCTION_HONEST
+BLOCKED
+```
+
+Only `NOT_INTRODUCED` may be honestly carried forward. `BLOCKED` must be fixed or un-introduced before the relevant gate closes.
+
 ## File-structure samples
 
 Architecture docs contain target/sample structures for applications, services, capabilities, adapters, Foundation, infrastructure, and tests. Use them to preserve ownership and placement. They are growth maps, not instructions to scaffold empty symmetry projects.
@@ -57,14 +73,16 @@ Architecture docs contain target/sample structures for applications, services, c
 0C  Host/process composition foundation when actual hosts are reintroduced
 0D  Engineering safety/observability/reproducibility developed with code
 0E  Active capabilities/extensibility proof through real product slices
-0F  Integrated Phase-0 gate and carry-forward ledger
+0F  Integrated Phase-0 production-honesty gate and carry-forward ledger
 ```
 
 ## Verification handoff
 
 0A required repository/document reconciliation, not executable tests.
 
-From 0B onward, every real implementation slice introduces the narrowest useful verification for the boundary it creates. Architecture specs are added when concrete project/dependency boundaries exist to enforce; they are not used as a reason to create Foundation prematurely.
+From 0B onward, every real implementation slice introduces the narrowest useful verification that can actually falsify its declared claims. Architecture specs are added when concrete project/dependency boundaries exist to enforce; they are not used as a reason to create Foundation prematurely.
+
+Tests do not get to redefine a shortcut as the contract. The claim comes from requirements/owners/declared scope; verification proves or falsifies it.
 
 ## CI/CD
 

@@ -2,6 +2,12 @@
 
 **Purpose:** Establish only the shared application/module primitives that real capability work actually needs, while preserving explicit business ownership and dependency direction.
 
+**Gate-quality owner:** `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md`
+
+## Production intent
+
+After 0B passes, a developer can introduce and extend real capability code while relying on a production-honest dependency/ownership foundation: shared primitives have stable meaning, host/provider leakage is mechanically prevented where a compile-time boundary exists, and no disposable framework/kernel shortcut is being presented as architectural foundation.
+
 ## Starting point after reset
 
 There is currently **no `SquiFlow.ApplicationKernel` project and no capability project**. The previous kernel implementation is historical evidence, not code to recreate mechanically.
@@ -10,7 +16,7 @@ There is currently **no `SquiFlow.ApplicationKernel` project and no capability p
 
 ## Foundation rule
 
-A primitive belongs in Foundation only when its meaning is product-wide and at least one real current responsibility needs it. Prefer capability-owned types until common semantics are demonstrated.
+A primitive belongs in Foundation only when its meaning is product-wide and at least one real current consumer needs it. Prefer capability-owned types until common semantics are demonstrated.
 
 Potential shared concepts from accepted architecture include stable identifiers, tenant/security context, feature/permission/setting definitions, execution-authority semantics, and module dependency/composition primitives. Their exact shape is re-earned from consumers rather than copied from the deleted implementation.
 
@@ -50,15 +56,32 @@ Execution/authority vocabulary such as `DeviceLocal`, `LocalProvisional`, and `S
 
 ## Capability development during 0B
 
-A real capability may be the first code introduced. Example shapes in repository docs are illustrative. Start with the folders/types the current responsibility actually needs and keep the responsibility coherent.
+A real capability may be the first code introduced. Example shapes in repository docs are illustrative. Start with the folders/types the declared scope actually needs and keep the responsibility coherent.
 
 If a second real capability exposes duplicated stable product-wide semantics, that is evidence to extract/strengthen Foundation.
 
-## Complete-KISS rule
+## Smallest production-honest scope
 
-0B is not satisfied by tiny abstractions that only make tests compile. Any introduced module/composition primitive must cover its applicable invalid/duplicate/cycle/version/failure cases and be named by stable meaning.
+0B is not satisfied by tiny abstractions that only make tests compile.
 
-At the same time, do not build future features merely to make the kernel “complete.” Completeness applies to **current responsibility**, not speculative breadth.
+For every primitive/composition boundary introduced, declare:
+
+```text
+SCOPE
+- exact semantics it claims
+
+PRODUCTION_HONESTY
+- invalid/duplicate/cycle/version/failure cases that materially apply
+- dependency/ownership guarantee
+- evidence that can falsify the guarantee
+
+NON-SCOPE
+- future semantics deliberately not introduced
+```
+
+A narrow primitive is fine. A shallow primitive whose known failure/validation/dependency behavior is deferred is `BLOCKED`.
+
+Do not build future features merely to make the kernel broad. Breadth can remain small; the depth of the declared claim cannot be prototype-grade.
 
 ## Verification
 
@@ -66,13 +89,25 @@ As boundaries appear, add tests for the claims they introduce, such as duplicate
 
 Architecture tests should be as small as possible while mechanically protecting real boundaries.
 
+A passing test is evidence only when it traces to an accepted invariant/contract; tests written around an implementation shortcut do not redefine that shortcut as correct.
+
+## Scope contract before exit
+
+Before 0B closes, record:
+
+- the production intent above as achieved by a real consumer scenario;
+- every introduced primitive/boundary as `PRODUCTION_HONEST` with evidence;
+- genuinely future items as `NOT_INTRODUCED`;
+- `BLOCKED = none`.
+
 ## Exit gate
 
-0B is complete when real capability work proves that:
+0B passes when real capability work proves that:
 
 - shared primitives have clear product-wide ownership;
 - at least two meaningful consumers can use the composition/foundation model without a competing framework, or an equivalent real reuse pressure is proven;
 - no executable topology leaks into capability metadata;
 - dependency direction is mechanically protected where a compile-time boundary exists;
-- introduced primitives are complete for their current semantics, not phase-only stubs;
-- no speculative common framework has been created.
+- every introduced primitive is production-honest for its declared semantics rather than a phase-only stub;
+- no speculative common framework has been created;
+- there is no known introduced shortcut that must be rewritten merely to make the declared 0B guarantee trustworthy.
