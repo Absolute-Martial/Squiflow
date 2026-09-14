@@ -101,7 +101,7 @@ No second module will be manufactured to justify reuse.
 
 The first test project exists because real code now exists. It uses xUnit v3 + Microsoft Testing Platform under the .NET 10 SDK.
 
-Required evidence:
+Required evidence is the same on every execution host:
 
 ```text
 dotnet restore SquiFlow.sln
@@ -109,11 +109,15 @@ dotnet build SquiFlow.sln -c Release --no-restore
 dotnet test SquiFlow.sln -c Release --no-build
 ```
 
-Those commands have not been claimed as passing. The assistant shell has no .NET SDK and cannot resolve external hosts for local provisioning.
+Those commands have not yet been claimed as passing. The assistant shell has no .NET SDK and cannot resolve external hosts for local provisioning.
 
-A root `.gitlab-ci.yml` now runs the same commands for executable-input changes. GitLab accepted the configuration and created pipeline `#174`, but its `verify-dotnet` job never started because the project hit `ci_quota_exceeded`; no runner was assigned and no `dotnet` command executed. This is a CI-capacity blocker, not a code/test failure.
+GitLab CI uses root `.gitlab-ci.yml`. GitLab accepted the configuration and created pipeline `#174`, but its `verify-dotnet` job never started because the project hit `ci_quota_exceeded`; no runner was assigned and no `dotnet` command executed. This is a CI-capacity blocker, not a code/test failure.
 
-Until equivalent executable evidence actually passes, the Party-kind and dependency-boundary claims remain `BLOCKED` and 0B cannot pass.
+GitHub Actions uses `.github/workflows/verify-dotnet.yml`. It reads the SDK selection from root `global.json` and runs the same commands. The user manages the GitHub remote/mirroring independently, so no GitHub execution is claimed until this branch is pushed there and a workflow run actually succeeds.
+
+A successful real execution of the repository-owned commands on either CI host is sufficient executable evidence for the current Party-kind and dependency-boundary code claims. Configuration presence alone is not evidence.
+
+Until executable evidence actually passes, those code claims remain `BLOCKED` and 0B cannot pass.
 
 ## Future governance
 
@@ -121,6 +125,12 @@ Phase 0 and the already-concrete Phase 1 trust boundary have detailed governance
 
 ## CI/CD direction
 
-CI is now introduced because 0B has a real executable verification responsibility. The repository keeps it as a single root `.gitlab-ci.yml` file—no new tooling/CI folder—and the job is a thin wrapper over repository-owned restore/build/test commands.
+Dual-host CI is now an earned verification boundary because real executable code exists and GitLab hosted capacity is currently unavailable.
 
-The job is restricted to executable/build-input changes so documentation-only commits do not consume runner capacity. If hosted quota remains unavailable, the preferred next execution path is a self-managed runner using the same CI definition rather than creating a second verification mechanism.
+- `.gitlab-ci.yml` is the GitLab wrapper.
+- `.github/workflows/verify-dotnet.yml` is the GitHub wrapper.
+- both invoke the same repository-owned restore/build/test commands;
+- `global.json` remains the SDK authority rather than duplicating the pinned SDK version in the GitHub workflow;
+- both are restricted to executable/build-input changes so documentation-only changes do not consume CI capacity.
+
+The two CI systems are redundant execution hosts, not separate build definitions. Do not move build meaning into host-specific scripts or let GitLab and GitHub verify different contracts.
