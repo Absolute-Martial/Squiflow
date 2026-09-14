@@ -3,27 +3,37 @@
 **Status:** active after principles-first implementation reset  
 **Current baseline:** v0.0.20  
 **Completed/qualified subphase:** 0A under the production-honest model  
-**Next active work:** 0B derived from real current responsibility on a later/stacked implementation branch  
+**Active subphase:** 0B — capability-first foundation discovery  
+**Active status record:** `0B_STATUS.md`  
 **High-level owner:** `docs/implementation/PHASES_AND_GATES.md`  
 **Gate-quality owner:** `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md`  
 **Evidence/permanence owner:** `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md`
 
 Phase 0 is developed as a sequence of **smallest production-honest scopes**, not as a checklist whose prewritten boxes authorize implementation.
 
-## 0A qualification branch state
+## Current repository state
 
-This 0A qualification branch contains no production/test `.csproj` projects and an empty `SquiFlow.sln`. The previous Phase-0 code was deliberately purged while architecture, decisions, requirements, reviews, phase records, and structure samples were retained as evidence/context.
+0A's reset snapshot contained no production/test projects. The active 0B branch now contains the first earned implementation boundary:
 
-0A's zero-project state is qualification-time reset evidence; later earned projects are expected and do not represent a regression when introduced under current owners/gates.
+```text
+modules/parties/SquiFlow.Parties/SquiFlow.Parties.csproj
+tests/unit/SquiFlow.Parties.Tests/SquiFlow.Parties.Tests.csproj
+```
+
+The current production-code scope is only the accepted Party structural distinction `Person | Organization`. No Foundation/ApplicationKernel project, application/service executable, persistence/provider adapter, sync/runtime security implementation, or complete Party/Customer model is claimed.
+
+The two introduced 0B implementation claims remain `BLOCKED` until executable restore/build/test evidence passes. See `0B_STATUS.md`.
 
 Read first:
 
 - `0A_ARCHITECTURE_BASELINE_RECONCILIATION.md`;
 - `0A_BASELINE_STATUS.md`;
 - `0B_APPLICATION_KERNEL_AND_MODULE_FOUNDATION.md`;
+- `0B_STATUS.md`;
 - `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md`;
 - `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md`;
 - `docs/implementation/PHASES_AND_GATES.md`;
+- `docs/domain/BUSINESS_TERMS.md`;
 - `docs/architecture/ENGINEERING_PRINCIPLES.md`;
 - `docs/architecture/EXPLICIT_BOUNDARIES_AND_SOLID.md`;
 - `docs/architecture/REPOSITORY_STRUCTURE.md`;
@@ -57,7 +67,21 @@ A phase/subphase name is planning vocabulary. It does not authorize a project, p
 
 Do not rebuild by reproducing the previous folder/project list. Reintroduce a boundary only when a real declared scope needs it and the pressure/ownership is current.
 
-A component may be narrow, but anything introduced on a claimed path must be production-honest for that exact claim. A known incomplete responsibility is `BLOCKED`; it cannot be labeled future hardening and carried forward.
+A component may be narrow, but anything introduced on a claimed path must be production-honest for that exact claim. A known incomplete/unproven responsibility is `BLOCKED`; it cannot be labeled future hardening and carried forward.
+
+The active 0B slice follows this direction deliberately:
+
+```text
+accepted Party semantic
+        ↓
+capability-owned code first
+        ↓
+observe real reuse/change pressure
+        ↓
+extract shared Foundation only if earned
+```
+
+Do not create ApplicationKernel/module-composition machinery merely because the subphase title contains “Application Kernel and Module Foundation.”
 
 ## KISS / YAGNI
 
@@ -79,7 +103,7 @@ Only `NOT_INTRODUCED` can be deferred. `BLOCKED` must be finished to `PRODUCTION
 
 ```text
 0A  Architecture/repository baseline reconciliation                         QUALIFIED
-0B  Application-kernel/module foundation if real work earns shared scope     NEXT — derive capability-first
+0B  Capability-first discovery of any genuinely shared kernel/foundation     IN PROGRESS
 0C  Host/process composition when a real executable earns the boundary
 0D  Engineering safety/observability/reproducibility as real code needs it
 0E  Active capability/extensibility work through real product slices
@@ -99,7 +123,7 @@ These labels describe currently useful responsibility areas. They are not permis
 - evidence must remain traceable and protected from silent regression;
 - future governance specificity remains earned.
 
-The zero-project inventory itself is only the qualification snapshot of the reset.
+The zero-project inventory itself was only the qualification snapshot of the reset. The first Parties/test projects are an expected earned transition, not a regression of 0A.
 
 ## Future-phase relationship
 
@@ -107,11 +131,21 @@ Phase 2–10 are direction-only `NOT_INTRODUCED` governance. Their retired detai
 
 If a current Phase-0 slice genuinely needs a later responsibility, pull it forward from current facts and qualify it now. Do not create a temporary unsafe substitute or resurrect a retired future subphase file.
 
-## Verification handoff
+## Verification
 
-0A uses repository/document evidence because no executable implementation is part of its declared scope.
+0A used repository/document evidence because no executable implementation was part of its declared scope.
 
-From the first real implementation boundary onward, verification must target the actual claim at the layer that owns it. Tests do not redefine shortcuts as correct. Once a material claim qualifies, its regression guard remains active until the claim is retired or superseded deliberately.
+0B now has real executable projects, so its introduced claims require executable evidence:
+
+```text
+dotnet restore SquiFlow.sln
+dotnet build SquiFlow.sln -c Release --no-restore
+dotnet test SquiFlow.sln -c Release --no-build
+```
+
+The current tests cover the Party-kind semantic and the initial Parties dependency boundary. They do not imply that runtime/provider/persistence/security behavior exists.
+
+Once a material claim qualifies, its regression guard remains active until the claim is retired or superseded deliberately.
 
 ## CI/CD
 
