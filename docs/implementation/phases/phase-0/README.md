@@ -14,7 +14,7 @@ Phase 0 remains a cumulative maturity foundation, but its descriptions are **min
 
 There are currently no production/test `.csproj` projects. The previous Phase-0 code was deliberately purged while architecture, decisions, requirements, reviews, phase records, and file-structure samples were retained.
 
-0A is now complete as a documentation/repository-reconciliation gate. It intentionally did not create Foundation or test projects merely to qualify itself.
+0A is complete as a documentation/repository-reconciliation gate. It intentionally did not create Foundation or test projects merely to qualify itself.
 
 Read first:
 
@@ -78,9 +78,11 @@ Architecture docs contain target/sample structures for applications, services, c
 0F  Integrated Phase-0 production-honesty gate and carry-forward ledger
 ```
 
+These detailed subphases exist because the current rebuild work makes their responsibilities concrete enough to govern.
+
 ## Future-phase relationship
 
-Phase 0 does **not** need to implement the future roadmap in advance.
+Phase 0 does **not** need to implement or pre-govern the future roadmap in advance.
 
 Phase 2–10 are currently direction-only `NOT_INTRODUCED` stubs. Their former detailed subphase/evidence plans were retired because future governance must be earned from real responsibilities. Useful future questions are preserved in `docs/implementation/FUTURE_PHASE_CARRY_FORWARD.md` as non-authoritative anticipation.
 
