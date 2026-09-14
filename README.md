@@ -1,7 +1,7 @@
 # SquiFlow
 
 **Current architecture/development baseline: `v0.0.20`**  
-**Phase-0A qualification branch:** Complete / Qualified under the production-honest governance model. This branch itself remains implementation-empty; later active work may legitimately introduce the first projects when current responsibility earns them.
+**Implementation state:** Phase 0A is Complete / Qualified under the production-honest governance model; Phase 0B is **IN PROGRESS** with the first capability-owned implementation slice.
 
 SquiFlow is rebuilding from accepted architecture and current responsibility rather than carrying premature implementation or speculative phase structure forward. Earlier code and retired plans remain in Git history as evidence/context, not current authority.
 
@@ -14,11 +14,13 @@ Evidence/permanence model: `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_A
 1. `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md` — canonical scope/quality contract.
 2. `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md` — evidence permanence/requalification contract.
 3. `docs/implementation/phases/phase-0/0A_BASELINE_STATUS.md` — qualified reset baseline and enduring 0A guarantees.
-4. `docs/architecture/ENGINEERING_PRINCIPLES.md` — engineering principles.
-5. `docs/architecture/EXPLICIT_BOUNDARIES_AND_SOLID.md` — dependency/ownership rules.
-6. `docs/decisions/CURRENT_DECISIONS.md` and `OPEN_DECISIONS.md` — accepted versus unresolved direction.
-7. `docs/architecture/REPOSITORY_STRUCTURE.md` and `REPOSITORY_FOLDER_STRUCTURE.md` — 0A snapshot/growth placement maps.
-8. The focused owner for the responsibility being changed.
+4. `docs/implementation/phases/phase-0/0B_APPLICATION_KERNEL_AND_MODULE_FOUNDATION.md` and `0B_STATUS.md` — active 0B gate and current slice.
+5. `docs/domain/BUSINESS_TERMS.md` — consequential accepted versus discovery-sensitive terminology.
+6. `docs/architecture/ENGINEERING_PRINCIPLES.md` — engineering principles.
+7. `docs/architecture/EXPLICIT_BOUNDARIES_AND_SOLID.md` — dependency/ownership rules.
+8. `docs/decisions/CURRENT_DECISIONS.md` and `OPEN_DECISIONS.md` — accepted versus unresolved direction.
+9. `docs/architecture/REPOSITORY_STRUCTURE.md` and `REPOSITORY_FOLDER_STRUCTURE.md` — current/growth placement maps.
+10. The focused owner for the responsibility being changed.
 
 ## Source precedence
 
@@ -34,18 +36,39 @@ historical review/source-study/branch/MR material
 
 Repository state proves what is implemented. Architecture documents may define future ownership and accepted direction without implying that a project/runtime currently exists.
 
-## 0A qualification snapshot
+## Current repository implementation boundary
 
-On this branch there are **no application, service, foundation-library, capability-module, or test projects**. `SquiFlow.sln` is an empty implementation container.
+The active 0B branch contains exactly two projects:
 
-That empty state proves the principles-first reset produced a clean starting point. It is **not** a permanent architecture invariant or a rule that later `v0.0.20` work must stay empty.
+```text
+modules/parties/SquiFlow.Parties/SquiFlow.Parties.csproj
+tests/unit/SquiFlow.Parties.Tests/SquiFlow.Parties.Tests.csproj
+```
 
-The enduring rules are:
+There is no Foundation/ApplicationKernel project and no application/service executable.
 
-- later projects/boundaries are newly earned from current responsibility;
-- historical project trees/branches/diagrams do not authorize recreation;
-- current runtime truth is reconciled when later implementation appears;
-- future governance specificity remains earned rather than pre-written.
+The production-code scope currently implemented is only the accepted structural Party classification:
+
+```text
+PartyKind
+├── Person
+└── Organization
+```
+
+That is **not** a claim that Party/Customer/Account lifecycle, identity format, persistence, API, host, authorization, synchronization, or customer-complete product scope exists. Those remain `NOT_INTRODUCED` unless and until a real current slice earns them.
+
+## Architecture direction retained through the reset
+
+- C# / .NET 10 is the application baseline.
+- Avalonia Workstation and Blazor tenant Web remain accepted presentation directions when those surfaces are implemented.
+- ASP.NET Core remains the server-host foundation when server hosts are implemented.
+- Modular monolith first; ordinary capability communication stays in-process.
+- Dependency direction remains Foundation → capability-owned business meaning → host/provider adapter → executable composition root (outer layers depend inward).
+- One source implementation of business meaning per capability.
+- Workstation remains the local-first/offline direction; PostgreSQL remains selected central authority; SQLite/WAL remains selected Workstation local/provisional persistence when those scopes are introduced.
+- ZITADEL identity, OpenFGA authorization, and OpenBao/Vault-style key-management directions remain accepted but unimplemented until their scopes activate.
+- Guard remains an external supervision/recovery boundary when rebuilt; it is not business authority, database authority, Worker, scheduler, or key vault.
+- Project/process/provider/interface splits are earned by real compiler, provider, lifecycle, fault, security, resource, deployment, compatibility, packaging, or workload pressure.
 
 ## Development rule
 
@@ -73,21 +96,31 @@ qualify only with BLOCKED = none
 
 KISS reduces accidental complexity; YAGNI reduces speculative breadth. Neither permits prototype-grade depth for a responsibility already introduced.
 
-## 0A → next real implementation
+## 0A → 0B transition
 
-0A guarantees that a developer can identify authority, the qualification-time reset truth, repository ownership, and future-only scope without relying on deleted code or speculative governance.
+0A guarantees that a developer can identify current authority, current implementation truth, repository ownership, and future-only scope without relying on deleted code or speculative governance.
 
-The next implementation does **not** automatically rebuild the historical ApplicationKernel or any other deleted project. Begin with a real capability/application responsibility. Introduce shared Foundation only when current reuse/change/ownership pressure actually justifies shared semantics.
+Its zero-project inventory was qualification-time reset evidence, not a permanent invariant. The first 0B projects are legitimate because they are newly derived from current capability semantics rather than recreated from the purged tree.
 
-The closed historical 0B MR remains history. Useful ideas may be reconsidered, but its old completion model and project choices are not current authority.
+0B is capability-first. `SquiFlow.ApplicationKernel` remains absent. Shared Foundation is introduced only when real current reuse/change/ownership pressure justifies shared semantics; no second consumer is manufactured to satisfy a quota.
+
+## Current verification status
+
+The active tests cover the Party-kind contract and the initial Parties dependency boundary. The .NET 10 test path uses Microsoft Testing Platform and xUnit v3.
+
+Required commands:
+
+```text
+dotnet restore SquiFlow.sln
+dotnet build SquiFlow.sln -c Release --no-restore
+dotnet test SquiFlow.sln -c Release --no-build
+```
+
+The assistant environment does not have the .NET SDK, so these commands have **not** been claimed as passing. The introduced implementation claims therefore remain `BLOCKED` in `0B_STATUS.md` until executable evidence exists.
 
 ## Future governance
 
 Phase 0 and the already-concrete Phase 1 trust boundary have detailed governance. Phase 2–10 remain direction-only `NOT_INTRODUCED` planning until real work earns detail. `FUTURE_PHASE_CARRY_FORWARD.md` preserves anticipation without turning it into specification.
-
-## CI/CD direction
-
-0A has no executable code claim, so it does not manufacture a build/test project merely to create a green pipeline. Repository CI/CD may be introduced with real executable/repository verification in later active work. GitHub/GitLab should remain thin orchestration over repository-owned commands.
 
 ## Versioning
 
