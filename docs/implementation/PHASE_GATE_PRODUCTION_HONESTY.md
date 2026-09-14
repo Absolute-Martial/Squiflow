@@ -1,7 +1,7 @@
 # Phase Gate Production-Honesty Contract
 
 **Status:** Canonical implementation-governance owner  
-**Applies to:** every implementation phase, subphase, pull-forward, integration gate, and gate sign-off  
+**Applies to:** every active implementation phase, subphase, pull-forward, integration gate, gate sign-off, and the governance documents that describe them  
 **Baseline:** v0.0.20
 
 ## 1. Core invariant
@@ -42,7 +42,7 @@ the system is already deployed to paying customers
 
 ## 3. Three valid gate states
 
-Every material responsibility considered by a gate is classified as exactly one of:
+Every material responsibility considered by an active gate is classified as exactly one of:
 
 ### `NOT_INTRODUCED`
 
@@ -107,7 +107,7 @@ A feature flag or hidden route does not automatically make unfinished production
 
 ## 5. Mandatory gate intent
 
-Every phase/subphase/integration gate must state a falsifiable **production intent**:
+Every **active/qualifying** phase/subphase/integration gate must state a falsifiable **production intent**:
 
 > What real user/operator/developer scenario becomes safe and honest to depend on after this gate passes?
 
@@ -132,9 +132,11 @@ an operator can restore the declared recovery set onto a replacement environment
 
 For a developer-only architectural gate, the intent may name a developer/next-phase guarantee rather than inventing an end-user scenario.
 
+A future roadmap direction that is still wholly `NOT_INTRODUCED` is **not yet an active gate** and therefore must not invent a production intent/evidence map merely to look complete.
+
 ## 6. Mandatory scope contract
 
-Before gate sign-off, record:
+Before active gate sign-off, record:
 
 ```text
 PRODUCTION INTENT
@@ -296,9 +298,11 @@ Why deferred
 Owner
 Current preservation constraint
 Trigger
-Latest closing gate
+Latest closing gate when it is honestly knowable
 Current check preventing accidental introduction/violation
 ```
+
+Do not invent a `Latest closing gate` merely to make a future roadmap look complete. If the real closing point depends on future workload/product knowledge, record it as unset until activation.
 
 A `PRODUCTION_HONEST` responsibility can of course receive more breadth later; record the later breadth as new scope, not as debt in the already claimed behavior.
 
@@ -309,15 +313,16 @@ A `BLOCKED` responsibility cannot be carried forward.
 If a real current slice requires a responsibility scheduled for a later phase:
 
 ```text
-identify the later owner/gate
-→ pull that responsibility forward
+identify the likely owner/direction
+→ promote the responsibility from NOT_INTRODUCED
+→ derive the active gate from current facts
 → declare its current scope
 → satisfy the production-honesty bar now
 → add evidence
 → continue
 ```
 
-Do not introduce a temporary unsafe substitute on the assumption that the later phase will repair it.
+Do not introduce a temporary unsafe substitute on the assumption that a later roadmap phase will repair it.
 
 ## 12. Gate evidence record
 
@@ -350,3 +355,36 @@ A gate cannot pass unless the answer is `yes`, with evidence, to the applicable 
 10. If the scope were depended on today, is there any known shortcut we expect to rewrite because it is not trustworthy enough for the claim?
 
 If question 10 is `yes`, either fix the shortcut or un-introduce that claim. The gate does not pass.
+
+## 14. Governance documents are claims too
+
+The production-honesty rule applies to the roadmap and gate documents themselves.
+
+A governance document is allowed to be precise only where the project has enough real responsibility/workload/implementation knowledge to justify that precision.
+
+Future direction may state:
+
+```text
+likely responsibility class
+known dependencies
+current preservation constraints
+activation trigger
+```
+
+Future direction must **not** state as current canonical fact:
+
+```text
+exact A/B/C subphase decomposition
+exact evidence classes
+exact regression cadence
+exact hostile/failure inventory
+exact transitional contract
+exact provider/runtime mechanism
+exact exit gate
+```
+
+unless real work has earned those decisions.
+
+If detailed future thinking is useful, preserve it as non-authoritative carry-forward/anticipation. When the responsibility becomes real, rewrite the active governance from current facts rather than treating old speculation as a contract.
+
+This is the governance equivalent of YAGNI: **do not prebuild the gate structure before the real claim exists.**
