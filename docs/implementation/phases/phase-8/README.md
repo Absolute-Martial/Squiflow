@@ -18,4 +18,8 @@ It is **not** where those concerns are first implemented. Every responsibility i
 
 The integrated system has enough real components/providers/workloads that cross-boundary effects require dedicated qualification beyond the evidence owned by individual responsibilities.
 
-Detailed attack/load/failure scenarios and cadence are written then, not now. See `docs/implementation/FUTURE_PHASE_CARRY_FORWARD.md`.
+## On activation
+
+Derive attack/load/failure scenarios, SLOs and evidence cadence from the real integrated topology. The former `8A–8E` package is planning history, not a required future structure.
+
+See `docs/implementation/FUTURE_PHASE_CARRY_FORWARD.md`.
