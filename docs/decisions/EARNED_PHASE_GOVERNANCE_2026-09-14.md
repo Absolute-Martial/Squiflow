@@ -62,7 +62,24 @@ A new detailed file is created only when a real responsibility can name:
 - permanent/recurring regression protection;
 - transition/safe-absence behavior where actually relevant.
 
-The implementation is free to use, modify, merge, split or reject the former anticipated subphase decomposition.
+The implementation is free to use, modify, merge, split, rename, reorder or reject the former anticipated subphase decomposition.
+
+## Carry-forward is anticipation, not specification
+
+The future ledger may preserve likely questions and current preservation constraints because those can influence present architecture honestly.
+
+It does **not** preserve as current requirements:
+
+- old evidence matrices;
+- exact test lists;
+- exact cadence assignments;
+- exact provider/runtime choices;
+- exact subphase names/numbers;
+- exact gate completion conditions.
+
+Those belong to Git history until real work makes them current again.
+
+The carry-forward entry is successful if it prevents current work from accidentally closing off a likely future need without pretending the future design is already known.
 
 ## No loss of useful thinking
 
