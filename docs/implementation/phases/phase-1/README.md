@@ -84,4 +84,6 @@ Security properties that qualify in Phase 1 remain regression-protected after Ph
 
 Phase 2–10 are currently direction-only `NOT_INTRODUCED` stubs. Phase 1 carry-forward entries may describe future needs and safe absence behavior, but they do not pre-write the future phase evidence map, cadence or subphase decomposition.
 
+The Phase 2–10 labels themselves remain planning guidance rather than a frozen sequence. If real work needs a responsibility earlier or reveals a better grouping, promote/restructure it from current facts.
+
 Non-authoritative future thinking lives in `docs/implementation/FUTURE_PHASE_CARRY_FORWARD.md`.
