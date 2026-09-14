@@ -1,25 +1,41 @@
-# Phase 2 — Local-First Workstation Durability and Guard Recovery
+# Phase 2 — Local-First Workstation Durability and Recovery
 
-## Purpose
+**Status:** direction only — `NOT_INTRODUCED` as a qualified phase  
+**Global gate owners:** `PHASE_GATE_PRODUCTION_HONESTY.md` and `PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md`
 
-Phase 2 turns the Workstation from a presentation shell into a production-shaped local-capable runtime for the first real Customer/Order slice.
+## Direction
 
-This is not a rule that only Customer/Order can exist. Other capabilities may continue or gain local state when their semantics fit the same qualified local foundation. Likewise, capability/domain/UI work may exist before Phase 2; this phase is where local durable execution itself becomes qualified.
+This phase is expected to mature the first real Workstation business operation from presentation/process state into trustworthy local durable/provisional state, with recovery semantics appropriate to the implementation that actually exists then.
 
-## Subphases
+The current architecture suggests likely ownership areas such as local persistence, encryption, atomic local intent/outbox semantics, process/restart behavior, and Guard/update/migration coordination. These are directions, not a pre-written implementation contract.
 
-```text
-2A  First real local-capable business slice
-2B  SQLite/WAL, encryption and atomic local durability
-2C  Local outbox, provisional state and restart semantics
-2D  Guard/update/migration/recovery coordination
-2E  Integrated Phase-2 gate
-```
+## Known dependencies
 
-## Phase maturity added
+Before this phase can be specified in detail, there must be a real local-capable business slice and enough Phase-0/Phase-1 foundation to know its identity, authority, security, state and host boundaries.
 
-After Phase 2, an explicitly local-capable Workstation action can become durably local without a network round trip and survive supported process/restart failure, while still remaining distinct from server-authoritative acceptance.
+## Current preservation constraints
 
-## Continuing development
+Until activated:
 
-Customers, Orders, other modules, Web/API, identity/authorization, observability, deployment and testing may continue in parallel. Any capability that adopts local durability must respect the same encryption/migration/recovery/outbox foundations rather than create its own ad-hoc local store.
+- do not call transient presentation/process memory durable;
+- do not confuse local/provisional success with central authoritative acceptance;
+- do not introduce an ad-hoc local store that bypasses accepted encryption/migration/recovery ownership;
+- Guard must remain supervision/recovery rather than business authority.
+
+## Activation trigger
+
+The first real operation must be accepted durably on the Workstation before server confirmation or another real local-state requirement makes the same durability contract necessary.
+
+## On activation
+
+When that trigger becomes real:
+
+1. inspect the actual capability/workload and then-current architecture;
+2. decide whether a `2A` subphase is still useful or whether a different decomposition is clearer;
+3. write the exact production intent and scope from current facts;
+4. derive evidence, failure cases, transition restrictions and permanence cadence only then;
+5. promote only the responsibilities that are actually being introduced.
+
+Do **not** restore the retired `2A–2E` files merely because they previously existed.
+
+See `docs/implementation/FUTURE_PHASE_CARRY_FORWARD.md` for non-authoritative anticipated questions worth reconsidering when this phase activates.

@@ -1,23 +1,27 @@
-# Phase 5 — Versioned Rules, Workflow, and Dynamic Forms
+# Phase 5 — Versioned Configurable Behavior
 
-## Purpose
+**Status:** direction only — `NOT_INTRODUCED` unless a real requirement pulls a subset forward
 
-Phase 5 introduces bounded tenant-configurable behavior without creating arbitrary tenant code or a second application platform.
+## Direction
 
-It does not require every capability to move into rules/workflow/forms. Strongly typed behavior remains preferable where tenant variation is not a real requirement. Earlier capabilities continue to evolve normally while selected variability gains versioned/configurable machinery.
+This phase is expected to introduce bounded versioned configurability only where real tenant/product variation earns it. Possible areas include rules, workflow, forms and offline-compatible configuration snapshots, but none is mandatory merely because this phase exists.
 
-## Subphases
+## Known dependencies
 
-```text
-5A  Rule definitions, fact authority and deterministic evaluation
-5B  Versioned workflow and continuation
-5C  Bounded dynamic forms and publication
-5D  Workstation snapshots and cross-version execution
-5E  Integrated Phase-5 gate
-```
+A concrete capability must demonstrate variability that cannot be represented honestly by simpler strongly typed business code/settings.
 
-## Continuing development
+## Current preservation constraints
 
-Capabilities may continue ordinary strongly typed business development while selected variability moves into reviewed versioned definitions. Not every feature needs the rule/workflow engine, and new capabilities can be added during this phase without adopting dynamic forms.
+- strongly typed capability behavior remains the default;
+- no arbitrary tenant C#/JavaScript/SQL execution;
+- historical/issued truth must not be silently recomputed from mutable current configuration.
 
-If a real earlier capability needs versioned configurable behavior before Phase 5, pull the relevant foundation forward rather than introducing unversioned ad-hoc configuration.
+## Activation trigger
+
+A real product requirement needs configurable decision/workflow/form behavior with versioning/publication/reproducibility guarantees.
+
+## On activation
+
+Create only the detailed governance that the real variability requires. The historical `5A–5E` decomposition is not reserved structure and may be changed or discarded. Evidence, publication/version semantics and Workstation compatibility rules are derived from the actual feature and deployment model at that time.
+
+See `docs/implementation/FUTURE_PHASE_CARRY_FORWARD.md`.

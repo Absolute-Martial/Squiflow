@@ -1,25 +1,32 @@
 # Phase 3 — Authoritative Server Persistence and Synchronization
 
-## Purpose
+**Status:** direction only — `NOT_INTRODUCED` as a qualified phase
 
-Phase 3 connects local durable intent to real central authority and qualifies PostgreSQL using the actual workload rather than synthetic CRUD.
+## Direction
 
-This does **not** mean server persistence, API contracts, or capability application code are forbidden before Phase 3. Real modules may begin earlier. Phase 3 is the point where the authoritative persistence + synchronization path is qualified as a dependable cross-device/server foundation.
+This phase is expected to qualify the first real path from local/provisional or interactive intent into central authoritative persistence and, where needed, cross-device synchronization.
 
-## Subphases
+Likely ownership areas include central persistence/tenant isolation, authoritative admission, retry/idempotency/concurrency, synchronization, and contract/schema overlap. Their exact decomposition must be derived from the real capability and workload when it exists.
 
-```text
-3A  PostgreSQL authoritative persistence and tenant isolation
-3B  Authoritative admission, idempotency and concurrency
-3C  Sync upload/download, cursor and backpressure
-3D  Version overlap, migrations and compatibility
-3E  Integrated Phase-3 gate
-```
+## Known dependencies
 
-## Phase maturity added
+A real capability must already expose enough domain/application semantics to define authority, and any synchronization work must have a real local producer/consumer rather than synthetic transport tests.
 
-After Phase 3 the same capability can have local/provisional Workstation execution and server-authoritative admission/commit without becoming two independent business implementations.
+## Current preservation constraints
 
-## Continuing development
+- keep business meaning host-neutral;
+- keep local/provisional and server-authoritative outcomes distinct;
+- keep semantic operation/version concepts transport-independent where introduced;
+- do not manufacture service/network boundaries between ordinary in-process modules.
 
-Customers, Orders and any other real capability may gain authoritative queries/commands, local projections, Web/Workstation adapters, and compatibility fixtures as needed. The phase constrains correctness/authority; it does not restrict which business capability may be developed.
+## Activation trigger
+
+A real capability needs central authoritative commit and/or a Workstation operation needs server admission/synchronization.
+
+## On activation
+
+Create the detailed governance from current facts. The active work may use a `3A/3B/...` decomposition, a different split, or no lettered split at all. Evidence classes, compatibility fixtures, failure cases and regression cadences are chosen only after the actual authority/sync contract exists.
+
+Do not restore the retired `3A–3E` files by default.
+
+See `docs/implementation/FUTURE_PHASE_CARRY_FORWARD.md` for anticipation, not specification.

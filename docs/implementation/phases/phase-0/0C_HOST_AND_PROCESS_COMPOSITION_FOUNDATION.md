@@ -2,6 +2,9 @@
 
 **Purpose:** Establish sustainable executable composition/lifecycle behavior for the hosts that have actually been reintroduced, without creating future processes for symmetry.
 
+**Gate-quality owner:** `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md`  
+**Evidence/permanence owner:** `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md`
+
 ## Starting point after reset
 
 There are currently no product executables. Workstation, Guard, tenant Web, and compact CoreApi remain accepted architecture directions/ownership locations, not current runtime facts.
@@ -30,9 +33,9 @@ A new executable must answer:
 
 If those answers do not justify isolation, keep the responsibility in-process.
 
-## Host completeness
+## Host production honesty
 
-For every introduced executable, implement the applicable subset immediately:
+For every introduced executable, implement the applicable current responsibilities immediately:
 
 - validated configuration and secret separation;
 - safe startup failure;
@@ -41,13 +44,23 @@ For every introduced executable, implement the applicable subset immediately:
 - version/component identity;
 - bounded loops/retries/buffers;
 - health/readiness when semantically appropriate;
-- process/IPC compatibility where another process depends on it.
+- process/IPC compatibility where another real process depends on it.
 
-Do not postpone these merely because a later phase contains a deeper hardening gate.
+Do not postpone these merely because a later roadmap direction may contain broader runtime qualification.
+
+## Evidence permanence
+
+Lifecycle/fault claims for an executable are derived only after that executable and its real role exist.
+
+Once qualified, the applicable checks remain regression protection, for example process start/stop/cancellation, configuration failure, bounded restart behavior or IPC-version handling where those claims exist.
+
+Do not write failure matrices or cadences for future Worker/Admin/Sync/helper executables that have not been introduced.
 
 ## Accepted future examples
 
 Architecture docs reserve directions such as Workstation, Guard, tenant Web, compact CoreApi, later WebApi/SyncApi/Worker/Admin, and optional desktop helper processes. These are examples/ownership locations until implementation earns them.
+
+Their mention here does not create a future phase gate or require a particular process/subphase decomposition.
 
 Guard, when rebuilt, remains external supervision/recovery only and cannot own business capability, central DB, authorization authority, Worker scheduling, or key custody.
 
@@ -57,11 +70,12 @@ Ordinary modules in one executable call each other in-process through owned appl
 
 ## Exit gate
 
-0C is complete when every executable that exists at that point:
+0C is complete when every executable that actually exists at that point:
 
 - has explicit composition/lifecycle/failure/security boundaries;
 - contains no duplicated business meaning;
-- is bounded and observable for its current responsibilities;
+- is bounded and observable for its declared responsibilities;
 - is independently justified as a process;
-- has lifecycle/failure tests appropriate to its role;
-- leaves unneeded future executables uncreated.
+- has falsifiable lifecycle/failure evidence appropriate to its role;
+- has applicable permanent/recurring regression protection;
+- leaves unneeded future executables uncreated and unspeculated at evidence-map level.

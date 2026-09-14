@@ -13,6 +13,9 @@ This file records accepted direction only. Detailed reasoning and supersession h
 - Architecture/file-structure samples are growth maps and ownership guidance, not mandatory scaffolding. A folder/project/process is created only when its responsibility and boundary are earned.
 - Do not rebuild `SquiFlow.ApplicationKernel` merely because it existed before the reset. Start from real capability/application work and introduce shared Foundation/kernel primitives only when current consumers prove genuinely product-wide semantics.
 - Repository CI/CD is allowed again. Local verification and GitHub/GitLab thin wrappers should share repository-owned verification commands/scripts, with self-hosted/self-managed runners preferred under hosted-minute constraints.
+- Phase/gate governance follows the same earned-detail rule as implementation. Global production-honesty/evidence contracts are canonical, but future phase-specific evidence maps, cadences, transitional contracts and subphase decomposition are written only when real responsibilities/workloads earn them.
+- Detailed Phase 0 and Phase 1 packages are retained. Phase 2–10 are direction-only `NOT_INTRODUCED` README stubs until activated by real work. Future planning ideas live in `docs/implementation/FUTURE_PHASE_CARRY_FORWARD.md` as non-authoritative anticipation, not implementation contracts.
+- A future phase number does not force implementation to match an old anticipated decomposition. When a responsibility becomes real, derive its production intent, exact scope, evidence and regression guard from current requirements/workload/architecture and either use, change or reject the old anticipation.
 
 ## Product and runtime
 

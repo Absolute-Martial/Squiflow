@@ -1,23 +1,24 @@
-# Phase 7 — Files, Documents, Printing, and Backup/Restore
+# Phase 7 — Files, Documents, Printing, and Recovery Assets
 
-## Purpose
+**Status:** direction only — `NOT_INTRODUCED` as a qualified provider-bound phase
 
-Phase 7 qualifies provider-bound large-object storage, file transfer, document/printing effects, and complete backup/restore for the state that exists so far.
+## Direction
 
-It does not mean files/documents/backups are forbidden earlier. Provider contracts, small local artifacts, or basic backup concepts may already exist. Phase 7 is where the real provider-bound lifecycle and restore proof become qualified for the implemented system.
+This phase anticipates real workloads involving large objects/attachments, document generation/printing and backup/restore. Exact responsibilities must follow the owning business capability and selected provider/runtime when those workloads exist.
 
-## Subphases
+## Current preservation constraints
 
-```text
-7A  Object-storage ownership, integrity and provider adapter
-7B  Attachment transfer, staging, capacity and consumption accounting
-7C  Document generation, desktop process isolation and printing
-7D  Backup target, encrypted recovery set and restore proof
-7E  Integrated Phase-7 gate
-```
+- file/object providers do not become hidden business authority;
+- provider SDKs remain behind adapters;
+- semantic synchronization and large-file transfer remain separable concerns;
+- no backup claim is stronger than restore evidence.
 
-## Continuing development
+## Activation trigger
 
-Capabilities, Workstation, Web, Sync, Admin, Worker and data models continue evolving. A capability may start using objects/documents only when its own lifecycle/ownership rules are defined, and other unrelated capabilities remain free to advance during this phase.
+The first real capability needs provider-backed durable objects, document/printing effects, or a recovery set whose restore must be qualified.
 
-If an earlier real capability needs durable files/printing/backup behavior before the planned parent phase, pull the relevant subphase foundation forward rather than inventing temporary provider-specific or non-recoverable behavior.
+## On activation
+
+Derive ownership, integrity, capacity, transfer, printing and restore evidence from the actual data/provider topology. The former `7A–7E` split is not reserved and may be replaced by whichever decomposition matches the real workload.
+
+See `docs/implementation/FUTURE_PHASE_CARRY_FORWARD.md`.

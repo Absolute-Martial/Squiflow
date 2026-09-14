@@ -1,32 +1,28 @@
-# Phase 6 — Independent Platform Admin and Durable Worker
+# Phase 6 — Independent Platform Control and Background Execution
 
-## Purpose
+**Status:** direction only — independent Admin/Worker runtime boundaries are `NOT_INTRODUCED`
 
-Phase 6 introduces two new justified process/security boundaries only when their first real workloads exist:
+## Direction
 
-```text
-apps/admin-web
-services/admin-api
-services/worker
-```
+This phase represents a likely maturity point where a real workload may earn an independent Platform Admin control plane and/or durable Worker runtime. These boundaries are not guaranteed to arrive together and are not created for symmetry.
 
-They are not generic infrastructure shells. Each must be complete enough for its current responsibility from its first operational use.
+## Known dependencies
 
-The phase does not prohibit Admin/security/Worker-related contracts, audit concepts, outbox records, or provider-control concepts from existing earlier where real work needs them. Phase 6 is the point where the **independent runtime boundaries themselves** become operational and therefore acquire their full lifecycle/security/recovery obligations.
+A real control-plane operation must need independent security/availability, or a real durable background workload must need an independent execution lifecycle.
 
-## Subphases
+## Current preservation constraints
 
-```text
-6A  Private Platform Admin control plane and Admin API independence
-6B  Admin authorization, device/JIT/high-risk audit controls
-6C  Durable Worker job lifecycle and execution
-6D  Platform controls, scheduling boundary and background consequences
-6E  Failure independence and recovery
-6F  Integrated Phase-6 gate
-```
+- platform permission/audit concepts may exist without an Admin executable;
+- transactional consequence/outbox semantics may be introduced with real commits without prebuilding Worker;
+- once durable work exists, process memory cannot be its source of truth;
+- new processes require real lifecycle/fault/security/resource justification.
 
-## Continuing development
+## Activation trigger
 
-All earlier capabilities, Workstation, Web, Sync/API, persistence, security, configuration, observability and recovery tracks continue. New background/control workloads may be added only when their owning capability and durable authority are explicit.
+The first real Admin or Worker workload earns the boundary. At that time, its detailed gate is written from the actual workload, provider, authority and failure model.
 
-If a real requirement needs Admin or Worker earlier than the planned phase, pull the relevant subphase foundation forward with its full obligations instead of introducing an unsafe temporary process.
+## On activation
+
+Admin and Worker can activate separately. Do not restore the retired `6A–6F` package or assume Admin/Worker/scheduler must share one phase. Derive the decomposition and evidence from whichever real runtime boundary appears first.
+
+See `docs/implementation/FUTURE_PHASE_CARRY_FORWARD.md`.

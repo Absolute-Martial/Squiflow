@@ -1,85 +1,98 @@
 # SquiFlow Detailed Implementation Phase Packages
 
-**Status:** cumulative implementation maturity structure  
+**Status:** earned-detail implementation structure  
 **High-level roadmap:** `docs/implementation/PHASES_AND_GATES.md`  
-**Development rules:** `docs/architecture/ENGINEERING_PRINCIPLES.md` and `docs/architecture/EXPLICIT_BOUNDARIES_AND_SOLID.md`
+**Production-honesty owner:** `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md`  
+**Evidence/regression owner:** `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md`  
+**Future anticipation ledger:** `docs/implementation/FUTURE_PHASE_CARRY_FORWARD.md`
 
 ## Purpose
 
-Phases are minimum maturity/verification envelopes, not permit lists, sprint walls, or implementation-quality ceilings.
+The phase hierarchy distinguishes **earned implementation detail** from **future architectural direction**.
+
+The governance rule applies to governance documents themselves:
+
+> A phase document may specify evidence, cadence, transitional restrictions, failure cases, and exact subphase gates only to the degree that real current responsibilities have earned that specificity.
+
+Do not prebuild governance structure and then force future implementation to conform to it.
+
+## Current earned-detail status
 
 ```text
-phase
-= minimum foundation/maturity that must be true
-+ existing responsibilities continuing to evolve
-+ applicable failure/security/recovery/compatibility obligations
-+ verification/integration evidence appropriate to responsibilities that actually exist
+Phase 0  DETAILED / ACTIVE-EARNED
+Phase 1  DETAILED / EARNED TRUST-BOUNDARY CONTRACTS
+Phase 2  DIRECTION ONLY — NOT_INTRODUCED
+Phase 3  DIRECTION ONLY — NOT_INTRODUCED
+Phase 4  DIRECTION ONLY — NOT_INTRODUCED
+Phase 5  DIRECTION ONLY — NOT_INTRODUCED
+Phase 6  DIRECTION ONLY — NOT_INTRODUCED
+Phase 7  DIRECTION ONLY — NOT_INTRODUCED
+Phase 8  DIRECTION ONLY — NOT_INTRODUCED
+Phase 9  DIRECTION ONLY — NOT_INTRODUCED
+Phase 10 DIRECTION ONLY — NOT_INTRODUCED
 ```
 
-A phase is not:
+Phase 0 and Phase 1 retain detailed subphase documents because the current architecture/rebuild and trust-boundary decisions have earned concrete claims and constraints.
+
+Phase 2–10 contain README direction stubs only. Their former detailed A/B/C/... decomposition has been retired from the canonical roadmap. Useful ideas from that planning are preserved in `FUTURE_PHASE_CARRY_FORWARD.md` as non-authoritative anticipation and remain available in Git history.
+
+## Activation rule for a future phase
+
+When real work reaches a future phase:
 
 ```text
-only these folders may change
-every named future component must exist
-minimal happy-path code is acceptable until a later phase
-create implementation/tests solely so the phase can say it ran something
+real responsibility/workload arrives
+        ↓
+read global gate owners
+        ↓
+read current architecture/requirements
+        ↓
+review carry-forward anticipation
+        ↓
+write or rewrite the phase/subphase from current facts
+        ↓
+derive exact evidence and regression protection
+        ↓
+qualify
 ```
 
-## Complete-current-responsibility rule
+The anticipation may be useful, wrong, incomplete, or obsolete. It is input, not a contract.
 
-Deferring an unneeded boundary is healthy. Deferring correctness after introducing a responsibility is not.
+A historical `2A`, `3B`, `6C`, etc. name is not reserved structure. Future work may keep, rename, merge, split, reorder or discard it.
 
-KISS means the simplest design that fully covers the current responsibility and its material edge/failure/recovery/security/concurrency/compatibility/resource/observability cases. YAGNI prevents speculative breadth, not necessary current behavior.
+## Breadth versus depth
 
-SOLID, DRY, CQS, Law of Demeter, immutability, defensive programming, idempotency, resilience, performance, security, database, API, CI/CD, and observability principles are applied according to `ENGINEERING_PRINCIPLES.md`; none is used mechanically to create ceremony or a technology shopping list.
-
-## Repository/file-structure rule
-
-Architecture docs contain target/sample file structures. Preserve them as ownership/placement guidance. A sample path does not become a project/folder until real implementation earns it.
-
-## Current reset / Phase-0 status
-
-Baseline v0.0.20 currently contains no production/test projects. Earlier implementation remains in Git history.
-
-**0A is Complete / Qualified as a documentation/repository-reconciliation gate. 0B is the next implementation gate.**
-
-0A intentionally required no executable test project. Executable verification begins with the first real implementation boundary and grows with it.
-
-Detailed Phase-0 status is owned by `phase-0/0A_BASELINE_STATUS.md`.
-
-## Detailed package index
+The production-honesty state model remains:
 
 ```text
-Phase 0   Architectural development foundation
-Phase 1   Identity, tenant authorization, sessions
-Phase 2   Local-first Workstation durability and Guard recovery
-Phase 3   Authoritative persistence and synchronization
-Phase 4   Conflict, long-offline recovery, rebase
-Phase 5   Versioned rules, workflow, dynamic forms
-Phase 6   Independent Platform Admin and durable Worker
-Phase 7   Files, documents, printing, backup/restore
-Phase 8   Cross-system security/performance/network/observability qualification
-Phase 9   Payments, credit, inventory, protected authority
-Phase 10  Paying-customer production qualification
+NOT_INTRODUCED
+PRODUCTION_HONEST
+BLOCKED
 ```
 
-Each phase directory contains its detailed subphases and integration gate. The package structure is expandable when a responsibility becomes too broad.
+Future phase responsibilities are normally `NOT_INTRODUCED`; their absence behavior and current preservation constraints belong in the carry-forward ledger.
+
+Once a responsibility is introduced, the global production-honesty and evidence/regression contracts apply immediately. A developer must not defer required depth merely because the parent phase README is still a direction stub.
 
 ## Pull-forward rule
 
-If a real requirement needs a later foundation earlier:
+If a real requirement needs a future responsibility early, do not wait for its nominal phase number and do not use a temporary unsafe substitute.
+
+Instead:
 
 ```text
-real requirement
-→ identify owning architecture responsibility
-→ pull the required subphase/gate forward explicitly
-→ implement it correctly and completely for current use
-→ update roadmap/decision evidence
-→ use it
+identify the real responsibility
+→ promote it from NOT_INTRODUCED
+→ create/update its active owner/subphase from current evidence
+→ satisfy the global production-honesty contract
+→ add permanent/recurring regression protection
+→ continue
 ```
 
-Do not create a temporary unsafe workaround just because the roadmap originally placed the foundation later.
+The roadmap orders likely maturity; it does not prohibit earlier earned implementation.
 
-## Carry-forward rule
+## Repository structure rule
 
-Every material deferral records owner, preservation constraint, trigger, latest closing gate, and the current check preventing accidental violation. This is stronger than an unowned `TODO`.
+A future phase folder contains only its README direction stub until real work earns more detail. Do not create empty A/B/C subphase documents, evidence templates, test matrices, or cadence tables for symmetry.
+
+Phase-specific documents are implementation artifacts, not speculative architecture ornaments.

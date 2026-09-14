@@ -1,21 +1,27 @@
-# Phase 4 — Conflict, Long-Offline Recovery, and Rebase
+# Phase 4 — Long-Offline Conflict and Recovery
 
-## Purpose
+**Status:** direction only — `NOT_INTRODUCED` as a qualified phase
 
-Phase 4 turns short-lived synchronization into a durable long-offline operating model. It assumes Phase 3 has real local pending intent, server authority, versioned sync and central persistence.
+## Direction
 
-It does not mark the first time conflict/recovery concepts may exist. Earlier modules may already have expected versions and simple conflict outcomes; Phase 4 qualifies the broader long-offline/resnapshot/rebase model that later capabilities can reuse.
+This phase is expected to address behavior that only becomes real after local pending intent and server authority coexist for long enough to encounter version drift, conflicts, stale authority data, resnapshot or rebase needs.
 
-## Subphases
+## Known dependencies
 
-```text
-4A  Long-offline detection and compatibility assessment
-4B  Capability-specific conflict and reconciliation
-4C  Resnapshot, rebase and pending-intent preservation
-4D  Authority/configuration/limit refresh and degraded UX
-4E  Integrated Phase-4 gate
-```
+Real locally pending operations, real server state, real supported-version overlap and an actual long-offline product requirement must exist before detailed governance can be honest.
 
-## Continuing development
+## Current preservation constraints
 
-All business modules, Web, Workstation, Sync/API, data, observability and deployment tracks continue. New capabilities may adopt conflict/recovery behavior as their state becomes locally editable, and they may define capability-specific conflict semantics without waiting for a separate future phase.
+- do not design local state so pending semantic intent can only be recovered by deleting it;
+- preserve capability-owned version/revision semantics where introduced;
+- never make stale local security/payment/stock/credit/limit state authoritative merely to support offline operation.
+
+## Activation trigger
+
+A supported operation must survive a longer offline/version-drift condition than the currently qualified synchronization contract covers.
+
+## On activation
+
+Derive conflict, recovery, resnapshot and rebase semantics from the real capability. The eventual detailed decomposition is not reserved by the retired `4A–4E` files; merge, split, rename or discard those historical planning labels as needed.
+
+See `docs/implementation/FUTURE_PHASE_CARRY_FORWARD.md`.

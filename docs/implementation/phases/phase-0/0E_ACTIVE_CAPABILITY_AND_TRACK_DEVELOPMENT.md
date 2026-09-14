@@ -1,68 +1,73 @@
-# Phase 0E — Active Capability and Parallel-Track Development
+# Phase 0E — Active Capability and Track Development
 
-**Purpose:** Make clear that Phase 0 is a maturity envelope, not a restriction to one kernel or one capability, while requiring every introduced responsibility to be honest and complete for what it currently claims.
+## Purpose
 
-## Starting point after reset
+Phase 0 is not a permit list that restricts development to only Foundation/host work. Real capability, Workstation, Web, server/API, testing, observability and deployment work may advance in parallel when current requirements need them.
 
-No Customers, Orders, Workstation, Web, API, Guard, or observability/test project is currently implemented. Names in architecture/phase examples are illustrative product directions, not current repository inventory.
+The constraint is architectural maturity, not component exclusivity.
 
-## Core rule
+## Development rule
 
-> Any real capability/component may advance when it obeys the architecture and engineering gates already reached and does not claim authority/durability/security/compatibility/recovery that its foundations do not provide.
+A component/capability introduced during Phase 0 may be narrow, but its declared current behavior must be production-honest. It may continue gaining breadth in later work.
 
-A later phase headline unlocks deeper behavioral maturity; it is not necessarily the first date a capability name may exist.
+Examples of work that may legitimately occur during Phase 0 when needed:
 
-## Real-slice rule
+- real capability domain/application/contracts;
+- Workstation/Web presentation for real current behavior;
+- API/host adapters for current operations;
+- additional architecture/verification rules;
+- observability required by current runtime paths;
+- provider adapter work required by current boundaries;
+- deployment/reproducibility work for components that actually exist;
+- another capability proving that a shared Foundation primitive is genuinely cross-capability.
 
-Start from actual product/domain work. Possible capability examples include Customers, Orders, Quotations, Inventory, Products/Pricing, Suppliers, Staff, Devices, Documents, and Payments—but do not create a folder per noun.
+## Future responsibility rule
 
-For each introduced responsibility, answer the applicable questions:
+Do not interpret `may advance in parallel` as permission to prebuild future-phase runtimes, stores, providers, protocols or governance.
 
-1. Who owns its business meaning?
-2. Is its state authoritative, provisional, derived, cached, ephemeral, or presentation-only?
-3. What invariants and edge cases already apply?
-4. Does it introduce durability, trust, a process, provider, queue/retry/buffer, or versioned contract?
-5. What failure/recovery/security/concurrency/compatibility obligations follow now?
-6. What dependencies are allowed/forbidden?
-7. What resource bounds apply?
-8. What evidence/tests protect those claims?
+A future responsibility remains `NOT_INTRODUCED` until a real current requirement needs it.
 
-Do not force irrelevant infrastructure questions onto a pure value object.
+When it is needed:
 
-## Complete current responsibility
+```text
+real need
+→ promote responsibility
+→ derive active scope from current facts
+→ satisfy production-honesty/evidence contracts now
+```
 
-Business breadth may remain intentionally small. What exists may not be fake.
+Do not restore retired future `2A…10E` files or conform implementation to their historical planning decomposition merely because those files once existed.
 
-Allowed examples:
+## Allowed growth without phase renumbering
 
-- a value object with complete current validation/invariants;
-- a semantic command/query contract needed by real work;
-- a UI adapter over a real application surface;
-- an isolated provider/transport POC explicitly marked non-production.
+Capability work can start before a later roadmap label. For example, an Orders capability may exist during Phase 0/1 with only the real semantics currently needed. Later it can gain local persistence, central authority, sync, protected stock/payment interactions, etc. when those responsibilities are earned.
 
-Not allowed:
+This means:
 
-- in-memory state presented as final authoritative durability;
-- Workstation provisional state presented as shared financial/stock/security authority;
-- fire-and-forget work presented as durable;
-- `TODO auth later` around an exposed privileged operation;
-- empty future Infrastructure/Worker/Server projects for diagram symmetry.
+```text
+Phase N
+≠ first moment a business capability may exist
 
-## Pull-forward rule
+Phase N
+= likely maturity direction for a class of responsibility
+```
 
-If a real requirement needs a later foundation earlier, pull that owner/gate forward and implement it correctly rather than creating a temporary unsafe shortcut.
+## Sustainability
 
-## Parallel work
+Earlier components are never frozen by phase completion. They remain expandable, but later breadth must preserve all already-reached production-honest claims and regression guards.
 
-Parallel changes are fine when they form coherent slices and do not create many unrelated half-finished architectural initiatives. A real slice may touch capability, host adapter, tests, observability, and deployment together if those changes are necessary for one complete current responsibility.
+## Verification expectation
+
+Verification follows real claims. Do not create tests solely because a future phase diagram contains a component. When a concrete boundary/invariant appears, add the narrowest falsifiable evidence and permanent/recurring guard required by the global owners.
 
 ## Exit gate
 
-0E is complete when real product slices prove that:
+0E is satisfied when current development proves that:
 
-- capability development is not trapped behind a framework-first process;
-- business meaning remains capability-owned across host adapters;
+- more than one real track/capability can evolve without violating ownership/dependency rules where reuse pressure exists;
 - another real capability can be introduced without changing fundamental dependency direction;
 - later foundations can be pulled forward deliberately when truly required;
-- `NOT INTRODUCED YET` is clearly distinguished from `INTRODUCED AND COMPLETE ENOUGH FOR CURRENT RESPONSIBILITY`;
-- no component is called complete merely because a phase checklist was minimally satisfied.
+- `NOT_INTRODUCED`, `PRODUCTION_HONEST`, and `BLOCKED` are used explicitly rather than `complete enough` wording;
+- `BLOCKED = none` for scope claimed by the gate;
+- no component is called qualified merely because a phase checklist was minimally satisfied;
+- future phase governance remains direction-only until real work earns detail.

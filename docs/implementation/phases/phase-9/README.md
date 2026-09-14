@@ -1,23 +1,23 @@
-# Phase 9 — Payments, Credit, Inventory, and Protected Business Authority
+# Phase 9 — Protected Financial and Shared Business Authority
 
-## Purpose
+**Status:** direction only — `NOT_INTRODUCED` as a qualified high-risk package
 
-Phase 9 applies the already-proven durability/idempotency/reconciliation architecture to the highest-risk shared business facts and external financial effects.
+## Direction
 
-Inventory, pricing, payment-domain concepts, or related UI may exist earlier when real product work needs them. Phase 9 is where the protected current-authority/concurrency/external-effect behavior is qualified, not necessarily where those module folders first appear.
+This phase anticipates protected current-authority and external-effect workloads such as payments, refunds/reversals, shared inventory, credit exposure, and historical pricing. Individual capabilities may be pulled forward when real product work requires them.
 
-## Subphases
+## Current preservation constraints
 
-```text
-9A  Payments and provider-effect idempotency
-9B  OutcomeUnknown, refunds, reversals and reconciliation
-9C  Inventory concurrency and correction
-9D  Credit/pricing authority and historical financial truth
-9E  Integrated Phase-9 gate
-```
+- external effects require explicit semantic identity/ambiguity/reconciliation when introduced;
+- stale local state cannot silently become final shared payment/stock/credit authority;
+- historical financial truth is corrected/reversed according to domain semantics rather than rewritten in place.
 
-Other capabilities continue evolving; Phase 9 raises the maturity of protected financial/stock behavior rather than limiting development to those modules.
+## Activation trigger
 
-## Completion meaning
+A real protected financial/shared-authority capability enters product scope.
 
-Passing Phase 9 qualifies only the protected business behavior actually implemented and promised. New providers, inventory modes or pricing models introduced later must satisfy the same authority/idempotency/concurrency/history rules.
+## On activation
+
+Derive the detailed gate from the actual provider, business rules, legal/accounting product promise, consistency requirements and concurrency model. The retired `9A–9E` package is not normative and may be replaced entirely.
+
+See `docs/implementation/FUTURE_PHASE_CARRY_FORWARD.md`.

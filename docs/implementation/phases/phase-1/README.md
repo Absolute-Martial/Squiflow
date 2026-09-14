@@ -1,14 +1,18 @@
 # Phase 1 — Identity, Tenant Authorization, and Session Foundation
 
-**Parent owner:** `docs/implementation/PHASES_AND_GATES.md`
+**Parent owner:** `docs/implementation/PHASES_AND_GATES.md`  
+**Production-honesty owner:** `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md`  
+**Evidence/permanence owner:** `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md`
 
 ## Purpose
 
-Phase 1 establishes the first production-shaped trust boundary for real users and tenants. It does not freeze business-module development: Customers, Orders, Workstation, Web, CoreApi, Guard, observability, deployment, and tests may all continue evolving while the Phase-1 security foundation is introduced.
+Phase 1 establishes the first production-honest trust boundary for real users and tenants. It does not freeze business-module development: capabilities, Workstation, Web, server hosts, Guard, observability, deployment and tests may all continue evolving while the trust foundation is introduced.
 
-A capability does not have to wait for Phase 1 to exist. Phase 1 is the point where externally reachable authenticated behavior can rely on the production-shaped identity/tenant-authorization foundation rather than test identities or UI-only checks.
+A capability does not have to wait for Phase 1 to exist. Phase 1 is the point where externally reachable authenticated behavior can rely on the declared identity/tenant-authorization/session guarantees rather than test identities or UI-only checks.
 
-## Subphases
+Phase 1 is kept as a detailed package because the accepted identity/authorization/session architecture already creates concrete trust boundaries whose safe behavior can be specified without inventing a future business topology.
+
+## Active subphases
 
 ```text
 1A  ZITADEL identity and account binding
@@ -18,9 +22,42 @@ A capability does not have to wait for Phase 1 to exist. Phase 1 is the point wh
 1E  Integrated Phase-1 gate
 ```
 
+These are active governance documents, so their claims require falsifiable evidence, permanent/recurring regression protection, and transitional restrictions where reachable intermediate states exist.
+
+## Why this shape is not a template
+
+Phase 1 has five detailed subphases because the **real responsibility currently being introduced** has that shape, not because a good SquiFlow phase is expected to have five files.
+
+This phase combines several interacting trust concerns that are already concrete:
+
+- externally reachable identity through an external identity provider;
+- tenant/account binding;
+- application authorization through OpenFGA plus SquiFlow-owned checks;
+- Web and native-client session behavior;
+- authorization/revocation changes that can race with active operations;
+- hostile input/identity/scope cases whose failure can become a security defect.
+
+Those responsibilities justify separate evidence and transition boundaries.
+
+A later phase with one narrow internal responsibility may legitimately have:
+
+```text
+README
++ one active subphase
++ one integration gate
+```
+
+or even one coherent active document if that is sufficient to express its real claims.
+
+Another phase may need more than five subphases. Neither shape is inherently more rigorous.
+
+Do **not** copy Phase 1's file count, headings, evidence categories, hostile-test inventory, provider structure, or transition model merely because it is the most recent detailed example. Copy only the global production-honesty/evidence discipline; derive the local document shape from the current responsibility.
+
+Structural similarity to Phase 1 is not a review criterion. A smaller earned structure is preferable to a larger structure created for visual completeness.
+
 ## Phase maturity added
 
-After Phase 1, externally reachable business behavior may rely on a real authenticated identity and current application authorization model rather than test identities or UI-only role checks.
+After Phase 1, externally reachable business behavior may rely on real authenticated identity and current application authorization for the specific surfaces/flows that have actually qualified. This does not imply that every future Admin/device/MFA/offline-security responsibility has been implemented.
 
 ## Components that may continue/add
 
@@ -35,6 +72,49 @@ After Phase 1, externally reachable business behavior may rely on a real authent
 
 Do not introduce Platform Admin, Worker, SyncApi, broker, service mesh, GraphQL, or new auth systems merely because identity/authorization now exists.
 
+If a real current requirement needs one of those responsibilities, promote it from `NOT_INTRODUCED`, create its current owner/gate from the real workload, and satisfy the global production-honesty/evidence contracts. Do not activate it by restoring a speculative future phase file.
+
+## Standards grounding
+
+Identity/OAuth implementation claims must be grounded in the standards actually used by the selected topology, not the phrase `production-shaped`.
+
+For the accepted Workstation browser flow and OAuth security baseline, relevant guidance includes:
+
+- RFC 9700 — OAuth 2.0 Security Best Current Practice;
+- RFC 8252 — OAuth 2.0 for Native Apps;
+- RFC 7636 — Proof Key for Code Exchange (PKCE);
+- OpenID Connect Core for OIDC-specific semantics.
+
+RFC 9449 defines DPoP; it is not the generic browser/native-app specification. DPoP/mTLS remain threat-model/topology driven rather than automatic requirements.
+
+## Transitional security contract
+
+Subphase sequencing does not grant permission for an insecure reachable intermediate state.
+
+Whenever the currently reachable Phase-1 surface has a later security guarantee still absent, record and enforce:
+
+```text
+what exists now
+what operations are allowed
+what operations are disabled/forbidden
+what guarantees have actually qualified
+what guarantees remain absent
+technical enforcement preventing accidental use
+real closing condition
+```
+
+Examples include authenticated-but-not-yet-authorized surfaces and authorized cookie-backed mutation before session/CSRF behavior has qualified. The exact transition applies only when that real intermediate surface exists.
+
 ## Sustainability
 
 Provider SDK types stay behind infrastructure/host adapters. `(issuer, subject)` and SquiFlow-owned permission/tenant semantics remain stable even if identity/authorization providers are replaced later.
+
+Security properties that qualify in Phase 1 remain regression-protected after Phase 1; later business phases do not weaken them merely because the trust phase is considered complete.
+
+## Relationship to future phases
+
+Phase 2–10 are currently direction-only `NOT_INTRODUCED` stubs. Phase 1 carry-forward entries may describe future needs and safe absence behavior, but they do not pre-write the future phase evidence map, cadence or subphase decomposition.
+
+The Phase 2–10 labels themselves remain planning guidance rather than a frozen sequence. If real work needs a responsibility earlier or reveals a better grouping, promote/restructure it from current facts.
+
+Non-authoritative future thinking lives in `docs/implementation/FUTURE_PHASE_CARRY_FORWARD.md`.

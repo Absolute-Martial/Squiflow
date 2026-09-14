@@ -1,145 +1,43 @@
-# Phase 0A — Principles-First Baseline Status
+# Phase 0A Baseline Status
 
-**Status:** **Complete / Qualified**  
-**Date:** 2026-09-14  
-**Baseline:** v0.0.20  
-**Completion branch:** `phase0/0a-baseline-complete-v20`  
-**Next gate:** 0B
+**Status:** COMPLETE / QUALIFIED as a documentation and repository-reconciliation gate  
+**Next active implementation gate:** Phase 0B
 
-This ledger records the evidence used to qualify 0A after the principles-first reset.
+## What 0A established
 
-## 1. Authority order
+0A established the current principles-first baseline after the implementation reset:
 
-```text
-1. focused canonical owner
-2. CURRENT_DECISIONS / accepted focused decision record
-3. implementation phase package
-4. master implementation-plan synthesis
-5. historical review/source-study/old branch/MR material
-```
+- accepted architecture/decision/requirement owners remain the source of truth;
+- earlier implementation code is historical evidence, not current implementation authority;
+- KISS means minimum accidental complexity with production-honest current behavior;
+- YAGNI prevents speculative projects/providers/processes/interfaces;
+- SOLID applies to real ownership/change/replacement/fault/security boundaries rather than one-interface-per-class ceremony;
+- target file/folder structures are growth maps, not scaffolding commands;
+- production/test projects are introduced only when real current responsibilities earn them;
+- phase gates distinguish `NOT_INTRODUCED`, `PRODUCTION_HONEST`, and `BLOCKED` responsibilities;
+- future phase governance detail is itself earned rather than pre-specified.
 
-Repository state proves implementation. Architecture docs may define future ownership without claiming a project exists.
+## Verification/evidence
 
-## 2. Current implementation inventory
+0A was a repository/document reconciliation gate. It intentionally did not create an executable test project merely to prove documentation changes.
 
-Current `.csproj` count: **0**.
+Its evidence is the reconciled owner/decision/implementation documentation and the absence of the purged Phase-0 runtime/project implementation from the current baseline.
 
-```text
-production/runtime projects: 0
-foundation projects:         0
-capability projects:         0
-test/spec projects:          0
-```
+## Handoff to 0B
 
-`SquiFlow.sln` is the empty rebuild container.
+0B must begin from real capability/application work and re-earn any shared Foundation/kernel primitive from current consumers.
 
-This is intentional. 0A qualifies the architecture/repository baseline; it does not manufacture implementation solely to obtain executable test evidence.
+Do not reconstruct the deleted `SquiFlow.ApplicationKernel` by memory or by copying historical code merely because it previously existed.
 
-## 3. Current structural truth
+Do not create future Phase 2–10 subphase/evidence structures while doing 0B. Those responsibilities remain direction-only `NOT_INTRODUCED` work until real product/runtime needs activate them. If 0B genuinely needs a later responsibility, promote that responsibility and derive its active gate from current facts.
 
-The tracked source ownership categories remain the canonical structure documented by `REPOSITORY_STRUCTURE.md` and `REPOSITORY_FOLDER_STRUCTURE.md`, including:
+## Non-claims
 
-```text
-apps/
-foundation/
-modules/
-services/
-tests/
-deploy/
-docs/
-```
+0A does not claim that:
 
-Some folders exist because scoped `AGENTS.md` guidance reserves ownership. Folder existence does not prove a project/runtime exists.
+- product/runtime implementation is production-ready;
+- Phase 1 security behavior has already been implemented;
+- local persistence/sync/Worker/Admin/provider/runtime boundaries exist;
+- future phase decomposition or evidence maps are already known.
 
-No `eng/` top-level category is accepted. No `.github/` folder is introduced by 0A.
-
-## 4. Rules and architecture owners confirmed
-
-The baseline has focused owners for:
-
-- engineering principles and complete KISS;
-- explicit boundaries and pragmatic SOLID;
-- repository/folder structure;
-- application-kernel/module direction;
-- capability ownership and authoritative execution;
-- Web/Sync ingress and workload boundaries;
-- schema/contract evolution;
-- multi-tenancy;
-- Workstation/Guard/local-first behavior;
-- server/Worker direction;
-- identity, authorization, encryption/key-management direction;
-- observability and verification strategy;
-- current accepted and intentionally open decisions.
-
-The root/scoped `AGENTS.md` hierarchy tells implementation work which local rules apply.
-
-## 5. Reset/history reconciliation
-
-The previous implementation remains available in Git history but is not current implementation authority.
-
-Relevant review lineage:
-
-- earlier implementation/reconciliation work remains historical evidence;
-- the principles-first reset established the v0.0.20 zero-project baseline;
-- MR !59 introduced an unapproved `eng/`/CI structure and was closed as superseded;
-- MR !60 introduced a premature `tests/architecture` executable merely to qualify 0A and is superseded by this documentation-only 0A completion approach;
-- the final 0A review path is the MR sourced from `phase0/0a-baseline-complete-v20`.
-
-Those superseded experiments are not architecture authority.
-
-## 6. Why no executable test belongs in 0A
-
-An architecture test is valuable when a concrete boundary exists to enforce. Before Foundation/capability/host projects exist, creating a test project only to assert an empty project set adds implementation whose only consumer is the gate itself.
-
-That violates YAGNI and the project-creation rule.
-
-The correct sequence is:
-
-```text
-0A: reconcile architecture/repository truth
-        ↓
-0B+: introduce first real implementation boundary
-        ↓
-introduce tests/specs that prove that real boundary
-```
-
-If 0B introduces Foundation/shared primitives, architecture specs can prove Foundation dependency rules in the same slice. If shared Foundation is not yet earned and the first implementation is capability-local, tests begin with that capability instead.
-
-## 7. 0A evidence actually performed
-
-Performed repository/static reconciliation includes:
-
-- audited current v0.0.20 repository state after the principles-first reset;
-- verified there are no current product/test `.csproj` projects on the clean baseline;
-- verified the solution is an empty rebuild container;
-- reviewed root and scoped `AGENTS.md` guidance;
-- reconciled repository/file-structure owners with current physical folders and growth maps;
-- established canonical source/decision precedence;
-- separated accepted decisions from intentionally open decisions;
-- preserved architecture, requirements, review evidence, and Git history while rejecting deleted implementation as current truth;
-- corrected the attempted `eng/` structure and the attempted premature architecture-test project;
-- confirmed 0A does not need runtime/build evidence because it intentionally introduces no executable implementation.
-
-## 8. 0A completion criteria
-
-| Criterion | Result |
-| --- | --- |
-| Canonical owner precedence is explicit | PASS |
-| Accepted vs open vs historical decisions are distinguishable | PASS |
-| Current project/runtime inventory is truthful | PASS — zero projects |
-| Canonical repository/folder structure is explicit | PASS |
-| AGENTS development-rule hierarchy is present | PASS |
-| Principles/SOLID/KISS rules are owned | PASS |
-| Previous implementation remains recoverable but non-authoritative | PASS |
-| No speculative Foundation/test/runtime project is required for 0A | PASS |
-| Next implementation gate and verification rule are explicit | PASS — 0B |
-
-**0A is therefore Qualified.**
-
-## 9. Handoff constraint for 0B
-
-0B must not recreate the old ApplicationKernel by default.
-
-It must start from a real current responsibility and introduce only the shared primitives/boundaries that current consumers earn. The same change must add the narrowest executable verification appropriate to whatever real code now exists.
-
-No later phase may use “we will harden it later” to justify incomplete current correctness, but no earlier phase may manufacture unused abstractions/tests merely to look complete.
+Those claims must be earned by later real implementation.
