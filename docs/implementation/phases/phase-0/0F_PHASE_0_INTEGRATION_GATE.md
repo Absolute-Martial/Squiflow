@@ -1,129 +1,85 @@
-# Phase 0F — Integrated Phase-0 Production-Honesty Gate and Carry-Forward Ledger
+# Phase 0F — Integrated Phase-0 Production-Honesty Gate
 
-**Gate-quality owner:** `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md`
+**Gate-quality owner:** `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md`  
+**Evidence/permanence owner:** `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md`
+
+## Purpose
+
+0F closes Phase 0 only for responsibilities that have actually been introduced. It does not force future hosts/providers/persistence/sync/security processes into existence merely to complete a roadmap checklist.
 
 ## Production intent
 
-Passing Phase 0 means later development can safely depend on the development foundations that **actually exist at that time** without treating them as disposable prototype architecture. It does not require every architecture-reserved host/provider/process to exist and does not make current code permanently finished.
+After 0F passes, developers can safely build the next real SquiFlow slice on top of the introduced Phase-0 architecture/foundation/host/engineering-safety responsibilities without depending on a known disposable shortcut or undocumented boundary.
 
-## Required scope contract
+## Scope-state rule
 
-Before Phase-0 sign-off, record:
+Every material Phase-0 responsibility at sign-off is exactly one of:
 
 ```text
-PRODUCTION INTENT
-- the real developer/operator/product scenario Phase 0 now makes dependable
-
-WITHIN SCOPE — PRODUCTION_HONEST
-- every introduced foundation/capability/host/process/verification responsibility
-- exact claim + owner + evidence
-
-NOT YET IN SCOPE — NOT_INTRODUCED
-- future hosts/providers/processes/capabilities deliberately absent
-- preservation constraint and trigger where material
-
+NOT_INTRODUCED
+PRODUCTION_HONEST
 BLOCKED
-- must be empty
 ```
 
-A narrow Phase-0 scope is acceptable. A shallow or knowingly disposable implementation inside the declared scope is not.
+`BLOCKED` must be empty before Phase 0 passes.
 
-## Integrated proof categories
+## Integrated evidence
 
-### Architecture ownership
+The gate must record the claims that actually exist and the evidence that can falsify them. Applicable examples include:
 
-Prove source precedence, explicit boundary ownership, one source of business meaning per capability, stable inward dependency direction, and in-process ordinary module communication for the boundaries actually introduced.
+- architecture/dependency rules;
+- Foundation/module ownership semantics;
+- host composition/lifecycle behavior for executables that actually exist;
+- repository verification/reproducibility;
+- secret/configuration handling;
+- bounded retry/resource/telemetry behavior for runtime paths that actually exist;
+- real capability behavior introduced during Phase 0.
 
-### Shared foundation/module model
+Each qualified material claim also records its permanent or recurring regression guard. A one-time green review is not enough.
 
-Prove only the primitives/modules that were actually introduced. If a kernel exists, prove its real duplicate/dependency/validation/composition semantics and that it does not encode executable topology. Do not require a kernel project merely for symmetry if real code has not earned one.
+## Carry-forward ledger
 
-### Host/process model
+Future responsibilities remain `NOT_INTRODUCED` and are recorded only to the degree needed to preserve current architecture.
 
-For every executable that exists, prove composition, startup/shutdown/cancellation, safe configuration, bounded behavior, failure semantics, and that the process boundary is justified. If Guard/Workstation/Web/CoreApi have not all been reintroduced, do not invent them solely to satisfy this gate.
-
-### Engineering safety
-
-Prove repository-owned build/test/architecture checks, safe secret/configuration handling, useful structured diagnostics, bounded resources/retries/buffers, and reproducible run/deployment instructions for actual components.
-
-### Development extensibility
-
-Prove a real capability can grow without business duplication or provider/host leakage and that another real responsibility can be added without inventing a competing architecture.
-
-## Failure exercises
-
-Exercise the failures implied by actual implementation, not a fixed historical project list. Examples may include invalid configuration, dependency-cycle/missing-dependency checks, process crashes/restart budgets, cancellation, provider outage, telemetry export failure, version mismatch, duplicate command/idempotency, or restore/migration failure—but only where those responsibilities exist.
-
-Never claim tests for PostgreSQL/SQLite/ZITADEL/OpenFGA/OpenBao/Sync/Worker/etc. unless the tested branch actually contains those implementations.
-
-A green suite cannot prove a property it never exercises. Each material claim must identify the owner/invariant it is proving and evidence capable of falsifying it.
-
-## Carry-forward record
-
-Only `NOT_INTRODUCED` items may be carried forward.
-
-Every material deferred item records:
+A material carry-forward entry records, where honestly knowable:
 
 ```text
 Item
 State = NOT_INTRODUCED
-Reason deferred
+Why deferred
 Owner
+Behavior while absent
+Why that absence behavior is safe for current scope
 Current preservation constraint
 Trigger
-Latest closing phase/gate
 Current check preventing accidental introduction/violation
 ```
 
-## Phase-debt classification
+Do not invent an exact latest closing gate, evidence map, cadence or future subphase decomposition when real future work is not yet known.
 
-Use exactly:
+Future Phase 2–10 planning detail belongs in `docs/implementation/FUTURE_PHASE_CARRY_FORWARD.md` as non-authoritative anticipation. It is not a Phase-0 promise that future implementation must match.
 
-```text
-NOT_INTRODUCED
-```
+## Pull-forward behavior
 
-or:
+If current Phase-0 work genuinely needs a responsibility nominally associated with a later roadmap phase:
 
 ```text
-PRODUCTION_HONEST
+real requirement
+→ promote responsibility from NOT_INTRODUCED
+→ create/update active owner from current facts
+→ satisfy production-honesty + evidence/permanence contracts now
+→ continue
 ```
 
-or:
+Do not create a temporary unsafe substitute on the assumption that a future phase will fix it.
 
-```text
-BLOCKED
-```
+## Exit gate
 
-Meaning:
+Phase 0 passes only when:
 
-- `NOT_INTRODUCED`: honest future scope; may be carried forward.
-- `PRODUCTION_HONEST`: introduced and trustworthy for its declared scope; may gain new breadth later.
-- `BLOCKED`: introduced but not trustworthy for its claimed scope; **cannot pass the gate and cannot be carried forward**.
-
-Do not accept:
-
-```text
-introduced on a real path,
-but correctness/security/recovery/compatibility will be fixed later
-```
-
-Later phases may add new responsibility. They cannot excuse defects in responsibility already claimed.
-
-## Final exit questions
-
-Phase 0 does not pass unless reviewers can answer `yes`, with evidence, to the applicable questions:
-
-1. What real scenario does this Phase-0 scope now make dependable?
-2. Is every introduced responsibility production-honest for its explicit claim?
-3. Is `BLOCKED` empty?
-4. Are failure/security/durability/recovery/resource/compatibility obligations covered where the introduced scope requires them?
-5. Can another developer reproduce the important verification from repository instructions without tribal knowledge?
-6. Can we state plainly what Phase 0 does **not** yet provide?
-7. Is there any known introduced shortcut we already expect to rewrite merely to make the current claim trustworthy?
-
-If question 7 is `yes`, the gate does not pass.
-
-## Final exit statement
-
-Phase 0 passes when SquiFlow has a trustworthy, reproducible, explicitly bounded, production-honest development foundation on which later identity, persistence, local-first, synchronization, Admin, Worker, file/recovery, protected financial/inventory, and production capabilities can be added without treating current code as disposable and without prebuilding future architecture for appearance.
+- all introduced Phase-0 responsibilities are `PRODUCTION_HONEST`;
+- `BLOCKED = none`;
+- material claims have falsifiable evidence;
+- applicable permanent/recurring regression guards are defined;
+- future responsibilities remain honestly `NOT_INTRODUCED` rather than partially implemented;
+- the repository can state clearly what has **not** yet been implemented without implying future phase detail is already settled.
