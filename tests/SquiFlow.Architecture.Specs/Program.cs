@@ -3,11 +3,24 @@ using System.Xml.Linq;
 var repoRoot = FindRepositoryRoot(AppContext.BaseDirectory);
 var failures = new List<string>();
 
+var moduleAdapterSuffixes = new[]
+{
+    ".Workstation",
+    ".Web",
+    ".Api",
+    ".Postgres",
+    ".Sqlite"
+};
+
 var neutralProjects = Directory
     .EnumerateFiles(Path.Combine(repoRoot, "foundation", "application-kernel"), "*.csproj", SearchOption.AllDirectories)
     .Concat(Directory.Exists(Path.Combine(repoRoot, "modules"))
         ? Directory.EnumerateFiles(Path.Combine(repoRoot, "modules"), "*.csproj", SearchOption.AllDirectories)
-            .Where(path => Path.GetFileNameWithoutExtension(path).Count(character => character == '.') == 1)
+            .Where(path =>
+            {
+                var projectName = Path.GetFileNameWithoutExtension(path);
+                return !moduleAdapterSuffixes.Any(suffix => projectName.EndsWith(suffix, StringComparison.OrdinalIgnoreCase));
+            })
         : Array.Empty<string>())
     .ToArray();
 
