@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using SquiFlow.ApplicationKernel;
 using SquiFlow.ApplicationKernel.Features;
 using SquiFlow.ApplicationKernel.Hosting;
 using SquiFlow.ApplicationKernel.Modules;
