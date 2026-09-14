@@ -2,13 +2,15 @@
 
 **Version:** v0.0.20  
 **Purpose:** directory-only view of SquiFlow repository structure.  
-**Important:** directory presence is not proof that a runtime/project is implemented. The tree in section 1 is the Phase-0A qualification snapshot, not a permanent requirement that later active branches remain project-empty.
+**Important:** directory presence is not proof that a runtime/project/responsibility is production-qualified. The 0A reset snapshot was implementation-empty; the active 0B slice has now earned one compact capability project and one unit-test project.
 
 This document complements `REPOSITORY_STRUCTURE.md`. It intentionally shows **folders only**. Files, project files, source files, configuration files, and documentation filenames are omitted from every tree.
 
-## 1. Phase-0A qualification snapshot
+For physical `.csproj` placement, `REPOSITORY_STRUCTURE.md` is the more specific project-structure owner. A logical `core` responsibility does not require an extra `core/` folder when a compact capability is represented by one `SquiFlow.<Capability>/` project.
 
-At 0A qualification, the repository contained these tracked directory paths:
+## 1. Current physical folder tree
+
+The active 0B branch contains these source/test paths in addition to the retained documentation/ownership directories:
 
 ```text
 SquiFlow/
@@ -56,13 +58,18 @@ SquiFlow/
 │   └── workstation/
 ├── foundation/
 ├── modules/
+│   └── parties/
+│       └── SquiFlow.Parties/
+│           └── Domain/
 ├── services/
 └── tests/
+    └── unit/
+        └── SquiFlow.Parties.Tests/
+            ├── Architecture/
+            └── Domain/
 ```
 
-Some source-area directories existed only because repository guidance such as scoped agent instructions was tracked there. They were not evidence that the previous implementation survived the reset.
-
-Later active work may legitimately add subfolders/projects when a real responsibility earns them. Such additions update the current implementation record without changing the historical 0A snapshot above.
+`modules/parties/SquiFlow.Parties/` is the first real capability project location. The empty `foundation/`, application/service ownership folders, and other reserved directories still do not imply those runtimes/projects exist.
 
 ## 2. Accepted growth map — folders only
 
@@ -105,11 +112,11 @@ SquiFlow/
 └── docs/
 ```
 
-The `<capability>` child folders above are responsibility labels, not mandatory physical splits. A capability should stay compact until compiler/provider/platform/packaging/lifecycle pressure earns separation. For exact physical `.csproj` placement, `REPOSITORY_STRUCTURE.md` is the more specific owner.
+The `<capability>` child names above describe logical responsibility categories and possible future physical splits. They are **not mandatory physical folders**. A compact capability can instead be one project directory directly under the capability, as shown by `modules/parties/SquiFlow.Parties/`, until a real compiler/provider/platform/packaging/lifecycle boundary earns `core/`, `server/`, `workstation/`, or `postgres/` separation.
 
 ## 3. Compact capability folder shape
 
-A compact capability may be represented physically as one project directory directly under the capability, for example:
+The current preferred compact physical shape is:
 
 ```text
 modules/
@@ -123,11 +130,13 @@ modules/
         └── Events/
 ```
 
-Create only the child folders that current code actually needs. A logical core responsibility does not require a second physical `core/` layer merely to name that responsibility.
+Create only the child folders that current code actually needs. The first Parties slice currently needs only `Domain/`.
+
+Conceptually this compact project owns the capability's host-neutral/core responsibility. It does not need a second physical `core/` layer merely to name that responsibility.
 
 ## 4. Earned provider/host expansion
 
-A capability may later grow to:
+When real boundaries appear, a capability may later gain responsibility-specific project/folder locations such as:
 
 ```text
 modules/
@@ -137,7 +146,7 @@ modules/
     └── SquiFlow.<Capability>.Workstation/
 ```
 
-and, only when a further compile-time/application split is genuinely useful, additional projects may be introduced according to `REPOSITORY_STRUCTURE.md` and the focused capability owner.
+and, only when a separate authoritative application/compile-time boundary is genuinely useful, another project may be introduced for that responsibility according to `REPOSITORY_STRUCTURE.md` and the focused capability owner.
 
 This is progressive growth, not a required final shape.
 
@@ -171,7 +180,15 @@ These are workload/process boundaries, not separate business implementations. Th
 
 ## 7. Testing folder growth
 
-At 0A qualification there were no test projects. As implementation is reintroduced, `tests/` may grow by verification responsibility rather than by mirroring every production folder:
+The active 0B slice has earned only the unit-test category:
+
+```text
+tests/
+└── unit/
+    └── SquiFlow.Parties.Tests/
+```
+
+As implementation grows, `tests/` may gain other verification responsibilities:
 
 ```text
 tests/
@@ -185,7 +202,7 @@ tests/
 └── performance/
 ```
 
-This is a classification map, not a requirement to create all categories. Use only the layers needed to prove real claims. A small architecture assertion may live in an existing test project if it does not justify a separate architecture-test project.
+This is a classification map, not a requirement to create all categories. A small architecture assertion may live inside an existing test project, as the current Parties dependency-boundary test does; create a separate `tests/architecture/` project/folder only when that distinct verification responsibility is earned.
 
 ## 8. Folder creation rule
 
