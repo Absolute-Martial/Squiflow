@@ -17,6 +17,8 @@ This phase anticipates real workloads involving large objects/attachments, docum
 
 The first real capability needs provider-backed durable objects, document/printing effects, or a recovery set whose restore must be qualified.
 
-At activation, derive ownership, integrity, capacity, failure and restore evidence from the actual data/provider topology. Do not restore the retired 7A–7E map by default.
+## On activation
+
+Derive ownership, integrity, capacity, transfer, printing and restore evidence from the actual data/provider topology. The former `7A–7E` split is not reserved and may be replaced by whichever decomposition matches the real workload.
 
 See `docs/implementation/FUTURE_PHASE_CARRY_FORWARD.md`.
