@@ -37,18 +37,17 @@ Supplier / outsourced producer / vendor
 |---|---|---|---|
 | `0B-PARTY-KIND` | `BLOCKED` pending executable evidence | `SquiFlow.Parties.Domain.PartyKind` contains only `Person` and `Organization`, matching the accepted Party structural meaning. It does not encode Customer/Supplier/Account roles. | `PartyKindTests.Accepted_kinds_match_the_documented_party_semantics`; source review against `BUSINESS_TERMS.md`. |
 | `0B-PARTIES-DEPENDENCY-BOUNDARY` | `BLOCKED` pending executable evidence | The first Parties capability project is host/provider neutral and currently has no outward project or package dependency. | `PartiesDependencyBoundaryTests.Capability_has_no_outward_project_or_package_dependencies`; the test becomes a requalification point if a dependency is later earned. |
+| `0B-VERIFICATION-CI` | `BLOCKED` by runner/quota availability | Root `.gitlab-ci.yml` is a thin orchestration layer over the same repository-owned restore/build/test commands and introduces no new tooling folder. | Pipeline `#174` / job `verify-dotnet` was created successfully but failed before start with GitLab `failure_reason = ci_quota_exceeded`; runner is null and no `dotnet` command executed. |
 | `0B-FOUNDATION-KERNEL` | `NOT_INTRODUCED` | No `SquiFlow.ApplicationKernel`, module descriptor graph, shared primitives project, feature/settings/permission kernel, host registry, or execution-mode enum exists. | Repository/project inventory; 0B owner explicitly requires current pressure before extraction. |
 | `0B-PARTY-IDENTITY` | `NOT_INTRODUCED` | No GUID/ULID/string identity encoding/generator/API/persistence contract is selected. | Absence is intentional because current owners specify stable internal identity semantics but do not select an encoding. |
 | `0B-PARTY-LIFECYCLE` | `NOT_INTRODUCED` | No Party aggregate lifecycle, mutation, contact/profile model, merge workflow, Customer/Account relationship, or persistence is claimed. | `BUSINESS_TERMS.md` and `CROSS_CUTTING_BUSINESS_PRIMITIVES.md` remain the source of current semantics/non-semantics. |
 | `0B-RUNTIME` | `NOT_INTRODUCED` | No Web, Workstation, API, Sync, Worker, Admin, database/provider, or durable runtime is added. | Project inventory and dependency-boundary test. |
 
-## Why the introduced claims are currently `BLOCKED`
+## Why the introduced code claims are currently `BLOCKED`
 
-The source and test intent are reviewable, but this environment does not contain the .NET SDK, so the required executable evidence has not been run.
+The source and test intent are reviewable, but this assistant workspace has no .NET SDK and cannot resolve external hosts, so local provisioning/execution is unavailable.
 
-The introduced code therefore cannot be promoted to `PRODUCTION_HONEST` merely because it looks correct in review.
-
-Required evidence:
+The repository now has a thin GitLab CI job for the exact required commands:
 
 ```text
 dotnet restore SquiFlow.sln
@@ -56,7 +55,9 @@ dotnet build SquiFlow.sln -c Release --no-restore
 dotnet test SquiFlow.sln -c Release --no-build
 ```
 
-Until those commands pass on the branch (or equivalent repository-owned CI evidence exists), the two introduced implementation claims remain `BLOCKED` and 0B cannot pass.
+Pipeline `#174` (`2847992488`) was created for commit `2914b7d8`, proving the YAML is accepted by GitLab. The `verify-dotnet` job did **not** start: GitLab reported `failure_reason = ci_quota_exceeded`, with no runner assigned. Therefore the failed pipeline is an infrastructure/quota failure, not evidence that restore/build/tests failed.
+
+Until those commands actually pass on this branch, the Party-kind and dependency-boundary claims remain `BLOCKED` and 0B cannot pass.
 
 ## Static review completed
 
@@ -70,10 +71,11 @@ Repository-side static review currently confirms:
 - the production project declares no package or project references;
 - `Directory.Packages.props` contains only the currently consumed xUnit test package version;
 - `global.json` retains the .NET 10 SDK baseline and selects Microsoft Testing Platform for the test runner;
-- current-state repository/structure/decision documents distinguish the 0A zero-project snapshot from the active 0B two-project state;
-- branch searches find no stale active wording that says 0B is still “next to re-derive” or that there is no active product/runtime/test implementation.
+- `.gitlab-ci.yml` is a root file only and executes the same repository-owned verification commands; it does not introduce an `eng/`, `.github/`, tooling, or other top-level folder;
+- current-state repository/structure documents distinguish the 0A zero-project snapshot from the active 0B two-project state;
+- stale-state searches only return self-describing audit/status text or explicitly historical decision material, not an active focused owner claiming deleted runtime exists.
 
-This is static/repository evidence only. It does **not** replace the required restore/build/test execution.
+This is static/repository evidence only. It does **not** replace required restore/build/test execution.
 
 ## Test/runtime tooling introduced with the real code
 
@@ -81,9 +83,10 @@ The first test project uses xUnit v3 with Microsoft Testing Platform under the .
 
 - package: `xunit.v3.mtp-v2` `4.0.0`;
 - central package version: `Directory.Packages.props`;
-- `.NET 10` runner selection: `global.json` → `Microsoft.Testing.Platform`.
+- `.NET 10` runner selection: `global.json` → `Microsoft.Testing.Platform`;
+- recurring CI entry point: root `.gitlab-ci.yml`, using the official `mcr.microsoft.com/dotnet/sdk:10.0` SDK image and the same restore/build/test commands.
 
-This tooling exists because a real capability boundary now exists. It is not a revived 0A architecture-test project.
+This tooling exists because a real capability boundary now exists. It is not a revived 0A architecture-test project and it does not create a new source/tooling directory.
 
 ## Permanent regression direction
 
@@ -91,6 +94,7 @@ Once executable evidence passes:
 
 - the Party-kind contract test remains a normal per-change regression guard for the accepted semantic distinction;
 - the Parties dependency-boundary test remains a normal guard while the capability has no earned outward dependency;
+- `.gitlab-ci.yml` remains a thin recurring orchestration layer over the same repository-owned commands; a self-managed runner is preferred if hosted quota remains unavailable;
 - a future MR may deliberately change the dependency claim only by naming the real consumer/pressure, updating the scope record, and adding evidence for the new boundary;
 - a future persistence/API/serialized contract must not infer stable numeric enum values from this internal type without an explicit compatibility decision.
 
