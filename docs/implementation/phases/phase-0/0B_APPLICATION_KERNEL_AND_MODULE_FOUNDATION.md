@@ -17,7 +17,7 @@ There is currently **no `SquiFlow.ApplicationKernel` project and no capability p
 
 ## Foundation rule
 
-A primitive belongs in Foundation only when its meaning is product-wide and at least one real current consumer needs it. Prefer capability-owned types until common semantics are demonstrated.
+A primitive belongs in Foundation only when its meaning is product-wide and real current consumers need it. Prefer capability-owned types until common semantics are demonstrated.
 
 Potential shared concepts from accepted architecture include stable identifiers, tenant/security context, feature/permission/setting definitions, execution-authority semantics, and module dependency/composition primitives. Their exact shape is re-earned from consumers rather than copied from the deleted implementation.
 
@@ -59,7 +59,7 @@ Execution/authority vocabulary such as `DeviceLocal`, `LocalProvisional`, and `S
 
 A real capability may be the first code introduced. Example shapes in repository docs are illustrative. Start with the folders/types the declared scope actually needs and keep the responsibility coherent.
 
-If a second real capability exposes duplicated stable product-wide semantics, that is evidence to extract/strengthen Foundation.
+If real capability work exposes duplicated stable product-wide semantics, that is evidence to extract/strengthen Foundation. Do not manufacture a second consumer merely to satisfy a reuse checklist.
 
 ## Smallest production-honest scope
 
@@ -84,31 +84,17 @@ A narrow primitive is fine. A shallow primitive whose known failure/validation/d
 
 Do not build future features merely to make the kernel broad. Breadth can remain small; the depth of the declared claim cannot be prototype-grade.
 
-## Permanent verification
+## Verification
 
-As concrete assemblies/boundaries appear, add executable architecture rules for the claims they create. Examples include:
+As real boundaries appear, add tests for the claims they introduce, such as duplicate IDs, missing/cyclic dependencies, deterministic ordering, provider/host leakage, stable validation, and dependency-direction violations where those semantics actually exist.
 
-- Foundation/host-neutral assemblies cannot reference UI/host/provider/persistence/identity/authorization/scheduler/actor/vendor SDK assemblies;
-- capability business assemblies cannot depend on host adapters;
-- provider types cannot leak into capability public contracts;
-- ordinary same-process modules cannot require HTTP/gRPC to communicate;
-- duplicate/missing/cyclic module/dependency IDs are rejected where a module graph exists;
-- ordering/validation semantics are deterministic where promised.
+Architecture tests should be as small as possible while mechanically protecting real boundaries.
 
-These checks run `PER_MR` and remain active after 0B passes. NetArchTest or an equivalent .NET architecture-testing/static mechanism may implement the rules once concrete assemblies exist; no package is selected merely for appearance.
+Once an architecture/dependency claim qualifies, its mechanical rule remains a normal regression guard for later changes that can violate the same boundary.
 
 A passing test is evidence only when it traces to an accepted invariant/contract; tests written around an implementation shortcut do not redefine that shortcut as correct.
 
-## Requalification triggers
-
-Re-run/review 0B architecture evidence when materially changing:
-
-- project/assembly decomposition;
-- Foundation ownership;
-- public capability contracts;
-- provider/host adapter placement;
-- module dependency/composition mechanism;
-- a package/reference that could cross a forbidden boundary.
+Do not pre-write architecture checks for assemblies/projects/providers that have not been created.
 
 ## Scope contract before exit
 
@@ -116,8 +102,7 @@ Before 0B closes, record:
 
 - the production intent above as achieved by a real consumer scenario;
 - every introduced primitive/boundary as `PRODUCTION_HONEST` with evidence;
-- the exact permanent architecture checks guarding the claims;
-- genuinely future items as `NOT_INTRODUCED` with safe absence behavior where material;
+- genuinely future items as `NOT_INTRODUCED`;
 - `BLOCKED = none`.
 
 ## Exit gate
@@ -125,10 +110,10 @@ Before 0B closes, record:
 0B passes when real capability work proves that:
 
 - shared primitives have clear product-wide ownership;
-- at least two meaningful consumers can use the composition/foundation model without a competing framework, or an equivalent real reuse pressure is proven;
+- the introduced shared abstraction is justified by real current reuse/change pressure rather than phase symmetry;
 - no executable topology leaks into capability metadata;
 - dependency direction is mechanically protected where a compile-time boundary exists;
 - every introduced primitive is production-honest for its declared semantics rather than a phase-only stub;
 - no speculative common framework has been created;
-- there is no known introduced shortcut that must be rewritten merely to make the declared 0B guarantee trustworthy;
-- the qualifying evidence is protected by permanent `PER_MR` regression checks.
+- no speculative future evidence map has been created around not-yet-existing boundaries;
+- there is no known introduced shortcut that must be rewritten merely to make the declared 0B guarantee trustworthy.
