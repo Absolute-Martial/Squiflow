@@ -22,7 +22,7 @@ tests/unit/SquiFlow.Parties.Tests/SquiFlow.Parties.Tests.csproj
 
 The current production-code scope is only the accepted Party structural distinction `Person | Organization`. No Foundation/ApplicationKernel project, application/service executable, persistence/provider adapter, sync/runtime security implementation, or complete Party/Customer model is claimed.
 
-The introduced 0B code claims and CI execution path remain `BLOCKED` until executable restore/build/test evidence passes. See `0B_STATUS.md`.
+The introduced 0B code claims and CI execution paths remain `BLOCKED` until executable restore/build/test evidence passes. See `0B_STATUS.md`.
 
 Read first:
 
@@ -145,12 +145,26 @@ dotnet test SquiFlow.sln -c Release --no-build
 
 The current tests cover the Party-kind semantic and the initial Parties dependency boundary. They do not imply that runtime/provider/persistence/security behavior exists.
 
-The root `.gitlab-ci.yml` invokes those same commands for executable/build-input changes. Pipeline `#174` was created successfully, but its job failed before start with `ci_quota_exceeded`; no runner executed the commands. That is a verification-infrastructure blocker, not a code/test failure.
+GitLab CI invokes those commands from root `.gitlab-ci.yml`. Pipeline `#174` was created successfully, but its job failed before start with `ci_quota_exceeded`; no runner executed the commands. That is a verification-infrastructure blocker, not a code/test failure.
+
+GitHub Actions invokes the same commands from `.github/workflows/verify-dotnet.yml`, with `actions/setup-dotnet` reading root `global.json`. The user manages the GitHub mirror/remote independently, so no GitHub run is claimed until this branch is pushed there and the workflow actually succeeds.
+
+A successful run on either legitimate CI host can provide the executable evidence for the current code claims. Configuration presence alone cannot.
 
 Once a material claim qualifies, its regression guard remains active until the claim is retired or superseded deliberately.
 
 ## CI/CD
 
-0B has now earned a single root `.gitlab-ci.yml` as its recurring executable verification boundary. No `eng/`, `.github/`, or other CI/tooling folder was introduced.
+0B has earned dual-host CI because executable verification is real and GitLab hosted capacity is currently unavailable:
 
-The job is deliberately a thin wrapper over repository-owned commands and is restricted to executable/build-input changes. Hosted GitLab quota is currently exhausted; the preferred operational path is a self-managed runner using this same job definition rather than creating a separate verification mechanism.
+```text
+GitLab: .gitlab-ci.yml
+GitHub: .github/workflows/verify-dotnet.yml
+             ↓
+       same repository-owned
+       restore/build/test commands
+```
+
+This is one verification contract with two execution hosts. Do not create separate GitLab/GitHub build semantics, host-specific business tests, or custom tooling trees merely to support mirroring.
+
+Both paths are restricted to executable/build-input changes so documentation-only commits do not consume CI capacity. `global.json` remains the SDK authority.
