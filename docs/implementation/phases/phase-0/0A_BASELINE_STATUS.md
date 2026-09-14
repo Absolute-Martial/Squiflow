@@ -1,11 +1,12 @@
-# Phase 0A — Principles-First Reset Baseline Status
+# Phase 0A — Principles-First Baseline Status
 
-**Status:** reset baseline established; implementation rebuild not yet qualified  
+**Status:** **Complete / Qualified**  
 **Date:** 2026-09-14  
 **Baseline:** v0.0.20  
-**Working branch:** `rewrite/principles-first-reset`
+**Completion branch:** `phase0/0a-baseline-complete-v20`  
+**Next gate:** 0B
 
-This ledger records current repository truth after the deliberate implementation purge. Earlier Phase-0 implementation remains in Git history; it is no longer current implementation authority.
+This ledger records the evidence used to qualify 0A after the principles-first reset.
 
 ## 1. Authority order
 
@@ -14,103 +15,131 @@ This ledger records current repository truth after the deliberate implementation
 2. CURRENT_DECISIONS / accepted focused decision record
 3. implementation phase package
 4. master implementation-plan synthesis
-5. historical review/source-study/chat/old branch/MR material
+5. historical review/source-study/old branch/MR material
 ```
 
-Repository state proves implementation; architecture docs may define future ownership without claiming a project exists.
+Repository state proves implementation. Architecture docs may define future ownership without claiming a project exists.
 
-## 2. Why the reset happened
+## 2. Current implementation inventory
 
-The previous code introduced useful ideas but also allowed phase-driven/demo-shaped implementation and shared abstractions that could encode deployment topology prematurely. The rebuild starts from explicit boundaries and development principles instead of preserving code merely because it already exists.
-
-Chesterton's Fence is satisfied by retaining Git history, architecture/decision documents, reviews, and phase records before removing implementation.
-
-Detailed decision: `docs/decisions/PRINCIPLES_FIRST_RESET_2026-09-14.md`.
-
-## 3. Current implementation inventory
-
-Current `*.csproj` count: **0**.
-
-Current production/test project tree: **none**.
-
-Retained root/tooling:
+Current `.csproj` count: **0**.
 
 ```text
+production/runtime projects: 0
+foundation projects:         0
+capability projects:         0
+test/spec projects:          0
+```
+
+`SquiFlow.sln` is the empty rebuild container.
+
+This is intentional. 0A qualifies the architecture/repository baseline; it does not manufacture implementation solely to obtain executable test evidence.
+
+## 3. Current structural truth
+
+The tracked source ownership categories remain the canonical structure documented by `REPOSITORY_STRUCTURE.md` and `REPOSITORY_FOLDER_STRUCTURE.md`, including:
+
+```text
+apps/
+foundation/
+modules/
+services/
+tests/
+deploy/
 docs/
-deploy/README.md
-global.json
-Directory.Build.props
-Directory.Packages.props   # central management enabled, no unused versions
-SquiFlow.sln               # empty solution container
-VERSION                     # v0.0.20
-CURRENT_VERSION.txt         # v0.0.20
 ```
 
-No application/service/foundation/capability/test project is considered current until it is intentionally reintroduced.
+Some folders exist because scoped `AGENTS.md` guidance reserves ownership. Folder existence does not prove a project/runtime exists.
 
-## 4. Architecture and file-structure knowledge retained
+No `eng/` top-level category is accepted. No `.github/` folder is introduced by 0A.
 
-The reset does not discard the accepted architecture. In particular, preserve and use:
+## 4. Rules and architecture owners confirmed
 
-- `docs/architecture/REPOSITORY_STRUCTURE.md` — target/current ownership map and sample structures;
-- `docs/architecture/ENGINEERING_PRINCIPLES.md` — development rules and complete KISS;
-- `docs/architecture/EXPLICIT_BOUNDARIES_AND_SOLID.md` — ownership/dependency/SOLID boundary rules;
-- capability/host/persistence/sync/security/workstation/server focused owners;
-- `docs/decisions/CURRENT_DECISIONS.md`;
-- requirements, review evidence, and phase packages.
+The baseline has focused owners for:
 
-Sample file trees are guidance for placement and future decomposition. They are **not mandatory scaffolding**.
+- engineering principles and complete KISS;
+- explicit boundaries and pragmatic SOLID;
+- repository/folder structure;
+- application-kernel/module direction;
+- capability ownership and authoritative execution;
+- Web/Sync ingress and workload boundaries;
+- schema/contract evolution;
+- multi-tenancy;
+- Workstation/Guard/local-first behavior;
+- server/Worker direction;
+- identity, authorization, encryption/key-management direction;
+- observability and verification strategy;
+- current accepted and intentionally open decisions.
 
-## 5. Development rules for the rebuild
+The root/scoped `AGENTS.md` hierarchy tells implementation work which local rules apply.
 
-A phase is a minimum maturity/verification floor, not an implementation ceiling.
+## 5. Reset/history reconciliation
 
-KISS means the simplest complete design, including the material edge/failure/recovery/security/concurrency/compatibility/resource/observability cases of the responsibility being introduced.
+The previous implementation remains available in Git history but is not current implementation authority.
 
-YAGNI forbids speculative projects/providers/processes/interfaces. It does not permit omission of required behavior for a responsibility that exists now.
+Relevant review lineage:
 
-SOLID is applied as change-safety and boundary guidance, not interface/class count.
+- earlier implementation/reconciliation work remains historical evidence;
+- the principles-first reset established the v0.0.20 zero-project baseline;
+- MR !59 introduced an unapproved `eng/`/CI structure and was closed as superseded;
+- MR !60 introduced a premature `tests/architecture` executable merely to qualify 0A and is superseded by this documentation-only 0A completion approach;
+- the final 0A review path is the MR sourced from `phase0/0a-baseline-complete-v20`.
 
-New code must make ownership, authority/state, allowed dependencies, forbidden crossings, failure semantics, compatibility, security, resource bounds, diagnostics, and verification explicit at the appropriate level.
+Those superseded experiments are not architecture authority.
 
-## 6. Git/MR lineage
+## 6. Why no executable test belongs in 0A
 
-- MR !54 is the merged documentation-first rewrite on `main` and remains historical baseline context.
-- MR !55 (`phase0/0a-baseline-reconciliation`) captured useful v0.0.19 architecture corrections but is **superseded by the v0.0.20 principles-first reset before merge**.
-- `rewrite/principles-first-reset` starts from !55's useful architecture corrections, then removes the implementation/test projects and reconciles the docs to the zero-code rebuild baseline.
-- The replacement reset MR is the only review path that should be merged for this change set.
+An architecture test is valuable when a concrete boundary exists to enforce. Before Foundation/capability/host projects exist, creating a test project only to assert an empty project set adds implementation whose only consumer is the gate itself.
 
-A branch/MR is never current `main` implementation merely because it exists.
+That violates YAGNI and the project-creation rule.
 
-## 7. CI/CD decision
-
-The earlier no-CI directive is superseded. Repository CI/CD is allowed and expected to be thin orchestration over repository-owned local verification. GitHub/GitLab may both point to the same Git history/workflow, while self-hosted/self-managed runners are preferred to reduce hosted build-minute consumption.
-
-No hosted pipeline has been triggered by this reset.
-
-## 8. What is not implemented
-
-Everything application-facing is currently NOT INTRODUCED, including Workstation, Guard, Web, CoreApi, ApplicationKernel, Observability library, Customers, tests, PostgreSQL/SQLite integration, identity/authorization/key-management providers, sync, Worker, Admin, object storage, backup, and production deployment.
-
-Accepted technology/architecture directions remain documented; implementation will be re-earned slice by slice.
-
-## 9. Verification state
-
-The reset itself is verified structurally by repository inventory and commit history. There is currently no production/test project to claim as compiled or passing.
-
-When the first project is reintroduced, restore/build/tests/architecture checks become part of that change rather than being postponed to a later phase.
-
-## 10. Next implementation condition
-
-Do not begin by recreating the old tree. The first implementation slice must:
+The correct sequence is:
 
 ```text
-accepted requirement/decision
-→ explicit responsibility and boundary
-→ material edge/failure/security/compatibility analysis
-→ simplest complete design
-→ only earned project/folder/interface/process boundaries
-→ verification alongside implementation
+0A: reconcile architecture/repository truth
+        ↓
+0B+: introduce first real implementation boundary
+        ↓
+introduce tests/specs that prove that real boundary
 ```
 
-This is the baseline from which Phase 0 development restarts.
+If 0B introduces Foundation/shared primitives, architecture specs can prove Foundation dependency rules in the same slice. If shared Foundation is not yet earned and the first implementation is capability-local, tests begin with that capability instead.
+
+## 7. 0A evidence actually performed
+
+Performed repository/static reconciliation includes:
+
+- audited current v0.0.20 repository state after the principles-first reset;
+- verified there are no current product/test `.csproj` projects on the clean baseline;
+- verified the solution is an empty rebuild container;
+- reviewed root and scoped `AGENTS.md` guidance;
+- reconciled repository/file-structure owners with current physical folders and growth maps;
+- established canonical source/decision precedence;
+- separated accepted decisions from intentionally open decisions;
+- preserved architecture, requirements, review evidence, and Git history while rejecting deleted implementation as current truth;
+- corrected the attempted `eng/` structure and the attempted premature architecture-test project;
+- confirmed 0A does not need runtime/build evidence because it intentionally introduces no executable implementation.
+
+## 8. 0A completion criteria
+
+| Criterion | Result |
+| --- | --- |
+| Canonical owner precedence is explicit | PASS |
+| Accepted vs open vs historical decisions are distinguishable | PASS |
+| Current project/runtime inventory is truthful | PASS — zero projects |
+| Canonical repository/folder structure is explicit | PASS |
+| AGENTS development-rule hierarchy is present | PASS |
+| Principles/SOLID/KISS rules are owned | PASS |
+| Previous implementation remains recoverable but non-authoritative | PASS |
+| No speculative Foundation/test/runtime project is required for 0A | PASS |
+| Next implementation gate and verification rule are explicit | PASS — 0B |
+
+**0A is therefore Qualified.**
+
+## 9. Handoff constraint for 0B
+
+0B must not recreate the old ApplicationKernel by default.
+
+It must start from a real current responsibility and introduce only the shared primitives/boundaries that current consumers earn. The same change must add the narrowest executable verification appropriate to whatever real code now exists.
+
+No later phase may use “we will harden it later” to justify incomplete current correctness, but no earlier phase may manufacture unused abstractions/tests merely to look complete.
