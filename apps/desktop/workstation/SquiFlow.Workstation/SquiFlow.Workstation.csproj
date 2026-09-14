@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../../foundation/application-kernel/SquiFlow.ApplicationKernel/SquiFlow.ApplicationKernel.csproj" />
+    <ProjectReference Include="../../../../foundation/observability/SquiFlow.Observability/SquiFlow.Observability.csproj" />
+    <ProjectReference Include="../../../../modules/customers/SquiFlow.Customers/SquiFlow.Customers.csproj" />
+    <ProjectReference Include="../../../../modules/customers/SquiFlow.Customers.Workstation/SquiFlow.Customers.Workstation.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+  </ItemGroup>
+</Project>
