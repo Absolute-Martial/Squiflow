@@ -140,6 +140,14 @@ Performed repository/static reconciliation includes:
 
 0B must not recreate the old ApplicationKernel by default.
 
-It must start from a real current responsibility and introduce only the shared primitives/boundaries that current consumers earn. The same change must add the narrowest executable verification appropriate to whatever real code now exists.
+It must start from a real declared scope and introduce only the shared primitives/boundaries that current consumers earn. The same change must add the narrowest executable verification capable of falsifying the claims that real code now makes.
 
-No later phase may use “we will harden it later” to justify incomplete current correctness, but no earlier phase may manufacture unused abstractions/tests merely to look complete.
+From 0B onward, apply `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md`:
+
+```text
+NOT_INTRODUCED
+PRODUCTION_HONEST
+BLOCKED
+```
+
+No later phase may use “we will harden it later” to justify a `BLOCKED` introduced responsibility, while no earlier phase may manufacture unused abstractions/tests merely to look complete.
