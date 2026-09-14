@@ -109,7 +109,11 @@ dotnet build SquiFlow.sln -c Release --no-restore
 dotnet test SquiFlow.sln -c Release --no-build
 ```
 
-Those commands have not been claimed as passing in the assistant environment because the .NET SDK is unavailable there. Until equivalent executable evidence passes, the introduced Party-kind and dependency-boundary claims remain `BLOCKED` and 0B cannot pass.
+Those commands have not been claimed as passing. The assistant shell has no .NET SDK and cannot resolve external hosts for local provisioning.
+
+A root `.gitlab-ci.yml` now runs the same commands for executable-input changes. GitLab accepted the configuration and created pipeline `#174`, but its `verify-dotnet` job never started because the project hit `ci_quota_exceeded`; no runner was assigned and no `dotnet` command executed. This is a CI-capacity blocker, not a code/test failure.
+
+Until equivalent executable evidence actually passes, the Party-kind and dependency-boundary claims remain `BLOCKED` and 0B cannot pass.
 
 ## Future governance
 
@@ -117,4 +121,6 @@ Phase 0 and the already-concrete Phase 1 trust boundary have detailed governance
 
 ## CI/CD direction
 
-Repository CI/CD may be introduced when real verification needs it. GitHub/GitLab should remain thin orchestration over repository-owned commands. CI/tooling is not created merely to satisfy a phase label.
+CI is now introduced because 0B has a real executable verification responsibility. The repository keeps it as a single root `.gitlab-ci.yml` file—no new tooling/CI folder—and the job is a thin wrapper over repository-owned restore/build/test commands.
+
+The job is restricted to executable/build-input changes so documentation-only commits do not consume runner capacity. If hosted quota remains unavailable, the preferred next execution path is a self-managed runner using the same CI definition rather than creating a second verification mechanism.
