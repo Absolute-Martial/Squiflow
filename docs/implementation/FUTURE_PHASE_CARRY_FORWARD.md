@@ -45,6 +45,25 @@ Former detailed phase files remain available in Git history. Their old names/num
 
 No future phase has a preassigned evidence class, cadence, hostile-test list, transition contract, or exact closing gate merely because this ledger mentions it.
 
+## Activation-time drift check
+
+The main long-term risk of this ledger is that repeated small edits gradually turn anticipation back into specification. Therefore promotion starts by auditing the ledger entry itself.
+
+Before using an anticipated item as active governance, ask:
+
+```text
+Has this entry gained detail that depended on no real workload/implementation?
+Does it now imply exact A/B/C structure, provider/runtime, evidence class,
+cadence, transition contract, failure matrix, or exit gate?
+Would a new developer reasonably read any of it as mandatory?
+Is anything retained only because it has been in the roadmap for a long time?
+If this ledger were hidden, would current requirements independently produce the same shape?
+```
+
+If premature detail has accumulated, remove or demote it back to a question before writing the active owner/gate. Do **not** mechanically convert the ledger entry into a phase specification.
+
+A ledger entry becomes more useful by protecting present options and preserving important questions, not by becoming more detailed over time.
+
 ---
 
 ## Anticipated Phase 2 direction — local-first Workstation durability and recovery
@@ -294,6 +313,10 @@ When an anticipated item becomes real:
 ```text
 ledger item = NOT_INTRODUCED
         ↓ real requirement/workload
+promotion begins with activation-time drift check
+        ↓
+remove/demote premature governance detail
+        ↓
 promote into active phase/subphase scope
         ↓
 rewrite from current facts
