@@ -5,7 +5,7 @@
 
 ## Production intent
 
-After Phase 1 passes, a real user can authenticate through the declared Web/Workstation flows and SquiFlow can make current tenant/application authorization decisions for the implemented surfaces without relying on forged client tenant context, stale provider assumptions, UI hiding, unreconciled authorization changes, or incomplete transitional session/security behavior.
+After Phase 1 passes, a real user can authenticate through the declared Web/Workstation flows and SquiFlow can make current tenant/application authorization decisions for the implemented surfaces without relying on forged client tenant context, stale provider assumptions, UI hiding, or unreconciled authorization changes.
 
 ## Scope contract
 
@@ -32,57 +32,36 @@ Phase 1 passes for its declared scope when:
 - Web session/CSRF/output-security basics are proven for implemented surfaces;
 - provider outages and authorization changes fail safely;
 - cross-system authorization changes reconcile correctly;
-- authorization changes that overlap active operations follow an explicit tested decision point;
-- all transitional restrictions from 1A→1B→1C→1D are either still mechanically enforced or explicitly closed by qualified behavior;
 - active capability development can continue without provider SDK leakage into host-neutral code.
 
 ## Evidence requirement
 
-The gate evidence must name the implemented login/session/authorization flows and include applicable hostile/negative proof such as:
-
-- wrong issuer/audience;
-- PKCE/state/nonce/callback tampering as applicable;
-- cross-tenant identifiers;
-- revoked permission/session/device behavior;
-- provider outage;
-- ambiguous tuple/application-change outcome;
-- authorization-change overlap with protected business operations;
-- CSRF/XSS/input/output-sensitive behavior for real exposed surfaces;
-- sign-out/session-expiry/network interruption outcomes for Workstation behavior that actually exists.
+The gate evidence must name the implemented login/session/authorization flows and include applicable hostile/negative proof such as wrong issuer/audience, PKCE/state tampering, cross-tenant identifiers, revoked permission/session/device behavior, provider outage, ambiguous tuple/application-change outcome, and CSRF/XSS-sensitive behavior for real exposed surfaces.
 
 Do not infer production honesty from mocked provider calls alone when the claim depends on ZITADEL/OpenFGA/ASP.NET behavior.
 
-## Permanent regression requirement
-
-The evidence record must name which checks remain:
-
-```text
-PER_MR
-SCHEDULED
-PRE_RELEASE
-```
-
-or another accepted cadence from the evidence/permanence owner.
-
-Phase 1 cannot pass on the basis of one successful provider demo or one manual hostile review. Cheap security/tenant/session tests remain blocking; provider/process scenarios that cannot run continuously retain a recurring cadence and requalification trigger.
-
-## Carry-forward rule
-
-Only genuinely `NOT_INTRODUCED` items may be carried forward.
-
-For every material security deferral record:
-
-```text
-behavior while absent
-source of that behavior/default
-why it is safe for current reachable scope
-evidence enforcing/testing that absence behavior
-trigger/latest gate
-regression guard
-```
-
-Examples such as exact production MFA/step-up policy, Admin-device registration, offline permission-snapshot retention, or provider recovery procedures are deferrable only when the current behavior in their absence is deliberate and tested. Accidental provider/framework defaults are not sufficient.
+Every material Phase-1 claim must also name the permanent or recurring regression guard that protects it after this gate passes.
 
 ## Completion meaning
 
-Passing Phase 1 means the declared trust foundation is `PRODUCTION_HONEST` and protected against silent regression for current use. It does not mean identity/authorization is finished forever. New breadth re-enters the same gate model when introduced.
+Passing Phase 1 means the declared trust foundation is `PRODUCTION_HONEST` for current use. It does not mean identity/authorization is finished forever. New breadth re-enters the same gate model when introduced.
+
+## Carry-forward rule
+
+Only genuinely `NOT_INTRODUCED` items may be carried forward, such as platform authorization, Admin-device registration, exact production MFA/step-up policy, offline permission-snapshot retention, or provider recovery procedures not yet required by current scope.
+
+For each material item, record:
+
+```text
+why deferred
+owner
+behavior while absent
+why that absence behavior is safe
+current preservation constraint
+activation trigger
+current regression/prevention check where one exists
+```
+
+Do **not** preassign a future Phase-2…10 evidence map, cadence, transition contract, exact closing gate or subphase decomposition from this carry-forward entry. Future governance is derived when the real responsibility is activated.
+
+Non-authoritative anticipation belongs in `docs/implementation/FUTURE_PHASE_CARRY_FORWARD.md`.
