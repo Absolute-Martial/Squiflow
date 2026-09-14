@@ -4,7 +4,7 @@
 
 `SquiFlow.Guard` is an accepted companion process for the Windows Workstation. It is part of the SquiFlow desktop application, while running as an independent process so it can observe and recover failures outside the Workstation process itself.
 
-The design goal is **small enough to remain reliable, but complete enough to perform its job**. Resource restraint must never remove required monitoring/recovery behavior.
+The design goal is the **smallest production-honest supervision/recovery scope**: keep Guard low-resource and reliable while fully satisfying the monitoring/recovery contract it claims. Resource restraint must never remove required monitoring, failure handling, recovery, evidence, or compatibility behavior.
 
 ## 1. Product and process model
 
@@ -224,6 +224,8 @@ At minimum test:
 - user sign-out/shutdown with unsynced business work;
 - network outage during ordinary Workstation operation (Guard must not misclassify it as process failure);
 - collector/provider unavailable (Guard and local recovery still work).
+
+These qualification cases are evidence obligations, not a one-time checklist. Once Guard exists, cheap lifecycle/state-machine/architecture cases remain blocking regression tests; process/update/migration fault cases receive an explicit recurring/pre-release cadence under `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md`.
 
 ## 11. Complexity rule
 
