@@ -22,7 +22,7 @@ tests/unit/SquiFlow.Parties.Tests/SquiFlow.Parties.Tests.csproj
 
 The current production-code scope is only the accepted Party structural distinction `Person | Organization`. No Foundation/ApplicationKernel project, application/service executable, persistence/provider adapter, sync/runtime security implementation, or complete Party/Customer model is claimed.
 
-The two introduced 0B implementation claims remain `BLOCKED` until executable restore/build/test evidence passes. See `0B_STATUS.md`.
+The introduced 0B code claims and CI execution path remain `BLOCKED` until executable restore/build/test evidence passes. See `0B_STATUS.md`.
 
 Read first:
 
@@ -145,8 +145,12 @@ dotnet test SquiFlow.sln -c Release --no-build
 
 The current tests cover the Party-kind semantic and the initial Parties dependency boundary. They do not imply that runtime/provider/persistence/security behavior exists.
 
+The root `.gitlab-ci.yml` invokes those same commands for executable/build-input changes. Pipeline `#174` was created successfully, but its job failed before start with `ci_quota_exceeded`; no runner executed the commands. That is a verification-infrastructure blocker, not a code/test failure.
+
 Once a material claim qualifies, its regression guard remains active until the claim is retired or superseded deliberately.
 
 ## CI/CD
 
-CI/CD may be introduced when real executable/repository verification earns it. GitHub/GitLab should remain thin orchestration over repository-owned verification. Do not create CI/tooling merely to make a phase look implemented.
+0B has now earned a single root `.gitlab-ci.yml` as its recurring executable verification boundary. No `eng/`, `.github/`, or other CI/tooling folder was introduced.
+
+The job is deliberately a thin wrapper over repository-owned commands and is restricted to executable/build-input changes. Hosted GitLab quota is currently exhausted; the preferred operational path is a self-managed runner using this same job definition rather than creating a separate verification mechanism.
