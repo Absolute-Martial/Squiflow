@@ -4,14 +4,9 @@ These rules apply below `tests/` in addition to the root instructions.
 
 ## Current test model
 
-The current Phase-0 rewrite uses executable specification projects, not only a conventional test runner:
+The principles-first reset currently has **no executable test/spec projects**. The `tests/` directory is an ownership/instruction location only until implementation work reintroduces verification projects.
 
-```bash
-dotnet run --project tests/SquiFlow.Phase0.Specs/SquiFlow.Phase0.Specs.csproj -c Release
-dotnet run --project tests/SquiFlow.Architecture.Specs/SquiFlow.Architecture.Specs.csproj -c Release
-```
-
-Do not replace these commands with `dotnet test` unless the repository is deliberately migrated to a test framework and the implementation docs are updated.
+Do not restore the removed Phase-0 spec projects by memory merely because historical docs or Git history mention them. The first new implementation slice should introduce the narrowest useful verification needed for that real responsibility.
 
 ## Test qualities
 
@@ -21,7 +16,7 @@ Tests/specs should be:
 - independent/order-insensitive;
 - self-validating with a clear failure;
 - fast when the behavior is pure/in-memory;
-- realistic when the behavior depends on framework/provider semantics;
+- realistic when behavior depends on framework/provider/process semantics;
 - named after observable behavior/invariant rather than implementation trivia.
 
 FIRST is guidance, not a reason to fake integration behavior as unit tests. “Fast” never overrides the need to use a real DB/framework/process when that is what the claim depends on.
@@ -30,9 +25,9 @@ FIRST is guidance, not a reason to fake integration behavior as unit tests. “F
 
 Use the narrowest layer that can actually prove the claim:
 
-- pure value/invariant → pure spec;
-- application orchestration → application spec with controlled ports where appropriate;
-- dependency-direction/forbidden package rule → architecture spec;
+- pure value/invariant → pure test/spec;
+- application orchestration → application test with controlled ports where appropriate;
+- dependency-direction/forbidden package rule → architecture test/spec;
 - ASP.NET middleware/session/routing → real test host/pipeline when introduced;
 - SQLite WAL/locking/encryption/migration → real SQLite implementation;
 - PostgreSQL transaction/RLS/pool behavior → real PostgreSQL;
@@ -67,25 +62,27 @@ Once a serialized/durable contract or schema version is released/supported:
 
 - preserve representative old fixtures;
 - do not regenerate all fixtures from the latest model;
-- test old-reader/new-writer and new-reader/old-writer directions where the contract family requires them;
+- test old-reader/new-writer and new-reader/old-writer directions where that contract family requires them;
 - test destructive contraction only after supported old readers/writers/pending work are demonstrably drained.
 
 ## Test data
 
 - Use explicit synthetic data with clear tenant/identity boundaries.
 - Do not commit production/customer secrets or data.
-- Avoid timestamps/randomness/global environment dependence unless controlled/frozen.
-- If randomness is valuable (property/fuzz test), make failures reproducible via a recorded seed/input.
+- Avoid uncontrolled timestamps/randomness/global environment dependence.
+- If randomness is valuable, make failures reproducible via a recorded seed/input.
 
-## Architecture specs
+## Architecture verification
 
-Architecture specs are executable architecture documentation. When introducing a new forbidden dependency or structural invariant, add a spec if the rule can be checked mechanically without building a fragile custom framework.
+Architecture tests/specs should become executable architecture documentation as real code boundaries return. When introducing a new forbidden dependency or structural invariant, add mechanical verification where it provides durable value without creating a fragile custom framework.
 
 ## DO NOT
 
+- Do not create test folders/projects solely to mirror production folders.
+- Do not restore old tests without checking whether their architecture still matches current decisions.
 - Do not assert implementation details that make harmless refactors impossible when the real contract is behavioral.
 - Do not make one test depend on another test's execution order/output.
 - Do not swallow exceptions and call the test successful because a log was written.
 - Do not use sleeps as synchronization when a deterministic signal/timeout can prove the condition.
 - Do not claim mocked provider tests prove real provider behavior.
-- Do not weaken or delete a failing invariant test merely to get green output; reconcile the architecture/implementation first.
+- Do not weaken/delete a failing invariant test merely to get green output; reconcile architecture/implementation first.

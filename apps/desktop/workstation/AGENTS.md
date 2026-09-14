@@ -2,18 +2,22 @@
 
 These rules apply below `apps/desktop/workstation/` in addition to the root instructions.
 
+## Current state
+
+The principles-first reset currently has **no Workstation project implemented**. This directory reserves Workstation ownership/instructions only. Reintroduce the Avalonia host when a real current Workstation slice earns it; do not restore the old project by symmetry or memory.
+
 ## Role
 
-The Avalonia Workstation is a primary product host with local-first/offline capability where explicitly supported. Local state is not automatically central authority.
+When implemented, the Avalonia Workstation is a primary product host with local-first/offline capability where explicitly supported. Local state is not automatically central authority.
 
-Current Phase-0 code may contain presentation/composition foundations before real SQLite/sync exists. Do not fake those later responsibilities with temporary production paths.
+Do not fake future SQLite/sync/encryption responsibilities with temporary production paths merely to make a screen work.
 
 ## Presentation structure
 
 - View/ViewModel code owns presentation state, commands, navigation, and user-understandable status.
 - Reusable business meaning belongs in the capability core/application layer.
 - Keep platform-specific Windows/Avalonia dependencies at the Workstation adapter/host edge.
-- Prefer explicit UI state names (`PendingRemote`, `Conflict`, etc.) once those states exist; avoid vague labels such as `SyncedEventually` that hide authority.
+- Prefer explicit UI state names (`PendingRemote`, `Conflict`, etc.) once those states exist; avoid vague labels that hide authority.
 
 ## Local-first rules once persistence/sync is introduced
 
@@ -37,6 +41,7 @@ Current Phase-0 code may contain presentation/composition foundations before rea
 
 ## DO NOT
 
+- Do not create the Workstation project just because the folder exists.
 - Do not make a view model the source of business truth.
 - Do not call PostgreSQL directly from Workstation.
 - Do not make Workstation tenant-admin changes locally authoritative/offline.
