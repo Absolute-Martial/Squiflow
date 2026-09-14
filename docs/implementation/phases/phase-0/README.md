@@ -78,6 +78,14 @@ Architecture docs contain target/sample structures for applications, services, c
 0F  Integrated Phase-0 production-honesty gate and carry-forward ledger
 ```
 
+## Future-phase relationship
+
+Phase 0 does **not** need to implement the future roadmap in advance.
+
+Phase 2–10 are currently direction-only `NOT_INTRODUCED` stubs. Their former detailed subphase/evidence plans were retired because future governance must be earned from real responsibilities. Useful future questions are preserved in `docs/implementation/FUTURE_PHASE_CARRY_FORWARD.md` as non-authoritative anticipation.
+
+If current Phase-0 work genuinely needs a future responsibility early, pull that responsibility forward, create/update the active owner from current facts, and apply the global production-honesty/evidence contracts immediately. Do not restore an old future subphase file merely because it once existed.
+
 ## Verification handoff
 
 0A required repository/document reconciliation, not executable tests.
@@ -86,38 +94,8 @@ From 0B onward, every real implementation slice introduces the narrowest useful 
 
 Tests do not get to redefine a shortcut as the contract. The claim comes from requirements/owners/declared scope; verification proves or falsifies it.
 
+Once a claim is qualified, its applicable regression check remains active or receives an explicit recurring/release/operator cadence according to the evidence/permanence owner.
+
 ## CI/CD
 
 Repository CI/CD is allowed again. The preferred model is repository-owned verification commands used locally and by thin GitHub/GitLab workflows, primarily on self-hosted/self-managed runners under current hosted-minute constraints. CI is introduced with executable implementation rather than used to manufacture an 0A tooling project.
-
-## Phase-specific evidence and regression map
-
-Every subphase exit inherits the evidence/permanence contract.
-
-- **0A — baseline reconciliation:** evidence is repository/document/decision truth, not invented runtime tests. Requalification is required when source precedence, reset status, or canonical ownership changes materially. The permanent guard is review/static consistency of current repository truth; 0A may not be cited as evidence for runtime properties.
-- **0B — Foundation/module boundaries:** deterministic primitive/invariant tests plus mechanical architecture/dependency tests run `PER_MR` once real assemblies exist. NetArchTest or an equivalent may implement those rules, but the property—not the library—is authoritative. Forbidden provider/host leakage and dependency direction become permanent regression checks.
-- **0C — host/process composition:** configuration/startup/shutdown/cancellation/lifecycle tests run for every introduced executable. Cheap lifecycle cases run `PER_MR`; process termination/restart/version/IPC failure cases run `PER_MR` where practical and `SCHEDULED`/`PRE_RELEASE` where broader fault injection is required.
-- **0D — engineering safety:** repository-owned build/test/architecture/secret checks become blocking CI/local checks. Reproducibility and failure-injection claims receive recurring evidence rather than one-time sign-off.
-- **0E — real capability slices:** business invariants and scope/authority claims are protected by capability tests and architecture rules on every relevant change. A new capability may not silently bypass an already-qualified boundary.
-- **0F — integration:** sign-off records named evidence and the permanent guard for every introduced Phase-0 claim; `BLOCKED = none`.
-
-## Transitional rule
-
-A Phase-0 component may exist before later identity/persistence/sync/etc. foundations, but it must not claim the guarantees of those future boundaries. Transitional restrictions must be explicit and mechanically enforced where risk is material.
-
-Examples:
-
-```text
-no persistence foundation
-→ do not label process-memory state durable
-
-no production identity/authorization
-→ do not expose protected production mutation as if trusted
-
-no Sync authority
-→ do not present local state as centrally accepted
-```
-
-## Carry-forward absence behavior
-
-Every material Phase-0 deferral records what the repository/runtime does while that item is absent. “Nothing yet” is acceptable only when no reachable path relies on the missing responsibility. An accidental framework/provider default is not an accepted policy.
