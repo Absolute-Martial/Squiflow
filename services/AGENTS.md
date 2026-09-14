@@ -2,18 +2,34 @@
 
 These rules apply below `services/` in addition to the root instructions.
 
+## Current state
+
+The principles-first reset currently has **no service executable/project implemented**. The `services/` directory is an ownership/instruction location only until a real service responsibility is reintroduced.
+
+Do not create `core-api/`, `web-api/`, `sync-api/`, `admin-api/` or `worker/` merely because those folders exist in the growth map.
+
 ## Role
 
 A service executable is a transport/workload/security/deployment composition boundary. It does not automatically own business meaning merely because traffic enters there.
 
-The current rewrite contains only `services/core-api/SquiFlow.CoreApi`. Future WebApi/SyncApi/AdminApi/Worker boundaries are introduced only when their first real responsibility is implemented.
+When a service is introduced, the same change should define:
+
+- the exact workload/responsibility that earns the process boundary;
+- authority and state ownership;
+- failure/recovery behavior;
+- authentication/authorization exposure;
+- cancellation/backpressure/resource limits where applicable;
+- health/readiness/shutdown semantics;
+- verification at the real host boundary.
 
 ## API host rules
 
-- Endpoints/controllers stay thin: establish/validate transport context, map explicit contracts, call the owning capability application/query surface, map explicit result/error contracts.
-- Current authentication is necessary but not sufficient for protected operations; current authorization/resource/tenant/domain checks remain below transport.
-- Do not allow arbitrary DB/provider access directly from endpoints merely because the host can resolve the provider.
-- Keep request limits, cancellation/deadlines, correlation, Problem Details/error mapping, health/readiness, and graceful shutdown at the host boundary.
+When an API host exists:
+
+- endpoints/controllers stay thin: establish/validate transport context, map explicit contracts, call the owning capability application/query surface, map explicit result/error contracts;
+- authentication is necessary but not sufficient for protected operations; current authorization/resource/tenant/domain checks remain below transport;
+- arbitrary DB/provider access must not be performed directly from endpoints merely because the host can resolve the provider;
+- request limits, cancellation/deadlines, correlation, stable error/Problem Details mapping, health/readiness and graceful shutdown belong at the host boundary.
 
 ## Authoritative application boundary
 
@@ -24,18 +40,19 @@ Below transport, authoritative capability application behavior owns as applicabl
 - business invariants/state transitions;
 - idempotency/concurrency;
 - transaction/outbox;
-- module-owned persistence interaction.
+- capability-owned persistence interaction.
 
-## Future workload splits
+## Earned workload splits
 
 A future interactive WebApi and Workstation SyncApi may be separate ingress hosts because their protocol/batching/fairness/latency/device-context workloads differ. They still converge on the same authoritative capability implementation.
 
 Admin API, when implemented, is a separate private control-plane security boundary and must not be proxied through an ordinary tenant API as its normal path.
 
-Worker, when implemented, executes durable work through the same owning capability application behavior; it is not a third business implementation.
+Worker, when implemented, executes durable work through the same owning capability application behavior; it is not another business implementation.
 
 ## DO NOT
 
+- Do not create a service folder/project just for symmetry with the target diagram.
 - Do not put business rules in controllers/endpoints/middleware.
 - Do not add a network `CoreApi` hop solely to centralize in-process module calls.
 - Do not expose direct PostgreSQL access to clients.
@@ -46,4 +63,4 @@ Worker, when implemented, executes durable work through the same owning capabili
 
 ## Validation
 
-When functionality exists, test the real ASP.NET pipeline for authentication/session/authorization mapping, cross-tenant denial, malformed/oversized input, cancellation/timeouts, stable errors, provider/security dependency outage behavior, and graceful shutdown. Provider/database-specific claims require integration tests against the actual provider rather than only mocked endpoints.
+When functionality exists, test the real ASP.NET/host pipeline for the behavior actually claimed: authentication/session/authorization mapping, cross-tenant denial, malformed/oversized input, cancellation/timeouts, stable errors, dependency outage behavior and graceful shutdown. Provider/database-specific claims require integration tests against the actual provider rather than only mocked endpoints.
