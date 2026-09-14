@@ -13,7 +13,7 @@ phase
 = minimum foundation/maturity that must be true
 + existing responsibilities continuing to evolve
 + applicable failure/security/recovery/compatibility obligations
-+ verification/integration evidence
++ verification/integration evidence appropriate to responsibilities that actually exist
 ```
 
 A phase is not:
@@ -22,6 +22,7 @@ A phase is not:
 only these folders may change
 every named future component must exist
 minimal happy-path code is acceptable until a later phase
+create implementation/tests solely so the phase can say it ran something
 ```
 
 ## Complete-current-responsibility rule
@@ -36,9 +37,15 @@ SOLID, DRY, CQS, Law of Demeter, immutability, defensive programming, idempotenc
 
 Architecture docs contain target/sample file structures. Preserve them as ownership/placement guidance. A sample path does not become a project/folder until real implementation earns it.
 
-## Current reset status
+## Current reset / Phase-0 status
 
-Baseline v0.0.20 contains no production/test projects. Earlier implementation remains in Git history. Phase-0 status is owned by `phase-0/0A_BASELINE_STATUS.md`.
+Baseline v0.0.20 currently contains no production/test projects. Earlier implementation remains in Git history.
+
+**0A is Complete / Qualified as a documentation/repository-reconciliation gate. 0B is the next implementation gate.**
+
+0A intentionally required no executable test project. Executable verification begins with the first real implementation boundary and grows with it.
+
+Detailed Phase-0 status is owned by `phase-0/0A_BASELINE_STATUS.md`.
 
 ## Detailed package index
 
