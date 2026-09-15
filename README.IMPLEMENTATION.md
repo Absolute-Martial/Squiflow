@@ -1,33 +1,49 @@
 # SquiFlow production-honest implementation baseline
 
 **Baseline:** v0.0.20  
-**State:** Phase 0A and Phase 0B are qualified. The repository contains the first capability-owned implementation slice, but no application/service runtime or Foundation/ApplicationKernel project exists.
+**State:** Phase 0A and Phase 0B are qualified. Phase 0E is **IN PROGRESS** with a second real capability slice. Phase 0C remains `NOT_INTRODUCED` because no executable host has a real current responsibility.
 
 The previous Phase-0 implementation was intentionally purged. Its history remains available through Git as evidence/context, but it is not code or governance to recreate mechanically.
 
 ## Current implementation truth
 
-Qualified 0B contains exactly:
+The active branch contains exactly:
 
 ```text
 modules/parties/SquiFlow.Parties/SquiFlow.Parties.csproj
+modules/payments/SquiFlow.Payments/SquiFlow.Payments.csproj
 tests/unit/SquiFlow.Parties.Tests/SquiFlow.Parties.Tests.csproj
+tests/unit/SquiFlow.Payments.Tests/SquiFlow.Payments.Tests.csproj
 ```
 
-`SquiFlow.sln` contains those two projects and no executable host/service project.
+`SquiFlow.sln` contains those four projects and no executable host/service project.
 
-The current capability claim is deliberately narrow:
+Qualified capability scope:
 
 ```text
 PartyKind
 = Person | Organization
 ```
 
-This comes from the accepted Party meaning in `docs/domain/BUSINESS_TERMS.md`. The slice does not claim Party identity encoding, lifecycle, contact/profile fields, Customer/Account/Commercial Relationship semantics, persistence, API, host, synchronization, authorization, or a complete Party capability.
+Active 0E capability scope:
 
-Shared Foundation/ApplicationKernel remains `NOT_INTRODUCED` because real 0B capability work did not expose shared product-wide semantics that justified extraction.
+```text
+PaymentStatus
+= NotStarted
+| Pending
+| Succeeded
+| Failed
+| OutcomeUnknown
+| PartiallyRefunded
+| Refunded
+| Reversed
+```
 
-The qualified gate/evidence record is `docs/implementation/phases/phase-0/0B_STATUS.md`.
+The Payments slice comes directly from the documented status vocabulary in `docs/domain/BUSINESS_MODEL.md`. It does not claim payment identity encoding, amount/currency/rounding, transition rules, retry/idempotency, outcome-unknown reconciliation, settlement, persistence, API, host, authorization, or a complete payment aggregate.
+
+Shared Foundation/ApplicationKernel remains `NOT_INTRODUCED` because current capability work has not exposed shared product-wide semantics that justify extraction.
+
+Qualified 0B evidence is recorded in `docs/implementation/phases/phase-0/0B_STATUS.md`. Active 0E scope/evidence/blockers are recorded in `docs/implementation/phases/phase-0/0E_STATUS.md`. Carry-forward work is recorded in `docs/implementation/IMPLEMENTATION_TODO.md`.
 
 ## Governing model
 
@@ -35,10 +51,14 @@ Read these first:
 
 - `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md`;
 - `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md`;
+- `docs/implementation/IMPLEMENTATION_TODO.md`;
 - `docs/implementation/phases/phase-0/0A_BASELINE_STATUS.md`;
 - `docs/implementation/phases/phase-0/0B_APPLICATION_KERNEL_AND_MODULE_FOUNDATION.md`;
 - `docs/implementation/phases/phase-0/0B_STATUS.md`;
+- `docs/implementation/phases/phase-0/0E_ACTIVE_CAPABILITY_AND_TRACK_DEVELOPMENT.md`;
+- `docs/implementation/phases/phase-0/0E_STATUS.md`;
 - `docs/domain/BUSINESS_TERMS.md`;
+- `docs/domain/BUSINESS_MODEL.md`;
 - `docs/domain/CROSS_CUTTING_BUSINESS_PRIMITIVES.md`;
 - `docs/architecture/ENGINEERING_PRINCIPLES.md`;
 - `docs/architecture/EXPLICIT_BOUNDARIES_AND_SOLID.md`;
@@ -83,25 +103,40 @@ qualify only with BLOCKED = none
 
 KISS means the smallest production-honest scope, not prototype-grade behavior. YAGNI prevents speculative breadth, not necessary depth for a responsibility already introduced.
 
-## 0A permanence
-
-0A's zero-project state was qualification-time reset evidence, not a forever-rule. Its enduring guarantees remain active: current authority must remain distinguishable from history, folders/diagrams do not prove implementation, boundaries are newly earned, future governance specificity is earned, and active claims require durable evidence/regression protection.
-
-The first 0B projects are therefore an expected transition, not a regression of 0A.
-
 ## Qualified 0B outcome
 
 0B did not rebuild `SquiFlow.ApplicationKernel` or satisfy a reuse quota.
 
 The first slice started inside `modules/parties/` because `Party = person or organization` is accepted domain meaning while several stronger labels remain discovery-sensitive. The code remains Party-owned.
 
-Real capability work did not expose a current product-wide primitive, so Foundation remains `NOT_INTRODUCED`. This is the qualified discovery result. If future real work creates shared product-wide pressure, a Foundation primitive may then be introduced under a new explicit scope/evidence claim.
+Real capability work did not expose a current product-wide primitive, so Foundation remains `NOT_INTRODUCED`. This is the qualified discovery result.
 
-No second module was manufactured to justify reuse.
+## Why 0E is active before 0C
+
+0C requires a real executable responsibility. None exists yet, so creating an empty host would be phase-driven scaffolding.
+
+0E permits real capability work during Phase 0. `BUSINESS_MODEL.md` already defines the Payment status vocabulary, so a second host-neutral capability can be introduced without inventing a customer journey or resolving discovery-sensitive Order/Job/Sale terminology.
+
+This is intentional non-linear Phase-0 progression, not a skipped responsibility.
+
+## Current 0E scope
+
+The Payment slice is deliberately limited to the documented status vocabulary and an independent no-outward-dependency boundary.
+
+It does **not** select:
+
+- payment identity representation;
+- amount/currency/rounding rules;
+- legal transition graph;
+- retry/idempotency semantics;
+- outcome-unknown reconciliation;
+- settlement/allocation behavior;
+- persistence/database/provider behavior;
+- API/host/sync/authorization behavior.
+
+Those remain `NOT_INTRODUCED` until a real current operation needs them and the relevant focused/open decisions are resolved.
 
 ## Verification
-
-The first test project exists because real code exists. It uses xUnit v3 + Microsoft Testing Platform under the .NET 10 SDK.
 
 The repository-owned contract is:
 
@@ -111,30 +146,29 @@ dotnet build SquiFlow.sln -c Release --no-restore
 dotnet test SquiFlow.sln -c Release --no-build
 ```
 
-The GitHub Actions workflow executed that contract successfully in maintainer-supplied run `34916005915`, job `104213630182`:
+Qualified 0B has successful GitHub Actions evidence for the then-current Parties solution: run `34916005915`, job `104213630182`.
 
-`https://github.com/Absolute-Martial/Squiflow/actions/runs/34916005915/job/104213630182`
+That run cannot qualify 0E because 0E changes C#, projects, tests, and the solution. GitLab pipeline `#196` (`2849161905`) created the `verify-dotnet` job for the first 0E code commit, but the job failed before start with `ci_quota_exceeded`, `runner = null`, and no `dotnet` command executed.
 
-GitLab CI uses root `.gitlab-ci.yml` and schedules the same contract. Its current hosted jobs are prevented from starting by `ci_quota_exceeded`; this is recorded as an infrastructure non-claim rather than hidden or misrepresented as a test failure.
+Therefore the active 0E Payment-status and Payments-dependency claims remain `BLOCKED` pending a new successful executable run, normally through the maintainer-managed GitHub mirror while GitLab quota remains unavailable.
 
-The Party-kind and no-outward-dependency claims are therefore `PRODUCTION_HONEST`, and qualified 0B has `BLOCKED = none`.
+## TODO / carry-forward
 
-## Future governance
+`docs/implementation/IMPLEMENTATION_TODO.md` separates:
 
-Phase 0 and the already-concrete Phase 1 trust boundary have detailed governance. Phase 2–10 remain direction-only `NOT_INTRODUCED` planning until real work earns detail. `FUTURE_PHASE_CARRY_FORWARD.md` preserves anticipation without turning it into specification.
+- current active blockers that must be finished or un-introduced;
+- operational follow-up that does not reopen qualified 0B;
+- future trigger-only responsibilities that remain `NOT_INTRODUCED`.
 
-0B completion does not automatically authorize 0C. Start the next slice from real current product/capability/runtime pressure and activate the matching responsibility area only when earned.
+A TODO entry never permits an introduced `BLOCKED` responsibility to be carried into later work as if it were future scope.
 
 ## CI/CD direction
 
-Dual-host CI remains an earned verification boundary because real executable code exists and GitLab hosted capacity is currently unavailable.
+GitLab and GitHub remain redundant execution hosts over one repository-owned verification contract:
 
-- `.gitlab-ci.yml` is the GitLab wrapper.
-- `.github/workflows/verify-dotnet.yml` is the GitHub wrapper.
-- both invoke the same repository-owned restore/build/test commands;
-- `global.json` remains the SDK authority rather than duplicating the pinned SDK version in the GitHub workflow;
-- both use change filters so a branch/review whose diff contains no executable/build input can skip this verification job.
+- `.gitlab-ci.yml` is the GitLab wrapper;
+- `.github/workflows/verify-dotnet.yml` is the GitHub wrapper;
+- `global.json` remains the SDK authority;
+- both invoke the same restore/build/test commands.
 
-Change filters are not a promise that every documentation-only commit is free: in an already code-changing MR/PR, the provider may compare the review against its target branch and retrigger verification after a documentation-only commit. The invariant is that GitLab and GitHub verify the same executable contract, not that CI will never rerun for documentation activity.
-
-The two CI systems are redundant execution hosts, not separate build definitions. Do not move build meaning into host-specific scripts or let GitLab and GitHub verify different contracts.
+Do not move build meaning into host-specific scripts or let the two CI systems verify different contracts.
