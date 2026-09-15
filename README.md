@@ -108,7 +108,7 @@ Its zero-project inventory was qualification-time reset evidence, not a permanen
 
 The active tests cover the Party-kind contract and the initial Parties dependency boundary. The .NET 10 test path uses Microsoft Testing Platform and xUnit v3.
 
-Required commands:
+Repository-owned verification is:
 
 ```text
 dotnet restore SquiFlow.sln
@@ -116,7 +116,11 @@ dotnet build SquiFlow.sln -c Release --no-restore
 dotnet test SquiFlow.sln -c Release --no-build
 ```
 
-The assistant environment does not have the .NET SDK, so these commands have **not** been claimed as passing. The introduced implementation claims therefore remain `BLOCKED` in `0B_STATUS.md` until executable evidence exists.
+The assistant environment does not have the .NET SDK, so these commands have **not** been claimed as passing locally.
+
+GitLab runs the commands from root `.gitlab-ci.yml`; its current jobs fail before start because hosted CI quota is exhausted. GitHub runs the same commands from `.github/workflows/verify-dotnet.yml`, reading the SDK from `global.json`; the user manages that mirror/remote independently, so no GitHub passing run is claimed yet.
+
+A successful real run on either legitimate CI host can provide executable evidence for the current code claims. Until then, the introduced implementation claims remain `BLOCKED` in `0B_STATUS.md`.
 
 ## Future governance
 
