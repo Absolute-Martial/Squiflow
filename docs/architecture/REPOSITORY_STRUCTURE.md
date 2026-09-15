@@ -20,27 +20,22 @@ Executable composition roots
 
 A capability owns one source implementation of its business meaning. `Core`, `Server`, `Workstation`, `Postgres`, `Contracts`, and similar labels describe responsibilities first; a separate project exists only when a real compile-time/provider/platform/packaging/lifecycle boundary earns it.
 
-## 2. Phase-0A reset snapshot
+## 2. Current implementation state
 
-On the 0A qualification branch, the repository intentionally contains **no application/service/foundation-library/capability/test projects**. Earlier Phase-0 code remains in Git history and is not current implementation authority.
+The `v0.0.20` 0A reset snapshot intentionally contained no application/service/foundation-library/capability/test projects. That clean snapshot is qualification evidence, not a permanent target.
 
-The retained root/tooling surface includes:
+The active 0B branch has now earned exactly two projects:
 
 ```text
-SquiFlow/
-|- docs/
-|- deploy/
-|- global.json
-|- Directory.Build.props
-|- Directory.Packages.props
-|- SquiFlow.sln              # empty at the 0A qualification point
-|- VERSION
-`- CURRENT_VERSION.txt
+modules/parties/SquiFlow.Parties/SquiFlow.Parties.csproj
+tests/unit/SquiFlow.Parties.Tests/SquiFlow.Parties.Tests.csproj
 ```
 
-This empty project inventory is qualification evidence for the principles-first reset, not a permanent repository invariant. Later active work is expected to introduce newly earned projects.
+`SquiFlow.Parties` currently owns only the accepted `PartyKind = Person | Organization` semantic. The test project verifies that semantic and the current no-outward-dependency boundary.
 
-New projects are introduced only with a real current responsibility, explicit dependency/authority boundary, material applicable behavior, and falsifiable verification.
+There is still no Foundation/ApplicationKernel project, host/service executable, persistence/provider project, or other capability project.
+
+Earlier Phase-0 code remains in Git history and is not current implementation authority. New projects are introduced only with a real current responsibility, explicit dependency/authority boundary, material applicable behavior, and falsifiable verification.
 
 ## 3. Accepted repository ownership map
 
@@ -86,7 +81,7 @@ A path in this map is an ownership reservation, not proof that the corresponding
 
 ## 4. Compact capability shape
 
-When the first real capability is implemented, prefer a compact capability-owned project until pressure proves a split is useful:
+When a real capability is implemented, prefer a compact capability-owned project until pressure proves a split is useful:
 
 ```text
 modules/orders/
@@ -102,7 +97,7 @@ modules/orders/
    `- Events/
 ```
 
-This is a sample shape, not a requirement to create every folder. Only folders with real responsibilities should exist.
+This is a sample shape, not a requirement to create every folder. Only folders with real responsibilities should exist. The current Parties slice therefore contains only the `Domain/` folder it actually needs.
 
 A provider split is earned when provider code would contaminate host-neutral business code:
 
@@ -190,6 +185,8 @@ A project/executable earns existence for a real reason such as:
 
 If none applies, prefer a cohesive existing boundary.
 
+The current Parties project is the first compact capability boundary. The current test project is earned by the need for executable semantic/dependency evidence. No other project is implied by their existence.
+
 ## 10. KISS and file structure
 
 The goal is low accidental complexity, not low capability.
@@ -200,4 +197,6 @@ Detailed engineering rule: `docs/architecture/ENGINEERING_PRINCIPLES.md`.
 
 ## 11. Verification direction
 
-As projects are reintroduced, architecture verification must prove the boundaries that actually exist rather than requiring speculative ones. Examples include provider/host leakage checks, executable-to-executable reference restrictions, Guard business-module isolation, capability ownership, and dependency direction.
+Architecture verification proves boundaries that actually exist rather than requiring speculative ones.
+
+The current Parties test project mechanically protects its no-outward-project/package dependency claim. Future provider/host leakage checks, executable-to-executable reference restrictions, Guard isolation, cross-capability ownership, and other dependency rules are added only when those concrete boundaries exist.

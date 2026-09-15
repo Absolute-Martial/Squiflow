@@ -19,15 +19,22 @@ Current governing owners are:
 
 If this file ever conflicts with a focused canonical owner or the global phase-gate contracts, the focused/global owner governs and this file must be reconciled.
 
-## 2. Phase-0A reset snapshot and handoff
+## 2. Current implementation truth
 
-The Phase-0A `v0.0.20` principles-first reset snapshot intentionally contains no production/test `.csproj` projects and an empty `SquiFlow.sln`.
+The v0.0.20 Phase-0A principles-first **reset snapshot** intentionally contained no production/test `.csproj` projects and an empty `SquiFlow.sln`. That zero-project state remains qualification evidence for 0A, not a permanent target.
 
-That zero-project state is **qualification-time reset evidence**, not a permanent target. Subsequent active work is expected to introduce newly earned projects.
+Qualified Phase 0B earned exactly two projects:
 
-Folder names, architecture diagrams, old branches, old merge requests, historical source studies, and the retired pre-reset implementation plan do not prove that a runtime/project currently exists.
+```text
+modules/parties/SquiFlow.Parties/SquiFlow.Parties.csproj
+tests/unit/SquiFlow.Parties.Tests/SquiFlow.Parties.Tests.csproj
+```
 
-Phase 0A establishes the developer/repository baseline. Phase 0B must be derived from real current capability/application pressure rather than by rebuilding the old ApplicationKernel or old project tree.
+The production project currently owns only the accepted Party structural distinction `Person | Organization`. There is no Foundation/ApplicationKernel project, no application/service executable, no persistence/provider project, and no claim that a complete Party/Customer/Account model exists.
+
+The qualified 0B status/evidence record is `docs/implementation/phases/phase-0/0B_STATUS.md`. Its introduced semantic/dependency claims are `PRODUCTION_HONEST`, future concerns are `NOT_INTRODUCED`, and `BLOCKED = none`.
+
+Folder names, architecture diagrams, old branches, old merge requests, historical source studies, and the retired pre-reset implementation plan do not prove that another runtime/project currently exists.
 
 ## 3. Governing implementation sequence
 
@@ -81,8 +88,9 @@ Detailed semantics remain in their focused owners rather than being duplicated h
 
 ```text
 Phase 0  detailed / active-earned architectural development foundation
-  0A     qualified repository/architecture reset baseline
-  0B     next active implementation work — derive capability-first from current facts
+  0A     QUALIFIED — repository/architecture reset baseline
+  0B     QUALIFIED — capability-first foundation discovery
+  0C     NOT ACTIVE — host/process composition only when a real executable earns it
 Phase 1  detailed trust/security direction already concrete enough to govern
 Phase 2  direction only — NOT_INTRODUCED
 Phase 3  direction only — NOT_INTRODUCED
@@ -123,6 +131,8 @@ Technical phase completion is not automatically a customer/product promise.
 
 Consequential domain terminology must follow `docs/domain/BUSINESS_TERMS.md`; do not freeze disputed words into durable/API/persistence meaning merely because an old implementation used them.
 
+The qualified Party-kind slice is intentionally narrower than a complete Party/customer capability and does not close the discovery-sensitive Customer/Party/Account relationship group.
+
 ## 8. Verification rule
 
 Evidence is derived from the claim, not from the phase label or implementation shortcut.
@@ -130,6 +140,10 @@ Evidence is derived from the claim, not from the phase label or implementation s
 Use the strongest applicable layer for the property actually introduced: static/architecture, deterministic unit/property, real integration, process-failure, migration/restore, security-hostile, load/capacity, or operator evidence as appropriate.
 
 Mocks do not prove behavior owned by a real provider/database/framework/process boundary.
+
+The qualified 0B unit-test project owns only the Party-kind semantic regression and the initial no-outward-dependency boundary. It does not serve as evidence for runtime/provider responsibilities that do not exist.
+
+Executable evidence for qualified 0B is the successful GitHub Actions run `34916005915`, job `104213630182`, executing the repository-owned restore/build/test contract. GitLab's hosted quota currently prevents its equivalent job from reaching a runner; this does not change the qualified code claims and is not represented as GitLab execution success.
 
 A qualified material claim keeps a permanent or recurring regression guard and explicit requalification triggers. `Manual once` is not a regression strategy.
 
