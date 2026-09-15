@@ -4,7 +4,7 @@ These are decisions that can materially affect the current implementation baseli
 
 ## Phase-load-bearing technical decisions
 
-- Exact Phase-0 application-kernel types/project packaging, module-discovery mechanism, first module descriptor, feature/settings snapshot persistence, and generated-contract tool remain implementation details to prove. The SquiFlow-owned kernel, standard .NET DI, startup-loaded trusted modules, no per-tenant container, and no automatic controller exposure are already selected.
+Qualified Phase 0B resolved the old assumption that an ApplicationKernel/module-discovery implementation had to be selected now. Shared Foundation remains `NOT_INTRODUCED` because real capability work has not yet exposed a stable product-wide primitive that requires extraction. Exact shared-primitive packaging/module-composition choices become active open decisions only when a real current consumer triggers `TODO-FOUNDATION-001` in `docs/implementation/IMPLEMENTATION_TODO.md`.
 
 - Exact PostgreSQL version, .NET driver/data-access approach, deployment topology, pool sizing, RLS policy implementation, migration tooling, WAL/checkpoint/autovacuum configuration, backup/restore procedure, and measured rack envelope after the Phase-3 qualification proof. PostgreSQL itself is selected.
 - Exact SQLite .NET driver, connection/transaction pattern, WAL/checkpoint configuration, migration tooling, encryption-at-rest mechanism, backup/integrity/recovery procedure, and Windows packaging details after the Phase-2 qualification proof. SQLite with WAL itself is selected.
