@@ -12,6 +12,7 @@ Current governing owners are:
 - `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md` — scope/quality contract;
 - `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md` — evidence permanence, regression, transition, and requalification contract;
 - `docs/implementation/PHASES_AND_GATES.md` — high-level maturity direction;
+- `docs/implementation/IMPLEMENTATION_TODO.md` — active blockers and trigger-dependent carry-forward;
 - `docs/implementation/phases/phase-0/` — current detailed rebuild work;
 - `docs/implementation/phases/phase-1/` — currently earned detailed trust/security direction;
 - `docs/implementation/FUTURE_PHASE_CARRY_FORWARD.md` — non-authoritative future anticipation;
@@ -21,20 +22,37 @@ If this file ever conflicts with a focused canonical owner or the global phase-g
 
 ## 2. Current implementation truth
 
-The v0.0.20 Phase-0A principles-first **reset snapshot** intentionally contained no production/test `.csproj` projects and an empty `SquiFlow.sln`. That zero-project state remains qualification evidence for 0A, not a permanent target.
+The v0.0.20 Phase-0A principles-first reset snapshot intentionally contained no production/test `.csproj` projects and an empty `SquiFlow.sln`. That zero-project state remains qualification evidence for 0A, not a permanent target.
 
-Qualified Phase 0B earned exactly two projects:
+Qualified Phase 0B earned the first capability/test pair. Active Phase 0E has now introduced a second capability/test pair:
 
 ```text
 modules/parties/SquiFlow.Parties/SquiFlow.Parties.csproj
+modules/payments/SquiFlow.Payments/SquiFlow.Payments.csproj
 tests/unit/SquiFlow.Parties.Tests/SquiFlow.Parties.Tests.csproj
+tests/unit/SquiFlow.Payments.Tests/SquiFlow.Payments.Tests.csproj
 ```
 
-The production project currently owns only the accepted Party structural distinction `Person | Organization`. There is no Foundation/ApplicationKernel project, no application/service executable, no persistence/provider project, and no claim that a complete Party/Customer/Account model exists.
+`SquiFlow.Parties` remains qualified only for `PartyKind = Person | Organization` and its no-outward-dependency boundary.
 
-The qualified 0B status/evidence record is `docs/implementation/phases/phase-0/0B_STATUS.md`. Its introduced semantic/dependency claims are `PRODUCTION_HONEST`, future concerns are `NOT_INTRODUCED`, and `BLOCKED = none`.
+`SquiFlow.Payments` currently introduces only the accepted Payment status vocabulary:
 
-Folder names, architecture diagrams, old branches, old merge requests, historical source studies, and the retired pre-reset implementation plan do not prove that another runtime/project currently exists.
+```text
+NotStarted
+Pending
+Succeeded
+Failed
+OutcomeUnknown
+PartiallyRefunded
+Refunded
+Reversed
+```
+
+There is still no Foundation/ApplicationKernel project, application/service executable, persistence/provider project, or claim that a complete Party/Customer/Payment model exists.
+
+The qualified 0B evidence record is `docs/implementation/phases/phase-0/0B_STATUS.md` with `BLOCKED = none`.
+
+The active 0E evidence record is `docs/implementation/phases/phase-0/0E_STATUS.md`. Its introduced Payments semantic/dependency claims remain `BLOCKED` until a new executable restore/build/test run passes for the four-project solution.
 
 ## 3. Governing implementation sequence
 
@@ -90,7 +108,10 @@ Detailed semantics remain in their focused owners rather than being duplicated h
 Phase 0  detailed / active-earned architectural development foundation
   0A     QUALIFIED — repository/architecture reset baseline
   0B     QUALIFIED — capability-first foundation discovery
-  0C     NOT ACTIVE — host/process composition only when a real executable earns it
+  0C     NOT INTRODUCED — host/process composition only when a real executable earns it
+  0D     NOT INTRODUCED unless pulled forward by real code/runtime need
+  0E     IN PROGRESS — second real capability / Payments slice
+  0F     NOT INTRODUCED — integrated Phase-0 qualification after enough real scope exists
 Phase 1  detailed trust/security direction already concrete enough to govern
 Phase 2  direction only — NOT_INTRODUCED
 Phase 3  direction only — NOT_INTRODUCED
@@ -103,9 +124,9 @@ Phase 9  direction only — NOT_INTRODUCED unless a capability is pulled forward
 Phase 10 direction only — NOT_INTRODUCED
 ```
 
-The exact future subphase decomposition, provider/runtime mechanism, evidence classes, cadences, failure inventories, transitional contracts, and exit criteria are **not** pre-authorized by this plan.
+This is intentionally non-linear inside Phase 0. 0E is active before 0C because real capability semantics exist while no executable responsibility currently earns a host/process boundary.
 
-When a real responsibility arrives, activate or reshape the relevant phase from current facts. Old detailed future phase material remains Git history/anticipation, not success criteria.
+The exact future subphase decomposition, provider/runtime mechanism, evidence classes, cadences, failure inventories, transitional contracts, and exit criteria are not pre-authorized by this plan.
 
 ## 6. Pull-forward rule
 
@@ -133,6 +154,8 @@ Consequential domain terminology must follow `docs/domain/BUSINESS_TERMS.md`; do
 
 The qualified Party-kind slice is intentionally narrower than a complete Party/customer capability and does not close the discovery-sensitive Customer/Party/Account relationship group.
 
+The active Payments slice is likewise intentionally narrower than a payment aggregate. It only adopts the already-documented Payment status vocabulary and does not invent transitions, money/rounding, persistence, or authority semantics.
+
 ## 8. Verification rule
 
 Evidence is derived from the claim, not from the phase label or implementation shortcut.
@@ -141,21 +164,31 @@ Use the strongest applicable layer for the property actually introduced: static/
 
 Mocks do not prove behavior owned by a real provider/database/framework/process boundary.
 
-The qualified 0B unit-test project owns only the Party-kind semantic regression and the initial no-outward-dependency boundary. It does not serve as evidence for runtime/provider responsibilities that do not exist.
+Qualified 0B has successful GitHub Actions evidence: run `34916005915`, job `104213630182`, executing the repository-owned restore/build/test contract for the then-current Parties solution.
 
-Executable evidence for qualified 0B is the successful GitHub Actions run `34916005915`, job `104213630182`, executing the repository-owned restore/build/test contract. GitLab's hosted quota currently prevents its equivalent job from reaching a runner; this does not change the qualified code claims and is not represented as GitLab execution success.
+Active 0E changes C#, projects, tests, and the solution, so that prior run does not qualify the new claims. GitLab pipeline `#196` (`2849161905`) created `verify-dotnet` but failed before runner start with `ci_quota_exceeded`; no `dotnet` command executed. A new successful execution is required.
 
 A qualified material claim keeps a permanent or recurring regression guard and explicit requalification triggers. `Manual once` is not a regression strategy.
 
 ## 9. KISS, YAGNI, and SOLID
 
-KISS means **smallest production-honest scope**: minimum accidental complexity while completely satisfying the current declared responsibility.
+KISS means smallest production-honest scope: minimum accidental complexity while completely satisfying the current declared responsibility.
 
 YAGNI prevents speculative breadth, not required correctness/security/durability/recovery/compatibility/resource/observability depth for a responsibility already introduced.
 
 SOLID is pressure-testing guidance for real ownership/change/replacement/fault/security boundaries. It does not mandate one interface per class, generic repositories, forwarding layers, or project-count symmetry.
 
-## 10. Historical master plan
+## 10. Carry-forward / TODO discipline
+
+`docs/implementation/IMPLEMENTATION_TODO.md` records three distinct classes of follow-up:
+
+- active introduced work that is `BLOCKED` and must be finished/un-introduced;
+- operational follow-up that does not reopen a qualified semantic gate;
+- trigger-only future work that remains `NOT_INTRODUCED` until its trigger occurs.
+
+A completed gate is not reopened merely because future responsibilities exist. An active blocker must not be hidden in TODO and carried forward as future hardening.
+
+## 11. Historical master plan
 
 The former v0.0.18 fixed Phase 0–10 implementation plan is superseded as current governance. It remains available in Git history for rationale and architectural questions.
 
