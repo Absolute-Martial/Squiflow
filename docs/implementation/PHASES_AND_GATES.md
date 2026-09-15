@@ -51,8 +51,8 @@ A future phase name is a planning label, not an implementation contract. The lab
 At the current principles-first rebuild baseline:
 
 ```text
-Phase 0  detailed / active-earned
-Phase 1  detailed trust/security contract
+Phase 0  COMPLETE / QUALIFIED for introduced responsibilities
+Phase 1  detailed trust/security governance; runtime implementation trigger-dependent
 Phase 2  direction only — NOT_INTRODUCED
 Phase 3  direction only — NOT_INTRODUCED
 Phase 4  direction only — NOT_INTRODUCED
@@ -64,7 +64,7 @@ Phase 9  direction only — NOT_INTRODUCED
 Phase 10 direction only — NOT_INTRODUCED
 ```
 
-Phase 0/1 detailed documents may evolve further as current real work sharpens their claims.
+Phase 0 remains detailed because its qualified guarantees and permanent regression guards continue to govern later work. Phase 1 remains detailed because accepted trust/security direction is concrete enough to constrain future protected surfaces, but detailed governance does not by itself create runtime implementation.
 
 Future phase detail is created only when real implementation/workload earns it.
 
@@ -73,6 +73,8 @@ Future phase detail is created only when real implementation/workload earns it.
 Default WIP remains intentionally small. Prefer one coherent production-honest slice at a time rather than broad speculative implementation.
 
 The WIP rule is not a reason to prohibit adjacent work that is required to make the active slice correct. If a current slice needs a later responsibility, pull that responsibility forward and qualify it now under the global gate contracts.
+
+Phase completion never means “start the next numeric phase automatically.” The next slice is selected from the next real responsibility and its activation trigger.
 
 ## 4. Cross-phase responsibilities
 
@@ -93,21 +95,33 @@ Do not wait for a later roadmap label to implement correctness that the current 
 
 ## 5. Phase 0 — architectural development foundation
 
-Phase 0 remains the active detailed rebuild foundation.
+**State:** `COMPLETE / QUALIFIED` for the responsibilities actually introduced.
 
-Its detailed owner package is `docs/implementation/phases/phase-0/`.
+Its detailed owner package is `docs/implementation/phases/phase-0/`, with integrated sign-off in `0F_STATUS.md`.
 
-Current focus includes only the architecture/kernel/module/host/engineering-safety responsibilities real implementation actually reintroduces. The detailed Phase-0 package determines exact current evidence; this file does not duplicate it.
+Qualified Phase 0 currently includes:
 
-Phase 0 may also host real capability work. A phase is a maturity floor, not a whitelist of folders/features.
+- repository/authority/reset truth;
+- capability-first ownership and dependency direction;
+- Parties and Payments semantic/dependency guards;
+- repository-owned .NET build/test verification and the engineering-safety subset current projects require;
+- explicit safe absence of shared Foundation and executable/process/runtime responsibilities that were not earned.
+
+Phase 0 completed with 0C host/process composition `NOT_INTRODUCED`, because no executable responsibility exists. This is valid under the integrated gate and must not be “fixed” by creating an empty host.
+
+Phase-0 guarantees and regression guards remain active after qualification.
 
 ## 6. Phase 1 — identity, tenant authorization, session and trust foundation
 
-Phase 1 remains detailed because the accepted user/tenant trust architecture already establishes concrete identity/authorization/session boundaries that must be specified carefully.
+Phase 1 remains detailed because the accepted user/tenant trust architecture establishes concrete identity/authorization/session boundaries that must be specified carefully when a protected surface is introduced.
 
 Its detailed owner package is `docs/implementation/phases/phase-1/`.
 
-Detailed security evidence, transitional restrictions and authorization-change semantics live there rather than in this parent roadmap.
+**Runtime implementation trigger:** a real externally reachable user/tenant operation, or another real current responsibility, requires authenticated identity, tenant authorization, session behavior, or provider-backed trust guarantees.
+
+Until that trigger exists, ZITADEL/OpenFGA/session implementation remains `NOT_INTRODUCED` runtime scope even though its governance and accepted direction are detailed.
+
+Detailed security evidence, transitional restrictions and authorization-change semantics live in Phase 1 rather than in this parent roadmap.
 
 ## 7. Phase 2 — anticipated local-first Workstation durability/recovery direction
 

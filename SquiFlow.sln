@@ -6,6 +6,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SquiFlow.Parties", "modules
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SquiFlow.Parties.Tests", "tests\unit\SquiFlow.Parties.Tests\SquiFlow.Parties.Tests.csproj", "{1695F566-22B0-4DD7-BF29-D78A34EEA5FD}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SquiFlow.Payments", "modules\payments\SquiFlow.Payments\SquiFlow.Payments.csproj", "{D074719E-9A1E-4A3A-83BF-FC9D26BE47E0}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SquiFlow.Payments.Tests", "tests\unit\SquiFlow.Payments.Tests\SquiFlow.Payments.Tests.csproj", "{5BC1F293-A71E-4852-B5C5-1C9ED7B54134}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,5 +24,13 @@ Global
 		{1695F566-22B0-4DD7-BF29-D78A34EEA5FD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1695F566-22B0-4DD7-BF29-D78A34EEA5FD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1695F566-22B0-4DD7-BF29-D78A34EEA5FD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D074719E-9A1E-4A3A-83BF-FC9D26BE47E0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D074719E-9A1E-4A3A-83BF-FC9D26BE47E0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D074719E-9A1E-4A3A-83BF-FC9D26BE47E0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D074719E-9A1E-4A3A-83BF-FC9D26BE47E0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5BC1F293-A71E-4852-B5C5-1C9ED7B54134}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5BC1F293-A71E-4852-B5C5-1C9ED7B54134}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5BC1F293-A71E-4852-B5C5-1C9ED7B54134}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5BC1F293-A71E-4852-B5C5-1C9ED7B54134}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
