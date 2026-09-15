@@ -111,7 +111,7 @@ dotnet test SquiFlow.sln -c Release --no-build
 
 Those commands have not yet been claimed as passing. The assistant shell has no .NET SDK and cannot resolve external hosts for local provisioning.
 
-GitLab CI uses root `.gitlab-ci.yml`. On the current clean branch, pipeline `#187` was created successfully, but its `verify-dotnet` job never started because the project hit `ci_quota_exceeded`; no runner was assigned and no `dotnet` command executed. This is a CI-capacity blocker, not a code/test failure.
+GitLab CI uses root `.gitlab-ci.yml`. On the current clean branch, pipeline `#187` was created successfully, but its `verify-dotnet` job never started because the project hit `ci_quota_exceeded`; no runner was assigned and no `dotnet` command executed. MR !67 also produced pipeline `#188` with the same pre-start quota failure. This is a CI-capacity blocker, not a code/test failure.
 
 GitHub Actions uses `.github/workflows/verify-dotnet.yml`. It reads the SDK selection from root `global.json` and runs the same commands. The user manages the GitHub remote/mirroring independently, so no GitHub execution is claimed until this branch is pushed there and a workflow run actually succeeds.
 
@@ -131,6 +131,8 @@ Dual-host CI is now an earned verification boundary because real executable code
 - `.github/workflows/verify-dotnet.yml` is the GitHub wrapper.
 - both invoke the same repository-owned restore/build/test commands;
 - `global.json` remains the SDK authority rather than duplicating the pinned SDK version in the GitHub workflow;
-- both are restricted to executable/build-input changes so documentation-only changes do not consume CI capacity.
+- both use change filters so a branch/review whose diff contains no executable/build input can skip this verification job.
+
+Change filters are not a promise that every documentation-only commit is free: in an already code-changing MR/PR, the provider may compare the review against its target branch and retrigger verification after a documentation-only commit. The invariant is that GitLab and GitHub verify the same executable contract, not that CI will never rerun for documentation activity.
 
 The two CI systems are redundant execution hosts, not separate build definitions. Do not move build meaning into host-specific scripts or let GitLab and GitHub verify different contracts.

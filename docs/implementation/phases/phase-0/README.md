@@ -145,7 +145,7 @@ dotnet test SquiFlow.sln -c Release --no-build
 
 The current tests cover the Party-kind semantic and the initial Parties dependency boundary. They do not imply that runtime/provider/persistence/security behavior exists.
 
-GitLab CI invokes those commands from root `.gitlab-ci.yml`. On the current clean branch, pipeline `#187` was created successfully, but its job failed before start with `ci_quota_exceeded`; no runner executed the commands. That is a verification-infrastructure blocker, not a code/test failure.
+GitLab CI invokes those commands from root `.gitlab-ci.yml`. On the current clean branch, pipeline `#187` was created successfully, and MR !67 produced pipeline `#188`; both jobs failed before start with `ci_quota_exceeded`, so no runner executed the commands. That is a verification-infrastructure blocker, not a code/test failure.
 
 GitHub Actions invokes the same commands from `.github/workflows/verify-dotnet.yml`, with `actions/setup-dotnet` reading root `global.json`. The user manages the GitHub mirror/remote independently, so no GitHub run is claimed until this branch is pushed there and the workflow actually succeeds.
 
@@ -167,4 +167,4 @@ GitHub: .github/workflows/verify-dotnet.yml
 
 This is one verification contract with two execution hosts. Do not create separate GitLab/GitHub build semantics, host-specific business tests, or custom tooling trees merely to support mirroring.
 
-Both paths are restricted to executable/build-input changes so documentation-only commits do not consume CI capacity. `global.json` remains the SDK authority.
+Both paths use change filters so a branch/review whose diff contains no executable/build input can skip this verification job. In an already code-changing MR/PR, later documentation-only commits may still retrigger because providers can evaluate the review against its target branch. `global.json` remains the SDK authority.
