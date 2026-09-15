@@ -23,7 +23,7 @@ A second capability can be introduced from already-accepted business meaning wit
 | `0E-CROSS-CAPABILITY-DIRECTION` | `BLOCKED` pending executable evidence | Parties and Payments remain independently owned capability projects; neither references the other and neither depends on Foundation. | Existing Parties dependency guard plus Payments dependency guard; solution/project inventory. |
 | `0E-SHARED-FOUNDATION` | `NOT_INTRODUCED` | No shared product-wide primitive has yet appeared merely because a second capability exists. | Current capability semantics are distinct; extraction remains trigger-driven. |
 | `0C-HOST-COMPOSITION` | `NOT_INTRODUCED` | No executable host has a real current application responsibility yet. | 0C owner + repository inventory. |
-| `0E-PAYMENT-IDENTITY-AMOUNT-TRANSITIONS` | `NOT_INTRODUCED` | No payment ID encoding, amount/currency/rounding, transition rules, retries/idempotency, settlement, persistence, API, authorization, or reconciliation behavior is introduced. | Focused domain/open-decision owners remain authoritative when a real payment operation requires them. |
+| `0E-PAYMENT-IDENTITY-AMOUNT-TRANSITIONS` | `NOT_INTRODUCED` | No payment ID encoding, amount/currency/rounding, transition rules, retries/idempotency, outcome-unknown reconciliation, settlement, persistence, API, authorization, or reconciliation behavior is introduced. | Focused domain/open-decision owners remain authoritative when a real payment operation requires them. |
 
 ## Required executable evidence
 
@@ -36,6 +36,20 @@ dotnet test SquiFlow.sln -c Release --no-build
 ```
 
 Because this slice changes C#, projects, tests, and the solution, the successful 0B GitHub run does not qualify these new claims. A new successful execution is required before the introduced 0E claims can become `PRODUCTION_HONEST`.
+
+### Current GitLab evidence
+
+GitLab pipeline `#196` (`2849161905`) was created for commit `44f79f02`. Its `verify-dotnet` job (`16500020757`) did **not** start:
+
+```text
+failure_reason = ci_quota_exceeded
+runner = null
+runner_manager = null
+```
+
+No `dotnet` command executed. This is an infrastructure-capacity failure, not evidence that restore/build/tests failed.
+
+The GitHub workflow remains the alternate execution host managed by the maintainer. No successful 0E GitHub run is claimed yet.
 
 ## Permanent-regression direction
 
