@@ -1,7 +1,7 @@
 # Phase 0B Status — Capability-First Foundation Discovery
 
 **Status:** IN PROGRESS  
-**Baseline dependency:** stacked on `phase0/0a-production-honest-requalification` / MR !64 until that baseline is merged  
+**Baseline:** current `main` after merged Phase 0A MR !64  
 **Gate owner:** `0B_APPLICATION_KERNEL_AND_MODULE_FOUNDATION.md`
 
 ## Production intent for the active slice
@@ -37,7 +37,7 @@ Supplier / outsourced producer / vendor
 |---|---|---|---|
 | `0B-PARTY-KIND` | `BLOCKED` pending executable evidence | `SquiFlow.Parties.Domain.PartyKind` contains only `Person` and `Organization`, matching the accepted Party structural meaning. It does not encode Customer/Supplier/Account roles. | `PartyKindTests.Accepted_kinds_match_the_documented_party_semantics`; source review against `BUSINESS_TERMS.md`. |
 | `0B-PARTIES-DEPENDENCY-BOUNDARY` | `BLOCKED` pending executable evidence | The first Parties capability project is host/provider neutral and currently has no outward project or package dependency. | `PartiesDependencyBoundaryTests.Capability_has_no_outward_project_or_package_dependencies`; the test becomes a requalification point if a dependency is later earned. |
-| `0B-VERIFICATION-CI` | `BLOCKED` pending a successful real CI execution | GitLab and GitHub each have a thin CI wrapper over the same repository-owned restore/build/test commands. GitLab is currently quota-blocked; the GitHub workflow exists in-repository but has not yet been executed on a mirrored GitHub branch. | `.gitlab-ci.yml`; `.github/workflows/verify-dotnet.yml`; GitLab pipeline `#174` failed before start with `ci_quota_exceeded`; GitHub execution evidence is still absent. |
+| `0B-VERIFICATION-CI` | `BLOCKED` pending a successful real CI execution | GitLab and GitHub each have a thin CI wrapper over the same repository-owned restore/build/test commands. GitLab is quota-blocked; the GitHub workflow exists in-repository but has not yet been executed on the user's GitHub mirror. | `.gitlab-ci.yml`; `.github/workflows/verify-dotnet.yml`; clean-branch GitLab pipeline `#187` failed before start with `ci_quota_exceeded`; GitHub execution evidence is still absent. |
 | `0B-FOUNDATION-KERNEL` | `NOT_INTRODUCED` | No `SquiFlow.ApplicationKernel`, module descriptor graph, shared primitives project, feature/settings/permission kernel, host registry, or execution-mode enum exists. | Repository/project inventory; 0B owner explicitly requires current pressure before extraction. |
 | `0B-PARTY-IDENTITY` | `NOT_INTRODUCED` | No GUID/ULID/string identity encoding/generator/API/persistence contract is selected. | Absence is intentional because current owners specify stable internal identity semantics but do not select an encoding. |
 | `0B-PARTY-LIFECYCLE` | `NOT_INTRODUCED` | No Party aggregate lifecycle, mutation, contact/profile model, merge workflow, Customer/Account relationship, or persistence is claimed. | `BUSINESS_TERMS.md` and `CROSS_CUTTING_BUSINESS_PRIMITIVES.md` remain the source of current semantics/non-semantics. |
@@ -47,7 +47,7 @@ Supplier / outsourced producer / vendor
 
 The source and test intent are reviewable, but this assistant workspace has no .NET SDK and cannot resolve external hosts, so local provisioning/execution is unavailable.
 
-Both CI hosts now converge on the same repository-owned commands:
+Both CI hosts converge on the same repository-owned commands:
 
 ```text
 dotnet restore SquiFlow.sln
@@ -55,9 +55,9 @@ dotnet build SquiFlow.sln -c Release --no-restore
 dotnet test SquiFlow.sln -c Release --no-build
 ```
 
-GitLab pipeline `#174` (`2847992488`) was created for commit `2914b7d8`, proving the GitLab YAML is accepted. Its `verify-dotnet` job did **not** start: GitLab reported `failure_reason = ci_quota_exceeded`, with no runner assigned. Therefore the failed GitLab pipeline is an infrastructure/quota failure, not evidence that restore/build/tests failed.
+On the current clean branch, GitLab pipeline `#187` (`2848938219`) was created for commit `09ee268d`. Its `verify-dotnet` job did **not** start: GitLab reported `failure_reason = ci_quota_exceeded`, with `runner = null` and `runner_manager = null`. Therefore the failed GitLab pipeline is an infrastructure/quota failure, not evidence that restore/build/tests failed.
 
-The GitHub Actions workflow is now present at `.github/workflows/verify-dotnet.yml`. It uses `actions/checkout@v7`, `actions/setup-dotnet@v6`, reads the SDK selection from root `global.json`, and invokes the same restore/build/test sequence. Because the user manages GitHub mirroring/remotes independently and the branch has not yet been executed there, source review of the workflow is not treated as passing evidence.
+The GitHub Actions workflow is present at `.github/workflows/verify-dotnet.yml`. It uses `actions/checkout@v7`, `actions/setup-dotnet@v6`, reads the SDK selection from root `global.json`, and invokes the same restore/build/test sequence. The user manages GitHub remotes/mirroring independently, so source review of the workflow is not treated as passing evidence and no GitHub run is claimed until the same branch is pushed there and Actions actually succeeds.
 
 A successful execution of the repository-owned commands on either legitimate CI host is sufficient executable evidence for the Party-kind and dependency-boundary code claims. The CI path that supplies that evidence must itself have actually run successfully; configuration presence alone is not enough.
 
@@ -65,7 +65,7 @@ Until executable evidence actually passes on this branch, the Party-kind and dep
 
 ## Static review completed
 
-Repository-side static review currently confirms:
+Repository-side static review confirms:
 
 - the branch contains exactly one production capability project and one test project;
 - `SquiFlow.sln` contains exactly those two projects;
@@ -78,7 +78,7 @@ Repository-side static review currently confirms:
 - `.gitlab-ci.yml` and `.github/workflows/verify-dotnet.yml` are thin host-specific orchestration over the same repository-owned commands; neither introduces custom build scripts or an `eng/` tooling tree;
 - GitHub's workflow reads the SDK from `global.json` instead of duplicating the pinned SDK version;
 - current-state repository/structure documents distinguish the 0A zero-project snapshot from the active 0B two-project state;
-- stale-state searches only return self-describing audit/status text or explicitly historical decision material, not an active focused owner claiming deleted runtime exists.
+- the clean branch is based on current `main` after merged !64 rather than carrying the pre-squash 0A ancestry that conflicted in superseded MR !66.
 
 This is static/repository evidence only. It does **not** replace required restore/build/test execution.
 
