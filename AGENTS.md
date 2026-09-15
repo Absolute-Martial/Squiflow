@@ -4,11 +4,18 @@ This is the repository-wide instruction map. A closer `AGENTS.md` in a subtree a
 
 ## 1. Current implementation truth
 
-This branch represents the **v0.0.20 Phase-0A qualification snapshot** under the production-honest governance model. It intentionally contains no production/test `*.csproj` projects and `SquiFlow.sln` is an empty implementation container.
+SquiFlow is at the **v0.0.20 principles-first baseline**. Phase 0A and Phase 0B are qualified under the production-honest governance model. No later Phase-0 work area is automatically active; the next slice must be derived from real current responsibility.
 
-That empty state is 0A qualification evidence, not a permanent repository invariant. A later stacked/merged implementation branch may legitimately contain projects if current responsibility earns them under the active gate model.
+The qualified implementation currently contains exactly two implementation/test projects:
 
-Source-area folders may exist because architecture documentation or scoped `AGENTS.md` guidance reserves ownership, but:
+```text
+modules/parties/SquiFlow.Parties/SquiFlow.Parties.csproj
+tests/unit/SquiFlow.Parties.Tests/SquiFlow.Parties.Tests.csproj
+```
+
+The current production-code scope is deliberately narrow: `SquiFlow.Parties` owns only the accepted `PartyKind` distinction (`Person` / `Organization`). It does **not** claim a complete Party/Customer/Account model, Party identity encoding, persistence, API, host, sync, authorization, or runtime.
+
+There is currently no Foundation/ApplicationKernel project and no application/service executable. `SquiFlow.sln` contains only the two projects above. Qualified 0B explicitly concluded that no current product-wide shared primitive was earned by the real Parties slice, so Foundation remains `NOT_INTRODUCED` rather than unfinished.
 
 ```text
 folder exists
@@ -21,15 +28,17 @@ Do not infer implementation from directory names, historical branches, old merge
 
 Read first:
 
-- `README.IMPLEMENTATION.md` — 0A qualification truth and rebuild rule.
+- `README.IMPLEMENTATION.md` — current implementation truth and active-slice rule.
 - `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md` — canonical scope/quality gate.
 - `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md` — evidence permanence/requalification owner.
 - `docs/implementation/phases/phase-0/0A_BASELINE_STATUS.md` — qualified reset baseline and enduring 0A guarantees.
-- `docs/implementation/phases/phase-0/0B_APPLICATION_KERNEL_AND_MODULE_FOUNDATION.md` — next responsibility area, to be re-derived from real work before implementation.
+- `docs/implementation/phases/phase-0/0B_APPLICATION_KERNEL_AND_MODULE_FOUNDATION.md` — qualified 0B gate owner.
+- `docs/implementation/phases/phase-0/0B_STATUS.md` — qualified 0B scope/evidence/non-claims/requalification record.
+- `docs/domain/BUSINESS_TERMS.md` — accepted versus discovery-sensitive domain language.
 - `docs/architecture/ENGINEERING_PRINCIPLES.md` — engineering philosophy.
 - `docs/architecture/EXPLICIT_BOUNDARIES_AND_SOLID.md` — boundary/abstraction rules.
 - `docs/architecture/REPOSITORY_STRUCTURE.md` — ownership and executable growth map.
-- `docs/architecture/REPOSITORY_FOLDER_STRUCTURE.md` — folder-only qualification/growth map.
+- `docs/architecture/REPOSITORY_FOLDER_STRUCTURE.md` — folder-only current/growth map.
 - `docs/decisions/CURRENT_DECISIONS.md` — accepted current decisions.
 - `docs/decisions/OPEN_DECISIONS.md` — intentionally unresolved choices.
 - the focused owner for the responsibility being implemented.
@@ -143,6 +152,8 @@ Unless a current focused owner and declared production-honest scope explicitly e
 - carry an introduced `BLOCKED` responsibility into a later phase as if it were `NOT_INTRODUCED`;
 - treat architecture/review documentation as proof that runtime code already exists.
 
+For the qualified 0B scope specifically, do not add Party ID encoding, Customer/Account relationships, persistence, API/host code, or Foundation merely to make the capability appear larger. Any later introduction must be independently earned from a new real responsibility.
+
 ## 7. Boundary validation
 
 - Treat user/wire/provider/file/persisted historical input as untrusted at its boundary.
@@ -156,11 +167,25 @@ Unless a current focused owner and declared production-honest scope explicitly e
 
 ## 8. Testing and evidence
 
-The 0A qualification branch has **no executable test/spec projects** because its declared scope is repository/governance truth, not executable behavior.
+The first real verification project exists because the Parties capability boundary exists:
 
-0A uses repository/document evidence. The empty project inventory is qualification-time evidence, not a permanent rule that prevents later earned implementation.
+```text
+tests/unit/SquiFlow.Parties.Tests/SquiFlow.Parties.Tests.csproj
+```
 
-When the first real implementation project is introduced by later work, that change must establish the narrowest useful verification that can falsify the claims it adds. Provider/framework/process/database/recovery claims must be tested at the real layer that owns them; mocks do not prove properties owned by real dependencies.
+Current tests prove the declared Party-kind semantic and mechanically protect the initial Parties project from outward project/package dependencies. They do not prove persistence, runtime, authorization, API, sync, customer/account semantics, or anything else that remains `NOT_INTRODUCED`.
+
+The repository uses xUnit v3 with Microsoft Testing Platform for the current .NET 10 test path. The repository-owned executable contract is:
+
+```text
+dotnet restore SquiFlow.sln
+dotnet build SquiFlow.sln -c Release --no-restore
+dotnet test SquiFlow.sln -c Release --no-build
+```
+
+Qualified 0B has successful GitHub Actions evidence for this contract: run `34916005915`, job `104213630182`. The exact claims and link are recorded in `0B_STATUS.md`.
+
+GitLab currently schedules the same job but hosted quota prevents runner start. Do not reinterpret that infrastructure limitation as a code/test failure or as proof of GitLab runner execution.
 
 For every material active claim, identify:
 
