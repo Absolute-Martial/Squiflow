@@ -24,16 +24,20 @@ A capability owns one source implementation of its business meaning. `Core`, `Se
 
 The `v0.0.20` 0A reset snapshot intentionally contained no application/service/foundation-library/capability/test projects. That clean snapshot is qualification evidence, not a permanent target.
 
-The active 0B branch has now earned exactly two projects:
+Qualified 0B introduced the first capability/test pair. Qualified 0E introduced a second capability/test pair:
 
 ```text
 modules/parties/SquiFlow.Parties/SquiFlow.Parties.csproj
+modules/payments/SquiFlow.Payments/SquiFlow.Payments.csproj
 tests/unit/SquiFlow.Parties.Tests/SquiFlow.Parties.Tests.csproj
+tests/unit/SquiFlow.Payments.Tests/SquiFlow.Payments.Tests.csproj
 ```
 
-`SquiFlow.Parties` currently owns only the accepted `PartyKind = Person | Organization` semantic. The test project verifies that semantic and the current no-outward-dependency boundary.
+`SquiFlow.Parties` owns only the qualified `PartyKind = Person | Organization` semantic and its current no-outward-dependency boundary.
 
-There is still no Foundation/ApplicationKernel project, host/service executable, persistence/provider project, or other capability project.
+`SquiFlow.Payments` owns only the documented Payment status vocabulary and its no-outward-dependency boundary. Those narrow claims are `PRODUCTION_HONEST`, backed by successful GitHub Actions run `34922277237`, job `104232827231`.
+
+There is still no Foundation/ApplicationKernel project, host/service executable, persistence/provider project, or cross-capability project reference.
 
 Earlier Phase-0 code remains in Git history and is not current implementation authority. New projects are introduced only with a real current responsibility, explicit dependency/authority boundary, material applicable behavior, and falsifiable verification.
 
@@ -97,7 +101,7 @@ modules/orders/
    `- Events/
 ```
 
-This is a sample shape, not a requirement to create every folder. Only folders with real responsibilities should exist. The current Parties slice therefore contains only the `Domain/` folder it actually needs.
+This is a sample shape, not a requirement to create every folder. Only folders with real responsibilities should exist. The current Parties and Payments slices therefore contain only the `Domain/` folder they actually need.
 
 A provider split is earned when provider code would contaminate host-neutral business code:
 
@@ -142,6 +146,8 @@ Different hosts may enter different use cases because trust/workload context dif
 
 Inside one process, modules communicate in-process by default. HTTP/gRPC is not introduced between ordinary modules to imitate microservices.
 
+No executable host currently exists. Phase 0C remains `NOT_INTRODUCED` until a real executable responsibility justifies one.
+
 ## 7. Workstation/process map
 
 The desktop product may eventually contain:
@@ -185,7 +191,7 @@ A project/executable earns existence for a real reason such as:
 
 If none applies, prefer a cohesive existing boundary.
 
-The current Parties project is the first compact capability boundary. The current test project is earned by the need for executable semantic/dependency evidence. No other project is implied by their existence.
+The Parties and Payments projects are compact capability boundaries earned by accepted business semantics. Their test projects are earned by executable semantic/dependency evidence. Their coexistence does not by itself earn Foundation or an executable host.
 
 ## 10. KISS and file structure
 
@@ -199,4 +205,6 @@ Detailed engineering rule: `docs/architecture/ENGINEERING_PRINCIPLES.md`.
 
 Architecture verification proves boundaries that actually exist rather than requiring speculative ones.
 
-The current Parties test project mechanically protects its no-outward-project/package dependency claim. Future provider/host leakage checks, executable-to-executable reference restrictions, Guard isolation, cross-capability ownership, and other dependency rules are added only when those concrete boundaries exist.
+The Parties and Payments test projects mechanically protect their current no-outward-project/package dependency claims. If a later shared Foundation or cross-capability dependency is earned, update the active scope/owner and replace the old guard deliberately rather than silently weakening it.
+
+Future provider/host leakage checks, executable-to-executable reference restrictions, Guard isolation, and other dependency rules are added only when those concrete boundaries exist.

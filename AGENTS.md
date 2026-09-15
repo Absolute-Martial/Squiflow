@@ -4,18 +4,24 @@ This is the repository-wide instruction map. A closer `AGENTS.md` in a subtree a
 
 ## 1. Current implementation truth
 
-SquiFlow is at the **v0.0.20 principles-first baseline**. Phase 0A and Phase 0B are qualified under the production-honest governance model. No later Phase-0 work area is automatically active; the next slice must be derived from real current responsibility.
+SquiFlow is at the **v0.0.20 principles-first baseline**. Phase 0 is **COMPLETE / QUALIFIED** for the responsibilities actually introduced. The next implementation slice is not automatically Phase 1; it must again be earned from a real current responsibility.
 
-The qualified implementation currently contains exactly two implementation/test projects:
+The qualified implementation contains exactly four implementation/test projects:
 
 ```text
 modules/parties/SquiFlow.Parties/SquiFlow.Parties.csproj
+modules/payments/SquiFlow.Payments/SquiFlow.Payments.csproj
 tests/unit/SquiFlow.Parties.Tests/SquiFlow.Parties.Tests.csproj
+tests/unit/SquiFlow.Payments.Tests/SquiFlow.Payments.Tests.csproj
 ```
 
-The current production-code scope is deliberately narrow: `SquiFlow.Parties` owns only the accepted `PartyKind` distinction (`Person` / `Organization`). It does **not** claim a complete Party/Customer/Account model, Party identity encoding, persistence, API, host, sync, authorization, or runtime.
+`SquiFlow.Parties` is qualified only for the accepted `PartyKind` distinction (`Person` / `Organization`).
 
-There is currently no Foundation/ApplicationKernel project and no application/service executable. `SquiFlow.sln` contains only the two projects above. Qualified 0B explicitly concluded that no current product-wide shared primitive was earned by the real Parties slice, so Foundation remains `NOT_INTRODUCED` rather than unfinished.
+`SquiFlow.Payments` is qualified only for the documented `PaymentStatus` vocabulary (`NotStarted`, `Pending`, `Succeeded`, `Failed`, `OutcomeUnknown`, `PartiallyRefunded`, `Refunded`, `Reversed`).
+
+Neither capability claims persistence, API/runtime behavior, complete aggregate lifecycle, or cross-capability integration. There is no Foundation/ApplicationKernel project and no application/service executable.
+
+Qualified Phase 0 deliberately leaves host/process composition `NOT_INTRODUCED` because no executable responsibility exists. Runtime observability, deployment, persistence, sync, identity/authorization runtime and other provider responsibilities remain absent until real work earns them.
 
 ```text
 folder exists
@@ -24,23 +30,22 @@ folder exists
     != responsibility is implemented
 ```
 
-Do not infer implementation from directory names, historical branches, old merge requests, diagrams, or phase labels.
+Do not infer implementation from directory names, historical branches, old merge requests, diagrams, phase labels, or detailed future governance.
 
 Read first:
 
-- `README.IMPLEMENTATION.md` — current implementation truth and active-slice rule.
+- `README.IMPLEMENTATION.md` — current implementation truth.
 - `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md` — canonical scope/quality gate.
 - `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md` — evidence permanence/requalification owner.
-- `docs/implementation/phases/phase-0/0A_BASELINE_STATUS.md` — qualified reset baseline and enduring 0A guarantees.
-- `docs/implementation/phases/phase-0/0B_APPLICATION_KERNEL_AND_MODULE_FOUNDATION.md` — qualified 0B gate owner.
-- `docs/implementation/phases/phase-0/0B_STATUS.md` — qualified 0B scope/evidence/non-claims/requalification record.
+- `docs/implementation/phases/phase-0/0F_STATUS.md` — integrated qualified Phase-0 record.
+- `docs/implementation/phases/phase-0/0A_BASELINE_STATUS.md`, `0B_STATUS.md`, `0D_STATUS.md`, `0E_STATUS.md` — detailed Phase-0 evidence.
+- `docs/implementation/IMPLEMENTATION_TODO.md` — operational follow-up and trigger-only carry-forward.
 - `docs/domain/BUSINESS_TERMS.md` — accepted versus discovery-sensitive domain language.
+- `docs/domain/BUSINESS_MODEL.md` — accepted practical business/domain model.
 - `docs/architecture/ENGINEERING_PRINCIPLES.md` — engineering philosophy.
 - `docs/architecture/EXPLICIT_BOUNDARIES_AND_SOLID.md` — boundary/abstraction rules.
-- `docs/architecture/REPOSITORY_STRUCTURE.md` — ownership and executable growth map.
-- `docs/architecture/REPOSITORY_FOLDER_STRUCTURE.md` — folder-only current/growth map.
-- `docs/decisions/CURRENT_DECISIONS.md` — accepted current decisions.
-- `docs/decisions/OPEN_DECISIONS.md` — intentionally unresolved choices.
+- `docs/architecture/REPOSITORY_STRUCTURE.md` and `REPOSITORY_FOLDER_STRUCTURE.md` — current/growth placement maps.
+- `docs/decisions/CURRENT_DECISIONS.md` and `OPEN_DECISIONS.md` — accepted versus unresolved direction.
 - the focused owner for the responsibility being implemented.
 
 Historical implementation/review/phase material remains evidence and context, not current authority when it conflicts with a current focused owner, accepted decision, or active gate.
@@ -69,8 +74,8 @@ BLOCKED
 ```
 
 - `NOT_INTRODUCED` means the responsibility is genuinely absent and no claimed path depends on it.
-- `PRODUCTION_HONEST` means the declared scope is trustworthy for the guarantees it claims, with falsifiable evidence and a permanent/recurring regression guard.
-- `BLOCKED` means the responsibility has been introduced but is not yet trustworthy for its claim. `BLOCKED` cannot be carried forward as “later hardening.” Finish it or un-introduce it.
+- `PRODUCTION_HONEST` means the declared scope is trustworthy for its exact guarantee, with falsifiable evidence and permanent/recurring protection.
+- `BLOCKED` means the responsibility has been introduced but is not yet trustworthy. It cannot be carried forward as “later hardening.” Finish it or un-introduce it.
 
 Use the **smallest production-honest scope**. Breadth may be narrow; quality/depth of an introduced claim may not be prototype-grade.
 
@@ -104,8 +109,8 @@ Preserve these unless a deliberate architecture decision changes them in the sam
 - Workstation local state may be provisional/local; central/security-sensitive authority remains server-side where defined.
 - Web remains online-only for business operations unless that architecture is deliberately changed.
 - Guard is external supervision/recovery coordination, not business authority.
-- PostgreSQL is the selected central transactional store when central persistence is reintroduced.
-- SQLite/WAL is the selected Workstation local store when local persistence is reintroduced.
+- PostgreSQL is the selected central transactional store when central persistence is introduced.
+- SQLite/WAL is the selected Workstation local store when local persistence is introduced.
 - Same-process capability interaction is in-process by default.
 - Physical projects, processes, interfaces, databases and protocols are earned by a real compile-time/provider/platform/security/fault/lifecycle/resource/workload boundary.
 - New mechanisms are selected from workload/invariants/evidence, not pattern popularity.
@@ -142,7 +147,7 @@ Unless a current focused owner and declared production-honest scope explicitly e
 - add generic `IRepository<T>`, universal `IUnitOfWork`, service-manager/helper/interface hierarchies without a real boundary;
 - expose DB/domain entities directly as public API/UI contracts merely for convenience;
 - rely on UI hiding, network location, feature visibility or token claims alone as authoritative authorization;
-- trust stale Workstation snapshots as current central authority;
+- trust stale Workstation snapshots as current server authority for protected invariants;
 - use fire-and-forget/in-memory queues for work that must survive restart;
 - claim exactly-once, HA, zero-downtime, statelessness or security without a scoped guarantee and evidence;
 - add GraphQL, BFF, Redis, Kafka/broker, Kubernetes, service mesh, schema-registry service, CQRS/event-sourcing infrastructure or another database because it is fashionable/common;
@@ -152,7 +157,7 @@ Unless a current focused owner and declared production-honest scope explicitly e
 - carry an introduced `BLOCKED` responsibility into a later phase as if it were `NOT_INTRODUCED`;
 - treat architecture/review documentation as proof that runtime code already exists.
 
-For the qualified 0B scope specifically, do not add Party ID encoding, Customer/Account relationships, persistence, API/host code, or Foundation merely to make the capability appear larger. Any later introduction must be independently earned from a new real responsibility.
+Do not add Party ID/Customer/Account behavior, payment money/transition/persistence behavior, Foundation, or a host merely to make current implementation appear larger. Each requires an independently earned responsibility.
 
 ## 7. Boundary validation
 
@@ -167,13 +172,14 @@ For the qualified 0B scope specifically, do not add Party ID encoding, Customer/
 
 ## 8. Testing and evidence
 
-The first real verification project exists because the Parties capability boundary exists:
+Current executable verification projects are:
 
 ```text
 tests/unit/SquiFlow.Parties.Tests/SquiFlow.Parties.Tests.csproj
+tests/unit/SquiFlow.Payments.Tests/SquiFlow.Payments.Tests.csproj
 ```
 
-Current tests prove the declared Party-kind semantic and mechanically protect the initial Parties project from outward project/package dependencies. They do not prove persistence, runtime, authorization, API, sync, customer/account semantics, or anything else that remains `NOT_INTRODUCED`.
+Current tests prove only the Party/Payment semantic claims and their no-outward-dependency boundaries. They do not prove persistence, runtime, authorization, API, sync, money/rounding, transition rules, settlement, or anything else that remains `NOT_INTRODUCED`.
 
 The repository uses xUnit v3 with Microsoft Testing Platform for the current .NET 10 test path. The repository-owned executable contract is:
 
@@ -183,7 +189,7 @@ dotnet build SquiFlow.sln -c Release --no-restore
 dotnet test SquiFlow.sln -c Release --no-build
 ```
 
-Qualified 0B has successful GitHub Actions evidence for this contract: run `34916005915`, job `104213630182`. The exact claims and link are recorded in `0B_STATUS.md`.
+Qualified current four-project evidence is maintainer-supplied GitHub Actions run `34922277237`, job `104232827231`. Earlier 0B evidence is run `34916005915`, job `104213630182` for the Parties-only solution.
 
 GitLab currently schedules the same job but hosted quota prevents runner start. Do not reinterpret that infrastructure limitation as a code/test failure or as proof of GitLab runner execution.
 
@@ -211,7 +217,7 @@ Before considering an active slice complete:
 6. add or name the permanent/recurring regression guard and requalification trigger;
 7. preserve dependency/authority direction;
 8. satisfy applicable failure/recovery/security/concurrency/compatibility/resource/observability obligations created by the slice;
-9. verify logs/errors do not disclose sensitive material;
+9. verify logs/errors do not disclose sensitive material where logging exists;
 10. update focused architecture/decision/phase docs when behavior or a material decision changes;
 11. ensure `BLOCKED = none` before gate qualification;
 12. state verification that could not be performed; never claim an unrun check passed.
@@ -224,3 +230,4 @@ Before considering an active slice complete:
 - Leave touched code cleaner when cleanup is local and does not become an unrelated refactor.
 - If a future boundary becomes necessary earlier than the roadmap expected, pull the owning responsibility forward deliberately and qualify it now instead of creating a temporary unsafe shortcut.
 - If historical work contains a useful idea, re-earn it from current facts; history is input, not authority.
+- Phase completion does not automatically activate the next phase. Use `IMPLEMENTATION_TODO.md` triggers and the real current responsibility to determine the next scope.

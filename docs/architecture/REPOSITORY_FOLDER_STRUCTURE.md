@@ -2,7 +2,7 @@
 
 **Version:** v0.0.20  
 **Purpose:** directory-only view of SquiFlow repository structure.  
-**Important:** directory presence is not proof that a runtime/project/responsibility is production-qualified. The 0A reset snapshot was implementation-empty; the active 0B slice has now earned one compact capability project and one unit-test project.
+**Important:** directory presence is not proof that a runtime/project/responsibility is production-qualified. The 0A reset snapshot was implementation-empty; qualified 0B earned the Parties capability/test pair; active 0E has now introduced the Payments capability/test pair.
 
 This document complements `REPOSITORY_STRUCTURE.md`. It intentionally shows **folders only**. Files, project files, source files, configuration files, and documentation filenames are omitted from every tree.
 
@@ -10,7 +10,7 @@ For physical `.csproj` placement, `REPOSITORY_STRUCTURE.md` is the more specific
 
 ## 1. Current physical folder tree
 
-The active 0B branch contains these source/test paths in addition to the retained documentation/ownership directories:
+The active 0E branch contains these source/test paths in addition to the retained documentation/ownership directories:
 
 ```text
 SquiFlow/
@@ -58,18 +58,24 @@ SquiFlow/
 │   └── workstation/
 ├── foundation/
 ├── modules/
-│   └── parties/
-│       └── SquiFlow.Parties/
+│   ├── parties/
+│   │   └── SquiFlow.Parties/
+│   │       └── Domain/
+│   └── payments/
+│       └── SquiFlow.Payments/
 │           └── Domain/
 ├── services/
 └── tests/
     └── unit/
-        └── SquiFlow.Parties.Tests/
+        ├── SquiFlow.Parties.Tests/
+        │   ├── Architecture/
+        │   └── Domain/
+        └── SquiFlow.Payments.Tests/
             ├── Architecture/
             └── Domain/
 ```
 
-`modules/parties/SquiFlow.Parties/` is the first real capability project location. The empty `foundation/`, application/service ownership folders, and other reserved directories still do not imply those runtimes/projects exist.
+`modules/parties/SquiFlow.Parties/` is the first qualified capability project location. `modules/payments/SquiFlow.Payments/` is the second real capability location introduced by active 0E. The empty `foundation/`, application/service ownership folders, and other reserved directories still do not imply those runtimes/projects exist.
 
 ## 2. Accepted growth map — folders only
 
@@ -112,7 +118,7 @@ SquiFlow/
 └── docs/
 ```
 
-The `<capability>` child names above describe logical responsibility categories and possible future physical splits. They are **not mandatory physical folders**. A compact capability can instead be one project directory directly under the capability, as shown by `modules/parties/SquiFlow.Parties/`, until a real compiler/provider/platform/packaging/lifecycle boundary earns `core/`, `server/`, `workstation/`, or `postgres/` separation.
+The `<capability>` child names above describe logical responsibility categories and possible future physical splits. They are **not mandatory physical folders**. A compact capability can instead be one project directory directly under the capability, as shown by Parties and Payments, until a real compiler/provider/platform/packaging/lifecycle boundary earns `core/`, `server/`, `workstation/`, or `postgres/` separation.
 
 ## 3. Compact capability folder shape
 
@@ -130,7 +136,7 @@ modules/
         └── Events/
 ```
 
-Create only the child folders that current code actually needs. The first Parties slice currently needs only `Domain/`.
+Create only the child folders that current code actually needs. The current Parties and Payments slices each need only `Domain/`.
 
 Conceptually this compact project owns the capability's host-neutral/core responsibility. It does not need a second physical `core/` layer merely to name that responsibility.
 
@@ -165,6 +171,8 @@ apps/
 
 Only `workstation/` and `guard/` are reserved primary desktop responsibilities. The other helper-process folders are created only when fault/resource/security/lifecycle isolation earns a separate process.
 
+No desktop executable is currently introduced.
+
 ## 6. Server process growth
 
 ```text
@@ -178,14 +186,17 @@ services/
 
 These are workload/process boundaries, not separate business implementations. They converge on capability-owned application behavior. Do not create a folder simply because it appears in this growth map.
 
+No server executable is currently introduced; Phase 0C remains trigger-dependent.
+
 ## 7. Testing folder growth
 
-The active 0B slice has earned only the unit-test category:
+The current implementation has earned only the unit-test category, with two capability test projects:
 
 ```text
 tests/
 └── unit/
-    └── SquiFlow.Parties.Tests/
+    ├── SquiFlow.Parties.Tests/
+    └── SquiFlow.Payments.Tests/
 ```
 
 As implementation grows, `tests/` may gain other verification responsibilities:
@@ -202,7 +213,7 @@ tests/
 └── performance/
 ```
 
-This is a classification map, not a requirement to create all categories. A small architecture assertion may live inside an existing test project, as the current Parties dependency-boundary test does; create a separate `tests/architecture/` project/folder only when that distinct verification responsibility is earned.
+This is a classification map, not a requirement to create all categories. Small architecture assertions may live inside existing capability test projects, as the current Parties and Payments dependency-boundary tests do. Create a separate `tests/architecture/` project/folder only when that distinct verification responsibility is earned.
 
 ## 8. Folder creation rule
 

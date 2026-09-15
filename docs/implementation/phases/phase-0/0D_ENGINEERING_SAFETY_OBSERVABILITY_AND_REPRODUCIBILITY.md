@@ -3,11 +3,14 @@
 **Purpose:** Ensure safety, observability, verification, and reproducibility grow with implementation rather than being postponed to late hardening.
 
 **Gate-quality owner:** `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md`  
-**Evidence/permanence owner:** `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md`
+**Evidence/permanence owner:** `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md`  
+**Qualification record:** `0D_STATUS.md`
 
-## Starting point after reset
+## Current earned boundary
 
-There is currently no `SquiFlow.Observability` project and no production/test project. Observability/library boundaries are reintroduced only with real consumers. CI/CD is allowed again.
+The reset began without production/test projects. Real code now exists, so build/verification/reproducibility responsibilities are introduced and qualified for the current project-only implementation.
+
+There is still no `SquiFlow.Observability` project and no application/provider/process runtime. Observability/library boundaries are introduced only with real consumers.
 
 ## Core rule
 
@@ -17,23 +20,22 @@ The same applies to governance evidence: do not preassign failure experiments, c
 
 ## CI/build foundation
 
-Repository verification should be locally runnable and shared by thin GitHub/GitLab wrappers. Under current build-minute constraints, self-hosted/self-managed runners are preferred primary compute.
+Repository verification is locally runnable and shared by thin GitHub/GitLab wrappers. Under hosted-minute constraints, a maintainer-managed alternative runner/host can provide the same repository-owned evidence contract.
 
-As code appears, CI/local verification covers the applicable subset of:
+Current repository verification is:
 
 ```text
 restore
 Release build
-unit/property/contract/integration specs
+unit/domain specs
 architecture dependency checks
-secret detection
-package/dependency review
-artifact/version identity
 ```
+
+As real responsibilities appear, extend verification only with the applicable subset of package/dependency review, provider/integration checks, secret/config checks, artifact/version identity, failure/recovery or other evidence required by the claim.
 
 CI success never proves provider/recovery/security/hardware properties the pipeline did not exercise.
 
-Cheap deterministic/static/architecture protections should remain blocking on normal change cadence once their claims exist. Expensive provider/process/restore/hardware evidence receives an explicit recurring/release/operator cadence only when the corresponding real responsibility exists.
+Cheap deterministic/static/architecture protections remain blocking on normal change cadence once their claims exist. Expensive provider/process/restore/hardware evidence receives an explicit recurring/release/operator cadence only when the corresponding real responsibility exists.
 
 ## Observability rule
 
@@ -57,9 +59,11 @@ Do not create speculative chaos matrices for future Worker/Sync/provider/restore
 
 No production secret, provider token, DB credential, private key, OpenBao root/unseal material, or reusable native client secret belongs in source, artifacts, ordinary logs, or committed configuration.
 
+Runtime secret/configuration mechanisms remain `NOT_INTRODUCED` until a real secret-bearing runtime/provider exists.
+
 ## Reproducibility
 
-For every current executable/project, a developer should be able to discover required SDK/tooling, restore/build/test/run commands, non-secret configuration, architecture owners, and relevant failure/recovery procedures from the repository.
+For every current project, a developer can discover required SDK/tooling and restore/build/test commands from the repository. Run/start/deployment instructions become material only when an executable/deployable runtime exists.
 
 `deploy/` documents only components that actually exist plus accepted deployment direction; it must not pretend target processes are running.
 
@@ -67,16 +71,20 @@ For every current executable/project, a developer should be able to discover req
 
 Queues, retries, restart loops, buffers, telemetry, payloads, concurrency, connections, and retained files/logs are bounded whenever exhaustion is possible. Obvious unbounded behavior is a correctness defect, not “performance tuning for later.”
 
+None of those runtime mechanisms is introduced by the current project-only implementation.
+
 ## Exit gate
 
 0D is complete when the implementation that exists at that time has:
 
 - repository-owned local/CI verification;
 - mechanical architecture checks for material boundaries;
-- safe secret/configuration handling;
+- safe secret/configuration handling for any secret/config responsibility actually introduced;
 - structured diagnosability appropriate to real runtime paths;
-- bounded telemetry/retry/resource behavior;
-- reproducible build/start/deployment instructions;
-- permanent/recurring protection for the material claims it actually qualified;
+- bounded telemetry/retry/resource behavior for mechanisms that actually exist;
+- reproducible build/start/deployment instructions for artifacts that actually exist;
+- permanent/recurring protection for the material claims it qualified;
 - no observability/security claim stronger than the evidence actually run;
 - no speculative future evidence map created merely to make later phases look complete.
+
+`0D_STATUS.md` records the current qualification and exact non-claims.

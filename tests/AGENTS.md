@@ -4,18 +4,26 @@ These rules apply below `tests/` in addition to the root instructions.
 
 ## Current test model
 
-The first executable verification project now exists because the first real capability boundary exists:
+Two unit-test projects now exist because two real capability boundaries exist:
 
 ```text
 tests/unit/SquiFlow.Parties.Tests/SquiFlow.Parties.Tests.csproj
+tests/unit/SquiFlow.Payments.Tests/SquiFlow.Payments.Tests.csproj
 ```
 
-It proves only claims owned by the active Parties slice:
+The qualified Parties tests prove only:
 
 - accepted Party structural kinds are exactly `Person` and `Organization`;
-- the current Parties capability project has no outward project/package dependency.
+- the Parties capability currently has no outward project/package dependency.
 
-It does **not** prove a complete Party capability, persistence, API, runtime, authorization, sync, Customer/Account semantics, or Foundation/kernel behavior.
+The qualified Payments tests prove only:
+
+- the documented Payment statuses are exactly `NotStarted`, `Pending`, `Succeeded`, `Failed`, `OutcomeUnknown`, `PartiallyRefunded`, `Refunded`, and `Reversed`;
+- the Payments capability currently has no outward project/package dependency.
+
+Those Payments claims are `PRODUCTION_HONEST`, with successful executable evidence recorded in `docs/implementation/phases/phase-0/0E_STATUS.md`.
+
+Neither test project proves persistence, API, runtime, authorization, sync, money/rounding, transition rules, settlement, Customer/Account semantics, or shared Foundation behavior.
 
 Do not restore removed Phase-0 spec projects by memory. Add another test project only when a distinct real verification responsibility earns it.
 
@@ -65,7 +73,7 @@ For protected/durable/versioned behavior, include negative cases such as:
 - malformed/oversized input;
 - secret/sensitive-data leakage where observable.
 
-Only add cases relevant to behavior that actually exists. None of those runtime/durable cases is implied by the current Party-kind-only slice.
+Only add cases relevant to behavior that actually exists. None of those runtime/durable cases is implied by the current Party-kind or Payment-status slices.
 
 ## Compatibility fixtures
 
@@ -76,7 +84,7 @@ Once a serialized/durable contract or schema version is released/supported:
 - test old-reader/new-writer and new-reader/old-writer directions where that contract family requires them;
 - test destructive contraction only after supported old readers/writers/pending work are demonstrably drained.
 
-The current `PartyKind` is an internal capability semantic; no serialized numeric compatibility contract is claimed by the current slice.
+`PartyKind` and `PaymentStatus` are currently internal capability semantics. No serialized numeric compatibility contract is claimed; do not infer a wire/storage contract from enum ordinal values.
 
 ## Test data
 
@@ -89,7 +97,9 @@ The current `PartyKind` is an internal capability semantic; no serialized numeri
 
 Architecture tests/specs are executable architecture documentation for boundaries that actually exist.
 
-The current Parties dependency test deliberately rejects all outward `ProjectReference` and `PackageReference` entries in the production capability project. If a future real dependency is earned, do not merely weaken the test: update the active scope/owner and replace the old guard with one that protects the newly accepted dependency direction.
+The current Parties and Payments dependency tests deliberately reject all outward `ProjectReference` and `PackageReference` entries in their production capability projects. If a future real dependency is earned, do not merely weaken a test: update the active scope/owner and replace the old guard with one that protects the newly accepted dependency direction.
+
+Do not create a shared architecture-test framework merely because two small tests currently look similar. Extract shared test infrastructure only when maintenance/change pressure makes the shared ownership clearer than the duplication.
 
 ## Current executable commands
 
@@ -99,7 +109,11 @@ dotnet build SquiFlow.sln -c Release --no-restore
 dotnet test SquiFlow.sln -c Release --no-build
 ```
 
-Do not claim these pass unless actual executable evidence exists.
+Qualified 0E has successful GitHub execution evidence for the current four-project solution: run `34922277237`, job `104232827231`.
+
+GitLab pipeline `#196` for the first 0E code commit failed before start with `ci_quota_exceeded`, `runner = null`; no `dotnet` command executed. This remains historical infrastructure-capacity context, not a code/test failure and not a claim that current executable evidence is missing.
+
+Do not generalize the successful run beyond the exact qualified solution/claims. A later change to executable/build inputs requires fresh evidence.
 
 ## DO NOT
 
