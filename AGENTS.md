@@ -4,18 +4,24 @@ This is the repository-wide instruction map. A closer `AGENTS.md` in a subtree a
 
 ## 1. Current implementation truth
 
-SquiFlow is at the **v0.0.20 principles-first baseline**. Phase 0A and Phase 0B are qualified under the production-honest governance model. No later Phase-0 work area is automatically active; the next slice must be derived from real current responsibility.
+SquiFlow is at the **v0.0.20 principles-first baseline**. Phase 0A and Phase 0B are qualified under the production-honest governance model. Phase 0E is now **IN PROGRESS** with a second real capability slice; Phase 0C remains `NOT_INTRODUCED` because no executable host has a real current responsibility yet.
 
-The qualified implementation currently contains exactly two implementation/test projects:
+The active branch contains exactly four implementation/test projects:
 
 ```text
 modules/parties/SquiFlow.Parties/SquiFlow.Parties.csproj
+modules/payments/SquiFlow.Payments/SquiFlow.Payments.csproj
 tests/unit/SquiFlow.Parties.Tests/SquiFlow.Parties.Tests.csproj
+tests/unit/SquiFlow.Payments.Tests/SquiFlow.Payments.Tests.csproj
 ```
 
-The current production-code scope is deliberately narrow: `SquiFlow.Parties` owns only the accepted `PartyKind` distinction (`Person` / `Organization`). It does **not** claim a complete Party/Customer/Account model, Party identity encoding, persistence, API, host, sync, authorization, or runtime.
+`SquiFlow.Parties` is qualified for only the accepted `PartyKind` distinction (`Person` / `Organization`). It does **not** claim complete Party/Customer/Account behavior.
 
-There is currently no Foundation/ApplicationKernel project and no application/service executable. `SquiFlow.sln` contains only the two projects above. Qualified 0B explicitly concluded that no current product-wide shared primitive was earned by the real Parties slice, so Foundation remains `NOT_INTRODUCED` rather than unfinished.
+`SquiFlow.Payments` is introduced only for the documented `PaymentStatus` vocabulary (`NotStarted`, `Pending`, `Succeeded`, `Failed`, `OutcomeUnknown`, `PartiallyRefunded`, `Refunded`, `Reversed`). It does **not** claim payment identity, money/rounding, transitions, retries/idempotency, reconciliation, settlement, persistence, API, authorization, or runtime behavior.
+
+There is currently no Foundation/ApplicationKernel project and no application/service executable. `SquiFlow.sln` contains only the four projects above. Qualified 0B concluded that no current product-wide shared primitive was earned; the second capability does not change that merely by existing.
+
+The active 0E claims are `BLOCKED` until executable restore/build/test evidence passes for this branch. GitLab pipeline `#196` failed before runner start with `ci_quota_exceeded`; that is not a code/test result.
 
 ```text
 folder exists
@@ -31,10 +37,14 @@ Read first:
 - `README.IMPLEMENTATION.md` — current implementation truth and active-slice rule.
 - `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md` — canonical scope/quality gate.
 - `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md` — evidence permanence/requalification owner.
+- `docs/implementation/IMPLEMENTATION_TODO.md` — active blockers, operational follow-up, and trigger-only carry-forward.
 - `docs/implementation/phases/phase-0/0A_BASELINE_STATUS.md` — qualified reset baseline and enduring 0A guarantees.
 - `docs/implementation/phases/phase-0/0B_APPLICATION_KERNEL_AND_MODULE_FOUNDATION.md` — qualified 0B gate owner.
 - `docs/implementation/phases/phase-0/0B_STATUS.md` — qualified 0B scope/evidence/non-claims/requalification record.
+- `docs/implementation/phases/phase-0/0E_ACTIVE_CAPABILITY_AND_TRACK_DEVELOPMENT.md` — active 0E gate owner.
+- `docs/implementation/phases/phase-0/0E_STATUS.md` — active 0E scope/evidence/blockers.
 - `docs/domain/BUSINESS_TERMS.md` — accepted versus discovery-sensitive domain language.
+- `docs/domain/BUSINESS_MODEL.md` — accepted practical business/domain model, including Payment status semantics.
 - `docs/architecture/ENGINEERING_PRINCIPLES.md` — engineering philosophy.
 - `docs/architecture/EXPLICIT_BOUNDARIES_AND_SOLID.md` — boundary/abstraction rules.
 - `docs/architecture/REPOSITORY_STRUCTURE.md` — ownership and executable growth map.
@@ -152,7 +162,7 @@ Unless a current focused owner and declared production-honest scope explicitly e
 - carry an introduced `BLOCKED` responsibility into a later phase as if it were `NOT_INTRODUCED`;
 - treat architecture/review documentation as proof that runtime code already exists.
 
-For the qualified 0B scope specifically, do not add Party ID encoding, Customer/Account relationships, persistence, API/host code, or Foundation merely to make the capability appear larger. Any later introduction must be independently earned from a new real responsibility.
+Do not add Party ID/Customer/Account behavior, payment money/transition/persistence behavior, Foundation, or a host merely to make the current slice look larger. Each requires an independently earned responsibility.
 
 ## 7. Boundary validation
 
@@ -167,13 +177,14 @@ For the qualified 0B scope specifically, do not add Party ID encoding, Customer/
 
 ## 8. Testing and evidence
 
-The first real verification project exists because the Parties capability boundary exists:
+Current executable verification projects are:
 
 ```text
 tests/unit/SquiFlow.Parties.Tests/SquiFlow.Parties.Tests.csproj
+tests/unit/SquiFlow.Payments.Tests/SquiFlow.Payments.Tests.csproj
 ```
 
-Current tests prove the declared Party-kind semantic and mechanically protect the initial Parties project from outward project/package dependencies. They do not prove persistence, runtime, authorization, API, sync, customer/account semantics, or anything else that remains `NOT_INTRODUCED`.
+Qualified 0B tests prove only the Party-kind semantic and Parties dependency boundary. Active 0E tests claim only the Payment-status semantic and Payments dependency boundary. They do not prove persistence, runtime, authorization, API, sync, money/rounding, transition rules, settlement, or anything else that remains `NOT_INTRODUCED`.
 
 The repository uses xUnit v3 with Microsoft Testing Platform for the current .NET 10 test path. The repository-owned executable contract is:
 
@@ -183,9 +194,9 @@ dotnet build SquiFlow.sln -c Release --no-restore
 dotnet test SquiFlow.sln -c Release --no-build
 ```
 
-Qualified 0B has successful GitHub Actions evidence for this contract: run `34916005915`, job `104213630182`. The exact claims and link are recorded in `0B_STATUS.md`.
+Qualified 0B has successful GitHub Actions evidence for its then-current solution: run `34916005915`, job `104213630182`. That run does not qualify later 0E changes.
 
-GitLab currently schedules the same job but hosted quota prevents runner start. Do not reinterpret that infrastructure limitation as a code/test failure or as proof of GitLab runner execution.
+For active 0E, GitLab pipeline `#196` failed before start because hosted quota is exhausted (`ci_quota_exceeded`, no runner). A new successful executable run is required before the Payments claims can become `PRODUCTION_HONEST`.
 
 For every material active claim, identify:
 
