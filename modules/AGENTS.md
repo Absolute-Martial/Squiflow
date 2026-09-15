@@ -4,15 +4,31 @@ These rules apply below `modules/` in addition to the root instructions.
 
 ## Current capability truth
 
-The first rebuilt capability project is:
+Two real capability projects now exist:
 
 ```text
-modules/parties/SquiFlow.Parties/SquiFlow.Parties.csproj
+modules/parties/SquiFlow.Parties/SquiFlow.Parties.csproj      # qualified 0B
+modules/payments/SquiFlow.Payments/SquiFlow.Payments.csproj   # active 0E
 ```
 
-Its current declared scope is only the accepted Party structural classification `Person | Organization`. It does not claim complete Party identity/lifecycle/profile behavior, Customer/Account relationships, persistence, API, runtime, synchronization, or shared Foundation.
+`SquiFlow.Parties` owns only the accepted Party structural classification `Person | Organization`. It does not claim complete Party identity/lifecycle/profile behavior, Customer/Account relationships, persistence, API, runtime, synchronization, or shared Foundation.
 
-Keep additional Party semantics out until an accepted owner/current requirement makes them knowable. In particular, do not harden discovery-sensitive `Customer / Party / Account / Commercial Relationship` distinctions or choose an internal-ID encoding merely to make this first capability larger.
+`SquiFlow.Payments` currently owns only the documented payment-status vocabulary:
+
+```text
+NotStarted
+Pending
+Succeeded
+Failed
+OutcomeUnknown
+PartiallyRefunded
+Refunded
+Reversed
+```
+
+The Payments slice does **not** introduce payment identity, amount/currency/rounding, transition rules, retry/idempotency, outcome-unknown reconciliation, settlement, persistence, API, authorization, or runtime behavior. Those responsibilities remain `NOT_INTRODUCED` until a real payment operation earns them.
+
+Keep additional semantics out until an accepted owner/current requirement makes them knowable. In particular, do not harden discovery-sensitive `Customer / Party / Account / Commercial Relationship` or `Order / Request / Job / Work / Transaction / Sale` distinctions merely to make a capability larger.
 
 ## Ownership
 
@@ -34,7 +50,7 @@ Capability
 
 Separate `.csproj` files are earned when compiler-enforced neutrality, real cross-host reuse, provider isolation, packaging, or complexity justifies them. Do not scaffold every theoretical project.
 
-The current Parties capability is one compact host-neutral project. Do not split it into `Core`, `Server`, `Workstation`, `Postgres`, or `Contracts` projects until a real dependency/reuse/provider/platform boundary earns that split.
+The current Parties and Payments capabilities are compact host-neutral projects. Do not split either into `Core`, `Server`, `Workstation`, `Postgres`, or `Contracts` projects until a real dependency/reuse/provider/platform boundary earns that split.
 
 ## Business code rules
 
@@ -51,7 +67,7 @@ The current Parties capability is one compact host-neutral project. Do not split
 - Distinguish internal/domain events from public integration events.
 - Avoid object-navigation chains across another capability's internals; ask that capability for the business result needed.
 
-No cross-module application contract exists yet in the current 0B slice.
+No cross-module application contract exists yet. Parties and Payments currently have no project/package dependency and do not reference each other.
 
 ## Host neutrality
 
@@ -66,7 +82,13 @@ Reusable capability meaning must not reference:
 
 Adapters may depend on their framework/provider but must translate into SquiFlow-owned contracts before calling core/application behavior.
 
-The current Parties project has no package or project dependency. That boundary is mechanically protected by `SquiFlow.Parties.Tests` until a real dependency is deliberately earned and the scope/evidence are requalified.
+The qualified Parties dependency boundary is mechanically protected by `SquiFlow.Parties.Tests`. The active Payments dependency boundary is mechanically protected by `SquiFlow.Payments.Tests` but remains `BLOCKED` until executable verification passes for the 0E branch.
+
+## Shared Foundation rule
+
+The existence of two capabilities is not, by itself, evidence for a shared Foundation project.
+
+Extract a shared product-wide primitive only when real capability work demonstrates the same stable semantic/contract and keeping it capability-owned would duplicate business meaning or violate dependency direction. Do not manufacture a shared abstraction merely because Parties and Payments now coexist.
 
 ## DO NOT
 
@@ -77,7 +99,8 @@ The current Parties project has no package or project dependency. That boundary 
 - Do not use global last-write-wins for protected business invariants.
 - Do not make feature flags equivalent to permission grants.
 - Do not use local Workstation facts as current server authority for security/financial/shared-stock invariants.
-- Do not move `PartyKind` into Foundation merely because Foundation is named in Phase 0B.
+- Do not move `PartyKind` or `PaymentStatus` into Foundation merely to create reuse evidence.
+- Do not infer payment transition rules from enum ordering or numeric values.
 
 ## Testing
 
@@ -87,4 +110,4 @@ The current Parties project has no package or project dependency. That boundary 
 - Add cross-tenant/current-authority negative tests for protected operations.
 - When versioned contracts are introduced, preserve old fixtures and compatibility tests.
 
-For the current slice, only the Party-kind semantic and the capability dependency boundary are active test claims.
+Qualified 0B currently protects the Party-kind semantic and Parties dependency boundary. Active 0E adds only the Payment-status semantic and Payments dependency boundary; no broader payment/runtime claim is implied.
