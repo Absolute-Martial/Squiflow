@@ -111,7 +111,7 @@ dotnet test SquiFlow.sln -c Release --no-build
 
 Those commands have not yet been claimed as passing. The assistant shell has no .NET SDK and cannot resolve external hosts for local provisioning.
 
-GitLab CI uses root `.gitlab-ci.yml`. GitLab accepted the configuration and created pipeline `#174`, but its `verify-dotnet` job never started because the project hit `ci_quota_exceeded`; no runner was assigned and no `dotnet` command executed. This is a CI-capacity blocker, not a code/test failure.
+GitLab CI uses root `.gitlab-ci.yml`. On the current clean branch, pipeline `#187` was created successfully, but its `verify-dotnet` job never started because the project hit `ci_quota_exceeded`; no runner was assigned and no `dotnet` command executed. This is a CI-capacity blocker, not a code/test failure.
 
 GitHub Actions uses `.github/workflows/verify-dotnet.yml`. It reads the SDK selection from root `global.json` and runs the same commands. The user manages the GitHub remote/mirroring independently, so no GitHub execution is claimed until this branch is pushed there and a workflow run actually succeeds.
 
