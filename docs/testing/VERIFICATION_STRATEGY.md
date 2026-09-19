@@ -1,6 +1,6 @@
 # Verification and Failure-Injection Strategy
 
-**Version:** v0.0.17
+**Version:** v0.1.0
 
 SquiFlow uses the smallest test layer that can prove a real invariant. Lean architecture does **not** mean shallow testing: edge/failure behavior that protects core capability remains required.
 

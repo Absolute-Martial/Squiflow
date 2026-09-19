@@ -1,7 +1,7 @@
 # Workload-Driven Architecture Strategy Selection
 
 **Status:** Accepted architecture-governance direction  
-**Version:** v0.0.21  
+**Version:** v0.1.0
 **Scope:** material architecture, protocol, API, processing, persistence, deployment, compatibility, provider and runtime-mechanism choices
 
 ## 1. Decision

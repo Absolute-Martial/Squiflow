@@ -225,13 +225,13 @@ public sealed class ProfileRuntimeRegistryTests
 
         Assert.True(await registry.RetireAsync(definition.Key));
 
-        Assert.Contains("squiflow.profile_runtime.builds", measurements);
-        Assert.Contains("squiflow.profile_runtime.build_duration", measurements);
-        Assert.Contains("squiflow.profile_runtime.acquisitions", measurements);
-        Assert.Contains("squiflow.profile_runtime.cache_hits", measurements);
-        Assert.Contains("squiflow.profile_runtime.cache_misses", measurements);
-        Assert.Contains("squiflow.profile_runtime.active_leases", measurements);
-        Assert.Contains("squiflow.profile_runtime.retirements", measurements);
+        Assert.Contains("application.profile_runtime.builds", measurements);
+        Assert.Contains("application.profile_runtime.build_duration", measurements);
+        Assert.Contains("application.profile_runtime.acquisitions", measurements);
+        Assert.Contains("application.profile_runtime.cache_hits", measurements);
+        Assert.Contains("application.profile_runtime.cache_misses", measurements);
+        Assert.Contains("application.profile_runtime.active_leases", measurements);
+        Assert.Contains("application.profile_runtime.retirements", measurements);
     }
 
     [Fact]

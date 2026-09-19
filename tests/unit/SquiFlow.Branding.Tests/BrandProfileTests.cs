@@ -1,4 +1,5 @@
 using SquiFlow.Branding;
+using System.Reflection;
 using Xunit;
 
 namespace SquiFlow.Branding.Tests;
@@ -58,6 +59,19 @@ public sealed class BrandProfileTests
         var second = CreateProfile(displayName: "Example Studio");
 
         Assert.NotEqual(first.Revision, second.Revision);
+    }
+
+    [Fact]
+    public void AssemblyUsesLockedProductVersionWithoutCodenameProductMetadata()
+    {
+        var assembly = typeof(BrandProfile).Assembly;
+
+        Assert.Equal(new Version(0, 1, 0, 0), assembly.GetName().Version);
+        Assert.Equal(
+            "0.1.0",
+            assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion);
+        Assert.Null(assembly.GetCustomAttribute<AssemblyProductAttribute>());
+        Assert.Null(assembly.GetCustomAttribute<AssemblyCompanyAttribute>());
     }
 
     private static BrandProfile CreateProfile(

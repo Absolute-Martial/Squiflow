@@ -1,6 +1,6 @@
 # Cross-Cutting Business Primitives
 
-**Version:** v0.0.16
+**Version:** v0.1.0
 
 Keep only the cross-cutting rules that prevent expensive inconsistency across Sales, Purchasing, Inventory, Payments and Documents. Do not turn this document into a framework or a future accounting system.
 

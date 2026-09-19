@@ -1,6 +1,6 @@
 # Repository Folder-Only Structure
 
-**Version:** v0.0.20  
+**Version:** v0.1.0
 **Purpose:** directory-only view of SquiFlow repository structure.  
 **Important:** directory presence is not proof that a runtime/project/responsibility is production-qualified. The current post-purge implementation is limited to Branding, CoreApi and their tests.
 

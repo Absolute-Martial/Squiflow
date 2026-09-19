@@ -1,6 +1,6 @@
 # SquiFlow Non-Functional and Operational Requirements
 
-**Version:** v0.0.15 baseline  
+**Version:** v0.1.0 baseline
 **Status:** Accepted cross-cutting requirements model. Exact numerical targets remain measurement-driven or OPEN where stated.
 
 This document owns the cross-cutting non-functional/operational requirement model for SquiFlow. Focused architecture/domain documents still own detailed semantics. This document does not replace them; it makes the required quality, failure, degradation, recovery, compatibility and operability properties explicit across components.

@@ -1,6 +1,6 @@
 # Web Runtime and Browser Storage Policy
 
-**Version:** v0.0.15
+**Version:** v0.1.0
 
 ## 1. Current decision
 

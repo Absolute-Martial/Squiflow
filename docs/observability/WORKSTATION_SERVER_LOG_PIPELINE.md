@@ -1,6 +1,6 @@
 # Workstation and Server Logging Pipeline
 
-**Version:** v0.0.18  
+**Version:** v0.1.0
 **Status:** Accepted implementation direction
 
 ## 1. Different runtime responsibilities

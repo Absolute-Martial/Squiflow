@@ -1,7 +1,7 @@
 # OpenBao and Zero-Trust Platform Admin Operating Profile
 
 **Status:** Accepted initial operating direction  
-**Version:** v0.0.19  
+**Version:** v0.1.0
 **Applies to:** current self-hosted Podman/rack profile
 
 This document records the concrete operating details accepted in the 2026-09-13 encryption, key-management, Platform Admin, Podman, and private-network discussion. It complements `ENCRYPTION_KEY_MANAGEMENT_AND_ZERO_TRUST_ADMIN.md`, `ENCRYPTION_POLICY_KEY_LIFECYCLE_AND_PRIVILEGED_ACCESS.md`, and `PRIVATE_ADMIN_NETWORK_AND_PODMAN.md`.

@@ -1,6 +1,6 @@
 # Tenant Custom Domains
 
-**Version:** v0.0.20
+**Version:** v0.1.0
 
 **Current implementation:** Deployment-wide public application branding is implemented through the CoreApi bootstrap contract. Tenant-specific branding, custom-domain persistence/routing, asset upload and administration remain `NOT_INTRODUCED`.
 

@@ -31,7 +31,7 @@ public static class AuthenticatedAccountAccess
             return AuthenticatedAccountAccessResult.Denied(Problem(
                 StatusCodes.Status403Forbidden,
                 "account_not_bound",
-                "The authenticated identity is not bound to a SquiFlow account."));
+                "The authenticated identity is not bound to an application account."));
         }
 
         if (binding.Availability != AccountAvailability.Active)
@@ -39,7 +39,7 @@ public static class AuthenticatedAccountAccess
             return AuthenticatedAccountAccessResult.Denied(Problem(
                 StatusCodes.Status403Forbidden,
                 "account_disabled",
-                "The SquiFlow account is disabled."));
+                "The application account is disabled."));
         }
 
         return AuthenticatedAccountAccessResult.Allowed(binding);

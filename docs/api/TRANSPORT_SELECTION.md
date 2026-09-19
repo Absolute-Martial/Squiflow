@@ -1,6 +1,6 @@
 # Transport Selection — HTTP, gRPC, In-Process, and Durable Async
 
-**Version:** v0.0.15
+**Version:** v0.1.0
 
 ## 1. Decision
 

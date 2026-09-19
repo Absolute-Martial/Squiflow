@@ -1,6 +1,6 @@
 # Persistence Selection Policy
 
-**Version:** v0.0.18
+**Version:** v0.1.0
 
 PostgreSQL is selected as the initial central transactional database, and SQLite with WAL is selected as the initial **Workstation-only** embedded database. Their Phase-3 and Phase-2 proofs are production-qualification gates rather than product-selection contests. Provider portability does not require a generic repository/unit-of-work hierarchy.
 

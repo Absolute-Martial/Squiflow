@@ -1,6 +1,6 @@
 # Material Decision History and Supersession
 
-**Version:** v0.0.19
+**Version:** v0.1.0
 
 **Status:** Accepted convention for preserving the history of material SquiFlow decisions.  
 **Authority boundary:** Current authoritative semantics remain in focused owner documents and `docs/decisions/CURRENT_DECISIONS.md`; unresolved choices remain in `docs/decisions/OPEN_DECISIONS.md`. This document owns how material decision rationale is preserved when accepted direction changes. It does not replace owner documents, the decision audit, Git history, or ordinary review records.

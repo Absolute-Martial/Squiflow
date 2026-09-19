@@ -1,6 +1,6 @@
 # Workstation Synchronization and Authority
 
-**Version:** v0.0.18
+**Version:** v0.1.0
 
 ## 1. Trust model
 

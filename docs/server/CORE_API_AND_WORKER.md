@@ -1,6 +1,6 @@
 # Core API and Worker Architecture
 
-**Version:** v0.0.20  
+**Version:** v0.1.0
 **Status:** CoreApi exists for public bootstrap/liveness plus narrow authenticated-account and active-membership queries. AdminApi and Worker remain `NOT_INTRODUCED`. Responsibilities below become active contracts only when a current implementation slice earns the corresponding workload.
 
 ## 1. Core API

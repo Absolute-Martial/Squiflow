@@ -1,6 +1,6 @@
 # Workflow Design and Continuation
 
-**Version:** v0.0.20
+**Version:** v0.1.0
 
 **Status:** Accepted workflow semantics; workflow runtime and configurable workflow implementation remain `NOT_INTRODUCED`.
 

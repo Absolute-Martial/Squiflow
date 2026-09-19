@@ -1,6 +1,6 @@
 # Observability Verification and Acceptance
 
-**Version:** v0.0.16  
+**Version:** v0.1.0
 **Status:** Required verification contract
 
 Observability is a runtime capability with correctness, privacy, resource, and failure behavior. Package installation or a dashboard screenshot is not acceptance.

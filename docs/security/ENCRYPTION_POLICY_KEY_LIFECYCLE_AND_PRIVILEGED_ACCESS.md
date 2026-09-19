@@ -1,7 +1,7 @@
 # Encryption Policy, Key Lifecycle, and Privileged Access
 
 **Status:** Accepted architecture direction  
-**Version:** v0.0.19  
+**Version:** v0.1.0
 **Parent security owner:** `docs/security/ENCRYPTION_KEY_MANAGEMENT_AND_ZERO_TRUST_ADMIN.md`
 
 This document makes explicit the policy/lifecycle details accepted in the 2026-09-13 encryption and Platform Admin discussion. It complements the broader key-management/zero-trust document; it does not create a second cryptographic authority.

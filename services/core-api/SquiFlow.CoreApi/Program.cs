@@ -20,7 +20,7 @@ var brandingConfiguration = builder.Configuration
     .Get<BrandingConfiguration>()
     ?? throw new InvalidOperationException("The Branding configuration section is required.");
 var authenticationConfiguration = OidcAuthenticationConfiguration.From(builder.Configuration);
-var connectionString = builder.Configuration.GetConnectionString("SquiFlow");
+var connectionString = builder.Configuration.GetConnectionString("PrimaryDatabase");
 ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
 
 builder.Services.AddSingleton(brandingConfiguration.ToProfile());
@@ -122,7 +122,7 @@ app.MapGet("/api/v1/application/bootstrap", (BrandProfile brand, HttpResponse re
 
 app.MapGet("/api/v1/account", AuthenticatedAccountEndpoint.GetAsync)
     .WithName("GetAuthenticatedAccount")
-    .WithSummary("Resolves the validated external identity to its active SquiFlow account.")
+    .WithSummary("Resolves the validated external identity to its active application account.")
     .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthenticatedAccount))
     .RequireAuthorization()
     .Produces<AuthenticatedAccountResponse>()
@@ -131,7 +131,7 @@ app.MapGet("/api/v1/account", AuthenticatedAccountEndpoint.GetAsync)
 
 app.MapGet("/api/v1/account/tenants", TenantMembershipEndpoint.ListAsync)
     .WithName("ListAuthenticatedAccountTenants")
-    .WithSummary("Lists current active tenant memberships for the active SquiFlow account.")
+    .WithSummary("Lists current active tenant memberships for the active application account.")
     .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthenticatedTenantMemberships))
     .RequireAuthorization()
     .Produces<TenantMembershipResponse[]>()

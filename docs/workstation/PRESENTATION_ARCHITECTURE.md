@@ -1,6 +1,6 @@
 # Workstation Presentation Architecture
 
-**Version:** v0.0.20
+**Version:** v0.1.0
 **Status:** Accepted architecture and source-admission direction; no Workstation project or runtime currently exists, and exact visual layout remains prototype/evidence driven.
 **Authority:** This document owns the Avalonia Workstation shell/presentation composition boundary: what the desktop host owns, what business modules contribute to the Workstation UI, how navigation/commands are registered, and the initial visual/interaction discipline. It does not replace `docs/architecture/APPLICATION_KERNEL_AND_MODULES.md`, domain/application ownership, Web presentation ownership, sync authority, or observability ownership.
 

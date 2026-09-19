@@ -1,6 +1,6 @@
 # Business Terms and Semantic Glossary
 
-**Version:** v0.0.17
+**Version:** v0.1.0
 
 **Status:** Focused owner for consequential SquiFlow business/domain terminology.  
 **Authority boundary:** This document owns the meaning, distinction, ambiguity, evidence status, and relationship of consequential business terms. It does **not** duplicate detailed workflow, pricing, payment, inventory, authorization, sync, or other behavioral rules owned by their focused documents.

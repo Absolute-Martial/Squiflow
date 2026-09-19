@@ -7,10 +7,10 @@ namespace SquiFlow.CoreApi.Tests;
 public sealed class OidcAuthenticationConfigurationTests
 {
     [Theory]
-    [InlineData("http://identity.example.test", "squiflow-core-api")]
-    [InlineData("https://identity.example.test?other=true", "squiflow-core-api")]
-    [InlineData(" https://identity.example.test", "squiflow-core-api")]
-    [InlineData("https://identity.example.test", " squiflow-core-api")]
+    [InlineData("http://identity.example.test", "application-core-api")]
+    [InlineData("https://identity.example.test?other=true", "application-core-api")]
+    [InlineData(" https://identity.example.test", "application-core-api")]
+    [InlineData("https://identity.example.test", " application-core-api")]
     public void InvalidTrustConfigurationFailsAtStartup(string authority, string audience)
     {
         var configuration = new ConfigurationBuilder()
@@ -32,13 +32,13 @@ public sealed class OidcAuthenticationConfigurationTests
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Authentication:Authority"] = "https://identity.example.test/oidc/v1",
-                ["Authentication:Audience"] = "squiflow-core-api",
+                ["Authentication:Audience"] = "application-core-api",
             })
             .Build();
 
         var validated = OidcAuthenticationConfiguration.From(configuration);
 
         Assert.Equal("https://identity.example.test/oidc/v1", validated.Authority);
-        Assert.Equal("squiflow-core-api", validated.Audience);
+        Assert.Equal("application-core-api", validated.Audience);
     }
 }

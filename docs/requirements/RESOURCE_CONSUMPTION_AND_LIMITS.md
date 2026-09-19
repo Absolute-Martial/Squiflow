@@ -1,6 +1,6 @@
 # Resource Consumption Accounting and Application Limits
 
-**Version:** v0.0.15 baseline  
+**Version:** v0.1.0 baseline
 **Status:** Accepted architecture direction. Exact meter set, thresholds, commercial plan mapping, and billing behavior remain OPEN where stated.
 
 This document owns SquiFlow's resource-consumption and limit-enforcement contract. It exists because usage may matter for safety, cost, capacity, support, future pricing, or contractual controls even when the data is not needed for analytics.

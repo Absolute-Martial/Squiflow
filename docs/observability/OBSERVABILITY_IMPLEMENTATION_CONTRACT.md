@@ -1,6 +1,6 @@
 # Observability Implementation Contract
 
-**Version:** v0.0.18  
+**Version:** v0.1.0
 **Status:** Accepted implementation direction
 
 ## 1. Product-owned boundary

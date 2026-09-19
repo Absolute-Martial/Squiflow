@@ -24,7 +24,7 @@ The first slice does not claim tenant self-service profile administration, arbit
 
 ## 2. Why request-wide ambient tenant selection is rejected
 
-The current CoreApi derives the SquiFlow account from a validated external identity and checks current active tenant membership asynchronously through `ResolveTenantContext`. An incoming route/header/domain value is only a tenant candidate.
+The current CoreApi derives the application account from a validated external identity and checks current active tenant membership asynchronously through `ResolveTenantContext`. An incoming route/header/domain value is only a tenant candidate.
 
 `Autofac.AspNetCore.Multitenant` can select request services through a synchronous tenant-identification strategy before ordinary endpoint execution. SquiFlow must not use an untrusted candidate to select secret-bearing or privileged tenant services before current account/membership authority is established.
 
@@ -33,7 +33,7 @@ The accepted request flow is therefore explicit:
 ```text
 root ASP.NET request scope
 → JWT validation
-→ active SquiFlow account resolution
+→ active application account resolution
 → requested tenant candidate validation
 → current membership check
 → immutable TenantContext
@@ -149,7 +149,7 @@ Autofac's tenant-scope dictionary is not the resource policy. The SquiFlow regis
 
 Exact initial limits are deployment configuration validated against the measured CoreApi memory budget. They are not tenant-editable business settings.
 
-The current safe defaults are 64 retained runtimes, four concurrent builds, 30-minute idle retention, one-minute maintenance and a 30-second shutdown drain. They are initial operational bounds, not representative-capacity claims. The registry emits a dedicated `SquiFlow.CoreApi.ProfileRuntime` meter for acquisitions, cache hits/misses, builds, failures, capacity rejection, retained runtimes, in-progress builds, active leases, build duration, idle age at retirement, retirements and disposal failures. Structured lifecycle logs contain implementation fingerprint/revision and exceptions; they do not contain tenant profile payloads, connection strings, tokens or keys.
+The current safe defaults are 64 retained runtimes, four concurrent builds, 30-minute idle retention, one-minute maintenance and a 30-second shutdown drain. They are initial operational bounds, not representative-capacity claims. The registry emits a dedicated brand-neutral `Application.CoreApi.ProfileRuntime` meter for acquisitions, cache hits/misses, builds, failures, capacity rejection, retained runtimes, in-progress builds, active leases, build duration, idle age at retirement, retirements and disposal failures. Structured lifecycle logs contain implementation fingerprint/revision and exceptions; they do not contain tenant profile payloads, connection strings, tokens or keys.
 
 ### 5.1 Durable storage and restart behavior
 

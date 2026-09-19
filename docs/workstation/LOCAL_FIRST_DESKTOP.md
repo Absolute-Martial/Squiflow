@@ -1,6 +1,6 @@
 # Windows Workstation — Local-First Architecture
 
-**Version:** v0.0.15
+**Version:** v0.1.0
 
 **Reference:** Ink & Switch, *Local-first software: You own your data, in spite of the cloud* (2019), https://www.inkandswitch.com/essay/local-first/
 

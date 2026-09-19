@@ -1,6 +1,6 @@
 # Workstation Guard and Recovery Boundary
 
-**Version:** v0.0.18
+**Version:** v0.1.0
 
 `SquiFlow.Guard` is an accepted companion process for the Windows Workstation. It is part of the SquiFlow desktop application, while running as an independent process so it can observe and recover failures outside the Workstation process itself.
 

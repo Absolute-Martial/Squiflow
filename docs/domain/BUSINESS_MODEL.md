@@ -1,6 +1,6 @@
 # Business Model and Practical Domain Scope
 
-**Version:** v0.0.17
+**Version:** v0.1.0
 
 This document keeps SquiFlow grounded in the actual businesses it needs to support rather than turning every possible ERP feature into baseline architecture.
 

@@ -4,9 +4,11 @@ This is the repository-wide instruction map. A closer `AGENTS.md` in a subtree a
 
 ## 1. Current implementation truth
 
-SquiFlow is at the **v0.0.20 principles-first baseline**. Phase 0A is the current qualified reset baseline. The former Phase 0B Parties implementation was purged on 2026-09-17 and is retained only as historical evidence.
+SquiFlow is the internal development codename. It is not a public product/tenant brand and must not appear as a runtime branding fallback, user-facing message, public telemetry namespace, deployment credential/configuration name, or new wire/persistence contract. Existing source namespaces, project paths and historical records may retain the codename until a final product name is deliberately adopted.
 
-The current tree contains no production project, test project, solution, C# implementation, executable host, repository build/test contract, or CI verification wrapper. All runtime responsibilities are `NOT_INTRODUCED`; `BLOCKED = none`.
+The current product version is locked at **v0.1.0** until the complete production-capable product gate is explicitly qualified. API/schema/migration versions and Git revisions are separate compatibility or traceability identifiers and do not change the product version. Phase 0A is the qualified reset baseline. The former Phase 0B Parties implementation was purged on 2026-09-17 and is retained only as historical evidence.
+
+The current tree contains seven production projects, six test projects, `SquiFlow.slnx`, CoreApi, DbMigrator, and a repository build/test contract. The narrow Branding, IdentityAccess, Tenancy, CoreApi, PostgreSQL migration and internal Autofac runtime claims described by `README.IMPLEMENTATION.md` are implemented; broader business, Web, Workstation, SyncApi, AdminApi and Worker responsibilities remain `NOT_INTRODUCED`. There is no current CI verification wrapper; `BLOCKED = none`.
 
 The deleted `PartyKind` enum and its scaffolding must not be treated as a current baseline or recreated by memory. The accepted domain language remains available to a later useful capability journey, which may choose a different representation.
 
@@ -22,6 +24,7 @@ Do not infer implementation from directory names, historical branches, old merge
 Read first:
 
 - `README.IMPLEMENTATION.md` — current implementation truth and active-slice rule.
+- `docs/product/PRODUCT_IDENTITY_AND_VERSIONING.md` — codename, public identity and locked product-version rules.
 - `docs/decisions/CURRENT_IMPLEMENTATION_PURGE_2026-09-17.md` — purge decision and removed inventory.
 - `docs/review/APPLICATION_BASELINE_IMPLEMENTATION_SOURCE_REVIEW.md` — source-first routing for future implementation.
 - `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md` — canonical scope/quality gate.

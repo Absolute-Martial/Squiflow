@@ -10,14 +10,14 @@ internal enum MigratorVerb
 internal static class MigratorCommand
 {
     public const string HelpText = """
-        SquiFlow database migrator
+        Application database migrator
 
         Usage:
           SquiFlow.DbMigrator apply
           SquiFlow.DbMigrator list-pending
 
         Configuration:
-          ConnectionStrings__SquiFlow       required elevated-DDL PostgreSQL connection
+          ConnectionStrings__PrimaryDatabase  required elevated-DDL PostgreSQL connection
           Migration__LockTimeoutSeconds     optional, 1-300 seconds (default 30)
 
         Exit codes:

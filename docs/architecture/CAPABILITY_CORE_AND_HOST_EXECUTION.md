@@ -1,7 +1,7 @@
 # Capability Core and Host-Specific Execution
 
 **Status:** Accepted architecture direction  
-**Version:** v0.0.19
+**Version:** v0.1.0
 
 ## 1. Vocabulary
 

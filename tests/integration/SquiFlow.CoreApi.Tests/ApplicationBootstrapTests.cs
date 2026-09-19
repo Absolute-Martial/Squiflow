@@ -52,13 +52,52 @@ public sealed class ApplicationBootstrapTests : IClassFixture<WhiteLabelApiFacto
         Assert.Equal(24, profile.Revision.Length);
     }
 
+    [Fact]
+    public void MissingDeploymentBrandHasNoCodenameFallback()
+    {
+        var configuration = new BrandingConfiguration();
+
+        var exception = Assert.Throws<ArgumentException>(() => configuration.ToProfile());
+
+        Assert.Equal("displayName", exception.ParamName);
+    }
+
+    [Fact]
+    public void CheckedInRuntimeConfigurationContainsNoDevelopmentCodename()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var appSettings = File.ReadAllText(Path.Combine(
+            repositoryRoot.FullName,
+            "services",
+            "core-api",
+            "SquiFlow.CoreApi",
+            "appsettings.json"));
+
+        Assert.DoesNotContain("SquiFlow", appSettings, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static DirectoryInfo FindRepositoryRoot()
+    {
+        for (var current = new DirectoryInfo(AppContext.BaseDirectory);
+             current is not null;
+             current = current.Parent)
+        {
+            if (File.Exists(Path.Combine(current.FullName, "SquiFlow.slnx")))
+            {
+                return current;
+            }
+        }
+
+        throw new InvalidOperationException("Could not locate the repository root.");
+    }
+
     private sealed record BootstrapContract(string DisplayName, string ThemeKey, string Revision);
 }
 
 public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
 {
     public const string Authority = "https://identity.example.test";
-    public const string Audience = "squiflow-core-api";
+    public const string Audience = "application-core-api";
 
     private readonly RSA _signingRsa = RSA.Create(2048);
     private readonly RsaSecurityKey _signingKey;
@@ -105,7 +144,7 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
     {
         builder.UseSetting("Authentication:Authority", Authority);
         builder.UseSetting("Authentication:Audience", Audience);
-        builder.UseSetting("ConnectionStrings:SquiFlow", "Host=unused.example.test;Database=squiflow");
+        builder.UseSetting("ConnectionStrings:PrimaryDatabase", "Host=unused.example.test;Database=application");
         builder.UseSetting("Branding:DisplayName", "Example Operations");
         builder.UseSetting("Branding:ShortName", "Example");
         builder.UseSetting("Branding:LegalName", "Example Company Ltd.");

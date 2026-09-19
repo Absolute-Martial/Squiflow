@@ -58,8 +58,17 @@ public sealed class AutofacHostCompositionTests : IClassFixture<WhiteLabelApiFac
                     "Authentication:Audience",
                     WhiteLabelApiFactory.Audience);
                 builder.UseSetting(
-                    "ConnectionStrings:SquiFlow",
-                    "Host=unused.example.test;Database=squiflow");
+                    "ConnectionStrings:PrimaryDatabase",
+                    "Host=unused.example.test;Database=application");
+                builder.UseSetting("Branding:DisplayName", "Example Operations");
+                builder.UseSetting("Branding:ShortName", "Example");
+                builder.UseSetting("Branding:LegalName", "Example Company Ltd.");
+                builder.UseSetting("Branding:ThemeKey", "example-brand");
+                builder.UseSetting("Branding:LogoUrl", "/tenant-assets/logo.svg");
+                builder.UseSetting("Branding:FaviconUrl", "/tenant-assets/favicon.svg");
+                builder.UseSetting("Branding:SupportUrl", "https://support.example.test");
+                builder.UseSetting("Branding:PrivacyUrl", "https://www.example.test/privacy");
+                builder.UseSetting("Branding:TermsUrl", "https://www.example.test/terms");
             });
 
         var firstScope = application.Services.CreateScope();

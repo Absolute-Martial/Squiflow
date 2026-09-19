@@ -1,6 +1,6 @@
 # Control Plane and Business Data Plane
 
-**Version:** v0.0.20  
+**Version:** v0.1.0
 **Status:** Accepted architecture direction. CoreApi currently exists for public bootstrap/liveness and narrow authenticated account/membership queries. SyncApi, AdminApi, Worker, Web and Workstation remain `NOT_INTRODUCED`.
 
 ## Why this distinction matters

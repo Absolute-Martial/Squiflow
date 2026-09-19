@@ -1,6 +1,6 @@
 # Identity and Session Architecture
 
-**Version:** v0.0.18
+**Version:** v0.1.0
 
 **Current implementation:** the stable SquiFlow account plus external `(issuer, subject)` binding schema/query and its PostgreSQL migrator exist. CoreApi validates a configured HTTPS issuer, exact audience, signature, expiry and required single `iss`/`sub` identity through ASP.NET Core JWT bearer authentication, then resolves an active account. Real ZITADEL-instance evidence, login/session flows, account provisioning/linking APIs, tenant membership and device/session state remain `NOT_INTRODUCED`.
 

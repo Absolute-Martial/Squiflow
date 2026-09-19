@@ -1,7 +1,7 @@
 # Private Platform Admin Network and Podman Deployment Boundary
 
 **Status:** Accepted architecture direction for the current deployment profile  
-**Version:** v0.0.19
+**Version:** v0.1.0
 
 ## 1. Current deployment assumption
 

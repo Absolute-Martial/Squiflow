@@ -1,6 +1,6 @@
 # Observability Baseline
 
-**Version:** v0.0.16
+**Version:** v0.1.0
 
 This document is the high-level observability owner. Detailed implementation contracts live in:
 

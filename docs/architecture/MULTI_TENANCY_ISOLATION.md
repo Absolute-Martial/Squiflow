@@ -1,6 +1,6 @@
 # Multi-Tenancy Isolation Strategy
 
-**Version:** v0.0.17
+**Version:** v0.1.0
 
 **Current implementation:** the global tenant registry, account-membership schema/query and membership-derived immutable `TenantContext` exist. These are security/control data, not tenant-owned business rows. Client-selected tenant execution, tenant-owned persistence and PostgreSQL RLS remain `NOT_INTRODUCED`.
 

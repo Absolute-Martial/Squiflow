@@ -1,6 +1,6 @@
 # Notifications, Webhooks, and External Delivery
 
-**Version:** v0.0.15
+**Version:** v0.1.0
 
 This capability was referenced indirectly by Worker/integration planning but did not have a clear owner or failure contract. It is now a bounded cross-cutting capability, not a new microservice requirement.
 

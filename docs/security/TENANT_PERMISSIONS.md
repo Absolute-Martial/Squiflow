@@ -1,6 +1,6 @@
 # Tenant Owner Roles, Permission IDs, and OpenFGA Authorization
 
-**Version:** v0.0.18
+**Version:** v0.1.0
 
 **Current implementation:** SquiFlow owns a global tenant registry, current active account memberships and an immutable membership-derived `TenantContext`. OpenFGA models/tuples/checks, role administration, authorization revision, device authority and tenant-owned business resource checks remain `NOT_INTRODUCED`.
 

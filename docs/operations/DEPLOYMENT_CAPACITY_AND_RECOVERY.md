@@ -1,6 +1,6 @@
 # Deployment Capacity, Physical Hardware, and Recovery
 
-**Version:** v0.0.17
+**Version:** v0.1.0
 
 This document grounds SquiFlow in the current lower-spec owned rack and bootstrap external-service reality. It does not pretend the environment is an elastic cloud.
 

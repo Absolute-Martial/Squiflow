@@ -1,6 +1,6 @@
 # Tenant Administration and Platform Administration
 
-**Version:** v0.0.19
+**Version:** v0.1.0
 
 ## 1. Tenant administration
 

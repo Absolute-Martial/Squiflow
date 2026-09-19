@@ -1,6 +1,6 @@
 # Repository and Deployment Boundaries
 
-**Version:** v0.0.20
+**Version:** v0.1.0
 
 ## 1. Structural vocabulary
 

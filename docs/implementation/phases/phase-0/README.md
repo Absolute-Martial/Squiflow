@@ -2,7 +2,7 @@
 
 **Status:** active after principles-first implementation reset
 
-**Current baseline:** v0.0.20
+**Current product version:** v0.1.0, locked until the complete production-capable product gate
 
 **Current qualified subphase:** 0A
 
@@ -15,15 +15,15 @@ Phase 0 is developed as a sequence of **smallest useful production-honest scopes
 ## Current repository state
 
 ```text
-production projects: 0
-test projects:       0
-executable hosts:    0
-solution/build/test contract: absent
-active runtime responsibility: none
+production projects: 7
+test projects:       6
+executable hosts:    2
+solution/build/test contract: present
+active runtime responsibilities: public application bootstrap; JWT validation; account and tenant-membership queries; IdentityAccess/Tenancy PostgreSQL persistence; one-shot migration; Autofac root composition and isolated profile-runtime mechanics
 BLOCKED: none
 ```
 
-Phase 0A remains the qualified reset baseline. The former 0B enum-only implementation and all scaffolding created solely for it were purged by `docs/decisions/CURRENT_IMPLEMENTATION_PURGE_2026-09-17.md`. Its phase files remain historical evidence and do not describe current implementation.
+Phase 0A remains the qualified reset baseline. The former 0B enum-only implementation and all scaffolding created solely for it were purged by `docs/decisions/CURRENT_IMPLEMENTATION_PURGE_2026-09-17.md`. Its phase files remain historical evidence. Branding, IdentityAccess, Tenancy, CoreApi and DbMigrator were subsequently earned as independent production-honest slices; `README.IMPLEMENTATION.md` owns their current inventory.
 
 Read first:
 

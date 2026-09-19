@@ -1,21 +1,22 @@
-# SquiFlow
+# SquiFlow (internal development codename)
 
-**Current architecture/development baseline:** `v0.0.20`
+**Current product version:** `v0.1.0` (locked until the complete production-capable product gate)
 
 **Implementation state:** first independently earned backend/API slice after the 2026-09-17 purge. Phase 0A remains qualified; the former 0B Parties implementation is retired history.
 
-SquiFlow is rebuilding from accepted architecture, proven source, and real application responsibility. Earlier code and retired phase records remain in Git history as evidence and context, not current implementation authority.
+The repository codename is not the public product identity. Every deployed presentation obtains its name, legal identity, theme and links from validated branding configuration; the checked-in runtime has no codename branding fallback. Earlier code and retired phase records remain in Git history as evidence and context, not current implementation authority.
 
 ## Read in this order
 
 1. `README.IMPLEMENTATION.md` — current implementation truth.
-2. `docs/decisions/CURRENT_IMPLEMENTATION_PURGE_2026-09-17.md` — purge decision and removed inventory.
-3. `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md` — scope and quality contract.
-4. `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md` — evidence permanence and requalification contract.
-5. `docs/implementation/phases/phase-0/0A_BASELINE_STATUS.md` — qualified reset baseline.
-6. `docs/review/APPLICATION_BASELINE_IMPLEMENTATION_SOURCE_REVIEW.md` — proven-source routing for future implementation.
-7. `docs/domain/BUSINESS_TERMS.md`, `docs/decisions/CURRENT_DECISIONS.md`, and `OPEN_DECISIONS.md` — accepted and unresolved product meaning.
-8. The focused owner for the responsibility being changed.
+2. `docs/product/PRODUCT_IDENTITY_AND_VERSIONING.md` — codename, public identity and locked-version contract.
+3. `docs/decisions/CURRENT_IMPLEMENTATION_PURGE_2026-09-17.md` — purge decision and removed inventory.
+4. `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md` — scope and quality contract.
+5. `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md` — evidence permanence and requalification contract.
+6. `docs/implementation/phases/phase-0/0A_BASELINE_STATUS.md` — qualified reset baseline.
+7. `docs/review/APPLICATION_BASELINE_IMPLEMENTATION_SOURCE_REVIEW.md` — proven-source routing for future implementation.
+8. `docs/domain/BUSINESS_TERMS.md`, `docs/decisions/CURRENT_DECISIONS.md`, and `OPEN_DECISIONS.md` — accepted and unresolved product meaning.
+9. The focused owner for the responsibility being changed.
 
 ## Source precedence
 
@@ -90,4 +91,4 @@ Phase 0 and the already-concrete Phase 1 trust boundary retain architecture dire
 
 ## Versioning
 
-`v0.0.20` remains the principles-first baseline. The 2026-09-17 purge changes the current implementation inventory without pretending that historical evidence never existed.
+The product version is exactly `v0.1.0` and remains locked there until the complete product is explicitly qualified as capable of its accepted real-production responsibilities. Git revisions identify builds and changes without creating alternate product versions. `/api/v1` and similar identifiers version a contract family; they are not the product version. Historical documents may retain the version that identified their original decision or qualification event.

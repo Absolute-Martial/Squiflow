@@ -1,6 +1,6 @@
 # SquiFlow Application Kernel, Capability Cores, Modules, Settings, and Features
 
-**Version:** v0.0.20  
+**Version:** v0.1.0
 **Status:** Accepted architecture direction. The first compact Branding capability and CoreApi composition root now exist; there is still no general `SquiFlow.ApplicationKernel` or module runtime. Shared kernel/module types are introduced only when current capability/application work earns them.
 **Authority:** This document owns application composition, module/feature lifecycle, dependency injection, settings, application-service and transaction conventions, capability-provided endpoints/UI/background work, data seeding, and framework-adoption boundaries. Business-meaning ownership is defined by `docs/architecture/CAPABILITY_CORE_AND_HOST_EXECUTION.md`. Permission semantics remain owned by `docs/security/TENANT_PERMISSIONS.md`; identity remains owned by `docs/security/IDENTITY_AND_SESSIONS.md`.
 

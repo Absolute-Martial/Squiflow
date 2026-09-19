@@ -1,6 +1,8 @@
 # SquiFlow Current Implementation Truth
 
-**Baseline:** `v0.0.20` principles-first reset
+**Product version:** `v0.1.0`, locked until the complete production-capable product gate
+
+**Repository name:** internal development codename; public runtime identity is configuration-owned
 
 **Current state:** first backend/API vertical slice implemented
 
@@ -16,9 +18,9 @@ active runtime responsibilities: public application bootstrap; JWT access-token 
 BLOCKED: none
 ```
 
-The current solution contains compact host-neutral Branding, IdentityAccess and Tenancy capabilities, capability-owned PostgreSQL adapters, an ASP.NET Core CoreApi host, and a separate one-shot database migrator. CoreApi uses Autofac as its root service provider while retaining standard `IServiceCollection` registrations. Its internal profile-runtime registry proves bounded single-flight construction, operation-scoped tenant context, idle retirement, draining, disposal and metrics, but no production endpoint acquires it. `GET /api/v1/application/bootstrap` exposes bounded public white-label identity. The IdentityAccess schema durably binds one or more exact OIDC `(issuer, subject)` identities to a stable SquiFlow account and deliberately stores no password, role or permission authority. `GET /api/v1/account` validates a configured HTTPS issuer, exact audience, signature and lifetime through ASP.NET Core JWT bearer authentication before returning an active bound account. `GET /api/v1/account/tenants` returns only current active tenant memberships for that account; the host-neutral resolver creates `TenantContext` only from the same current membership authority.
+The current solution contains compact host-neutral Branding, IdentityAccess and Tenancy capabilities, capability-owned PostgreSQL adapters, an ASP.NET Core CoreApi host, and a separate one-shot database migrator. CoreApi uses Autofac as its root service provider while retaining standard `IServiceCollection` registrations. Its internal profile-runtime registry proves bounded single-flight construction, operation-scoped tenant context, idle retirement, draining, disposal and metrics, but no production endpoint acquires it. `GET /api/v1/application/bootstrap` exposes bounded public white-label identity. The IdentityAccess schema durably binds one or more exact OIDC `(issuer, subject)` identities to a stable application account and deliberately stores no password, role or permission authority. `GET /api/v1/account` validates a configured HTTPS issuer, exact audience, signature and lifetime through ASP.NET Core JWT bearer authentication before returning an active bound account. `GET /api/v1/account/tenants` returns only current active tenant memberships for that account; the host-neutral resolver creates `TenantContext` only from the same current membership authority.
 
-The repository does not yet contain durable Tenant Application Profile authority, production profile-specific resolution, real ZITADEL-instance evidence, login/callback/session flows, account/tenant provisioning operations, OpenFGA roles/permissions, tenant-owned business tables or RLS, devices, Worker, Web UI, Workstation or a general ApplicationKernel/module runtime. Those responsibilities remain `NOT_INTRODUCED`. A deployment must provide `Authentication:Authority`, `Authentication:Audience`, and `ConnectionStrings:SquiFlow`; blank or unsafe trust configuration fails startup.
+The repository does not yet contain durable Tenant Application Profile authority, production profile-specific resolution, real ZITADEL-instance evidence, login/callback/session flows, account/tenant provisioning operations, OpenFGA roles/permissions, tenant-owned business tables or RLS, devices, Worker, Web UI, Workstation or a general ApplicationKernel/module runtime. Those responsibilities remain `NOT_INTRODUCED`. A deployment must provide every `Branding` value, `Authentication:Authority`, `Authentication:Audience`, and `ConnectionStrings:PrimaryDatabase`; blank or unsafe identity, trust or database configuration fails startup.
 
 The ignored `reference-sources/snapshots/` research workspace may contain upstream `.csproj`, source and test files at pinned revisions. Those files are external evidence only: they are not SquiFlow projects, are not referenced by product code, and are excluded from this implementation inventory.
 

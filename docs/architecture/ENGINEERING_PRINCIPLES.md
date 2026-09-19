@@ -2,7 +2,7 @@
 
 **Status:** Canonical development rule  
 **Applies to:** production code, tests, migrations, scripts, adapters, hosts, deployment definitions, and refactoring  
-**Baseline:** v0.0.20
+**Baseline:** v0.1.0
 
 ## 1. Purpose
 

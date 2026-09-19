@@ -1,7 +1,7 @@
 # API and Protocol Composition
 
 **Status:** Accepted architecture refinement  
-**Version:** v0.0.20  
+**Version:** v0.1.0
 **Scope:** cross-capability reads, client-facing composition, remote dependency aggregation, protocol placement, local-first Workstation composition, and interaction with schema/contract compatibility
 
 ## 1. Decision

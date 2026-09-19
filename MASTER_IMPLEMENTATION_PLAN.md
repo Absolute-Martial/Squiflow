@@ -1,6 +1,6 @@
 # SquiFlow Master Implementation Plan
 
-**Baseline:** v0.0.20  
+**Product version:** v0.1.0, locked until the complete production-capable product gate
 **Status:** Current high-level implementation direction. Detailed scope, evidence, and phase shape are earned from real responsibilities rather than pre-specified here.
 
 ## 1. Canonical governance
@@ -28,7 +28,7 @@ If this file ever conflicts with a focused canonical owner or the global phase-g
 
 The current post-purge implementation contains independently earned Branding, IdentityAccess and Tenancy capabilities, capability-owned PostgreSQL adapters/migrations, CoreApi, the one-shot DbMigrator, unit/integration tests, `.slnx`, SDK pin and central build/package contract. CoreApi has narrow configured JWT validation plus active-account and active-membership queries; Tenancy can resolve immutable context from current membership. It contains no real ZITADEL login/session topology evidence, account/tenant provisioning, OpenFGA authorization, tenant-owned business data/RLS, business capability, Worker, Web UI, Workstation or general Foundation/ApplicationKernel project.
 
-Phase 0A remains the qualified reset baseline. The former Phase 0B Parties implementation and its verification are retired historical evidence after the 2026-09-17 purge. All runtime responsibilities are `NOT_INTRODUCED`; `BLOCKED = none`.
+Phase 0A remains the qualified reset baseline. The former Phase 0B Parties implementation and its verification are retired historical evidence after the 2026-09-17 purge. The narrow current responsibilities listed in `README.IMPLEMENTATION.md` are `PRODUCTION_HONEST`; all broader runtime responsibilities remain `NOT_INTRODUCED`; `BLOCKED = none`.
 
 Folder names, architecture diagrams, old branches, old merge requests, historical source studies, and the retired pre-reset implementation plan do not prove that another runtime/project currently exists.
 

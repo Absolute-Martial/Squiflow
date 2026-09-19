@@ -1,6 +1,6 @@
 # Multi-Tenant Observability
 
-**Version:** v0.0.16  
+**Version:** v0.1.0
 **Status:** Accepted implementation direction
 
 ## 1. Principle

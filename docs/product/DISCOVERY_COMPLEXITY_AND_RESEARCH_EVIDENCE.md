@@ -1,6 +1,6 @@
 # Discovery Complexity and Research Evidence
 
-**Version:** v0.0.18
+**Version:** v0.1.0
 
 **Status:** Focused operational companion to `docs/product/PRODUCT_FOUNDATION.md`.  
 **Authority boundary:** `PRODUCT_FOUNDATION.md` remains the upstream owner for product intent, evidence discipline, product questions, product-promise decisions, and the product-response risk check. This document owns the detailed discovery rules for locating complexity/friction, classifying exploratory artifacts, handling customer-research evidence safely, distinguishing generative from evaluative evidence, decomposing material assumptions, and designing decision-changing investigations. It does not create a UX process, ResearchOps function, experimentation platform, design methodology, or product feature.

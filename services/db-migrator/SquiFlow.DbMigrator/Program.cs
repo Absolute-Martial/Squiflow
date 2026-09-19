@@ -18,11 +18,11 @@ if (verb == MigratorVerb.Help)
     return 0;
 }
 
-var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__SquiFlow");
+var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__PrimaryDatabase");
 if (string.IsNullOrWhiteSpace(connectionString))
 {
     await Console.Error.WriteLineAsync(
-        "[migrator] Configuration error: ConnectionStrings__SquiFlow is required.");
+        "[migrator] Configuration error: ConnectionStrings__PrimaryDatabase is required.");
     return 2;
 }
 
@@ -52,7 +52,7 @@ try
     }
 
     await runner.ApplyAsync(TimeSpan.FromSeconds(lockTimeoutSeconds), CancellationToken.None);
-    await Console.Out.WriteLineAsync("[migrator] Applied all pending SquiFlow migrations.");
+    await Console.Out.WriteLineAsync("[migrator] Applied all pending application migrations.");
     return 0;
 }
 catch (MigrationLockUnavailableException exception)

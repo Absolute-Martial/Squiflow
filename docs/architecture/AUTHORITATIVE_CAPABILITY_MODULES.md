@@ -1,7 +1,7 @@
 # Authoritative Capability Modules
 
 **Status:** Accepted architecture direction  
-**Version:** v0.0.19  
+**Version:** v0.1.0
 **Base:** `d6df80a2613a330b7abd3adce32ca19ab20f5d1b`
 
 ## 1. Decision

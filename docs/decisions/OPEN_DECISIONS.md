@@ -1,4 +1,4 @@
-# Open Decisions — v0.0.18
+# Open Decisions — v0.1.0
 
 These are decisions that can materially affect the current implementation baseline. Deferred ideas are not kept here merely because they may be useful someday.
 

@@ -1,6 +1,6 @@
 # API Contract, Idempotency, Retry, and Long-Running Operations
 
-**Version:** v0.0.15
+**Version:** v0.1.0
 
 This document turns the Stripe, AWS Builders' Library, ASP.NET Core, Azure Architecture, and reviewed ByteByteGo reliability/API material into the SquiFlow API contract without adding a new service or framework.
 
