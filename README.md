@@ -85,7 +85,7 @@ Production-honest does not mean writing every mechanism from scratch. Before cus
 
 Phase 0A is the current qualified baseline. The former 0B qualification proved properties of code that has since been deliberately purged, so those claims and CI results are historical and no longer describe the repository.
 
-The repository-owned verification entry point is `./eng/verify.sh`. It restores, builds in Release configuration and runs the complete test suite, including real PostgreSQL Testcontainers integration tests. `.github/workflows/verify.yml` is the thin GitHub Actions wrapper around the same command. A workflow definition is not evidence that a remote run passed; report remote CI evidence only after inspecting that run.
+The repository-owned verification entry point is `./eng/verify.sh`. It restores, verifies formatting, builds in Release configuration and runs the complete test suite, including real PostgreSQL Testcontainers integration tests. `.github/workflows/verify.yml` is the thin GitHub Actions wrapper around the same command. A workflow definition is not evidence that a remote run passed; report remote CI evidence only after inspecting that run.
 
 Phase 0 and the already-concrete Phase 1 trust boundary retain architecture direction. Phase 2–10 remain direction-only `NOT_INTRODUCED` planning until real work earns detail.
 

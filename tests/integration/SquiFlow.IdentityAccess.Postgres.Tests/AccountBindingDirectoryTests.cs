@@ -94,12 +94,12 @@ public sealed class AccountBindingDirectoryTests : PostgresTestDatabase
 
         await using var conflictingWrite = CreateContext();
         conflictingWrite.ExternalIdentityBindings.Add(new ExternalIdentityBindingRow
-            {
-                AccountId = secondAccount,
-                Issuer = "https://identity.example.test",
-                Subject = "same-subject",
-                CreatedAt = createdAt,
-            });
+        {
+            AccountId = secondAccount,
+            Issuer = "https://identity.example.test",
+            Subject = "same-subject",
+            CreatedAt = createdAt,
+        });
 
         await Assert.ThrowsAsync<DbUpdateException>(() =>
             conflictingWrite.SaveChangesAsync(CancellationToken.None));

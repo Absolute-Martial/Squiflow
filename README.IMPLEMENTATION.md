@@ -57,7 +57,7 @@ Repository verification is:
 ./eng/verify.sh
 ```
 
-The script restores, builds the solution in Release configuration and runs the complete test suite. Provider tests require Docker because they run PostgreSQL 17 through Testcontainers. The current environment may require writable `NUGET_PACKAGES` and `NUGET_HTTP_CACHE_PATH` locations. `.github/workflows/verify.yml` invokes the same script; no remote CI execution claim exists until its run is inspected.
+The script restores, verifies formatting, builds the solution in Release configuration and runs the complete test suite. Provider tests require Docker because they run PostgreSQL 17 through Testcontainers. The current environment may require writable `NUGET_PACKAGES` and `NUGET_HTTP_CACHE_PATH` locations. `.github/workflows/verify.yml` invokes the same script; no remote CI execution claim exists until its run is inspected.
 
 ## Authority
 
