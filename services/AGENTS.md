@@ -4,7 +4,7 @@ These rules apply below `services/` in addition to the root instructions.
 
 ## Current state
 
-The principles-first reset currently has **no service executable/project implemented**. The `services/` directory is an ownership/instruction location only until a real service responsibility is reintroduced.
+The current service executables are `SquiFlow.CoreApi` for public bootstrap/liveness plus configured JWT validation, authenticated account resolution and active tenant-membership listing, and `SquiFlow.DbMigrator` for ordered one-shot IdentityAccess/Tenancy PostgreSQL migration. CoreApi uses Autofac as its root provider, composes both query adapters and the membership-derived `TenantContext` resolver, and contains tested internal bounded profile-runtime mechanics that no production path acquires yet. It contains no durable profile authority, implementation variant, OpenFGA authorization or business mutation. DbMigrator owns no seeding, per-tenant loop, identity placeholder, scheduler or application startup behavior.
 
 Do not create `core-api/`, `web-api/`, `sync-api/`, `admin-api/` or `worker/` merely because those folders exist in the growth map.
 

@@ -1,14 +1,14 @@
 # SquiFlow Application Kernel, Capability Cores, Modules, Settings, and Features
 
 **Version:** v0.0.20  
-**Status:** Accepted architecture direction. After the v0.0.20 principles-first reset there is currently no `SquiFlow.ApplicationKernel`, capability project, or executable host project. Concrete kernel/module types are introduced only when current capability/application work earns them.  
+**Status:** Accepted architecture direction. The first compact Branding capability and CoreApi composition root now exist; there is still no general `SquiFlow.ApplicationKernel` or module runtime. Shared kernel/module types are introduced only when current capability/application work earns them.
 **Authority:** This document owns application composition, module/feature lifecycle, dependency injection, settings, application-service and transaction conventions, capability-provided endpoints/UI/background work, data seeding, and framework-adoption boundaries. Business-meaning ownership is defined by `docs/architecture/CAPABILITY_CORE_AND_HOST_EXECUTION.md`. Permission semantics remain owned by `docs/security/TENANT_PERMISSIONS.md`; identity remains owned by `docs/security/IDENTITY_AND_SESSIONS.md`.
 
 ## 1. Decision
 
-When current capability/application work earns shared composition semantics, SquiFlow uses a small **SquiFlow-owned application kernel** on standard .NET and ASP.NET Core primitives rather than adopting a large application framework as authority.
+When current capability/application work earns shared composition semantics, SquiFlow uses a small **SquiFlow-owned application kernel** on the .NET Generic Host, standard Microsoft.Extensions primitives and ASP.NET Core where applicable.
 
-ABP Framework and Orchard Core are reference designs. They are not runtime foundations and neither becomes application, tenant, settings, permission, workflow, persistence, audit, or background-work authority.
+The source-first application-base comparison selected FullStackHero as the complete pinned source-owned backend starting base and the other frameworks as focused reference designs/donors. SquiFlow selectively adapts reviewed source rather than running the FSH generator or importing an FSH runtime. None becomes application, tenant, settings, permission, workflow, persistence, audit or background-work authority.
 
 The accepted dependency/composition direction is:
 
@@ -77,9 +77,9 @@ Host/process applicability is not encoded by a process-name set on the descripto
 
 | Concern | SquiFlow direction | Useful reference idea | Explicitly not adopted |
 |---|---|---|---|
-| Dependency injection | Microsoft.Extensions.DependencyInjection with one composition root per executable | ABP/Orchard registration conventions | service locator, automatic property injection, per-tenant container forests |
+| Dependency injection | one explicit composition root per executable; standard Microsoft.Extensions DI is current, and Autofac is selected for the first profile-aware implementation path | ABP/Orchard registration conventions; Autofac multitenant lifetime scopes and ASP.NET Core integration | service locator, automatic property injection, rebuilding containers per request, or treating a child scope as resource isolation |
 | Capability composition | trusted C# descriptor, dependency DAG, ordered startup and explicit executable/adaptor composition around Capability Cores when composition metadata is needed | ABP dependency/lifecycle graph; Orchard module/feature split | two runtimes, arbitrary untrusted DLL loading, module-per-service, process-name registry in Foundation |
-| Tenant composition | versioned effective feature/settings/permission snapshot resolved from TenantContext when those responsibilities are introduced | Orchard tenant feature profiles | separate app/service provider/database per tenant by default |
+| Tenant composition | immutable, versioned Tenant Application Profile covering capability selection, settings, permissions, rules, workflows, forms, extensible information, integrations, placement and optional trusted implementation variants | Orchard tenant feature profiles; Autofac only for proven implementation variation | arbitrary tenant code, tenant-authored assemblies, or separate app/service provider/database per tenant by default |
 | DDD/application services | use-case-oriented services and selective aggregates/value objects/domain services | ABP DDD guidance | mandatory layer/project/type for every CRUD feature |
 | Transactions | explicit transaction per authoritative command where one store can own it | unit-of-work intent | generic IUnitOfWork baseline or cross-store ACID fiction |
 | Data access | EF Core candidate for aggregate writes/migrations; Dapper candidate for measured read paths | ABP provider options | generic IRepository<T>, framework entities, unrestricted ad-hoc SQL |
@@ -92,7 +92,9 @@ Host/process applicability is not encoded by a process-name set on the descripto
 | Audit | explicit security/administrative/business evidence with bounded technical tracing when the owning responsibility exists | ABP interception and Orchard content history as references | blanket payload/property capture or content revisions as business audit truth |
 | UI contributions | reviewed navigation/page/block descriptors in the adapter that owns the presentation surface when contribution composition is needed | Orchard admin/navigation composition | generated UI as authorization enforcement or universal CRUD product |
 
-These are pattern choices, not copied framework implementations and not a checklist to instantiate all concerns at once.
+The detailed source admission and framework comparison is `docs/review/APPLICATION_BASE_FRAMEWORK_ADMISSION_RESEARCH.md`; the active FSH decisions are in `docs/review/FULLSTACKHERO_BACKEND_ADOPTION_LEDGER.md`. The base is a controlled hybrid: the pinned FSH tree supplies the starting source map, standard .NET supplies runtime mechanics, SquiFlow owns product semantics, and focused packages own bounded mechanisms when earned.
+
+These rows define ownership and candidate reference ideas; they do not require blank-page implementation or authorize every concern at once. Before custom infrastructure, create the source-admission record required by `docs/review/APPLICATION_BASELINE_IMPLEMENTATION_SOURCE_REVIEW.md`: immutable revision, exact source, license, entry mode, retained SquiFlow authority, framework assumptions, gaps, exit path, and SquiFlow-owned evidence. A framework may supply a focused mechanism without becoming the product runtime or business authority.
 
 ## 4. Module descriptor and dependency graph
 
@@ -124,7 +126,7 @@ Module IDs, feature IDs, permission IDs, setting keys, job kinds, schema ownersh
 
 When executable module loading exists, initial releases load only assemblies shipped in the verified SquiFlow artifact. Adding/replacing assemblies is a deployment and normally a process restart.
 
-If runtime tenant feature publication is introduced, it changes availability data, not the process service graph:
+If runtime tenant feature publication is introduced, feature enablement by itself changes availability data, not the process service graph:
 
 ```text
 features present in this executable's composed capability set
@@ -137,7 +139,9 @@ features present in this executable's composed capability set
 
 Feature availability, release channel, experiment assignment, permission and domain validity remain separate systems. See `docs/architecture/FEATURE_RELEASE_AND_EXPERIMENTS.md`.
 
-Do not build a child `IServiceProvider` per tenant. Tenant-aware services receive immutable `TenantContext` plus relevant configuration/feature revisions through scoped context once those responsibilities exist.
+A separate trusted implementation-variant selection in the Tenant Application Profile may select a qualified profile runtime. That is a different publication responsibility from an ordinary feature flag and follows the activation/drain lifecycle in `TENANT_APPLICATION_PROFILES_AND_EXTENSIBILITY.md`.
+
+Do not build a child `IServiceProvider` merely to carry tenant values, branding, settings, secrets, limits, feature flags, forms, fields, rules or workflow definitions. Those belong to the immutable Tenant Application Profile and scoped `TenantContext`. If a published profile genuinely selects a different trusted shipped implementation graph, profile-aware composition may be introduced only after the focused POC in `TENANT_APPLICATION_PROFILES_AND_EXTENSIBILITY.md`. Such runtimes are created outside request execution, cached by a stable profile revision/fingerprint or tenant identity as proven by the POC, and never rebuilt on every request.
 
 A feature publication, when introduced, is validated, versioned, audited and atomic from the tenant perspective. A request, command, sync batch or claimed job uses one effective revision rather than observing half of a publication.
 
@@ -186,7 +190,9 @@ Rules:
 - decorators/pipelines may own cross-cutting validation/authorization/transaction/idempotency/audit only with explicit ordering/failure semantics;
 - no reflection-discovered future host registry merely to avoid explicit composition.
 
-Per-tenant behavior comes from scoped context and policy/data, not rebuilt DI containers.
+Ordinary tenant behavior comes from an immutable Tenant Application Profile and scoped context. Capability selection, forms, fields, rules, workflows, settings, limits and integrations do not require rebuilt DI containers. Many tenants may share one compiled profile runtime when their trusted implementation graph is identical.
+
+A tenant-specific or profile-specific runtime is activated only when a supported profile needs a genuinely different trusted implementation type/graph inside the same executable and a small fixed strategy set would make ownership or lifecycle unsafe. The current executable still uses standard DI; Autofac is selected but not introduced. Its implementation plan requires membership-derived `TenantContext` before profile acquisition, immutable revision keys, deduplication of equivalent graphs where safe, bounded retained runtimes, in-flight draining before disposal, and reconstruction from durable profile authority on another node. A child lifetime scope remains only a composition/lifetime boundary. It does not provide CPU, memory, GC, thread-pool, database, provider, or process-fault isolation.
 
 ## 7. Capability Core and application-service pattern
 
@@ -381,7 +387,7 @@ SyncApi → workstation batching/idempotency/cursor/revision/backpressure worklo
 
 Both use the same authoritative application/Capability Core semantics and PostgreSQL once those responsibilities exist; they are not two business backends.
 
-`services/core-api/` is an accepted ownership location for a compact early authoritative host if/when a current slice earns it. No CoreApi project exists after the reset. A later WebApi/SyncApi split is earned by real workload pressure rather than prebuilt now.
+`services/core-api/` now contains the compact host earned by public bootstrap/liveness and authenticated account resolution. A later WebApi/SyncApi split is earned by real workload pressure rather than prebuilt now.
 
 gRPC remains a preferred candidate for the Workstation sync boundary when a real POC proves value; sync semantics remain transport-independent. GraphQL remains deferred until a concrete query-composition use case pays for its cost/authorization/complexity.
 
@@ -431,7 +437,7 @@ The following table describes accepted runtime responsibilities. It is architect
 |---|---|
 | Workstation | when implemented, explicitly reference local-capable capability cores plus Workstation adapters; consume published feature/permission/settings/rule snapshots that actually exist; execute only approved DeviceLocal/LocalProvisional operations |
 | Guard | when implemented, supervision/update/diagnostic trigger responsibilities only; reference no business Capability Core, tenant authorization or central DB |
-| CoreApi | accepted compact early authoritative tenant/business composition-root location if a current slice earns it; no current project after reset |
+| CoreApi | current compact composition root for public bootstrap/liveness, configured bearer authentication, account resolution and active-membership listing; future business authority still requires OpenFGA/resource/domain checks and tenant-owned persistence |
 | Tenant Web | future tenant business UI + broader Owner/Settings adapters; presentation only, server authority remains backend |
 | WebApi | future earned interactive authoritative ingress; compose capability application adapters without duplicating business meaning |
 | SyncApi | future earned Workstation sync/admission ingress; compose synchronization/application adapters without duplicating business meaning |
@@ -449,7 +455,7 @@ The following are architecture properties to prove **only when their underlying 
 - when a module dependency graph exists: prove deterministic ordering plus missing/cyclic/duplicate/incompatible dependency failure;
 - when executable composition exists: prove explicit composition and that executable topology is not encoded in host-neutral capability metadata;
 - whenever Foundation or a physically separated Capability Core exists: mechanically protect it from forbidden host/provider dependencies;
-- when DI composition exists: use standard DI without per-tenant container forests or service-locator leakage;
+- when DI composition exists: preserve the explicit current root and prevent service-locator leakage; introduce a profile runtime only after its representative POC proves graph selection, cache bounds, revision publication, concurrency, drain/disposal and cross-tenant negative behavior;
 - when tenant feature publication exists: prove dependency closure, platform ceiling, revision stability and disablement semantics for the declared scope;
 - when release channels/experiments exist: prove their actual accepted assignment/filtering semantics and keep them separate from authorization;
 - when typed settings exist: prove validation, precedence, ceilings, revision/history behavior required by that setting scope;
@@ -471,7 +477,7 @@ Rejected as initial application-kernel directions:
 - full Orchard application foundation;
 - ABP + Orchard together in the same business host;
 - maximum custom scripting/plugin loading;
-- separate per-tenant service containers;
+- separate per-tenant service containers as the default tenancy model or as a claim of resource/fault isolation;
 - feature flags implemented as permission checks;
 - ZITADEL application roles as business authorization source;
 - a central enum/registry of executable process names used to filter capability/feature/permission meaning.
@@ -490,3 +496,4 @@ Revisit framework/package adoption only if measured implementation/support burde
 - OpenFGA custom roles: https://openfga.dev/docs/modeling/custom-roles
 - OpenFGA consistency: https://openfga.dev/docs/interacting/consistency
 - ZITADEL OIDC: https://zitadel.com/docs/guides/integrate/login/oidc
+- Application base framework admission research: `docs/review/APPLICATION_BASE_FRAMEWORK_ADMISSION_RESEARCH.md`

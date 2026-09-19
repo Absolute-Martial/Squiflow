@@ -1,5 +1,7 @@
 # Phase 1A — ZITADEL Identity and Account Binding
 
+**Current implementation note:** the API-side configured JWT validation and active `(issuer, subject)` account resolution slice exists. It does not qualify Phase 1A: real ZITADEL topology evidence, Web and Workstation login transactions, callback/session/logout behavior, provisioning/linking and recurring provider verification remain `NOT_INTRODUCED`.
+
 **Gate-quality owner:** `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md`  
 **Evidence/permanence owner:** `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md`
 

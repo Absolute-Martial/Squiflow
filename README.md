@@ -1,26 +1,21 @@
 # SquiFlow
 
-**Current architecture/development baseline: `v0.0.20`**  
-**Implementation state:** Phase 0A and Phase 0B are **Complete / Qualified** under the production-honest governance model. No later Phase-0 work area is automatically active; the next slice is derived from real current responsibility.
+**Current architecture/development baseline:** `v0.0.20`
 
-SquiFlow is rebuilding from accepted architecture and current responsibility rather than carrying premature implementation or speculative phase structure forward. Earlier code and retired plans remain in Git history as evidence/context, not current authority.
+**Implementation state:** first independently earned backend/API slice after the 2026-09-17 purge. Phase 0A remains qualified; the former 0B Parties implementation is retired history.
 
-Reset decision: `docs/decisions/PRINCIPLES_FIRST_RESET_2026-09-14.md`.  
-Gate model: `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md`.  
-Evidence/permanence model: `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md`.
+SquiFlow is rebuilding from accepted architecture, proven source, and real application responsibility. Earlier code and retired phase records remain in Git history as evidence and context, not current implementation authority.
 
 ## Read in this order
 
-1. `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md` — canonical scope/quality contract.
-2. `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md` — evidence permanence/requalification contract.
-3. `docs/implementation/phases/phase-0/0A_BASELINE_STATUS.md` — qualified reset baseline and enduring 0A guarantees.
-4. `docs/implementation/phases/phase-0/0B_APPLICATION_KERNEL_AND_MODULE_FOUNDATION.md` and `0B_STATUS.md` — qualified 0B gate and evidence record.
-5. `docs/domain/BUSINESS_TERMS.md` — consequential accepted versus discovery-sensitive terminology.
-6. `docs/architecture/ENGINEERING_PRINCIPLES.md` — engineering principles.
-7. `docs/architecture/EXPLICIT_BOUNDARIES_AND_SOLID.md` — dependency/ownership rules.
-8. `docs/decisions/CURRENT_DECISIONS.md` and `OPEN_DECISIONS.md` — accepted versus unresolved direction.
-9. `docs/architecture/REPOSITORY_STRUCTURE.md` and `REPOSITORY_FOLDER_STRUCTURE.md` — current/growth placement maps.
-10. The focused owner for the responsibility being changed.
+1. `README.IMPLEMENTATION.md` — current implementation truth.
+2. `docs/decisions/CURRENT_IMPLEMENTATION_PURGE_2026-09-17.md` — purge decision and removed inventory.
+3. `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md` — scope and quality contract.
+4. `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md` — evidence permanence and requalification contract.
+5. `docs/implementation/phases/phase-0/0A_BASELINE_STATUS.md` — qualified reset baseline.
+6. `docs/review/APPLICATION_BASELINE_IMPLEMENTATION_SOURCE_REVIEW.md` — proven-source routing for future implementation.
+7. `docs/domain/BUSINESS_TERMS.md`, `docs/decisions/CURRENT_DECISIONS.md`, and `OPEN_DECISIONS.md` — accepted and unresolved product meaning.
+8. The focused owner for the responsibility being changed.
 
 ## Source precedence
 
@@ -29,109 +24,70 @@ focused canonical owner
         ↓
 accepted/current decision record
         ↓
-active implementation/gate record
+current implementation/gate record
         ↓
 historical review/source-study/branch/MR material
 ```
 
-Repository state proves what is implemented. Architecture documents may define future ownership and accepted direction without implying that a project/runtime currently exists.
+Repository state proves what is implemented. Architecture documents can define future ownership and accepted direction without implying that a project or runtime exists.
 
-## Current repository implementation boundary
-
-Qualified 0B contains exactly two projects:
+## Current implementation boundary
 
 ```text
-modules/parties/SquiFlow.Parties/SquiFlow.Parties.csproj
-tests/unit/SquiFlow.Parties.Tests/SquiFlow.Parties.Tests.csproj
+production projects: 7
+test projects:       6
+executable hosts:    2
+solution/build/test contract: present
+active runtime responsibilities: public application bootstrap; JWT access-token validation; authenticated account resolution; tenant membership listing/context resolution; account/tenancy persistence; one-shot DB migration
+BLOCKED: none
 ```
 
-There is no Foundation/ApplicationKernel project and no application/service executable.
+The deleted `PartyKind` enum and Parties implementation are not current implementation. The current solution/build/test files belong only to the independently earned Branding, IdentityAccess, Tenancy, CoreApi and DbMigrator slices and do not revive the retired 0B shape.
 
-The production-code scope currently implemented is only the accepted structural Party classification:
+## Architecture direction
 
-```text
-PartyKind
-├── Person
-└── Organization
-```
-
-That is **not** a claim that Party/Customer/Account lifecycle, identity format, persistence, API, host, authorization, synchronization, or customer-complete product scope exists. Those remain `NOT_INTRODUCED` unless and until a real current slice earns them.
-
-The absence of shared Foundation is also intentional: the real Parties slice did not expose current product-wide reuse/change pressure that justified a shared primitive. That is the qualified 0B discovery result, not unfinished work.
-
-## Architecture direction retained through the reset
-
-- C# / .NET 10 is the application baseline.
+- C# and modern .NET remain the application direction; .NET 10 is the current toolchain baseline when code is reintroduced.
 - Avalonia Workstation and Blazor tenant Web remain accepted presentation directions when those surfaces are implemented.
 - ASP.NET Core remains the server-host foundation when server hosts are implemented.
-- Modular monolith first; ordinary capability communication stays in-process.
-- Dependency direction remains Foundation → capability-owned business meaning → host/provider adapter → executable composition root (outer layers depend inward).
-- One source implementation of business meaning per capability.
-- Workstation remains the local-first/offline direction; PostgreSQL remains selected central authority; SQLite/WAL remains selected Workstation local/provisional persistence when those scopes are introduced.
-- ZITADEL identity, OpenFGA authorization, and OpenBao/Vault-style key-management directions remain accepted but unimplemented until their scopes activate.
-- Guard remains an external supervision/recovery boundary when rebuilt; it is not business authority, database authority, Worker, scheduler, or key vault.
-- Project/process/provider/interface splits are earned by real compiler, provider, lifecycle, fault, security, resource, deployment, compatibility, packaging, or workload pressure.
+- The product starts as a modular monolith; ordinary capability communication is in-process.
+- One capability owns one source implementation of its business meaning.
+- PostgreSQL remains selected central transactional storage and SQLite/WAL remains selected Workstation local storage when those responsibilities are introduced.
+- ZITADEL remains the selected identity platform; CoreApi now enforces its configured OIDC/JWT issuer and audience contract, while live-provider/login/session evidence remains pending. OpenFGA and OpenBao/Vault-style key management remain accepted directions, not current runtimes.
+- Guard remains a future supervision/recovery boundary, not business authority.
+- Projects, processes, providers, interfaces, and protocols are earned by a real boundary.
 
 ## Development rule
 
-The governing rule is:
-
 > **Scope is a choice; honesty is not.**
 
-A phase is not a checklist and a phase label is not authority to build its imagined contents. Work proceeds as the smallest production-honest scope:
-
 ```text
-real responsibility
+real useful responsibility
         ↓
-declare production intent + exact scope
+inspect applicable proven implementations
+        ↓
+declare production intent and exact scope
         ↓
 NOT_INTRODUCED / PRODUCTION_HONEST / BLOCKED
         ↓
-implement only what current scope earns
+implement the smallest useful production-honest slice
         ↓
 prove claims with falsifiable evidence
         ↓
-keep permanent/recurring regression guards
+retain recurring regression guards
         ↓
 qualify only with BLOCKED = none
 ```
 
-KISS reduces accidental complexity; YAGNI reduces speculative breadth. Neither permits prototype-grade depth for a responsibility already introduced.
+Production-honest does not mean writing every mechanism from scratch. Before custom infrastructure, inspect the source review and record whether a focused dependency, bounded source adaptation, reusable tests/algorithms, or reference-only decision fits the active responsibility. SquiFlow keeps ownership of its business meaning, authority, security, compatibility, and evidence.
 
-## 0A → 0B qualification
+## Gate and verification status
 
-0A guarantees that a developer can identify current authority, current implementation truth, repository ownership, and future-only scope without relying on deleted code or speculative governance.
+Phase 0A is the current qualified baseline. The former 0B qualification proved properties of code that has since been deliberately purged, so those claims and CI results are historical and no longer describe the repository.
 
-Its zero-project inventory was qualification-time reset evidence, not a permanent invariant. 0B legitimately introduced the first projects from current capability semantics rather than recreating the purged tree.
+The current repository contract is `dotnet restore SquiFlow.slnx`, `dotnet build SquiFlow.slnx --no-restore`, and `dotnet test SquiFlow.slnx --no-build --no-restore`. No CI execution claim exists yet.
 
-0B then proved the capability-first rule: `PartyKind` remains Party-owned, its compile-time dependency boundary is mechanically protected, and `SquiFlow.ApplicationKernel` remains absent because no real current shared product-wide primitive was earned. No second consumer was manufactured to satisfy a quota.
-
-## Current verification status
-
-The qualified tests cover the Party-kind contract and the initial Parties dependency boundary. The .NET 10 test path uses Microsoft Testing Platform and xUnit v3.
-
-Repository-owned verification is:
-
-```text
-dotnet restore SquiFlow.sln
-dotnet build SquiFlow.sln -c Release --no-restore
-dotnet test SquiFlow.sln -c Release --no-build
-```
-
-The GitHub Actions workflow executed this verification successfully in maintainer-supplied run `34916005915`, job `104213630182`:
-
-`https://github.com/Absolute-Martial/Squiflow/actions/runs/34916005915/job/104213630182`
-
-GitLab runs the same commands from root `.gitlab-ci.yml`; its hosted jobs currently fail before runner start because quota is exhausted. No GitLab runner-success claim is made, and that infrastructure limitation does not invalidate the successful GitHub execution.
-
-0B therefore has `BLOCKED = none` for its declared scope. See `0B_STATUS.md` for exact claims, non-claims, regression guards, and requalification triggers.
-
-## Future governance
-
-Phase 0 and the already-concrete Phase 1 trust boundary have detailed governance. Phase 2–10 remain direction-only `NOT_INTRODUCED` planning until real work earns detail. `FUTURE_PHASE_CARRY_FORWARD.md` preserves anticipation without turning it into specification.
-
-0B completion does not automatically activate 0C. A host/process/composition boundary is introduced only when a real executable responsibility requires it.
+Phase 0 and the already-concrete Phase 1 trust boundary retain architecture direction. Phase 2–10 remain direction-only `NOT_INTRODUCED` planning until real work earns detail.
 
 ## Versioning
 
-`v0.0.20` marks the principles-first reset baseline and production-honest Phase-0A/0B qualification. Older document labels may remain as provenance where their decisions still stand; focused owners and current repository status govern conflicts.
+`v0.0.20` remains the principles-first baseline. The 2026-09-17 purge changes the current implementation inventory without pretending that historical evidence never existed.

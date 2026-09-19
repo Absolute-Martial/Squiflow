@@ -2,7 +2,7 @@
 
 **Version:** v0.0.20  
 **Purpose:** directory-only view of SquiFlow repository structure.  
-**Important:** directory presence is not proof that a runtime/project/responsibility is production-qualified. The 0A reset snapshot was implementation-empty; the active 0B slice has now earned one compact capability project and one unit-test project.
+**Important:** directory presence is not proof that a runtime/project/responsibility is production-qualified. The current post-purge implementation is limited to Branding, CoreApi and their tests.
 
 This document complements `REPOSITORY_STRUCTURE.md`. It intentionally shows **folders only**. Files, project files, source files, configuration files, and documentation filenames are omitted from every tree.
 
@@ -10,7 +10,7 @@ For physical `.csproj` placement, `REPOSITORY_STRUCTURE.md` is the more specific
 
 ## 1. Current physical folder tree
 
-The active 0B branch contains these source/test paths in addition to the retained documentation/ownership directories:
+The current tree retains documentation and ownership directories only:
 
 ```text
 SquiFlow/
@@ -59,17 +59,14 @@ SquiFlow/
 ├── foundation/
 ├── modules/
 │   └── parties/
-│       └── SquiFlow.Parties/
-│           └── Domain/
+├── reference-sources/
+│   └── snapshots/
 ├── services/
 └── tests/
     └── unit/
-        └── SquiFlow.Parties.Tests/
-            ├── Architecture/
-            └── Domain/
 ```
 
-`modules/parties/SquiFlow.Parties/` is the first real capability project location. The empty `foundation/`, application/service ownership folders, and other reserved directories still do not imply those runtimes/projects exist.
+These directories reserve ownership and scoped instructions. They do not imply a runtime, project, or production responsibility exists. `reference-sources/` is a research workspace: its tracked manifest/materializer records curated upstream evidence, while its ignored `snapshots/` payload contains no SquiFlow implementation and must never become a project dependency.
 
 ## 2. Accepted growth map — folders only
 
@@ -112,7 +109,7 @@ SquiFlow/
 └── docs/
 ```
 
-The `<capability>` child names above describe logical responsibility categories and possible future physical splits. They are **not mandatory physical folders**. A compact capability can instead be one project directory directly under the capability, as shown by `modules/parties/SquiFlow.Parties/`, until a real compiler/provider/platform/packaging/lifecycle boundary earns `core/`, `server/`, `workstation/`, or `postgres/` separation.
+The `<capability>` child names above describe logical responsibility categories and possible future physical splits. They are **not mandatory physical folders**. A compact capability can instead be one project directory directly under the capability until a real compiler/provider/platform/packaging/lifecycle boundary earns `core/`, `server/`, `workstation/`, or `postgres/` separation.
 
 ## 3. Compact capability folder shape
 
@@ -130,7 +127,7 @@ modules/
         └── Events/
 ```
 
-Create only the child folders that current code actually needs. The first Parties slice currently needs only `Domain/`.
+Create only the child folders that current code actually needs.
 
 Conceptually this compact project owns the capability's host-neutral/core responsibility. It does not need a second physical `core/` layer merely to name that responsibility.
 
@@ -170,25 +167,16 @@ Only `workstation/` and `guard/` are reserved primary desktop responsibilities. 
 ```text
 services/
 ├── core-api/
-├── web-api/
 ├── sync-api/
 ├── admin-api/
 └── worker/
 ```
 
-These are workload/process boundaries, not separate business implementations. They converge on capability-owned application behavior. Do not create a folder simply because it appears in this growth map.
+These are workload/process boundaries, not separate business implementations. CoreApi owns the interactive Web/API role unless it is later renamed/replaced; do not add a forwarding-only WebApi beside it. The remaining folders are created only when their workload or trust boundary is implemented. All hosts converge on capability-owned application behavior.
 
 ## 7. Testing folder growth
 
-The active 0B slice has earned only the unit-test category:
-
-```text
-tests/
-└── unit/
-    └── SquiFlow.Parties.Tests/
-```
-
-As implementation grows, `tests/` may gain other verification responsibilities:
+The current unit and integration test projects cover the Branding/CoreApi slice. As implementation grows, `tests/` may gain additional verification responsibilities:
 
 ```text
 tests/
@@ -202,7 +190,7 @@ tests/
 └── performance/
 ```
 
-This is a classification map, not a requirement to create all categories. A small architecture assertion may live inside an existing test project, as the current Parties dependency-boundary test does; create a separate `tests/architecture/` project/folder only when that distinct verification responsibility is earned.
+This is a classification map, not a requirement to create all categories. A small architecture assertion may live inside an existing test project; create a separate `tests/architecture/` project/folder only when that distinct verification responsibility is earned.
 
 ## 8. Folder creation rule
 

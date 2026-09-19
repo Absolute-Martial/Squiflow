@@ -2,7 +2,7 @@
 
 **Status:** COMPLETE / QUALIFIED under the production-honest gate model  
 **Qualification type:** developer-facing repository/architecture baseline  
-**Next active implementation gate:** Phase 0B, derived from real current work rather than the superseded 0B branch
+**Next active implementation gate:** none; the next slice is derived from a useful real responsibility and the source-first review
 
 ## Production intent achieved
 
@@ -20,7 +20,7 @@ That developer guarantee is the qualified 0A result.
 | `0A-GATE-MODEL` | `PRODUCTION_HONEST` | Active responsibilities use `NOT_INTRODUCED / PRODUCTION_HONEST / BLOCKED`; a known untrustworthy introduced responsibility cannot be carried forward as future hardening. | `PHASE_GATE_PRODUCTION_HONESTY.md`. | Canonical global gate owner inherited by all active phase work. |
 | `0A-EVIDENCE-PERMANENCE` | `PRODUCTION_HONEST` | Material active claims require falsifiable evidence, a permanent/recurring regression guard, and requalification triggers. | `PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md`. | Canonical evidence owner inherited by active phase work; material changes invalidate stale evidence where applicable. |
 | `0A-EARNED-GOVERNANCE` | `PRODUCTION_HONEST` | Future phase specificity is not prebuilt. Phase 2–10 are direction-only until real work earns active detail. | `EARNED_PHASE_GOVERNANCE_2026-09-14.md`, `PHASES_AND_GATES.md`, `FUTURE_PHASE_CARRY_FORWARD.md`, future phase README-only structure. | Any promotion of future detail must be re-derived from current facts and reviewed against the earned-governance decision. |
-| `0A-BASELINE-MARKERS` | `PRODUCTION_HONEST` | The reset baseline is consistently identified as `v0.0.20` with the declared .NET 10 toolchain marker. | `VERSION = v0.0.20`, `CURRENT_VERSION.txt = v0.0.20`, `global.json` SDK `10.0.401`. | Version/toolchain changes must update their focused baseline/status references in the same reviewed change. |
+| `0A-BASELINE-MARKERS` | `PRODUCTION_HONEST` | The reset baseline is consistently identified as `v0.0.20`; .NET 10 remains the accepted toolchain direction when executable code returns. | `VERSION = v0.0.20`, `CURRENT_VERSION.txt = v0.0.20`, current decisions and implementation truth. | Version/toolchain changes must update their focused baseline/status references in the same reviewed change. |
 
 ## Focused-owner contradiction audit
 
@@ -91,10 +91,8 @@ Requalify the affected enduring claim, not automatically the entire phase, when 
 
 A later implementation MR that adds an earned project uses the later gate's evidence rather than pretending the 0A zero-project snapshot must remain true.
 
-## Handoff to 0B
+## Handoff after the implementation purge
 
-0B is derived from current real capability/application pressure under the new governance model.
+The former 0B Parties slice has been retired and purged. No numbered subphase is automatically active.
 
-Do not revive the closed historical 0B branch as active authority. Useful ideas/code from history may be reconsidered only after the current responsibility independently earns them.
-
-0B must declare its production intent, exact introduced/non-introduced scope, evidence, permanent regression guards, and `BLOCKED = none` before qualification. It must not manufacture consumers or restore ApplicationKernel merely because an older branch already implemented it.
+The next slice is derived from a useful real capability/application responsibility and `docs/review/APPLICATION_BASELINE_IMPLEMENTATION_SOURCE_REVIEW.md`. It must record source admission, production intent, exact introduced/non-introduced scope, evidence, permanent regression guards, and `BLOCKED = none`. Do not revive historical code or restore ApplicationKernel merely because an older branch implemented it.

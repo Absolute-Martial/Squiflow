@@ -11,7 +11,7 @@ SquiFlow uses focused owner documents to prevent architecture from living only i
 - A focused current owner should state the accepted behavior/invariant for its responsibility.
 - `CURRENT_DECISIONS.md` summarizes accepted decisions; it should not quietly conflict with focused owners.
 - `OPEN_DECISIONS.md` records choices intentionally not yet closed.
-- Review/source-study documents are evidence/context, not automatic architecture authority.
+- Review/source-study documents are evidence/context, not automatic architecture authority. The application baseline source review is mandatory routing input before custom infrastructure, but each dependency/adaptation still needs an active source-admission decision.
 - Implementation-phase documents describe sequencing/maturity; they do not override a focused architecture/security/data owner without an explicit decision change.
 
 When changing a material decision, update the focused owner and the appropriate decision record in the same change when practical.
@@ -51,4 +51,4 @@ Before accepting a new mechanism/technology in docs, answer as applicable:
 
 ## Validation
 
-For documentation changes that affect architecture/project paths/commands, run the root build/spec commands when practical and inspect referenced paths. A documentation-only MR can still create harmful architecture drift, so verify that examples and current-state claims match the repository.
+For documentation changes that affect architecture/project paths/commands, run the root build/spec commands when a current executable contract exists and inspect referenced paths. The post-purge tree currently has no such contract. A documentation-only MR can still create harmful architecture drift, so verify that examples and current-state claims match the repository.

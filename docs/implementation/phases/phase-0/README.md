@@ -1,54 +1,48 @@
 # Phase 0 — Architectural Development Foundation
 
-**Status:** active after principles-first implementation reset  
-**Current baseline:** v0.0.20  
-**Completed/qualified subphases:** 0A and 0B under the production-honest model  
-**Next work:** derived from the next real responsibility; 0C is not automatically active  
-**0B qualification record:** `0B_STATUS.md`  
-**High-level owner:** `docs/implementation/PHASES_AND_GATES.md`  
-**Gate-quality owner:** `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md`  
-**Evidence/permanence owner:** `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md`
+**Status:** active after principles-first implementation reset
 
-Phase 0 is developed as a sequence of **smallest production-honest scopes**, not as a checklist whose prewritten boxes authorize implementation.
+**Current baseline:** v0.0.20
+
+**Current qualified subphase:** 0A
+
+**Retired historical subphase:** former 0B Parties implementation, purged 2026-09-17
+
+**Next work:** derived from a useful real responsibility; no later Phase-0 work area is automatically active
+
+Phase 0 is developed as a sequence of **smallest useful production-honest scopes**, not as a checklist whose labels authorize implementation.
 
 ## Current repository state
 
-0A's reset snapshot contained no production/test projects. Qualified 0B introduced the first earned implementation boundary:
-
 ```text
-modules/parties/SquiFlow.Parties/SquiFlow.Parties.csproj
-tests/unit/SquiFlow.Parties.Tests/SquiFlow.Parties.Tests.csproj
+production projects: 0
+test projects:       0
+executable hosts:    0
+solution/build/test contract: absent
+active runtime responsibility: none
+BLOCKED: none
 ```
 
-The current production-code scope is only the accepted Party structural distinction `Person | Organization`. No Foundation/ApplicationKernel project, application/service executable, persistence/provider adapter, sync/runtime security implementation, or complete Party/Customer model is claimed.
-
-0B is complete with `BLOCKED = none`. Its introduced semantic/dependency claims are executable-evidence-backed, while shared Foundation remains deliberately `NOT_INTRODUCED` because the real capability slice did not earn a product-wide abstraction. See `0B_STATUS.md`.
+Phase 0A remains the qualified reset baseline. The former 0B enum-only implementation and all scaffolding created solely for it were purged by `docs/decisions/CURRENT_IMPLEMENTATION_PURGE_2026-09-17.md`. Its phase files remain historical evidence and do not describe current implementation.
 
 Read first:
 
-- `0A_ARCHITECTURE_BASELINE_RECONCILIATION.md`;
+- `../../../decisions/CURRENT_IMPLEMENTATION_PURGE_2026-09-17.md`;
 - `0A_BASELINE_STATUS.md`;
-- `0B_APPLICATION_KERNEL_AND_MODULE_FOUNDATION.md`;
-- `0B_STATUS.md`;
-- `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md`;
-- `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md`;
-- `docs/implementation/PHASES_AND_GATES.md`;
-- `docs/domain/BUSINESS_TERMS.md`;
-- `docs/architecture/ENGINEERING_PRINCIPLES.md`;
-- `docs/architecture/EXPLICIT_BOUNDARIES_AND_SOLID.md`;
-- `docs/architecture/REPOSITORY_STRUCTURE.md`;
-- `docs/architecture/REPOSITORY_FOLDER_STRUCTURE.md`.
+- `../../../review/APPLICATION_BASELINE_IMPLEMENTATION_SOURCE_REVIEW.md`;
+- `../../PHASE_GATE_PRODUCTION_HONESTY.md`;
+- `../../PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md`;
+- `../../PHASES_AND_GATES.md`;
+- the focused architecture, domain, and decision owner for the active responsibility.
 
 ## Development rule
 
-For every active slice:
-
 ```text
-real responsibility / workload
+real useful responsibility / workload
         ↓
-production intent
+inspect applicable proven implementations
         ↓
-exact declared scope
+production intent and exact declared scope
         ↓
 NOT_INTRODUCED / PRODUCTION_HONEST / BLOCKED
         ↓
@@ -56,40 +50,18 @@ implementation
         ↓
 falsifiable evidence at the owning layer
         ↓
-permanent / recurring regression protection
+permanent or recurring regression protection
         ↓
 qualification with BLOCKED = none
 ```
 
-A phase/subphase name is planning vocabulary. It does not authorize a project, provider, interface, process, technology, test matrix, or runtime behavior by itself.
+A phase or subphase name is planning vocabulary. It does not authorize a project, provider, interface, process, technology, test matrix, or runtime behavior.
 
-## Rebuild rule
+## Source-first rebuild rule
 
-Do not rebuild by reproducing the previous folder/project list. Reintroduce a boundary only when a real declared scope needs it and the pressure/ownership is current.
+Do not recreate the purged folder/project list. Before custom infrastructure, use `docs/review/APPLICATION_BASELINE_IMPLEMENTATION_SOURCE_REVIEW.md` to select a focused package, a bounded source adaptation when its license permits the intended use and distribution, reusable upstream tests/algorithms, or a reference-only outcome with a concrete rejection reason. License does not exclude a source from internal research.
 
-A component may be narrow, but anything introduced on a claimed path must be production-honest for that exact claim. A known incomplete/unproven responsibility is `BLOCKED`; it cannot be labeled future hardening and carried forward.
-
-Qualified 0B demonstrated this direction:
-
-```text
-accepted Party semantic
-        ↓
-capability-owned code first
-        ↓
-observe real reuse/change pressure
-        ↓
-no product-wide primitive earned yet
-        ↓
-Foundation remains NOT_INTRODUCED
-```
-
-Do not create ApplicationKernel/module-composition machinery merely because the subphase title contains “Application Kernel and Module Foundation.”
-
-## KISS / YAGNI
-
-KISS means minimum accidental complexity and the **smallest production-honest scope**. It never means happy-path only, fewest files at any cost, skipped recovery/security/compatibility, fake durability/authority, or hidden edge cases.
-
-YAGNI removes speculative breadth. It does not weaken the depth required by a responsibility already introduced.
+Record the upstream revision, source inspected, license, entry mode, retained SquiFlow authority, framework assumptions, gaps, exit path, and SquiFlow-owned evidence. References route engineering work; they do not automatically authorize dependencies or transfer product authority.
 
 ## Scope states
 
@@ -99,91 +71,40 @@ PRODUCTION_HONEST
 BLOCKED
 ```
 
-Only `NOT_INTRODUCED` can be deferred. `BLOCKED` must be finished to `PRODUCTION_HONEST` or explicitly un-introduced before the owning gate can pass.
+Only `NOT_INTRODUCED` can be deferred. `BLOCKED` must become `PRODUCTION_HONEST` or be explicitly un-introduced before qualification.
+
+KISS means minimum accidental complexity and the smallest useful production-honest scope. YAGNI removes speculative breadth. Neither permits missing correctness, durability, security, recovery, compatibility, resource bounds, or observability for an introduced responsibility.
 
 ## Phase-0 work areas
 
 ```text
 0A  Architecture/repository baseline reconciliation                         QUALIFIED
-0B  Capability-first discovery of any genuinely shared kernel/foundation     QUALIFIED
-0C  Host/process composition when a real executable earns the boundary       NOT ACTIVE YET
-0D  Engineering safety/observability/reproducibility as real code needs it
-0E  Active capability/extensibility work through real product slices
-0F  Integrated Phase-0 qualification when enough real Phase-0 scope exists
+0B  Capability-first shared-kernel/foundation discovery                     RETIRED HISTORY
+0C  Host/process composition when a real executable earns the boundary      NOT ACTIVE
+0D  Safety/observability/reproducibility when real code needs them           NOT ACTIVE
+0E  Capability/extensibility work through real product slices               NOT ACTIVE
+0F  Integrated Phase-0 qualification after enough real scope exists         NOT ACTIVE
 ```
 
-These labels describe useful responsibility areas. They are not permission to prebuild all listed concerns, and their internal scope may be reshaped as real work provides better facts.
+These labels describe possible responsibility areas. They are not permission to prebuild their imagined contents.
 
 ## 0A permanence
 
-0A's enduring guarantees remain active after later code appears:
+- current authority remains distinguishable from history;
+- folder and diagram presence are not implementation;
+- project, process, and provider boundaries are earned;
+- introduced claims use the production-honest state model;
+- evidence remains traceable and protected from silent regression;
+- future governance detail is earned.
 
-- current authority must remain distinguishable from history;
-- folder/diagram presence must not be mistaken for implementation;
-- project/process/provider boundaries remain earned;
-- the production-honest state model governs introduced scope;
-- evidence must remain traceable and protected from silent regression;
-- future governance specificity remains earned.
+The current zero-project inventory is again the real repository state. Future code is an earned transition only when it implements a useful declared responsibility.
 
-The zero-project inventory itself was only the qualification snapshot of the reset. The first Parties/test projects are an expected earned transition, not a regression of 0A.
+## Historical 0B record
 
-## 0B permanence
+`0B_APPLICATION_KERNEL_AND_MODULE_FOUNDATION.md` and `0B_STATUS.md` record what the deleted slice proved at the time. They are retained to explain the decision path and prevent accidental reinterpretation. Their old executable evidence, CI result, and permanence claims are retired with the implementation.
 
-0B's enduring guarantees are now:
+## Verification and handoff
 
-- capability semantics remain owned by their capability;
-- a real compile-time dependency boundary is mechanically protected;
-- shared Foundation is extracted only from actual product-wide pressure rather than phase symmetry;
-- absence of Foundation is a valid qualified result when the real slice does not earn it;
-- no executable/process topology is encoded into capability metadata;
-- the Party semantic/dependency regression tests and repository verification contract remain active until deliberately superseded.
+There is no current executable verification contract. Do not claim restore, build, test, or CI success after the purge.
 
-## Future-phase relationship
-
-Phase 2–10 are direction-only `NOT_INTRODUCED` governance. Their retired detailed plans remain history; useful anticipation belongs in `FUTURE_PHASE_CARRY_FORWARD.md` and cannot become success criteria merely because it was written earlier.
-
-If a current Phase-0 slice genuinely needs a later responsibility, pull it forward from current facts and qualify it now. Do not create a temporary unsafe substitute or resurrect a retired future subphase file.
-
-## Verification
-
-0A used repository/document evidence because no executable implementation was part of its declared scope.
-
-0B introduced real executable projects. Its repository-owned verification contract is:
-
-```text
-dotnet restore SquiFlow.sln
-dotnet build SquiFlow.sln -c Release --no-restore
-dotnet test SquiFlow.sln -c Release --no-build
-```
-
-The current tests cover the Party-kind semantic and the initial Parties dependency boundary. They do not imply runtime/provider/persistence/security behavior exists.
-
-The GitHub workflow executed the verification successfully in maintainer-supplied run `34916005915`, job `104213630182`:
-
-`https://github.com/Absolute-Martial/Squiflow/actions/runs/34916005915/job/104213630182`
-
-GitLab uses the same commands from root `.gitlab-ci.yml`. Its current pipelines are quota-blocked before runner start; that does not invalidate the successful GitHub execution and no GitLab runner-success claim is made.
-
-Once a material claim qualifies, its regression guard remains active until the claim is retired or superseded deliberately.
-
-## CI/CD
-
-0B earned dual-host CI because executable verification is real and GitLab hosted capacity is currently unavailable:
-
-```text
-GitLab: .gitlab-ci.yml
-GitHub: .github/workflows/verify-dotnet.yml
-             ↓
-       same repository-owned
-       restore/build/test commands
-```
-
-This is one verification contract with two execution hosts. Do not create separate GitLab/GitHub build semantics, host-specific business tests, or custom tooling trees merely to support mirroring.
-
-Both paths use change filters so a branch/review whose diff contains no executable/build input can skip this verification job. In an already code-changing MR/PR, later documentation-only commits may still retrigger because providers can evaluate the review against its target branch. `global.json` remains the SDK authority.
-
-## Handoff after 0B
-
-Do not start 0C merely because 0B is complete. A host/process/composition boundary is introduced only when a real executable responsibility requires it.
-
-The next implementation work should again start from current product/capability pressure and activate whichever Phase-0 responsibility area is genuinely needed.
+The next slice starts from current product pressure and proven-source review. It introduces solution, build, tests, and CI only when real executable code earns them, and it must define the resulting evidence and requalification triggers in the same work.

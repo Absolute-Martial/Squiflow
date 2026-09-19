@@ -1,8 +1,12 @@
 # Phase 0B Status — Capability-First Foundation Discovery
 
-**Status:** COMPLETE / QUALIFIED  
-**Baseline:** current `main` after merged Phase 0A MR !64  
+**Status:** RETIRED / HISTORICAL EVIDENCE
+
+**Baseline:** former post-0A implementation, deleted on 2026-09-17
+
 **Gate owner:** `0B_APPLICATION_KERNEL_AND_MODULE_FOUNDATION.md`
+
+> The code, projects, solution, build/package files, tests, and CI wrappers described below no longer exist in the current tree. All claims and execution results in this file are qualification-time history. They are not current implementation evidence.
 
 ## Production intent achieved
 

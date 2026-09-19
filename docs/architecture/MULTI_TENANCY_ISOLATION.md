@@ -2,6 +2,8 @@
 
 **Version:** v0.0.17
 
+**Current implementation:** the global tenant registry, account-membership schema/query and membership-derived immutable `TenantContext` exist. These are security/control data, not tenant-owned business rows. Client-selected tenant execution, tenant-owned persistence and PostgreSQL RLS remain `NOT_INTRODUCED`.
+
 ## 1. Isolation is a spectrum, not one permanent topology
 
 SquiFlow treats tenant isolation as several independent axes rather than one binary architecture choice.
@@ -11,7 +13,7 @@ The two source models reviewed for this decision use different vocabulary but po
 - the supplied Edward Grundy article describes shared-table, schema-per-tenant, database-per-tenant and fully separate-infrastructure patterns;
 - the AWS SaaS isolation whitepaper describes **pool**, **silo**, **bridge** and **tier-based** isolation and explicitly separates tenant isolation from ordinary authentication/RBAC.
 
-SquiFlow therefore does not assume that all tenants must always use one physical isolation pattern.
+SquiFlow therefore does not assume that all tenants must always use one physical isolation pattern. Composition variation is another independent axis: a Tenant Application Profile may select capabilities and, where earned, trusted implementation variants without implying a different data or process placement. `TENANT_APPLICATION_PROFILES_AND_EXTENSIBILITY.md` owns that model.
 
 ## 2. Current v0.0.15 baseline
 
@@ -160,7 +162,7 @@ A candidate that makes safe pooled isolation too fragile may be rejected even if
 
 Separate schemas reduce one class of missing-filter mistakes but still share the same database process/resources and multiply migration/version-management work.
 
-SquiFlow currently has no requirement for per-tenant table definitions. Tenant variation is expected to be represented through configuration, dynamic forms/fields, rules and workflows inside one supported product schema.
+SquiFlow currently has no requirement for per-tenant table definitions. Tenant variation is represented through the Tenant Application Profile: capability selection, configuration, dynamic forms/fields, rules, workflows, integrations and optional trusted implementation variants. Core identity, lifecycle, money, stock, security and issued-business truth remain explicit relational structures; supplementary tenant information may use versioned typed extension schemas with validated JSONB/document values and deliberate indexes/projections. This avoids a column or table per tenant without turning protected core meaning into an ungoverned property bag.
 
 Therefore schema-per-tenant is **not** a current implementation target.
 
@@ -244,6 +246,8 @@ The Worker baseline uses one durable tenant-aware work system with:
 Do **not** create one physical queue and one worker pool per tenant initially. That reproduces the operational scaling problem of silo infrastructure without evidence that it is needed.
 
 A dedicated worker pool/queue partition can be introduced for a tenant/tier only when SLA, compliance, expensive workload or noisy-neighbor evidence justifies it.
+
+Profile-specific dependency composition does not control CPU time, allocations, thread-pool use, database connections, provider consumption or process-fatal faults. Per-tenant admission, concurrency, queue fairness, budgets and observability still apply in a shared process. When a trusted tenant extension or workload needs a stronger blast-radius boundary, SquiFlow may place it in a separate Worker or OS process with explicit contracts, limits and recovery. That escalation does not require Kubernetes or a separate full application stack per tenant.
 
 ## 13. Tenant placement is platform control-plane state
 

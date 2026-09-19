@@ -7,7 +7,7 @@
 
 ## Starting point after reset
 
-There is currently no `SquiFlow.Observability` project and no production/test project. Observability/library boundaries are reintroduced only with real consumers. CI/CD is allowed again.
+There is currently no `SquiFlow.Observability` project. The Branding/CoreApi production and test projects are the only active executable scope. Observability/library boundaries are introduced only with real consumers. CI/CD is allowed again, but no current CI execution is claimed.
 
 ## Core rule
 

@@ -1,12 +1,12 @@
 # Web API and Workstation Sync Hosts
 
-**Status:** Accepted architecture direction. No WebApi, SyncApi, Worker, or CoreApi project currently exists after the v0.0.20 reset; the host locations and flows below describe earned future topology, not current runtime.
+**Status:** CoreApi is the current compact tenant/business HTTP host. It has no tenant business operations yet. SyncApi and Worker remain `NOT_INTRODUCED`; the separate-host flows below become active only when their workloads are implemented.
 
 ## 1. Decision
 
-When workload pressure earns separate backend hosts, SquiFlow separates interactive Web/API traffic from Workstation synchronization traffic.
+When Workstation synchronization is introduced, SquiFlow separates interactive Web/API traffic from synchronization traffic. The current CoreApi owns the interactive tenant/business API role. A future project rename from CoreApi to WebApi may improve naming, but it replaces that host; SquiFlow does not keep both as forwarding layers.
 
-`WebApi` and `SyncApi` are **server hosts/API adapters**, not separate business backends and not merely one-way ingress pipes. They may accept commands and return/read data. They differ because their protocol, identity context, batching, cursor, backpressure, fairness, latency and scaling profiles differ.
+In this document, `WebApi` means the interactive Web/API workload role currently seeded by CoreApi. `WebApi` and `SyncApi` are **server hosts/API adapters**, not separate business backends and not merely one-way ingress pipes. They may accept commands and return/read data. They differ because their protocol, identity context, batching, cursor, backpressure, fairness, latency and scaling profiles differ.
 
 They invoke the same capability-owned business modules.
 
@@ -16,8 +16,8 @@ They invoke the same capability-owned business modules.
               +--------------+--------------+
               |                             |
               v                             v
-        SquiFlow.WebApi               SquiFlow.SyncApi
-        interactive host              workstation sync host
+        SquiFlow.CoreApi              SquiFlow.SyncApi
+        interactive/Web role          workstation sync host
               |                             |
               +--------------+--------------+
                              |
@@ -35,7 +35,7 @@ They invoke the same capability-owned business modules.
                  authoritative business state
 ```
 
-This diagram is architecture direction. It does not assert that any shown host, capability, or persistence adapter exists now.
+CoreApi exists for its currently declared narrow scope. The SyncApi, business capabilities and persistence paths in this diagram remain future earned responsibilities.
 
 Ephemeral runtime state and durable processing state are used around this path where the workload requires them; they do not form a second business backend.
 
@@ -337,12 +337,11 @@ Accepted future host locations are conceptually:
 
 ```text
 services/
-|- core-api/    # compact early authoritative host only if/when a current slice earns it
-|- web-api/     # create only when an interactive workload split is real
+|- core-api/    # current interactive/tenant-business API composition host
 |- sync-api/    # create only when an isolated synchronization host is real
 `- worker/      # create only when the first durable background workload earns it
 ```
 
-There is currently no `services/core-api/SquiFlow.CoreApi`, WebApi, SyncApi, or Worker project after the v0.0.20 reset. A compact CoreApi remains an accepted **future early-host direction**, not an existing runtime.
+There is currently one `services/core-api/SquiFlow.CoreApi` project. It must evolve into, or be renamed as, the interactive Web/API host rather than becoming an extra network hop in front of another WebApi. SyncApi and Worker remain absent until a real synchronization or durable-work slice earns them.
 
 Do not scaffold empty hosts, cache providers, brokers, processing databases, or per-host business modules only to satisfy this diagram.

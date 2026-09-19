@@ -4,18 +4,11 @@ This is the repository-wide instruction map. A closer `AGENTS.md` in a subtree a
 
 ## 1. Current implementation truth
 
-SquiFlow is at the **v0.0.20 principles-first baseline**. Phase 0A and Phase 0B are qualified under the production-honest governance model. No later Phase-0 work area is automatically active; the next slice must be derived from real current responsibility.
+SquiFlow is at the **v0.0.20 principles-first baseline**. Phase 0A is the current qualified reset baseline. The former Phase 0B Parties implementation was purged on 2026-09-17 and is retained only as historical evidence.
 
-The qualified implementation currently contains exactly two implementation/test projects:
+The current tree contains no production project, test project, solution, C# implementation, executable host, repository build/test contract, or CI verification wrapper. All runtime responsibilities are `NOT_INTRODUCED`; `BLOCKED = none`.
 
-```text
-modules/parties/SquiFlow.Parties/SquiFlow.Parties.csproj
-tests/unit/SquiFlow.Parties.Tests/SquiFlow.Parties.Tests.csproj
-```
-
-The current production-code scope is deliberately narrow: `SquiFlow.Parties` owns only the accepted `PartyKind` distinction (`Person` / `Organization`). It does **not** claim a complete Party/Customer/Account model, Party identity encoding, persistence, API, host, sync, authorization, or runtime.
-
-There is currently no Foundation/ApplicationKernel project and no application/service executable. `SquiFlow.sln` contains only the two projects above. Qualified 0B explicitly concluded that no current product-wide shared primitive was earned by the real Parties slice, so Foundation remains `NOT_INTRODUCED` rather than unfinished.
+The deleted `PartyKind` enum and its scaffolding must not be treated as a current baseline or recreated by memory. The accepted domain language remains available to a later useful capability journey, which may choose a different representation.
 
 ```text
 folder exists
@@ -29,11 +22,12 @@ Do not infer implementation from directory names, historical branches, old merge
 Read first:
 
 - `README.IMPLEMENTATION.md` — current implementation truth and active-slice rule.
+- `docs/decisions/CURRENT_IMPLEMENTATION_PURGE_2026-09-17.md` — purge decision and removed inventory.
+- `docs/review/APPLICATION_BASELINE_IMPLEMENTATION_SOURCE_REVIEW.md` — source-first routing for future implementation.
 - `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md` — canonical scope/quality gate.
 - `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md` — evidence permanence/requalification owner.
 - `docs/implementation/phases/phase-0/0A_BASELINE_STATUS.md` — qualified reset baseline and enduring 0A guarantees.
-- `docs/implementation/phases/phase-0/0B_APPLICATION_KERNEL_AND_MODULE_FOUNDATION.md` — qualified 0B gate owner.
-- `docs/implementation/phases/phase-0/0B_STATUS.md` — qualified 0B scope/evidence/non-claims/requalification record.
+- `docs/implementation/phases/phase-0/0B_APPLICATION_KERNEL_AND_MODULE_FOUNDATION.md` and `0B_STATUS.md` — retired historical 0B record.
 - `docs/domain/BUSINESS_TERMS.md` — accepted versus discovery-sensitive domain language.
 - `docs/architecture/ENGINEERING_PRINCIPLES.md` — engineering philosophy.
 - `docs/architecture/EXPLICIT_BOUNDARIES_AND_SOLID.md` — boundary/abstraction rules.
@@ -152,7 +146,7 @@ Unless a current focused owner and declared production-honest scope explicitly e
 - carry an introduced `BLOCKED` responsibility into a later phase as if it were `NOT_INTRODUCED`;
 - treat architecture/review documentation as proof that runtime code already exists.
 
-For the qualified 0B scope specifically, do not add Party ID encoding, Customer/Account relationships, persistence, API/host code, or Foundation merely to make the capability appear larger. Any later introduction must be independently earned from a new real responsibility.
+Do not recreate the purged Parties slice, solution, build/package files, tests, or CI simply to make the repository appear implemented. Any later introduction must be independently earned from a useful real responsibility.
 
 ## 7. Boundary validation
 
@@ -167,25 +161,9 @@ For the qualified 0B scope specifically, do not add Party ID encoding, Customer/
 
 ## 8. Testing and evidence
 
-The first real verification project exists because the Parties capability boundary exists:
+There is currently no test project, solution, repository-owned build/test command, or active CI verification contract. Do not claim restore, build, test, or CI success for the post-purge tree. The old 0B commands and GitHub/GitLab evidence are historical only.
 
-```text
-tests/unit/SquiFlow.Parties.Tests/SquiFlow.Parties.Tests.csproj
-```
-
-Current tests prove the declared Party-kind semantic and mechanically protect the initial Parties project from outward project/package dependencies. They do not prove persistence, runtime, authorization, API, sync, customer/account semantics, or anything else that remains `NOT_INTRODUCED`.
-
-The repository uses xUnit v3 with Microsoft Testing Platform for the current .NET 10 test path. The repository-owned executable contract is:
-
-```text
-dotnet restore SquiFlow.sln
-dotnet build SquiFlow.sln -c Release --no-restore
-dotnet test SquiFlow.sln -c Release --no-build
-```
-
-Qualified 0B has successful GitHub Actions evidence for this contract: run `34916005915`, job `104213630182`. The exact claims and link are recorded in `0B_STATUS.md`.
-
-GitLab currently schedules the same job but hosted quota prevents runner start. Do not reinterpret that infrastructure limitation as a code/test failure or as proof of GitLab runner execution.
+When real executable code returns, introduce the smallest test/build/CI surface required to prove its declared claims. Select the test framework and commands from the actual runtime/toolchain needs rather than recreating the deleted setup automatically.
 
 For every material active claim, identify:
 

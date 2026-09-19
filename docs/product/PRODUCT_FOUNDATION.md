@@ -30,7 +30,13 @@ business goal
 
 ## 2. Current product-evidence state
 
-The repository currently documents a small-team-first direction, practical shop/print-oriented examples, Owner + Staff authorization defaults, and a broad set of plausible business capabilities and constraints.
+The accepted strategic product direction is a small-team-first, tenant-adaptable business operations platform. SquiFlow is intended to let a tenant select supported capabilities and personalize branding, settings, permissions, rules, workflows, forms, supplementary information and integrations without requiring a forked product codebase for ordinary variation. When those mechanisms cannot safely express a supported material difference, the platform may offer a reviewed trusted implementation variant and a stronger data/processing/runtime isolation profile.
+
+This intent exists because SquiFlow cannot predict and hard-code every way a tenant may operate. It does not mean every imaginable tenant case must be accepted, nor does it authorize arbitrary tenant code, SQL, assemblies or unbounded schemas. Supported variation remains validated, versioned, explainable, resource-bounded and compatible with protected business/security invariants. Detailed owner: `docs/architecture/TENANT_APPLICATION_PROFILES_AND_EXTENSIBILITY.md`.
+
+Branding is one visible personalization capability, not the limit or definition of tenant variation. A strategic platform outcome is that one tenant's selected profile, malformed configuration, integration failure or heavy workload has a bounded and explainable effect on other tenants according to the qualified isolation profile.
+
+The repository currently grounds that platform direction in practical shop/print-oriented examples, Owner + Staff authorization defaults, and a broad set of plausible business capabilities and constraints.
 
 The following are **not yet established as validated product facts merely because they are documented**:
 

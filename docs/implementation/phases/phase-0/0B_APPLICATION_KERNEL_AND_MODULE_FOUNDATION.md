@@ -1,9 +1,12 @@
 # Phase 0B — Application Kernel and Module Foundation
 
-**Status:** COMPLETE / QUALIFIED under the production-honest gate model  
+**Status:** RETIRED / HISTORICAL — the qualified implementation was purged on 2026-09-17
+
 **Purpose:** Establish only the shared application/module primitives that real capability work actually needs, while preserving explicit business ownership and dependency direction.  
 **Gate-quality owner:** `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md`  
 **Evidence/permanence owner:** `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md`
+
+> This file records the former 0B gate and what the deleted slice proved at qualification time. It does not describe current implementation, authorize recreation, or carry active evidence/regression claims. Current truth is in `README.IMPLEMENTATION.md` and `docs/decisions/CURRENT_IMPLEMENTATION_PURGE_2026-09-17.md`.
 
 ## Production intent
 

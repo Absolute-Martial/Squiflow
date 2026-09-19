@@ -1,7 +1,7 @@
 # Control Plane and Business Data Plane
 
 **Version:** v0.0.20  
-**Status:** Accepted architecture direction. The planes/hosts below describe responsibility and future earned topology; no WebApi, SyncApi, CoreApi, AdminApi, Worker, Web, or Workstation runtime project currently exists after the v0.0.20 reset.
+**Status:** Accepted architecture direction. CoreApi currently exists for public bootstrap/liveness and narrow authenticated account/membership queries. SyncApi, AdminApi, Worker, Web and Workstation remain `NOT_INTRODUCED`.
 
 ## Why this distinction matters
 
@@ -19,9 +19,10 @@ Mixing them would make authorization difficult and could accidentally expose pri
 Accepted future tenant-business path:
 
 ```text
-Web / Workstation
-→ earned compact tenant/business API and/or later WebApi / SyncApi hosts
-→ transport/session/device admission
+Web --------→ current CoreApi as the interactive tenant/business API role --+
+Workstation → future SyncApi when synchronization is introduced ------------+
+                                                                             ↓
+                                                        transport/session/device admission
 → authoritative tenant scope
 → owning capability application/use case
 → resource/action authorization where required
@@ -31,7 +32,7 @@ Web / Workstation
 → result
 ```
 
-This is architecture direction, not a claim that any shown host/capability/runtime currently exists.
+Only CoreApi's currently declared narrow routes exist. The business, synchronization and background paths remain architecture direction until implemented.
 
 Examples of business responsibilities that may use this plane once their capabilities are introduced include:
 
@@ -45,7 +46,7 @@ Examples of business responsibilities that may use this plane once their capabil
 
 The Workstation may perform specifically approved operations locally/offline once those operations and the Workstation runtime are introduced, but server authority rechecks current permissions/invariants during synchronization. Local execution is provisional where server authority matters.
 
-WebApi and SyncApi are accepted future workload-specific hosts into the same authoritative capability modules, not separate business implementations.
+CoreApi owns the interactive Web/API role. SyncApi is the accepted separate Workstation synchronization host when that workload is implemented. A later WebApi name replaces or renames CoreApi rather than creating another pass-through process. Both roles converge on the same authoritative capability modules.
 
 ## 2. Tenant control plane
 
@@ -306,7 +307,7 @@ A service mesh remains non-baseline until real east-west service topology earns 
 
 ## 10. Service/data-sharing implication
 
-WebApi, SyncApi, Admin API and Worker are accepted runtime-host responsibilities around the same modular-monolith capability architecture **when those hosts are earned**. Separate processes do not automatically make them independent microservices with private databases or separate business meanings.
+CoreApi, future SyncApi, Admin API and Worker are accepted runtime-host responsibilities around the same modular-monolith capability architecture **when those hosts are earned**. Separate processes do not automatically make them independent microservices with private databases or separate business meanings.
 
 They may intentionally share the authoritative central DB once introduced, but they must preserve explicit module/data ownership and the same domain/transaction invariants. A host must not bypass a module's rules through ad-hoc direct SQL merely because a table is physically reachable.
 

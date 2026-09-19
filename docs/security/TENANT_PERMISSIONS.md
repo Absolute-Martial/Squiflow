@@ -2,6 +2,8 @@
 
 **Version:** v0.0.18
 
+**Current implementation:** SquiFlow owns a global tenant registry, current active account memberships and an immutable membership-derived `TenantContext`. OpenFGA models/tuples/checks, role administration, authorization revision, device authority and tenant-owned business resource checks remain `NOT_INTRODUCED`.
+
 SquiFlow is small-team-first. `Owner` and `Staff` are default templates, not fixed product roles.
 
 **OpenFGA is the selected application-authorization engine.** ZITADEL authenticates the user; OpenFGA answers relationship/permission questions; SquiFlow still owns tenant isolation, business/domain state, workflow validity, idempotency, and concurrency.

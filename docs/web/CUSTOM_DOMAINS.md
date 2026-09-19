@@ -1,6 +1,8 @@
 # Tenant Custom Domains
 
-**Version:** v0.0.15
+**Version:** v0.0.20
+
+**Current implementation:** Deployment-wide public application branding is implemented through the CoreApi bootstrap contract. Tenant-specific branding, custom-domain persistence/routing, asset upload and administration remain `NOT_INTRODUCED`.
 
 Tenant Owners with `domains.manage` can configure supported domains through tenant Web Settings.
 
@@ -77,6 +79,8 @@ Do not leave a stale identity callback valid after the domain is reassigned to a
 ## 6. Branding safety
 
 Branding is bounded configuration such as logo/theme/text values.
+
+The current deployment-wide `BrandProfile` allows validated display/legal names, a bounded theme key, application-relative or HTTPS asset/legal/support URLs, and a deterministic revision. `GET /api/v1/application/bootstrap` exposes only that public contract. A white-label deployment changes user-facing identity without changing SquiFlow namespaces, package identifiers, schema ownership or security meaning.
 
 Do not allow arbitrary script/HTML or unrestricted CSS that can break application/security behavior. Keep a safe fallback theme and validate uploaded branding assets through the normal file-security path.
 

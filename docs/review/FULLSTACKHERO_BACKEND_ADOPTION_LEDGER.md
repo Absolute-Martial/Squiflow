@@ -1,0 +1,58 @@
+# FullStackHero Backend Adoption Ledger
+
+**Reviewed:** 2026-09-17
+
+**Upstream revision:** `3f2959e683e9f83f13e55e1678c9119f63c7e8e5`
+
+**License:** MIT
+**Local source:** `reference-sources/snapshots/base-reference/fullstackhero-backend/`
+
+## Decision
+
+FullStackHero is the source-owned starting base for SquiFlow backend implementation. This means its complete backend source remains locally available and each concern is reviewed before it enters product code. SquiFlow does not run the template generator, reference snapshot files, or an FSH runtime package.
+
+Every adopted part is renamed, reduced to the active responsibility, and made subject to SquiFlow's authority, tenancy, persistence, security and evidence rules. No FSH product name, package metadata, namespace, default tenant, demo data or user-facing asset may enter a SquiFlow artifact.
+
+## Current adoption decisions
+
+| Area | FSH source inspected | SquiFlow decision | Current state |
+|---|---|---|---|
+| Repository build | `src/Directory.Build.props`, `src/Directory.Packages.props`, `global.json` | Adapt central build/package management with SquiFlow metadata and only packages required by an active slice. | `PRODUCTION_HONEST` for the current solution/build/test scope. |
+| API composition root | `src/Host/FSH.Starter.Api/Program.cs`, `src/BuildingBlocks/Web/Extensions.cs` | Adapt the small-host shape. Registrations and endpoints remain explicit; do not import `AddHeroPlatform` or reflection discovery. | `PRODUCTION_HONEST` for public bootstrap/liveness, authenticated account and active-membership queries. |
+| White labeling | FSH tenant-theme migrations and host metadata | Use a SquiFlow-owned typed public brand contract. Permit bounded text, theme identifiers and safe URLs; reject arbitrary HTML, script, CSS and insecure absolute URLs. | `PRODUCTION_HONEST` for deployment-wide public application identity. Tenant-specific branding and asset upload remain `NOT_INTRODUCED`. |
+| HTTP errors | `GlobalExceptionHandler.cs` and its tests | Adapt bounded RFC Problem Details mappings when the first fallible application operation exists. Do not expose exception/provider/authorization detail. | `PRODUCTION_HONEST` for generic authentication failure plus unbound/disabled account denial codes; broader application error vocabulary remains `NOT_INTRODUCED`. |
+| OpenAPI | `Web/OpenApi/Extensions.cs` and bearer transformer | Adapt after protected endpoints exist. The security scheme must describe ZITADEL OIDC and apply only to protected operations. | `NOT_INTRODUCED`. |
+| Module loading | `Web/Modules/ModuleLoader.cs` | Reject static mutable state, assembly scanning, `Activator.CreateInstance`, broad middleware hooks and automatic endpoint exposure. Compose current projects explicitly. | Rejected for the baseline. |
+| Mediator/source generator | API project references and mediator registration | Do not adopt. Use direct use-case calls until an actual fan-out or pipeline requirement proves another mechanism. | Rejected for the baseline. |
+| Identity | `Modules/Identity` JWT issuance, roles and permission handlers | Reject. ZITADEL authenticates; SquiFlow binds `(issuer, subject)`; OpenFGA plus resource/domain checks authorize. | FSH mechanism rejected. SquiFlow's configured ASP.NET bearer validation and active-account resolution are `PRODUCTION_HONEST`; real ZITADEL/login/session/provider evidence remains `NOT_INTRODUCED`. |
+| Tenant selection | `Modules/Multitenancy`, tenant header/query strategies and root override | Reject as authority. Client tenant hints must be validated against current SquiFlow membership; pooled PostgreSQL is the baseline. | FSH mechanism rejected. SquiFlow active-membership query and immutable membership-derived `TenantContext` are `PRODUCTION_HONEST`; request tenant selection for a business operation remains `NOT_INTRODUCED`. |
+| PostgreSQL/EF | `BuildingBlocks/Persistence/*`, tenant-isolation tests | Reuse setup and hostile-test ideas. Keep concrete capability-owned data access, explicit transaction ownership, runtime/migration role separation and PostgreSQL RLS proof for later tenant-owned tables. | `PRODUCTION_HONEST` for global IdentityAccess and Tenancy security/control schemas and queries; tenant-owned persistence/RLS remains `NOT_INTRODUCED`. |
+| Database migrator | `FSH.Starter.DbMigrator/*`, migrations project | Adapt only `apply`, `list-pending`, fail-fast configuration, bounded single-run coordination and clear exit codes. Exclude demo seed, tenant selection, catalog/per-tenant databases, identity placeholders, module bootstrap and job services. The API never migrates on startup. | `PRODUCTION_HONEST` for ordered IdentityAccess/Tenancy migration sets and real PostgreSQL evidence. |
+| Background jobs | `BuildingBlocks/Jobs/*`, Hangfire packages and provisioning fallback | Reject. SquiFlow's selected direction is PostgreSQL durable job authority, Quartz scheduling and Proto.Actor bounded execution/supervision when a real workload exists. | FSH mechanism rejected; SquiFlow Worker `NOT_INTRODUCED`. |
+| Caching/realtime/files/mail | `AddHeroPlatform` options and related building blocks | Do not import as a bundle. Admit each mechanism only for a named workload and owner. | `NOT_INTRODUCED`. |
+| Tests | architecture, exception, tenant and integration tests | Reuse failure cases and real-host/test-container shapes while writing SquiFlow-owned assertions against SquiFlow boundaries. | Brand/identity/tenancy unit tests, real ASP.NET bearer/membership pipeline tests and real PostgreSQL migration/query tests are active; OpenFGA and tenant-owned RLS tests await those responsibilities. |
+
+## White-label boundary
+
+The current `BrandProfile` is deployment-wide public bootstrap data. It contains display/legal names, bounded theme identity, safe asset links, safe legal/support links and a deterministic revision. It intentionally contains no executable content and no provider/internal configuration.
+
+The source assembly and repository remain named SquiFlow. A white-label deployment changes user-visible identity through configuration without forking namespaces, package IDs, database schema owners or security model. Tenant-specific overrides will require authoritative tenant context, persistence ownership, asset validation and fallback behavior before they are introduced.
+
+## Database governance before implementation
+
+The first PostgreSQL slice must introduce all of these together:
+
+1. a real capability-owned schema and migration;
+2. a runtime credential without DDL, superuser or `BYPASSRLS` authority;
+3. a separate deployment-time migration credential;
+4. a one-shot migrator that does not seed or start the application;
+5. concurrent-run coordination with a bounded wait/failure contract;
+6. pending/applied migration visibility and stable exit codes;
+7. real PostgreSQL tests for apply, repeat apply, concurrent apply and failure recovery;
+8. a declared expand/migrate/switch/contract compatibility rule for later changes.
+
+The IdentityAccess and Tenancy slices now satisfy this contract for their global security/control schemas. Their runtime readers are proven under roles with schema usage and table read authority but no mutation/DDL authority. Tenant-owned business tables and PostgreSQL RLS remain a separate future proof.
+
+## Requalification triggers
+
+Re-review this ledger when the pinned FSH revision changes, a new FSH subsystem is considered, an adopted package changes major version, tenant-specific branding is introduced, the first protected endpoint appears, or the first PostgreSQL schema/migrator is added.

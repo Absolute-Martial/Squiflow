@@ -516,6 +516,8 @@ A revisit changes only the mechanism whose responsibility is no longer well serv
 
 Primary/current references consulted for the selection:
 
+Curated source-only snapshots for the selected Proto.Actor and Quartz.NET mechanisms are retained under `reference-sources/snapshots/selected-runtime/` at the revisions recorded in `reference-sources/SOURCES.md`. They contain no upstream Git history and are research evidence, not current Worker implementation.
+
 - Proto.Actor overview and actor model: https://proto.actor/protoactor/what-is-protoactor/
 - Proto.Actor mailboxes: https://proto.actor/protoactor/mailboxes/
 - Proto.Actor dispatchers: https://proto.actor/protoactor/dispatchers/

@@ -5,6 +5,8 @@ This file records accepted direction only. Detailed reasoning and supersession h
 ## Principles-first implementation reset
 
 - The Phase-0A `v0.0.20` reset snapshot intentionally contains no production/test projects. That zero-project state is qualification-time reset evidence, not a permanent `v0.0.20` invariant. Later active work may add newly earned projects. Earlier Phase-0 implementation remains in Git history as evidence, not current implementation authority.
+- The 2026-09-17 purge restored the tree to a zero-project reset point. The former 0B Parties implementation and its verification remain retired history; the later Branding, IdentityAccess, Tenancy, CoreApi and DbMigrator slices are independently earned and do not restore Parties scaffolding.
+- Implementation is source-first. Before custom infrastructure, inspect applicable proven source and record whether to use a focused package, adapt bounded source when its license permits the intended use and distribution, reuse tests/algorithms, or retain it as reference with a concrete rejection reason. License does not exclude a source from internal research; product copying, dependency and distribution obligations are evaluated separately. `docs/review/APPLICATION_BASELINE_IMPLEMENTATION_SOURCE_REVIEW.md` owns the current routing map.
 - Development restarts from `docs/architecture/ENGINEERING_PRINCIPLES.md`, `docs/architecture/EXPLICIT_BOUNDARIES_AND_SOLID.md`, `docs/architecture/REPOSITORY_STRUCTURE.md`, and the focused owner for the responsibility being implemented.
 - A phase is a minimum maturity/verification floor, not a maximum implementation-scope or quality ceiling; a phase label does not authorize its imagined project/runtime contents.
 - KISS means the simplest design that completely covers the current responsibility, including material edge/failure/recovery/security/concurrency/compatibility/resource/observability/operability cases. KISS never means happy-path-only or fewest files/classes at any cost.
@@ -12,7 +14,7 @@ This file records accepted direction only. Detailed reasoning and supersession h
 - SOLID is applied pragmatically to real ownership/change/replacement/fault/security boundaries. It does not imply one interface per class, generic repositories, forwarding layers, or speculative plugin systems.
 - Architecture/file-structure samples are growth maps and ownership guidance, not mandatory scaffolding. A folder/project/process is created only when its responsibility and boundary are earned.
 - Do not rebuild `SquiFlow.ApplicationKernel` merely because it existed before the reset. Start from real capability/application work and introduce shared Foundation/kernel primitives only when current consumers prove genuinely product-wide semantics.
-- Repository CI/CD is allowed again. Local verification and GitHub/GitLab thin wrappers should share repository-owned verification commands/scripts, with self-hosted/self-managed runners preferred under hosted-minute constraints.
+- Repository CI/CD is allowed when real executable code earns a verification contract. Local verification and any thin provider wrappers must share repository-owned commands/scripts.
 - Phase/gate governance follows the same earned-detail rule as implementation. Global production-honesty/evidence contracts are canonical, but future phase-specific evidence maps, cadences, transitional contracts and subphase decomposition are written only when real responsibilities/workloads earn them.
 - Detailed Phase 0 and Phase 1 packages are retained. Phase 2–10 are direction-only `NOT_INTRODUCED` README stubs until activated by real work. Future planning ideas live in `docs/implementation/FUTURE_PHASE_CARRY_FORWARD.md` as non-authoritative anticipation, not implementation contracts.
 - A future phase number does not force implementation to match an old anticipated decomposition. When a responsibility becomes real, derive its production intent, exact scope, evidence and regression guard from current requirements/workload/architecture and either use, change or reject the old anticipation.
@@ -20,6 +22,7 @@ This file records accepted direction only. Detailed reasoning and supersession h
 ## Product and runtime
 
 - C# / modern .NET is the application foundation; .NET 10 LTS is the current baseline.
+- FullStackHero at pinned revision `3f2959e683e9f83f13e55e1678c9119f63c7e8e5` is the source-owned backend starting base. SquiFlow keeps its complete source locally and selectively adapts it without the template generator, runtime dependency, FSH branding, reflective module loader, Mediator source generator, built-in identity/permission authority, per-tenant database model, Hangfire stack or bundled infrastructure. Standard .NET/ASP.NET Core remain the runtime primitives and SquiFlow retains all product authority. Detailed evidence: `docs/review/APPLICATION_BASE_FRAMEWORK_ADMISSION_RESEARCH.md` and `docs/review/FULLSTACKHERO_BACKEND_ADOPTION_LEDGER.md`.
 - ASP.NET Core is the server-host foundation when server hosts are implemented.
 - Avalonia is the Windows Workstation UI framework when Workstation is implemented.
 - Blazor Web App is the tenant Web presentation foundation and the future Platform Admin Web presentation foundation when those surfaces are implemented.
@@ -27,14 +30,15 @@ This file records accepted direction only. Detailed reasoning and supersession h
 - `Foundation` is the narrow product-wide primitive/technical layer. Do not introduce a universal business `Shared`, `Common`, or `Utils` bucket.
 - Business meaning is capability-owned: Orders, Customers, Inventory, Payments, Devices, etc. each have one source implementation of their business semantics.
 - A Capability Core is the host-neutral/deterministic center of a capability where useful. The Authoritative Capability Application owns server current authority/facts/admission/commit. These are distinct concepts.
-- WebApi, SyncApi, Worker, and AdminApi are runtime hosts/adapters into capability-owned application behavior; they do not own duplicate Orders/Customers/Inventory implementations.
+- CoreApi, future SyncApi, Worker, and AdminApi are runtime hosts/adapters into capability-owned application behavior; they do not own duplicate Orders/Customers/Inventory implementations. CoreApi owns the interactive Web/external tenant API role unless it is deliberately renamed/replaced by WebApi; both do not run as forwarding layers.
 - Physical `.csproj` decomposition is earned. `Core`, `Server`, `Workstation`, `Postgres`, `Contracts`, etc. are responsibility categories first and become projects only when cross-host reuse, provider/platform isolation, packaging, dependency enforcement, or module complexity justifies them.
 - Do not introduce a mandatory CoreApi network hop merely to avoid shipping the same module assembly in WebApi/SyncApi. In-process module execution remains the modular-monolith default.
 - Future host/process names are not application-kernel business vocabulary. Capability metadata must not contain a global executable taxonomy such as `HostKind`/`SupportedHosts`.
-- Per-tenant feature activation is versioned data resolved through tenant/security context; it does not create one DI container/application instance per tenant. Loaded assemblies are not hot-unloaded, and arbitrary third-party micro-plugins/scripts are not baseline.
+- Tenant variation is represented by an immutable versioned Tenant Application Profile. Use the lowest sufficient layer: presentation metadata, feature/capability selection, settings/permissions/rules/workflows/forms, extensible typed information, then a trusted implementation variant only when the lower layers cannot safely express the supported difference. Arbitrary third-party tenant code/scripts/DDL remain outside the baseline.
+- CoreApi uses Autofac `9.3.4` through `Autofac.Extensions.DependencyInjection` `11.0.2`; existing framework and capability registrations remain expressed through `IServiceCollection`, and capability projects remain Autofac-neutral. An internal SquiFlow registry now proves bounded, single-flight immutable profile-runtime construction, operation-scoped `TenantContext`, idle retirement, lease-aware draining, shutdown and metrics. It is not reachable from production requests: durable profile authority and the first real implementation variant remain `NOT_INTRODUCED`. Containers are never stored on disk; future durable profiles reconstruct process-local acceleration state. DI scopes are not resource or process-fault isolation.
 - A feature/module can be enabled or disabled at runtime for a tenant only through validated, versioned, audited publication. Disabling prevents new entry but never deletes authoritative data or silently loses accepted durable work.
-- `apps/web`, `apps/desktop`, `services/core-api`, future WebApi/SyncApi/Worker/Admin, and desktop helper paths are ownership locations, not current implementation claims after the reset.
-- `services/web-api` and `services/sync-api` remain accepted future workload-specific hosts when the split is implemented.
+- `apps/web`, `apps/desktop`, `services/core-api`, future SyncApi/Worker/Admin, and desktop helper paths are ownership locations, not automatic implementation claims.
+- `services/core-api` is the current interactive tenant/business API seed. `services/sync-api` remains the accepted separate Workstation synchronization host when that workload is implemented. Do not add a second `services/web-api` pass-through host; rename/replace CoreApi only if the later Web product topology makes `WebApi` the clearer executable name.
 - `services/admin-api` remains a separate Platform Admin backend executable/deployment/security boundary from tenant Web/Sync hosts when implemented.
 - `services/worker` remains the durable background execution host when durable work is implemented. Worker invokes the same authoritative capability modules rather than owning Worker-specific business forks.
 - Scheduler owns when a durable occurrence/job should exist; Worker owns durable execution mechanics; the owning capability owns the business mutation. Preferred chain: `Scheduler -> durable job -> Worker -> authoritative module -> persistence`.
@@ -123,6 +127,8 @@ This file records accepted direction only. Detailed reasoning and supersession h
 - Web is online-only for business operations. No IndexedDB business replica, service-worker business sync, or browser offline mutation queue is baseline.
 - Valuable online forms may use explicit server-side drafts/autosave when justified.
 - Workstation is the local-first/offline client.
+- When a useful Workstation slice is introduced, its preferred direct presentation base is Avalonia + CommunityToolkit.Mvvm + the minimum required Microsoft.Extensions host primitives. SquiFlow owns typed navigation/workspace/action/contribution contracts and stable IDs; this selection is architecture direction, not a claim that a Workstation project currently exists.
+- Dock.Avalonia, native OIDC client, Windows protected-secret adapter, SQLite/encryption provider and updater are separately POC-gated focused mechanisms. Prism, Eclipse RCP, NetBeans Platform, XAF, Uno.Extensions, CSLA, Tryton and Odoo POS/client remain behavior/test donors rather than application runtimes. Dynamic runtime plugins are not baseline.
 - Local Workstation success and server-authoritative acceptance are separate states (`LocalCommitted`, `PendingRemote`, `Authoritative`, `Conflict`, `Rejected`, `AuthorizationChanged`, `UpgradeRequired`) when the local-first slice is implemented.
 - The accepted sync model is provisional local execution -> semantic OperationEnvelope/revision evidence -> authoritative server admission/commit, not blind execution/storage of the full transaction twice.
 - Revision/version evidence permits a fast path/selective re-evaluation where authoritative dependencies are unchanged; current security/authorization and protected invariants are never skipped solely because a revision token matches.
@@ -163,7 +169,7 @@ This file records accepted direction only. Detailed reasoning and supersession h
 
 - REST/task-oriented HTTP is the ordinary Web/external API baseline; SquiFlow does not require strict REST purity.
 - GraphQL/Federation is deferred until a real query-composition requirement justifies its cost/authorization/schema complexity.
-- WebApi and SyncApi are separate workload hosts when implemented, not separate business backends and not one-way ingress-only pipes.
+- CoreApi/Web API and SyncApi are separate workload hosts when synchronization is implemented, not separate business backends and not one-way ingress-only pipes.
 - Reads remain module-owned first-class operations. Optimized read projections are allowed without creating a second authority.
 - Retryable mutations use caller-provided semantic idempotency keys where duplicates can repeat effects; same key + changed intent is rejected.
 - Where one store owns mutation + idempotency receipt + outbox, they commit atomically.
@@ -201,6 +207,8 @@ This file records accepted direction only. Detailed reasoning and supersession h
 - Rules/workflows are edited/published through Web administration and distributed as immutable/versioned compatible snapshots.
 - Workstation local rule evaluation cannot turn stale server-owned facts into authoritative financial/stock/security/hard-limit decisions.
 - Workflow is continuation-first and versioned.
+- Follow-on workflow actions use typed SquiFlow commands, durable waits/jobs or transactional outbox facts. Explicit capability-owned durable process state is the initial orchestration model; process-local events, actor messages and Quartz chaining are not continuation authority.
+- Elsa and Temporal are later orchestration candidates with different fit. Elsa is closer to persisted/designed tenant definitions; Temporal is stronger for developer-authored replay-based durable execution but introduces a separate service/control plane. Neither is selected while bounded SquiFlow process state remains sufficient, and either adoption must replace overlapping scheduling/queue/execution authority for its admitted process class.
 
 ## Practical business scope
 

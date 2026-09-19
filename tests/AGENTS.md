@@ -4,20 +4,9 @@ These rules apply below `tests/` in addition to the root instructions.
 
 ## Current test model
 
-The first executable verification project now exists because the first real capability boundary exists:
+The current verification contract uses Branding, IdentityAccess and Tenancy unit tests, real CoreApi pipeline tests, and real PostgreSQL IdentityAccess/Tenancy/migrator tests. The former Parties tests and older Phase-0 spec projects remain retired history.
 
-```text
-tests/unit/SquiFlow.Parties.Tests/SquiFlow.Parties.Tests.csproj
-```
-
-It proves only claims owned by the active Parties slice:
-
-- accepted Party structural kinds are exactly `Person` and `Organization`;
-- the current Parties capability project has no outward project/package dependency.
-
-It does **not** prove a complete Party capability, persistence, API, runtime, authorization, sync, Customer/Account semantics, or Foundation/kernel behavior.
-
-Do not restore removed Phase-0 spec projects by memory. Add another test project only when a distinct real verification responsibility earns it.
+Add a test project only when a real implementation claim earns it. Select the smallest layer that can falsify the actual property, and adapt relevant proven upstream tests where the source-admission record identifies them.
 
 ## Test qualities
 
@@ -65,7 +54,7 @@ For protected/durable/versioned behavior, include negative cases such as:
 - malformed/oversized input;
 - secret/sensitive-data leakage where observable.
 
-Only add cases relevant to behavior that actually exists. None of those runtime/durable cases is implied by the current Party-kind-only slice.
+Only add cases relevant to behavior that actually exists.
 
 ## Compatibility fixtures
 
@@ -76,7 +65,7 @@ Once a serialized/durable contract or schema version is released/supported:
 - test old-reader/new-writer and new-reader/old-writer directions where that contract family requires them;
 - test destructive contraction only after supported old readers/writers/pending work are demonstrably drained.
 
-The current `PartyKind` is an internal capability semantic; no serialized numeric compatibility contract is claimed by the current slice.
+The first durable contracts are the IdentityAccess and Tenancy PostgreSQL schemas and their separate migration histories. Preserve migration/model compatibility evidence as they evolve.
 
 ## Test data
 
@@ -89,17 +78,11 @@ The current `PartyKind` is an internal capability semantic; no serialized numeri
 
 Architecture tests/specs are executable architecture documentation for boundaries that actually exist.
 
-The current Parties dependency test deliberately rejects all outward `ProjectReference` and `PackageReference` entries in the production capability project. If a future real dependency is earned, do not merely weaken the test: update the active scope/owner and replace the old guard with one that protects the newly accepted dependency direction.
+Current unit tests guard the host/provider neutrality of Branding, IdentityAccess and Tenancy. Add broader project-graph tests only when more dependencies make a separate architecture suite useful.
 
 ## Current executable commands
 
-```text
-dotnet restore SquiFlow.sln
-dotnet build SquiFlow.sln -c Release --no-restore
-dotnet test SquiFlow.sln -c Release --no-build
-```
-
-Do not claim these pass unless actual executable evidence exists.
+Use `dotnet restore SquiFlow.slnx`, `dotnet build SquiFlow.slnx --no-restore`, and `dotnet test SquiFlow.slnx --no-build --no-restore`. Provider tests require Docker because they run PostgreSQL 17 through Testcontainers.
 
 ## DO NOT
 

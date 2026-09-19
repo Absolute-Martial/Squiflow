@@ -222,6 +222,8 @@ Owner: `docs/integrations/NOTIFICATIONS_AND_EXTERNAL_DELIVERY.md`.
 
 Tenant variation can be represented through bounded configuration for required fields, validation, pricing/approval rules, workflow stages/transitions and feature visibility.
 
+The product-level Tenant Application Profile also permits selection of supported capabilities, integrations and reviewed trusted implementation variants when bounded configuration cannot represent a materially different tenant operation safely. Tenant-specific supplementary information may use versioned typed custom-field/form schemas rather than requiring a hard-coded column for every tenant field; protected financial, stock, security, identity and issued-history meaning remains capability-owned and explicitly constrained.
+
 Hard tenant/security/domain invariants remain strongly typed and non-overridable.
 
 Phase 5 proves one bounded/versioned form lifecycle; it does not create an arbitrary HTML/script application builder.

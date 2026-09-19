@@ -1,11 +1,11 @@
 # Core API and Worker Architecture
 
 **Version:** v0.0.20  
-**Status:** Accepted architecture direction. No CoreApi, AdminApi, or Worker project currently exists after the v0.0.20 reset. The responsibilities below become active contracts only when a current implementation slice earns the corresponding host/workload.
+**Status:** CoreApi exists for public bootstrap/liveness plus narrow authenticated-account and active-membership queries. AdminApi and Worker remain `NOT_INTRODUCED`. Responsibilities below become active contracts only when a current implementation slice earns the corresponding workload.
 
 ## 1. Core API
 
-`services/core-api` is the accepted repository ownership location for a compact early ASP.NET Core tenant/business HTTP/composition host **if/when a real current slice earns that host**. It is not a current project after the reset.
+`services/core-api` is the current compact ASP.NET Core composition host. Its implemented scope is public brand bootstrap/liveness, configured JWT bearer validation, exact external-identity-to-account resolution, and current active-membership listing. The Tenancy capability can establish `TenantContext` only after a current membership check. CoreApi does not yet call OpenFGA or expose tenant business operations.
 
 When introduced, the compact tenant/business host owns:
 - request pipeline;
@@ -22,6 +22,32 @@ When introduced, the compact tenant/business host owns:
 It does **not** host the Platform Admin API. Platform/super-admin HTTP operations belong to the independently deployable `services/admin-api` direction described in `docs/admin/ADMIN_SURFACES.md` and `docs/architecture/CONTROL_PLANE_AND_DATA_PLANE.md` when that control-plane runtime is introduced.
 
 Core API must not own business-domain implementation merely because the HTTP request arrives there. Business behavior belongs in capability-owned modules/application code.
+
+### 1.1 Production host separation
+
+The accepted production direction is:
+
+```text
+public tenant edge
+→ CoreApi (interactive Web/external tenant API role)
+
+Workstation devices
+→ SyncApi when synchronization is implemented
+
+private platform-admin ingress
+→ AdminApi when platform control is implemented
+
+durable PostgreSQL work
+→ Worker when a real background workload is implemented
+```
+
+CoreApi and a future WebApi are not two normal forwarding processes. If `WebApi` becomes the clearer product name, rename or replace CoreApi when that slice is implemented. The Blazor Web host may call this API or invoke shared capability application code in-process depending on the still-open render/session topology; that choice does not justify a duplicate pass-through backend.
+
+SyncApi is a separate executable once the first real Workstation synchronization slice exists because device authentication, compatibility, batching, cursors, reconnect bursts, idempotency, fairness and backpressure differ materially from interactive traffic. AdminApi is separately deployed when introduced because its trust, ingress, credentials and availability boundary differs from the tenant data plane. Worker is a non-HTTP execution host, not another API.
+
+All of these hosts invoke the same capability-owned authoritative behavior. They may share a central PostgreSQL deployment while preserving capability data ownership. They do not call CoreApi as an internal business gateway and do not get separate implementations of Orders, Customers, Inventory or other capability meaning.
+
+Each executable owns its own Autofac root and process-local bounded profile-runtime cache. Containers are never shared or serialized between CoreApi, SyncApi, AdminApi, Worker or replicas. They converge through the same immutable durable profile definition, implementation fingerprint/revision, capability assemblies and authoritative data. Shared composition support is extracted only after the second real host proves the common boundary.
 
 ## 2. Authorization pipeline
 

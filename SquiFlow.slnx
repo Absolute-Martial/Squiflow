@@ -1,0 +1,21 @@
+<Solution>
+  <Folder Name="/modules/">
+    <Project Path="modules/branding/SquiFlow.Branding/SquiFlow.Branding.csproj" />
+    <Project Path="modules/identity-access/SquiFlow.IdentityAccess.Postgres/SquiFlow.IdentityAccess.Postgres.csproj" />
+    <Project Path="modules/identity-access/SquiFlow.IdentityAccess/SquiFlow.IdentityAccess.csproj" />
+    <Project Path="modules/tenancy/SquiFlow.Tenancy.Postgres/SquiFlow.Tenancy.Postgres.csproj" />
+    <Project Path="modules/tenancy/SquiFlow.Tenancy/SquiFlow.Tenancy.csproj" />
+  </Folder>
+  <Folder Name="/services/">
+    <Project Path="services/core-api/SquiFlow.CoreApi/SquiFlow.CoreApi.csproj" />
+    <Project Path="services/db-migrator/SquiFlow.DbMigrator/SquiFlow.DbMigrator.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/integration/SquiFlow.CoreApi.Tests/SquiFlow.CoreApi.Tests.csproj" />
+    <Project Path="tests/integration/SquiFlow.IdentityAccess.Postgres.Tests/SquiFlow.IdentityAccess.Postgres.Tests.csproj" />
+    <Project Path="tests/integration/SquiFlow.Tenancy.Postgres.Tests/SquiFlow.Tenancy.Postgres.Tests.csproj" />
+    <Project Path="tests/unit/SquiFlow.Branding.Tests/SquiFlow.Branding.Tests.csproj" />
+    <Project Path="tests/unit/SquiFlow.IdentityAccess.Tests/SquiFlow.IdentityAccess.Tests.csproj" />
+    <Project Path="tests/unit/SquiFlow.Tenancy.Tests/SquiFlow.Tenancy.Tests.csproj" />
+  </Folder>
+</Solution>

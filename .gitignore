@@ -7,3 +7,7 @@
 artifacts/
 TestResults/
 .DS_Store
+
+# Curated upstream source snapshots are retained locally for project research.
+# Track reference-sources/{README.md,SOURCES.md,materialize.sh}; ignore source payloads.
+/reference-sources/snapshots/

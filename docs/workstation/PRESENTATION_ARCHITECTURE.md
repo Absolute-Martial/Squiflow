@@ -1,7 +1,7 @@
 # Workstation Presentation Architecture
 
-**Version:** v0.0.18  
-**Status:** Accepted implementation direction; exact visual layout remains prototype/evidence driven.  
+**Version:** v0.0.20
+**Status:** Accepted architecture and source-admission direction; no Workstation project or runtime currently exists, and exact visual layout remains prototype/evidence driven.
 **Authority:** This document owns the Avalonia Workstation shell/presentation composition boundary: what the desktop host owns, what business modules contribute to the Workstation UI, how navigation/commands are registered, and the initial visual/interaction discipline. It does not replace `docs/architecture/APPLICATION_KERNEL_AND_MODULES.md`, domain/application ownership, Web presentation ownership, sync authority, or observability ownership.
 
 ## 1. Decision
@@ -120,7 +120,9 @@ A future Web presentation can express the same business capability differently w
 
 ## 5. Trusted UI contribution model
 
-Workstation UI composition uses the existing trusted SquiFlow application-kernel module graph.
+The first useful Workstation slice uses one explicit composition root plus small SquiFlow-owned typed registries for navigation, workspaces and actions. There is no current ApplicationKernel project or module graph. Do not create either merely to host one contribution.
+
+When several real capability adapters create dependency ordering, compatibility or duplicate-detection pressure, extract the smallest reusable composition graph under `APPLICATION_KERNEL_AND_MODULES.md`. Until then, ordinary compile-time references and explicit registration are the more truthful mechanism.
 
 A Workstation-capable module may contribute a bounded descriptor conceptually containing:
 
@@ -135,7 +137,7 @@ RequiredPermission metadata for UX availability
 Host compatibility/version
 ```
 
-The kernel/shell validates contributions during startup.
+The Workstation composition root/shell validates introduced contributions during startup.
 
 Reject as baseline:
 
@@ -146,6 +148,19 @@ scan application directory
 ```
 
 Initial releases compose only reviewed modules shipped in the verified SquiFlow artifact. Arbitrary third-party plugins, runtime hot loading/unloading, and folder-drop extensions remain deferred under `APPLICATION_KERNEL_AND_MODULES.md`.
+
+### 5.1 Selected hybrid foundation
+
+When the first real Workstation journey is activated, the preferred direct base is:
+
+- Avalonia for desktop UI and headless UI testing;
+- CommunityToolkit.Mvvm for ViewModel observable state, commands and presentation validation;
+- the minimum required Microsoft.Extensions hosting, DI, configuration, options, logging and localization packages;
+- SquiFlow-owned typed contribution/navigation/workspace/action contracts.
+
+Focused packages are admitted only for the responsibility they prove. Dock.Avalonia is conditional on real persistent docking/floating needs. Duende IdentityModel.OidcClient is a candidate for the native OIDC protocol boundary after a ZITADEL/system-browser POC. Windows Credential Manager/DPAPI, the SQLite/encryption provider, and an updater such as Velopack each require their focused security, durability or recovery proof.
+
+Prism, Eclipse RCP, NetBeans Platform, XAF, Uno.Extensions, CSLA, Tryton Desktop and Odoo POS/client are behavior and test donors. They do not become overlapping application, composition, business-object, authorization, persistence or sync runtimes. The evidence and exact admission gates are owned by `docs/review/WORKSTATION_FRAMEWORK_ADMISSION_RESEARCH.md`.
 
 ## 6. Navigation and rendering
 
@@ -315,14 +330,14 @@ Diagnostic/support bundles are bounded and redacted; they do not include unrestr
 
 The shell may surface diagnostics/recovery status, but operational telemetry never becomes business authority.
 
-## 14. Phase-0 proof obligations
+## 14. First Workstation slice proof obligations
 
-Phase 0 should prove the smallest real presentation composition rather than a fake dashboard.
+The first activated Workstation slice should prove the smallest useful presentation composition rather than a fake dashboard.
 
 Prove:
 
-- Workstation shell launches through the real application kernel;
-- one sample module contributes a real navigation/workspace entry;
+- Workstation shell launches through its real composition root;
+- one real capability adapter contributes a useful navigation/workspace entry;
 - host filtering prevents non-Workstation contributions from entering the desktop host;
 - duplicate navigation/command/workspace identifiers fail predictably;
 - disabled feature cannot be navigated to through the normal shell contribution;
@@ -332,6 +347,8 @@ Prove:
 - keyboard/focus behavior is usable for the shell/sample workspace;
 - no placeholder business dashboard is treated as a product requirement merely to fill the screen;
 - startup/memory cost is measured before adding reflection scanning, dynamic UI generation, or a large component framework.
+
+The activating change must record the direct dependency versions/licenses and add falsifiable ViewModel, headless UI, composition and boundary tests appropriate to its claims. Local persistence, sync, authentication, update, reporting and device claims each require their own focused proof when introduced.
 
 ## 15. Revisit triggers
 
@@ -353,3 +370,4 @@ Do not change the business/domain boundaries merely to match a UI framework patt
 - `docs/sync/SYNC_AND_AUTHORITY.md` — server authority and sync results.
 - `docs/observability/WORKSTATION_SERVER_LOG_PIPELINE.md` — local diagnostics and selective central export.
 - `docs/workstation/GUARD_AND_RECOVERY.md` — Workstation supervision/recovery boundary.
+- `docs/review/WORKSTATION_FRAMEWORK_ADMISSION_RESEARCH.md` — source comparison, package admission decisions, proof gates and phased route.

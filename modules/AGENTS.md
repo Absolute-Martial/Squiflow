@@ -4,15 +4,9 @@ These rules apply below `modules/` in addition to the root instructions.
 
 ## Current capability truth
 
-The first rebuilt capability project is:
+The current capability projects are `SquiFlow.Branding`, `SquiFlow.IdentityAccess`, `SquiFlow.Tenancy`, and their earned provider-isolated PostgreSQL adapters. Branding owns bounded public deployment identity. IdentityAccess owns stable external `(issuer, subject)` account binding. Tenancy owns the tenant registry, current account membership query and membership-derived `TenantContext`; it owns no OpenFGA role/permission model or tenant-owned business data. The former `SquiFlow.Parties` enum-only slice remains purged.
 
-```text
-modules/parties/SquiFlow.Parties/SquiFlow.Parties.csproj
-```
-
-Its current declared scope is only the accepted Party structural classification `Person | Organization`. It does not claim complete Party identity/lifecycle/profile behavior, Customer/Account relationships, persistence, API, runtime, synchronization, or shared Foundation.
-
-Keep additional Party semantics out until an accepted owner/current requirement makes them knowable. In particular, do not harden discovery-sensitive `Customer / Party / Account / Commercial Relationship` distinctions or choose an internal-ID encoding merely to make this first capability larger.
+The next module starts from a useful capability journey and the source-admission rule in `docs/review/APPLICATION_BASELINE_IMPLEMENTATION_SOURCE_REVIEW.md`. Do not harden discovery-sensitive `Customer / Party / Account / Commercial Relationship` distinctions or choose an internal-ID encoding until the active journey and accepted owner require them.
 
 ## Ownership
 
@@ -34,7 +28,7 @@ Capability
 
 Separate `.csproj` files are earned when compiler-enforced neutrality, real cross-host reuse, provider isolation, packaging, or complexity justifies them. Do not scaffold every theoretical project.
 
-The current Parties capability is one compact host-neutral project. Do not split it into `Core`, `Server`, `Workstation`, `Postgres`, or `Contracts` projects until a real dependency/reuse/provider/platform boundary earns that split.
+Prefer one compact host-neutral capability project first. Split it into `Core`, `Server`, `Workstation`, `Postgres`, or `Contracts` projects only when a real dependency/reuse/provider/platform boundary earns that split.
 
 ## Business code rules
 
@@ -51,7 +45,7 @@ The current Parties capability is one compact host-neutral project. Do not split
 - Distinguish internal/domain events from public integration events.
 - Avoid object-navigation chains across another capability's internals; ask that capability for the business result needed.
 
-No cross-module application contract exists yet in the current 0B slice.
+The Tenancy membership schema refers to stable IdentityAccess account IDs through an explicit database foreign key, while each capability keeps its provider rows private. No generic cross-module repository or runtime service contract exists.
 
 ## Host neutrality
 
@@ -66,7 +60,7 @@ Reusable capability meaning must not reference:
 
 Adapters may depend on their framework/provider but must translate into SquiFlow-owned contracts before calling core/application behavior.
 
-The current Parties project has no package or project dependency. That boundary is mechanically protected by `SquiFlow.Parties.Tests` until a real dependency is deliberately earned and the scope/evidence are requalified.
+The current unit tests mechanically protect Branding, IdentityAccess and Tenancy from ASP.NET, EF/Npgsql, OpenFGA and FSH dependencies. Preserve and extend those checks as capability boundaries grow.
 
 ## DO NOT
 
@@ -77,7 +71,7 @@ The current Parties project has no package or project dependency. That boundary 
 - Do not use global last-write-wins for protected business invariants.
 - Do not make feature flags equivalent to permission grants.
 - Do not use local Workstation facts as current server authority for security/financial/shared-stock invariants.
-- Do not move `PartyKind` into Foundation merely because Foundation is named in Phase 0B.
+- Do not recreate or move the deleted `PartyKind` representation merely because it appeared in former Phase 0B.
 
 ## Testing
 
@@ -87,4 +81,4 @@ The current Parties project has no package or project dependency. That boundary 
 - Add cross-tenant/current-authority negative tests for protected operations.
 - When versioned contracts are introduced, preserve old fixtures and compatibility tests.
 
-For the current slice, only the Party-kind semantic and the capability dependency boundary are active test claims.
+Current active claims are limited to bounded Branding values, exact external-account binding, current active tenant-membership queries and membership-derived `TenantContext`. Provider behavior is additionally tested against real PostgreSQL.

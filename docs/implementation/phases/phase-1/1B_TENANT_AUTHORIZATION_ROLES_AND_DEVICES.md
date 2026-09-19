@@ -1,5 +1,7 @@
 # Phase 1B — Tenant Authorization, Roles, and Devices
 
+**Current implementation note:** current tenant/account membership lookup and membership-derived `TenantContext` exist. Phase 1B is not qualified: the first OpenFGA model/store, role/permission administration, device authority, tenant-owned resource isolation and hostile provider/authorization evidence remain `NOT_INTRODUCED`.
+
 **Gate-quality owner:** `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md`  
 **Evidence/permanence owner:** `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md`
 

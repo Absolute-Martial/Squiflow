@@ -22,20 +22,11 @@ A capability owns one source implementation of its business meaning. `Core`, `Se
 
 ## 2. Current implementation state
 
-The `v0.0.20` 0A reset snapshot intentionally contained no application/service/foundation-library/capability/test projects. That clean snapshot is qualification evidence, not a permanent target.
+The current tree contains three compact host-neutral capability projects (`SquiFlow.Branding`, `SquiFlow.IdentityAccess`, and `SquiFlow.Tenancy`), two capability-owned PostgreSQL adapters, CoreApi and DbMigrator executables, six test projects and a repository build/test contract. CoreApi has configured standards-based JWT validation plus authenticated account and active-membership queries. Tenancy can resolve an immutable context from current membership. The tree contains no Foundation/ApplicationKernel project, OpenFGA authorization, tenant-owned business data/RLS or business capability.
 
-The active 0B branch has now earned exactly two projects:
+The former 0B Parties slice was purged on 2026-09-17. Its phase record and earlier Phase-0 code remain historical evidence, not current implementation authority.
 
-```text
-modules/parties/SquiFlow.Parties/SquiFlow.Parties.csproj
-tests/unit/SquiFlow.Parties.Tests/SquiFlow.Parties.Tests.csproj
-```
-
-`SquiFlow.Parties` currently owns only the accepted `PartyKind = Person | Organization` semantic. The test project verifies that semantic and the current no-outward-dependency boundary.
-
-There is still no Foundation/ApplicationKernel project, host/service executable, persistence/provider project, or other capability project.
-
-Earlier Phase-0 code remains in Git history and is not current implementation authority. New projects are introduced only with a real current responsibility, explicit dependency/authority boundary, material applicable behavior, and falsifiable verification.
+New projects are introduced only with a useful real responsibility, explicit dependency/authority boundary, material applicable behavior, falsifiable verification, and a source-admission decision under `docs/review/APPLICATION_BASELINE_IMPLEMENTATION_SOURCE_REVIEW.md`.
 
 ## 3. Accepted repository ownership map
 
@@ -97,7 +88,7 @@ modules/orders/
    `- Events/
 ```
 
-This is a sample shape, not a requirement to create every folder. Only folders with real responsibilities should exist. The current Parties slice therefore contains only the `Domain/` folder it actually needs.
+This is a sample shape, not a requirement to create every folder. Only folders with real responsibilities should exist.
 
 A provider split is earned when provider code would contaminate host-neutral business code:
 
@@ -132,7 +123,7 @@ Runtime hosts/adapters invoke capability-owned application behavior; they do not
 Conceptually:
 
 ```text
-WebApi -----+
+CoreApi ----+
 SyncApi ----+---> Orders / Customers / Inventory / ...
 Worker -----+
 AdminApi ---+
@@ -185,7 +176,7 @@ A project/executable earns existence for a real reason such as:
 
 If none applies, prefer a cohesive existing boundary.
 
-The current Parties project is the first compact capability boundary. The current test project is earned by the need for executable semantic/dependency evidence. No other project is implied by their existence.
+The current Branding/CoreApi boundary is earned by the public white-label bootstrap slice and its host-neutral plus real-pipeline tests. Every additional project must likewise earn its existence through a useful vertical slice and evidence.
 
 ## 10. KISS and file structure
 
@@ -199,4 +190,4 @@ Detailed engineering rule: `docs/architecture/ENGINEERING_PRINCIPLES.md`.
 
 Architecture verification proves boundaries that actually exist rather than requiring speculative ones.
 
-The current Parties test project mechanically protects its no-outward-project/package dependency claim. Future provider/host leakage checks, executable-to-executable reference restrictions, Guard isolation, cross-capability ownership, and other dependency rules are added only when those concrete boundaries exist.
+There is no current executable architecture test. Provider/host leakage checks, executable-to-executable reference restrictions, Guard isolation, cross-capability ownership, and other dependency rules are added when those concrete boundaries exist.

@@ -74,7 +74,15 @@ Default WIP remains intentionally small. Prefer one coherent production-honest s
 
 The WIP rule is not a reason to prohibit adjacent work that is required to make the active slice correct. If a current slice needs a later responsibility, pull that responsibility forward and qualify it now under the global gate contracts.
 
-## 4. Cross-phase responsibilities
+## 4. Source-first implementation rule
+
+Production-honest does not require writing every mechanism from scratch.
+
+Before custom infrastructure is created for an active responsibility, inspect applicable proven implementations and record whether SquiFlow will use a focused dependency, adapt bounded source when its license permits the intended use and distribution, reuse tests/algorithms, or retain the source only as reference with a concrete rejection reason. License does not exclude a source from internal research. Record the upstream revision, exact source, license, retained authority, framework assumptions, gaps, exit path, and SquiFlow-owned evidence.
+
+The current source map is `docs/review/APPLICATION_BASELINE_IMPLEMENTATION_SOURCE_REVIEW.md`. It is routing evidence, not automatic authorization. Custom code remains appropriate for SquiFlow-specific business/authority behavior or a demonstrated candidate gap.
+
+## 5. Cross-phase responsibilities
 
 Some rules apply whenever their responsibility first appears, regardless of nominal phase number.
 
@@ -91,7 +99,7 @@ Examples:
 
 Do not wait for a later roadmap label to implement correctness that the current responsibility already requires.
 
-## 5. Phase 0 — architectural development foundation
+## 6. Phase 0 — architectural development foundation
 
 Phase 0 remains the active detailed rebuild foundation.
 
@@ -101,7 +109,7 @@ Current focus includes only the architecture/kernel/module/host/engineering-safe
 
 Phase 0 may also host real capability work. A phase is a maturity floor, not a whitelist of folders/features.
 
-## 6. Phase 1 — identity, tenant authorization, session and trust foundation
+## 7. Phase 1 — identity, tenant authorization, session and trust foundation
 
 Phase 1 remains detailed because the accepted user/tenant trust architecture already establishes concrete identity/authorization/session boundaries that must be specified carefully.
 
@@ -109,7 +117,7 @@ Its detailed owner package is `docs/implementation/phases/phase-1/`.
 
 Detailed security evidence, transitional restrictions and authorization-change semantics live there rather than in this parent roadmap.
 
-## 7. Phase 2 — anticipated local-first Workstation durability/recovery direction
+## 8. Phase 2 — anticipated local-first Workstation durability/recovery direction
 
 **State:** `NOT_INTRODUCED` as a qualified phase.
 
@@ -126,7 +134,7 @@ Current preservation constraints:
 
 Exact persistence/encryption/outbox/Guard/update evidence is written when the real operation exists.
 
-## 8. Phase 3 — anticipated central authority/synchronization direction
+## 9. Phase 3 — anticipated central authority/synchronization direction
 
 **State:** `NOT_INTRODUCED` as a qualified phase.
 
@@ -143,7 +151,7 @@ Current preservation constraints:
 
 Exact PostgreSQL, idempotency/concurrency, sync, migration/version, transport and workload evidence is derived then.
 
-## 9. Phase 4 — anticipated long-offline/conflict/recovery direction
+## 10. Phase 4 — anticipated long-offline/conflict/recovery direction
 
 **State:** `NOT_INTRODUCED`.
 
@@ -159,7 +167,7 @@ Current preservation constraints:
 
 Exact conflict/resnapshot behavior is capability-derived when the need appears.
 
-## 10. Phase 5 — anticipated configurable behavior direction
+## 11. Phase 5 — anticipated configurable behavior direction
 
 **State:** `NOT_INTRODUCED` unless a subset is pulled forward.
 
@@ -175,7 +183,7 @@ Current preservation constraints:
 
 Exact rule/workflow/form mechanisms are not selected by this roadmap.
 
-## 11. Phase 6 — anticipated independent Admin/Worker direction
+## 12. Phase 6 — anticipated independent Admin/Worker direction
 
 **State:** independent Admin/Worker runtime boundaries `NOT_INTRODUCED`.
 
@@ -192,7 +200,7 @@ Current preservation constraints:
 
 Admin and Worker may activate at different times; the roadmap does not require them to arrive together.
 
-## 12. Phase 7 — anticipated files/documents/backup direction
+## 13. Phase 7 — anticipated files/documents/backup direction
 
 **State:** `NOT_INTRODUCED` as a qualified provider-bound package.
 
@@ -209,7 +217,7 @@ Current preservation constraints:
 
 Exact provider, integrity, capacity, printing and restore evidence is derived from the real workload/provider topology.
 
-## 13. Phase 8 — anticipated cross-system qualification direction
+## 14. Phase 8 — anticipated cross-system qualification direction
 
 **State:** `NOT_INTRODUCED` as a standalone qualification package.
 
@@ -224,7 +232,7 @@ Current preservation constraints:
 
 Exact qualification scenarios are intentionally unknown until then.
 
-## 14. Phase 9 — anticipated protected financial/shared authority direction
+## 15. Phase 9 — anticipated protected financial/shared authority direction
 
 **State:** `NOT_INTRODUCED` as a qualified package; individual capabilities may be pulled forward.
 
@@ -240,7 +248,7 @@ Current preservation constraints:
 
 Exact provider/business/concurrency evidence is derived from the actual capability.
 
-## 15. Phase 10 — anticipated paying-customer qualification direction
+## 16. Phase 10 — anticipated paying-customer qualification direction
 
 **State:** `NOT_INTRODUCED` as a final production qualification envelope.
 
@@ -256,7 +264,7 @@ Current preservation constraints:
 
 Only then are exact rack capacity, restore/recovery, release/rollback-or-roll-forward, provider migration, RPO/RTO and operator evidence specified.
 
-## 16. Future anticipation belongs in the ledger
+## 17. Future anticipation belongs in the ledger
 
 Detailed thinking that may inform Phases 2–10 is preserved in `docs/implementation/FUTURE_PHASE_CARRY_FORWARD.md`.
 
@@ -264,7 +272,7 @@ That document is deliberately non-authoritative. It records likely questions, cu
 
 When future work activates, its implementation owner may adopt, modify, merge, split, reorder, rename or reject those anticipations.
 
-## 17. Deferred architecture remains genuinely deferred
+## 18. Deferred architecture remains genuinely deferred
 
 Do not introduce technologies/mechanisms merely because they are common architecture patterns or once appeared in a future plan. Examples include generic repositories/unit-of-work, browser-offline/PWA sync, mandatory Redis/Kafka, event-driven-everything, full CQRS/event sourcing/Saga, GraphQL/Federation, service mesh, Kubernetes, database-per-service, HTTP/gRPC between ordinary same-process modules, global CRDTs, arbitrary helper processes, broad polyglot persistence, generic metering/analytics infrastructure, or unearned protocol/provider abstractions.
 
