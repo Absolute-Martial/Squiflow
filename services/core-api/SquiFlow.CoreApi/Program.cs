@@ -24,6 +24,7 @@ var connectionString = builder.Configuration.GetConnectionString("PrimaryDatabas
 ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
 
 builder.Services.AddSingleton(brandingConfiguration.ToProfile());
+builder.Services.AddSingleton(authenticationConfiguration);
 builder.Services.AddDbContext<IdentityAccessDbContext>(options =>
     PostgresIdentityAccessOptions.Configure(options, connectionString));
 builder.Services.AddScoped<IAccountBindingDirectory, PostgresAccountBindingDirectory>();
@@ -101,6 +102,7 @@ builder.Services
 builder.Services.AddAuthorization();
 builder.Services.AddProblemDetails();
 builder.Services.AddHealthChecks();
+builder.Services.AddCoreApiOpenApi();
 builder.Services.AddProfileRuntimeComposition(builder.Configuration);
 
 var app = builder.Build();
@@ -109,6 +111,9 @@ app.UseExceptionHandler();
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapOpenApi("/openapi/{documentName}.json")
+    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.PublicApiDescription));
+
 app.MapGet("/api/v1/application/bootstrap", (BrandProfile brand, HttpResponse response) =>
     {
         response.Headers.ETag = $"\"{brand.Revision}\"";
@@ -116,12 +121,14 @@ app.MapGet("/api/v1/application/bootstrap", (BrandProfile brand, HttpResponse re
         return TypedResults.Ok(brand);
     })
     .WithName("GetApplicationBootstrap")
+    .WithTags("Application")
     .WithSummary("Returns the public application identity used by presentation clients.")
     .WithMetadata(new EndpointAccessMetadata(EndpointAccess.PublicApplicationBootstrap))
     .Produces<BrandProfile>();
 
 app.MapGet("/api/v1/account", AuthenticatedAccountEndpoint.GetAsync)
     .WithName("GetAuthenticatedAccount")
+    .WithTags("Account")
     .WithSummary("Resolves the validated external identity to its active application account.")
     .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthenticatedAccount))
     .RequireAuthorization()
@@ -131,6 +138,7 @@ app.MapGet("/api/v1/account", AuthenticatedAccountEndpoint.GetAsync)
 
 app.MapGet("/api/v1/account/tenants", TenantMembershipEndpoint.ListAsync)
     .WithName("ListAuthenticatedAccountTenants")
+    .WithTags("Account")
     .WithSummary("Lists current active tenant memberships for the active application account.")
     .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthenticatedTenantMemberships))
     .RequireAuthorization()

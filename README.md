@@ -39,7 +39,7 @@ production projects: 7
 test projects:       6
 executable hosts:    2
 solution/build/test contract: present
-active runtime responsibilities: public application bootstrap; JWT access-token validation; authenticated account resolution; tenant membership listing/context resolution; account/tenancy persistence; one-shot DB migration
+active runtime responsibilities: public application bootstrap; classified OpenAPI v1 description; JWT access-token validation; authenticated account resolution; tenant membership listing/context resolution; account/tenancy persistence; one-shot DB migration
 BLOCKED: none
 ```
 
@@ -85,7 +85,7 @@ Production-honest does not mean writing every mechanism from scratch. Before cus
 
 Phase 0A is the current qualified baseline. The former 0B qualification proved properties of code that has since been deliberately purged, so those claims and CI results are historical and no longer describe the repository.
 
-The current repository contract is `dotnet restore SquiFlow.slnx`, `dotnet build SquiFlow.slnx --no-restore`, and `dotnet test SquiFlow.slnx --no-build --no-restore`. No CI execution claim exists yet.
+The repository-owned verification entry point is `./eng/verify.sh`. It restores, builds in Release configuration and runs the complete test suite, including real PostgreSQL Testcontainers integration tests. `.github/workflows/verify.yml` is the thin GitHub Actions wrapper around the same command. A workflow definition is not evidence that a remote run passed; report remote CI evidence only after inspecting that run.
 
 Phase 0 and the already-concrete Phase 1 trust boundary retain architecture direction. Phase 2–10 remain direction-only `NOT_INTRODUCED` planning until real work earns detail.
 

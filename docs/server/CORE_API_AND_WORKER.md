@@ -1,11 +1,11 @@
 # Core API and Worker Architecture
 
 **Version:** v0.1.0
-**Status:** CoreApi exists for public bootstrap/liveness plus narrow authenticated-account and active-membership queries. AdminApi and Worker remain `NOT_INTRODUCED`. Responsibilities below become active contracts only when a current implementation slice earns the corresponding workload.
+**Status:** CoreApi exists for public bootstrap/liveness, a classified OpenAPI v1 document, and narrow authenticated-account and active-membership queries. AdminApi and Worker remain `NOT_INTRODUCED`. Responsibilities below become active contracts only when a current implementation slice earns the corresponding workload.
 
 ## 1. Core API
 
-`services/core-api` is the current compact ASP.NET Core composition host. Its implemented scope is public brand bootstrap/liveness, configured JWT bearer validation, exact external-identity-to-account resolution, and current active-membership listing. The Tenancy capability can establish `TenantContext` only after a current membership check. CoreApi does not yet call OpenFGA or expose tenant business operations.
+`services/core-api` is the current compact ASP.NET Core composition host. Its implemented scope is public brand bootstrap/liveness, a generated `/openapi/v1.json` contract, configured JWT bearer validation, exact external-identity-to-account resolution, and current active-membership listing. The API document uses configured public brand identity and describes the configured OpenID Connect discovery authority only on protected operations. The Tenancy capability can establish `TenantContext` only after a current membership check. CoreApi does not yet call OpenFGA or expose tenant business operations.
 
 When introduced, the compact tenant/business host owns:
 - request pipeline;

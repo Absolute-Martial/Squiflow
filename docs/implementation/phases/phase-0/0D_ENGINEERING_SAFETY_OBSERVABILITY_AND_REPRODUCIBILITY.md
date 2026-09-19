@@ -7,7 +7,7 @@
 
 ## Starting point after reset
 
-There is currently no `SquiFlow.Observability` project. The Branding/CoreApi production and test projects are the only active executable scope. Observability/library boundaries are introduced only with real consumers. CI/CD is allowed again, but no current CI execution is claimed.
+There is currently no `SquiFlow.Observability` project. Branding, IdentityAccess, Tenancy, CoreApi and DbMigrator are the active production scope. Observability/library boundaries are introduced only with real consumers. `eng/verify.sh` is the repository-owned Release restore/build/test entry point and `.github/workflows/verify.yml` is its thin GitHub wrapper. The workflow file does not itself prove that a remote CI run passed.
 
 ## Core rule
 

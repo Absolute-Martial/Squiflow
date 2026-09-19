@@ -14,11 +14,11 @@ test projects:       6
 executable hosts:    2
 solution files:      1
 repository build/test contract: present
-active runtime responsibilities: public application bootstrap; JWT access-token validation; authenticated account resolution; tenant membership listing/context resolution; account/tenancy persistence; Autofac root composition; bounded dormant profile-runtime mechanics; one-shot DB migration
+active runtime responsibilities: public application bootstrap; classified OpenAPI v1 description; JWT access-token validation; authenticated account resolution; tenant membership listing/context resolution; account/tenancy persistence; Autofac root composition; bounded dormant profile-runtime mechanics; one-shot DB migration
 BLOCKED: none
 ```
 
-The current solution contains compact host-neutral Branding, IdentityAccess and Tenancy capabilities, capability-owned PostgreSQL adapters, an ASP.NET Core CoreApi host, and a separate one-shot database migrator. CoreApi uses Autofac as its root service provider while retaining standard `IServiceCollection` registrations. Its internal profile-runtime registry proves bounded single-flight construction, operation-scoped tenant context, idle retirement, draining, disposal and metrics, but no production endpoint acquires it. `GET /api/v1/application/bootstrap` exposes bounded public white-label identity. The IdentityAccess schema durably binds one or more exact OIDC `(issuer, subject)` identities to a stable application account and deliberately stores no password, role or permission authority. `GET /api/v1/account` validates a configured HTTPS issuer, exact audience, signature and lifetime through ASP.NET Core JWT bearer authentication before returning an active bound account. `GET /api/v1/account/tenants` returns only current active tenant memberships for that account; the host-neutral resolver creates `TenantContext` only from the same current membership authority.
+The current solution contains compact host-neutral Branding, IdentityAccess and Tenancy capabilities, capability-owned PostgreSQL adapters, an ASP.NET Core CoreApi host, and a separate one-shot database migrator. CoreApi uses Autofac as its root service provider while retaining standard `IServiceCollection` registrations. Its internal profile-runtime registry proves bounded single-flight construction, operation-scoped tenant context, idle retirement, draining, disposal and metrics, but no production endpoint acquires it. `GET /api/v1/application/bootstrap` exposes bounded public white-label identity. `GET /openapi/v1.json` exposes the current executable HTTP contract using the configured public brand rather than the repository codename; its configured OpenID Connect discovery scheme is attached only to operations that require authorization. The IdentityAccess schema durably binds one or more exact OIDC `(issuer, subject)` identities to a stable application account and deliberately stores no password, role or permission authority. `GET /api/v1/account` validates a configured HTTPS issuer, exact audience, signature and lifetime through ASP.NET Core JWT bearer authentication before returning an active bound account. `GET /api/v1/account/tenants` returns only current active tenant memberships for that account; the host-neutral resolver creates `TenantContext` only from the same current membership authority.
 
 The repository does not yet contain durable Tenant Application Profile authority, production profile-specific resolution, real ZITADEL-instance evidence, login/callback/session flows, account/tenant provisioning operations, OpenFGA roles/permissions, tenant-owned business tables or RLS, devices, Worker, Web UI, Workstation or a general ApplicationKernel/module runtime. Those responsibilities remain `NOT_INTRODUCED`. A deployment must provide every `Branding` value, `Authentication:Authority`, `Authentication:Audience`, and `ConnectionStrings:PrimaryDatabase`; blank or unsafe identity, trust or database configuration fails startup.
 
@@ -32,7 +32,7 @@ Phase 0A remains the qualified reset baseline. Its enduring guarantees still gov
 
 The former Phase 0B Parties qualification is retired historical evidence. It does not describe the current tree and does not authorize recreation of its enum, projects, solution, package files, tests, or CI configuration.
 
-The deployment-wide public Branding contract, CoreApi bootstrap/liveness paths, configured JWT validation, active-account resolution, current active-membership listing, exact account/membership queries, immutable membership-derived `TenantContext`, and the one-shot PostgreSQL migrator are `PRODUCTION_HONEST` for their declared narrow scopes. Real ASP.NET pipeline tests reject missing, wrongly issued, wrong-audience, expired, incorrectly signed and incomplete identities with generic safe failures. Real PostgreSQL tests prove model/migration agreement, ordered multi-capability migration, repeat application, bounded migration locking, uniqueness, exact binding lookup, cross-account membership denial, suspension denial, account referential integrity and read-only runtime roles. Tenant-specific branding, real ZITADEL topology/flows, OpenFGA authorization, tenant-owned RLS and business capabilities are `NOT_INTRODUCED`. `BLOCKED = none`.
+The deployment-wide public Branding contract, CoreApi bootstrap/liveness paths, classified OpenAPI v1 document, configured JWT validation, active-account resolution, current active-membership listing, exact account/membership queries, immutable membership-derived `TenantContext`, and the one-shot PostgreSQL migrator are `PRODUCTION_HONEST` for their declared narrow scopes. Real ASP.NET pipeline tests prove that the API document uses configured public identity, declares the configured OpenID Connect authority, applies its security requirement only to protected operations and contains no repository codename. They also reject missing, wrongly issued, wrong-audience, expired, incorrectly signed and incomplete identities with generic safe failures. Real PostgreSQL tests prove model/migration agreement, ordered multi-capability migration, repeat application, bounded migration locking, uniqueness, exact binding lookup, cross-account membership denial, suspension denial, account referential integrity and read-only runtime roles. Tenant-specific branding, real ZITADEL topology/flows, OpenFGA authorization, tenant-owned RLS and business capabilities are `NOT_INTRODUCED`. `BLOCKED = none`.
 
 ## Active implementation rule
 
@@ -54,12 +54,10 @@ The current source-owned backend base decision and subsystem ledger are in `docs
 Repository verification is:
 
 ```bash
-dotnet restore SquiFlow.slnx
-dotnet build SquiFlow.slnx --no-restore
-dotnet test SquiFlow.slnx --no-build --no-restore
+./eng/verify.sh
 ```
 
-The current environment may require writable `NUGET_PACKAGES` and `NUGET_HTTP_CACHE_PATH` locations. No CI execution claim exists yet.
+The script restores, builds the solution in Release configuration and runs the complete test suite. Provider tests require Docker because they run PostgreSQL 17 through Testcontainers. The current environment may require writable `NUGET_PACKAGES` and `NUGET_HTTP_CACHE_PATH` locations. `.github/workflows/verify.yml` invokes the same script; no remote CI execution claim exists until its run is inspected.
 
 ## Authority
 

@@ -1,6 +1,6 @@
 # FullStackHero Backend Adoption Ledger
 
-**Reviewed:** 2026-09-17
+**Reviewed:** 2026-09-19
 
 **Upstream revision:** `3f2959e683e9f83f13e55e1678c9119f63c7e8e5`
 
@@ -21,7 +21,7 @@ Every adopted part is renamed, reduced to the active responsibility, and made su
 | API composition root | `src/Host/FSH.Starter.Api/Program.cs`, `src/BuildingBlocks/Web/Extensions.cs` | Adapt the small-host shape. Registrations and endpoints remain explicit; do not import `AddHeroPlatform` or reflection discovery. | `PRODUCTION_HONEST` for public bootstrap/liveness, authenticated account and active-membership queries. |
 | White labeling | FSH tenant-theme migrations and host metadata | Use a SquiFlow-owned typed public brand contract. Permit bounded text, theme identifiers and safe URLs; reject arbitrary HTML, script, CSS and insecure absolute URLs. | `PRODUCTION_HONEST` for deployment-wide public application identity. Tenant-specific branding and asset upload remain `NOT_INTRODUCED`. |
 | HTTP errors | `GlobalExceptionHandler.cs` and its tests | Adapt bounded RFC Problem Details mappings when the first fallible application operation exists. Do not expose exception/provider/authorization detail. | `PRODUCTION_HONEST` for generic authentication failure plus unbound/disabled account denial codes; broader application error vocabulary remains `NOT_INTRODUCED`. |
-| OpenAPI | `Web/OpenApi/Extensions.cs` and bearer transformer | Adapt after protected endpoints exist. The security scheme must describe ZITADEL OIDC and apply only to protected operations. | `NOT_INTRODUCED`. |
+| OpenAPI | `Web/OpenApi/Extensions.cs` and `BearerSecuritySchemeTransformer.cs` | Adapt the ASP.NET Core document/transformer mechanism, not the upstream global bearer policy. Use configured public branding, describe the configured OpenID Connect discovery authority and apply the requirement only to endpoint metadata that requires authorization. | `PRODUCTION_HONEST` for the current CoreApi v1 surface. Real-host tests guard public identity, codename exclusion, discovery URL and protected-versus-public operation classification. |
 | Module loading | `Web/Modules/ModuleLoader.cs` | Reject static mutable state, assembly scanning, `Activator.CreateInstance`, broad middleware hooks and automatic endpoint exposure. Compose current projects explicitly. | Rejected for the baseline. |
 | Mediator/source generator | API project references and mediator registration | Do not adopt. Use direct use-case calls until an actual fan-out or pipeline requirement proves another mechanism. | Rejected for the baseline. |
 | Identity | `Modules/Identity` JWT issuance, roles and permission handlers | Reject. ZITADEL authenticates; SquiFlow binds `(issuer, subject)`; OpenFGA plus resource/domain checks authorize. | FSH mechanism rejected. SquiFlow's configured ASP.NET bearer validation and active-account resolution are `PRODUCTION_HONEST`; real ZITADEL/login/session/provider evidence remains `NOT_INTRODUCED`. |
@@ -37,6 +37,12 @@ Every adopted part is renamed, reduced to the active responsibility, and made su
 The current `BrandProfile` is deployment-wide public bootstrap data. It contains display/legal names, bounded theme identity, safe asset links, safe legal/support links and a deterministic revision. It intentionally contains no executable content and no provider/internal configuration.
 
 The source assembly and repository remain named SquiFlow. A white-label deployment changes user-visible identity through configuration without forking namespaces, package IDs, database schema owners or security model. Tenant-specific overrides will require authoritative tenant context, persistence ownership, asset validation and fallback behavior before they are introduced.
+
+## OpenAPI adaptation boundary
+
+The inspected upstream OpenAPI extension and bearer transformer supplied the package/mechanics reference. SquiFlow retains direct ownership of the document identity and access classification. The upstream transformer applies bearer security to every operation, which would misdescribe public bootstrap and liveness routes, so that policy was not copied.
+
+The current implementation uses `Microsoft.AspNetCore.OpenApi` 10.0.8 and pins its `Microsoft.OpenApi` 2.9.0 graph. `CoreApiOpenApi`, `ApiIdentityDocumentTransformer` and `ProtectedOperationSecurityTransformer` are the admitted SquiFlow-owned surface. `OpenApiContractTests` exercises the generated document through the real ASP.NET host. Requalify when the OpenAPI package changes major version, authentication scheme changes, another public contract version is added, endpoint access metadata changes, or a second API host needs a document.
 
 ## Database governance before implementation
 
