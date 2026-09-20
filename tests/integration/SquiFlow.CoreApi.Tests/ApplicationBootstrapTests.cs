@@ -62,6 +62,17 @@ public sealed class ApplicationBootstrapTests : IClassFixture<WhiteLabelApiFacto
         Assert.Equal("displayName", exception.ParamName);
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData(-1)]
+    [InlineData(86401)]
+    public void InvalidBootstrapCachePolicyFailsConfiguration(int? seconds)
+    {
+        var configuration = new BrandingConfiguration { CacheMaxAgeSeconds = seconds };
+
+        Assert.Throws<InvalidOperationException>(() => configuration.GetCacheMaxAgeSeconds());
+    }
+
     [Fact]
     public void CheckedInRuntimeConfigurationContainsNoDevelopmentCodename()
     {
@@ -144,6 +155,7 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
     {
         builder.UseSetting("Authentication:Authority", Authority);
         builder.UseSetting("Authentication:Audience", Audience);
+        builder.UseSetting("AllowedHosts", "localhost");
         builder.UseSetting("ConnectionStrings:PrimaryDatabase", "Host=unused.example.test;Database=application");
         builder.UseSetting("Branding:DisplayName", "Example Operations");
         builder.UseSetting("Branding:ShortName", "Example");

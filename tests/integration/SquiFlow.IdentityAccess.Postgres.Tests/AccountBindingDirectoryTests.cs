@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
-using SquiFlow.DbMigrator;
 using Xunit;
 
 namespace SquiFlow.IdentityAccess.Postgres.Tests;
@@ -10,7 +9,7 @@ public sealed class AccountBindingDirectoryTests : PostgresTestDatabase
     [Fact]
     public async Task ExactExternalIdentityResolvesOneStableAccount()
     {
-        var runner = new MigrationRunner(ConnectionString);
+        var runner = CreateMigrationRunner();
         await runner.ApplyAsync(TimeSpan.FromSeconds(10), CancellationToken.None);
 
         var accountId = Guid.CreateVersion7();
@@ -71,7 +70,7 @@ public sealed class AccountBindingDirectoryTests : PostgresTestDatabase
     [Fact]
     public async Task DatabaseRejectsTwoAccountsForTheSameExternalIdentity()
     {
-        var runner = new MigrationRunner(ConnectionString);
+        var runner = CreateMigrationRunner();
         await runner.ApplyAsync(TimeSpan.FromSeconds(10), CancellationToken.None);
 
         var createdAt = new DateTimeOffset(2026, 9, 17, 12, 0, 0, TimeSpan.Zero);

@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
-using SquiFlow.DbMigrator;
 using Xunit;
 
 namespace SquiFlow.Tenancy.Postgres.Tests;
@@ -10,7 +9,7 @@ public sealed class TenantMembershipDirectoryTests : PostgresTestDatabase
     [Fact]
     public async Task DirectoryReturnsOnlyCurrentActiveMembershipsWithoutCrossAccountLeakage()
     {
-        await new MigrationRunner(ConnectionString)
+        await CreateMigrationRunner()
             .ApplyAsync(TimeSpan.FromSeconds(10), CancellationToken.None);
 
         var accountId = Guid.NewGuid();
@@ -64,7 +63,7 @@ public sealed class TenantMembershipDirectoryTests : PostgresTestDatabase
     [Fact]
     public async Task MembershipRequiresAnExistingSquiFlowAccount()
     {
-        await new MigrationRunner(ConnectionString)
+        await CreateMigrationRunner()
             .ApplyAsync(TimeSpan.FromSeconds(10), CancellationToken.None);
 
         var createdAt = new DateTimeOffset(2026, 9, 17, 12, 0, 0, TimeSpan.Zero);
@@ -92,7 +91,7 @@ public sealed class TenantMembershipDirectoryTests : PostgresTestDatabase
     [Fact]
     public async Task TenancyModelMatchesItsAppliedMigration()
     {
-        await new MigrationRunner(ConnectionString)
+        await CreateMigrationRunner()
             .ApplyAsync(TimeSpan.FromSeconds(10), CancellationToken.None);
 
         await using var database = CreateContext();

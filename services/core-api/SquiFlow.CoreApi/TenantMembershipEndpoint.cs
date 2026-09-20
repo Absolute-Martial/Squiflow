@@ -4,7 +4,7 @@ using SquiFlow.Tenancy;
 
 namespace SquiFlow.CoreApi;
 
-public static class TenantMembershipEndpoint
+internal static class TenantMembershipEndpoint
 {
     public static async Task<IResult> ListAsync(
         ClaimsPrincipal principal,
@@ -35,4 +35,4 @@ public static class TenantMembershipEndpoint
     }
 }
 
-public sealed record TenantMembershipResponse(Guid TenantId, string DisplayName);
+internal sealed record TenantMembershipResponse(Guid TenantId, string DisplayName);

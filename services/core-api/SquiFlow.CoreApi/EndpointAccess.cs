@@ -1,6 +1,6 @@
 namespace SquiFlow.CoreApi;
 
-public enum EndpointAccess
+internal enum EndpointAccess
 {
     PublicApplicationBootstrap,
     PublicApiDescription,
@@ -9,4 +9,4 @@ public enum EndpointAccess
     AuthenticatedTenantMemberships,
 }
 
-public sealed record EndpointAccessMetadata(EndpointAccess Access);
+internal sealed record EndpointAccessMetadata(EndpointAccess Access);

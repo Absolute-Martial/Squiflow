@@ -3,7 +3,7 @@ using SquiFlow.IdentityAccess;
 
 namespace SquiFlow.CoreApi;
 
-public static class AuthenticatedAccountEndpoint
+internal static class AuthenticatedAccountEndpoint
 {
     public static async Task<IResult> GetAsync(
         ClaimsPrincipal principal,
@@ -25,4 +25,4 @@ public static class AuthenticatedAccountEndpoint
     }
 }
 
-public sealed record AuthenticatedAccountResponse(Guid AccountId);
+internal sealed record AuthenticatedAccountResponse(Guid AccountId);

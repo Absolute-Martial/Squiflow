@@ -18,7 +18,6 @@ public static class PostgresTenancyOptions
         {
             postgres.MigrationsHistoryTable(MigrationHistoryTable);
             postgres.MigrationsAssembly(typeof(TenancyDbContext).Assembly.FullName);
-            postgres.EnableRetryOnFailure(maxRetryCount: 3);
         });
     }
 
@@ -33,7 +32,6 @@ public static class PostgresTenancyOptions
         {
             postgres.MigrationsHistoryTable(MigrationHistoryTable);
             postgres.MigrationsAssembly(typeof(TenancyDbContext).Assembly.FullName);
-            postgres.EnableRetryOnFailure(maxRetryCount: 3);
         });
     }
 }

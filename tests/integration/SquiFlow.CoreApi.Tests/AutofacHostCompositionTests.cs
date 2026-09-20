@@ -61,6 +61,7 @@ public sealed class AutofacHostCompositionTests : IClassFixture<WhiteLabelApiFac
                 builder.UseSetting(
                     "ConnectionStrings:PrimaryDatabase",
                     "Host=unused.example.test;Database=application");
+                builder.UseSetting("AllowedHosts", "localhost");
                 builder.UseSetting("Branding:DisplayName", "Example Operations");
                 builder.UseSetting("Branding:ShortName", "Example");
                 builder.UseSetting("Branding:LegalName", "Example Company Ltd.");

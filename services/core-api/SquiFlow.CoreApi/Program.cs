@@ -22,8 +22,11 @@ var brandingConfiguration = builder.Configuration
     ?? throw new InvalidOperationException("The Branding configuration section is required.");
 var authenticationConfiguration = OidcAuthenticationConfiguration.From(builder.Configuration);
 var databaseConfiguration = RuntimeDatabaseConfiguration.From(builder.Configuration);
+RequestHostConfiguration.Validate(builder.Configuration);
+var brandProfile = brandingConfiguration.ToProfile();
+var bootstrapCacheMaxAgeSeconds = brandingConfiguration.GetCacheMaxAgeSeconds();
 
-builder.Services.AddSingleton(brandingConfiguration.ToProfile());
+builder.Services.AddSingleton(brandProfile);
 builder.Services.AddSingleton(authenticationConfiguration);
 builder.Services.AddSingleton(databaseConfiguration);
 builder.Services.AddSingleton<NpgsqlDataSource>(serviceProvider =>
@@ -51,7 +54,7 @@ builder.Services
         options.MapInboundClaims = false;
         options.SaveToken = false;
         options.IncludeErrorDetails = false;
-        options.BackchannelTimeout = TimeSpan.FromSeconds(10);
+        options.BackchannelTimeout = authenticationConfiguration.BackchannelTimeout;
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidIssuer = authenticationConfiguration.Authority,
@@ -62,7 +65,7 @@ builder.Services
             ValidateLifetime = true,
             RequireExpirationTime = true,
             RequireSignedTokens = true,
-            ClockSkew = TimeSpan.FromMinutes(1),
+            ClockSkew = authenticationConfiguration.ClockSkew,
             NameClaimType = "sub",
         };
         options.Events = new JwtBearerEvents
@@ -125,7 +128,7 @@ app.MapOpenApi("/openapi/{documentName}.json")
 app.MapGet("/api/v1/application/bootstrap", (BrandProfile brand, HttpResponse response) =>
     {
         response.Headers.ETag = $"\"{brand.Revision}\"";
-        response.Headers.CacheControl = "public,max-age=300";
+        response.Headers.CacheControl = $"public,max-age={bootstrapCacheMaxAgeSeconds}";
         return TypedResults.Ok(brand);
     })
     .WithName("GetApplicationBootstrap")

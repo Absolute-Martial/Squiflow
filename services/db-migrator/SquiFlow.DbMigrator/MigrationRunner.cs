@@ -6,9 +6,27 @@ using SquiFlow.Tenancy.Postgres;
 
 namespace SquiFlow.DbMigrator;
 
-public sealed class MigrationRunner(string connectionString)
+internal sealed class MigrationRunner
 {
-    private const long AdvisoryLockKey = 0x53515549464C4F57;
+    internal static readonly TimeSpan MaximumLockTimeout = TimeSpan.FromMinutes(5);
+
+    private static readonly TimeSpan LockPollInterval = TimeSpan.FromMilliseconds(250);
+    private readonly string _connectionString;
+    private readonly long _advisoryLockKey;
+
+    public MigrationRunner(string connectionString, long advisoryLockKey)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
+        if (advisoryLockKey == 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(advisoryLockKey),
+                "The deployment-specific migration advisory-lock key cannot be zero.");
+        }
+
+        _connectionString = connectionString;
+        _advisoryLockKey = advisoryLockKey;
+    }
 
     public async Task<IReadOnlyList<string>> ListPendingAsync(CancellationToken cancellationToken)
     {
@@ -28,7 +46,7 @@ public sealed class MigrationRunner(string connectionString)
 
     public async Task ApplyAsync(TimeSpan lockTimeout, CancellationToken cancellationToken)
     {
-        if (lockTimeout <= TimeSpan.Zero || lockTimeout > TimeSpan.FromMinutes(5))
+        if (lockTimeout <= TimeSpan.Zero || lockTimeout > MaximumLockTimeout)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(lockTimeout),
@@ -39,7 +57,12 @@ public sealed class MigrationRunner(string connectionString)
         await identityDatabase.Database.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         var connection = identityDatabase.Database.GetDbConnection();
 
-        await AcquireLockAsync(connection, lockTimeout, cancellationToken).ConfigureAwait(false);
+        await AcquireLockAsync(
+                connection,
+                _advisoryLockKey,
+                lockTimeout,
+                cancellationToken)
+            .ConfigureAwait(false);
         try
         {
             await identityDatabase.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
@@ -48,26 +71,27 @@ public sealed class MigrationRunner(string connectionString)
         }
         finally
         {
-            await ReleaseLockBestEffortAsync(connection).ConfigureAwait(false);
+            await ReleaseLockBestEffortAsync(connection, _advisoryLockKey).ConfigureAwait(false);
         }
     }
 
     private IdentityAccessDbContext CreateIdentityDatabase()
     {
         var builder = new DbContextOptionsBuilder<IdentityAccessDbContext>();
-        PostgresIdentityAccessOptions.Configure(builder, connectionString);
+        PostgresIdentityAccessOptions.Configure(builder, _connectionString);
         return new IdentityAccessDbContext(builder.Options);
     }
 
     private TenancyDbContext CreateTenancyDatabase()
     {
         var builder = new DbContextOptionsBuilder<TenancyDbContext>();
-        PostgresTenancyOptions.Configure(builder, connectionString);
+        PostgresTenancyOptions.Configure(builder, _connectionString);
         return new TenancyDbContext(builder.Options);
     }
 
     private static async Task AcquireLockAsync(
         DbConnection connection,
+        long advisoryLockKey,
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
@@ -78,7 +102,7 @@ public sealed class MigrationRunner(string connectionString)
             command.CommandText = "SELECT pg_try_advisory_lock(@key)";
             var key = command.CreateParameter();
             key.ParameterName = "key";
-            key.Value = AdvisoryLockKey;
+            key.Value = advisoryLockKey;
             command.Parameters.Add(key);
 
             if (await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) is true)
@@ -87,16 +111,18 @@ public sealed class MigrationRunner(string connectionString)
             }
 
             var remaining = timeout - elapsed.Elapsed;
-            var delay = remaining < TimeSpan.FromMilliseconds(250)
+            var delay = remaining < LockPollInterval
                 ? remaining
-                : TimeSpan.FromMilliseconds(250);
+                : LockPollInterval;
             await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
         }
 
         throw new MigrationLockUnavailableException(timeout);
     }
 
-    private static async Task ReleaseLockBestEffortAsync(DbConnection connection)
+    private static async Task ReleaseLockBestEffortAsync(
+        DbConnection connection,
+        long advisoryLockKey)
     {
         try
         {
@@ -105,7 +131,7 @@ public sealed class MigrationRunner(string connectionString)
             command.CommandText = "SELECT pg_advisory_unlock(@key)";
             var key = command.CreateParameter();
             key.ParameterName = "key";
-            key.Value = AdvisoryLockKey;
+            key.Value = advisoryLockKey;
             command.Parameters.Add(key);
             await command.ExecuteScalarAsync(CancellationToken.None).ConfigureAwait(false);
         }

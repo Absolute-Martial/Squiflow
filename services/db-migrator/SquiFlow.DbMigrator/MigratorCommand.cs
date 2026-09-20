@@ -13,18 +13,20 @@ internal static class MigratorCommand
         Application database migrator
 
         Usage:
-          SquiFlow.DbMigrator apply
-          SquiFlow.DbMigrator list-pending
+          <database-migrator> apply
+          <database-migrator> list-pending
 
         Configuration:
           ConnectionStrings__PrimaryDatabase  required elevated-DDL PostgreSQL connection
-          Migration__LockTimeoutSeconds     optional, 1-300 seconds (default 30)
+          Migration__AdvisoryLockKey          required nonzero signed 64-bit deployment lock key
+          Migration__LockTimeoutSeconds       required, 1-300 seconds
 
         Exit codes:
           0  success
           1  migration/database failure
           2  invalid command or configuration
           3  another migrator held the advisory lock past the configured timeout
+          130 cancelled by operator
         """;
 
     public static MigratorVerb Parse(string[] args)

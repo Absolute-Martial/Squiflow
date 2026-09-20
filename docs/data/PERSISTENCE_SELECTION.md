@@ -154,6 +154,8 @@ Concurrency control is selected per invariant rather than globally:
 
 When a provider reports a genuinely retryable deadlock/serialization conflict, retry the **whole transaction**, not an arbitrary fragment, with a bounded budget under the command's existing semantic-idempotency contract. Observe lock wait/deadlock/abort evidence during normal and reconnect/import burst tests.
 
+The current provider adapters do not enable automatic EF/Npgsql execution retries. A provider-wide retry count would not own the operation's idempotency or ambiguous-commit semantics. Introduce retries only through the first concrete query/command/transaction whose classified failure contract can prove them safe and observable.
+
 ### Compatible schema evolution
 
 Database evolution must account for more than the currently deployed server binary. Supported old/new backend instances, skipped Workstations, pending local sync, durable jobs/messages, stored idempotency results, and rule/workflow/form snapshots may coexist.

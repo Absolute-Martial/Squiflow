@@ -8,12 +8,10 @@ namespace SquiFlow.IdentityAccess.Postgres.Tests;
 
 public sealed class MigrationLifecycleTests : PostgresTestDatabase
 {
-    private const long AdvisoryLockKey = 0x53515549464C4F57;
-
     [Fact]
     public async Task MigratorListsAppliesAndRepeatsOwnedMigrations()
     {
-        var runner = new MigrationRunner(ConnectionString);
+        var runner = CreateMigrationRunner();
 
         var before = await runner.ListPendingAsync(CancellationToken.None);
         Assert.Contains("identity-access/202609170001_InitialAccountBindings", before);
@@ -39,11 +37,11 @@ public sealed class MigrationLifecycleTests : PostgresTestDatabase
         await using (var acquire = lockConnection.CreateCommand())
         {
             acquire.CommandText = "SELECT pg_advisory_lock(@key)";
-            acquire.Parameters.AddWithValue("key", AdvisoryLockKey);
+            acquire.Parameters.AddWithValue("key", MigrationAdvisoryLockKey);
             await acquire.ExecuteScalarAsync(CancellationToken.None);
         }
 
-        var runner = new MigrationRunner(ConnectionString);
+        var runner = CreateMigrationRunner();
         var elapsed = Stopwatch.StartNew();
         await Assert.ThrowsAsync<MigrationLockUnavailableException>(() =>
             runner.ApplyAsync(TimeSpan.FromMilliseconds(300), CancellationToken.None));

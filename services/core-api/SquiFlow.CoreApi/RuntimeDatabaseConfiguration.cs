@@ -62,6 +62,18 @@ internal sealed class RuntimeDatabaseConfiguration
                 "ConnectionStrings:PrimaryDatabase cannot enable unqualified Npgsql multiplexing.");
         }
 
+        if (source.LogParameters || source.IncludeErrorDetail || source.IncludeFailedBatchedCommand)
+        {
+            throw new InvalidOperationException(
+                "ConnectionStrings:PrimaryDatabase cannot enable diagnostics that may disclose SQL parameters, failed commands, or provider error details.");
+        }
+
+        if (source.PersistSecurityInfo)
+        {
+            throw new InvalidOperationException(
+                "ConnectionStrings:PrimaryDatabase cannot retain security-sensitive connection information after use.");
+        }
+
         var section = configuration.GetRequiredSection(SectionName);
         var connectionMode = section["ConnectionMode"];
         if (!string.Equals(connectionMode, DirectConnectionMode, StringComparison.Ordinal))
@@ -117,6 +129,10 @@ internal sealed class RuntimeDatabaseConfiguration
             ConnectionLifetime = ConnectionLifetimeSeconds,
             NoResetOnClose = false,
             Multiplexing = false,
+            LogParameters = false,
+            IncludeErrorDetail = false,
+            IncludeFailedBatchedCommand = false,
+            PersistSecurityInfo = false,
         };
         var builder = new NpgsqlDataSourceBuilder(connection.ConnectionString)
         {

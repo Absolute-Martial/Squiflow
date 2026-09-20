@@ -1,6 +1,10 @@
 namespace SquiFlow.CoreApi;
 
-public sealed record OidcAuthenticationConfiguration(string Authority, string Audience)
+internal sealed record OidcAuthenticationConfiguration(
+    string Authority,
+    string Audience,
+    TimeSpan BackchannelTimeout,
+    TimeSpan ClockSkew)
 {
     public const string SectionName = "Authentication";
 
@@ -35,6 +39,36 @@ public sealed record OidcAuthenticationConfiguration(string Authority, string Au
                 $"{SectionName}:Audience must be a nonblank exact value no longer than 255 characters.");
         }
 
-        return new OidcAuthenticationConfiguration(authority, audience);
+        var backchannelTimeoutSeconds = ReadSeconds(
+            section,
+            "BackchannelTimeoutSeconds",
+            minimum: 1,
+            maximum: 120);
+        var clockSkewSeconds = ReadSeconds(
+            section,
+            "ClockSkewSeconds",
+            minimum: 0,
+            maximum: 300);
+
+        return new OidcAuthenticationConfiguration(
+            authority,
+            audience,
+            TimeSpan.FromSeconds(backchannelTimeoutSeconds),
+            TimeSpan.FromSeconds(clockSkewSeconds));
+    }
+
+    private static int ReadSeconds(
+        IConfigurationSection section,
+        string name,
+        int minimum,
+        int maximum)
+    {
+        if (!int.TryParse(section[name], out var value) || value < minimum || value > maximum)
+        {
+            throw new InvalidOperationException(
+                $"{SectionName}:{name} must be an integer between {minimum} and {maximum} seconds.");
+        }
+
+        return value;
     }
 }

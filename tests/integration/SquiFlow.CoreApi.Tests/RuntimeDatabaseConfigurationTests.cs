@@ -38,6 +38,8 @@ public sealed class RuntimeDatabaseConfigurationTests
         Assert.False(effective.Multiplexing);
         Assert.False(effective.LogParameters);
         Assert.False(effective.IncludeErrorDetail);
+        Assert.False(effective.IncludeFailedBatchedCommand);
+        Assert.False(effective.PersistSecurityInfo);
         Assert.DoesNotContain("secret", validated.ToString(), StringComparison.Ordinal);
     }
 
@@ -45,6 +47,10 @@ public sealed class RuntimeDatabaseConfigurationTests
     [InlineData("Pooling=false", "must enable Npgsql pooling")]
     [InlineData("No Reset On Close=true", "cannot disable pooled-connection state reset")]
     [InlineData("Multiplexing=true", "cannot enable unqualified Npgsql multiplexing")]
+    [InlineData("Log Parameters=true", "cannot enable diagnostics")]
+    [InlineData("Include Error Detail=true", "cannot enable diagnostics")]
+    [InlineData("Include Failed Batched Command=true", "cannot enable diagnostics")]
+    [InlineData("Persist Security Info=true", "cannot retain security-sensitive")]
     public void UnsafeOrUnqualifiedDriverModesFailConfiguration(
         string connectionOption,
         string expectedMessage)

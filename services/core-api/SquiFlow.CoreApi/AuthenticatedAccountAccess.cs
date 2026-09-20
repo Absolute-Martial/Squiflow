@@ -4,7 +4,7 @@ using SquiFlow.IdentityAccess;
 
 namespace SquiFlow.CoreApi;
 
-public static class AuthenticatedAccountAccess
+internal static class AuthenticatedAccountAccess
 {
     public static async Task<AuthenticatedAccountAccessResult> ResolveAsync(
         ClaimsPrincipal principal,
@@ -53,7 +53,7 @@ public static class AuthenticatedAccountAccess
             extensions: new Dictionary<string, object?> { ["code"] = code });
 }
 
-public sealed record AuthenticatedAccountAccessResult(
+internal sealed record AuthenticatedAccountAccessResult(
     AccountBinding? Account,
     ProblemHttpResult? Failure)
 {
