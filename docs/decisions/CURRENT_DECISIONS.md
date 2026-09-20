@@ -179,7 +179,7 @@ This file records accepted direction only. Detailed reasoning and supersession h
 - Retry is finite, classified, budgeted, and uses backoff/jitter/`Retry-After` where appropriate.
 - Long-running/resource-heavy work uses durable asynchronous status only when appropriate; ordinary short transactions remain synchronous.
 - Conflict handling is aggregate-specific; no global last-write-wins policy.
-- Large collection APIs are paginated/bounded. Connection pools are bounded/measured and must not leak tenant DB context.
+- Large collection APIs are paginated/bounded. CoreApi currently shares one explicitly bounded, resetting Npgsql data-source pool across its capability DbContexts. External PostgreSQL middleware is not introduced; when aggregate connection evidence earns it, PgBouncer and PgDoorman are compared against the same Npgsql/EF/RLS/failure proof. Connection reuse must not leak tenant DB context.
 - Caching, compression and async telemetry are selective performance techniques, not correctness mechanisms.
 - Rate/admission limiting is multi-dimensional where needed and remains separate from authorization/durable quota accounting.
 - Internal modular-monolith communication is in-process by default. Do not create HTTP/gRPC between ordinary modules to imitate microservices.

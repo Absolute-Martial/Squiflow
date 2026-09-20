@@ -237,6 +237,16 @@ Connection pooling is an efficiency technique, not permission for unbounded conn
 
 Do not size pools/caches from available RAM alone.
 
+### Current runtime connection ownership
+
+CoreApi owns one process-wide named `NpgsqlDataSource`. Its IdentityAccess and Tenancy DbContexts share that data source and its one bounded driver pool. The current checked-in maximum is 20 connections per CoreApi process and remains an adjustable starting bound pending representative rack measurement. Startup rejects disabled direct pooling, disabled pooled-state reset, unqualified Npgsql multiplexing, and every external-pooler connection mode.
+
+DbMigrator remains a separate one-shot process with a separate elevated connection and lifecycle. Runtime pool configuration does not grant migration authority and the migrator must not be sent through a transaction-pooling endpoint.
+
+External PostgreSQL middleware is `NOT_INTRODUCED`. Add it only when measured aggregate process pools, backend cost, or reconnect behavior exceed the accepted PostgreSQL envelope. The first proof compares PgBouncer and PgDoorman under the same Npgsql/EF/RLS/failure workload. Transaction pooling requires explicit transactions and transaction-local `SET LOCAL` tenant context; every session-dependent feature, migration path, prepared-statement behavior, reset path, retry ambiguity, health signal and rollout/rollback obligation must pass before admission.
+
+PgCat/PgDog sharding or read routing and Pgpool-II HA/failover are separate topology decisions, not automatic pooling improvements. Detailed comparison and qualification evidence: `docs/review/POSTGRES_CONNECTION_MIDDLEWARE_ADMISSION_RESEARCH.md`.
+
 ## 11. Future dedicated tenant placement
 
 Application/business code should not assume a physical DB filename/connection belongs permanently to every tenant, but do not implement per-tenant DB routing/pools before a real residency/compliance/SLO customer requires them.

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Npgsql;
 using System.Text.Json;
 using SquiFlow.Branding;
 using SquiFlow.CoreApi;
@@ -20,17 +21,24 @@ var brandingConfiguration = builder.Configuration
     .Get<BrandingConfiguration>()
     ?? throw new InvalidOperationException("The Branding configuration section is required.");
 var authenticationConfiguration = OidcAuthenticationConfiguration.From(builder.Configuration);
-var connectionString = builder.Configuration.GetConnectionString("PrimaryDatabase");
-ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
+var databaseConfiguration = RuntimeDatabaseConfiguration.From(builder.Configuration);
 
 builder.Services.AddSingleton(brandingConfiguration.ToProfile());
 builder.Services.AddSingleton(authenticationConfiguration);
-builder.Services.AddDbContext<IdentityAccessDbContext>(options =>
-    PostgresIdentityAccessOptions.Configure(options, connectionString));
+builder.Services.AddSingleton(databaseConfiguration);
+builder.Services.AddSingleton<NpgsqlDataSource>(serviceProvider =>
+    databaseConfiguration.CreateDataSource(
+        serviceProvider.GetRequiredService<ILoggerFactory>()));
+builder.Services.AddDbContext<IdentityAccessDbContext>((serviceProvider, options) =>
+    PostgresIdentityAccessOptions.Configure(
+        options,
+        serviceProvider.GetRequiredService<NpgsqlDataSource>()));
 builder.Services.AddScoped<IAccountBindingDirectory, PostgresAccountBindingDirectory>();
 builder.Services.AddScoped<ResolveAccountBinding>();
-builder.Services.AddDbContext<TenancyDbContext>(options =>
-    PostgresTenancyOptions.Configure(options, connectionString));
+builder.Services.AddDbContext<TenancyDbContext>((serviceProvider, options) =>
+    PostgresTenancyOptions.Configure(
+        options,
+        serviceProvider.GetRequiredService<NpgsqlDataSource>()));
 builder.Services.AddScoped<ITenantMembershipDirectory, PostgresTenantMembershipDirectory>();
 builder.Services.AddScoped<ResolveTenantContext>();
 builder.Services

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 using SquiFlow.IdentityAccess;
 using SquiFlow.IdentityAccess.Postgres;
 using SquiFlow.Tenancy;
@@ -72,6 +73,10 @@ public sealed class AutofacHostCompositionTests : IClassFixture<WhiteLabelApiFac
             });
 
         var firstScope = application.Services.CreateScope();
+        var rootDataSource = application.Services.GetRequiredService<NpgsqlDataSource>();
+        Assert.Same(
+            rootDataSource,
+            firstScope.ServiceProvider.GetRequiredService<NpgsqlDataSource>());
         var firstIdentity = firstScope.ServiceProvider
             .GetRequiredService<IdentityAccessDbContext>();
         var firstTenancy = firstScope.ServiceProvider
