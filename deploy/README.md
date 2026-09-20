@@ -6,8 +6,8 @@ This directory records deployment/reproducibility direction. It must not imply t
 
 ## Current executable inventory
 
-- `SquiFlow.CoreApi` — public application bootstrap/liveness, generated OpenAPI v1 contract, configured JWT validation, authenticated account resolution and active tenant-membership listing.
-- `SquiFlow.DbMigrator` — one-shot ordered IdentityAccess/Tenancy PostgreSQL migration with bounded advisory-lock coordination.
+- `Application.CoreApi` — public application bootstrap/liveness, generated OpenAPI v1 contract, configured JWT validation, authenticated account resolution and active tenant-membership listing.
+- `Application.DatabaseMigrator` — one-shot ordered IdentityAccess/Tenancy PostgreSQL migration with bounded advisory-lock coordination.
 
 CoreApi fails startup until deployment supplies exact public branding, OIDC trust, non-wildcard-all `AllowedHosts` and the runtime PostgreSQL connection. Checked-in configuration exposes bounded OIDC timing, public-bootstrap cache and database/profile-runtime resource policies; deployment qualification must review and override them where measured needs differ. DbMigrator separately requires `ConnectionStrings__PrimaryDatabase`, a deployment-specific nonzero `Migration__AdvisoryLockKey`, and `Migration__LockTimeoutSeconds` from 1 through 300. Do not reuse a lock key from a different application migration boundary sharing the same PostgreSQL cluster.
 

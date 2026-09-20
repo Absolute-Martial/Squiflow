@@ -22,7 +22,7 @@ Avalonia                    Blazor
 local-first UX              online UX
           |                   |
           v                   v
-SquiFlow.Workstation        SquiFlow.Web
+Application.Workstation        Application.Web
 ```
 
 The Workstation is not a container for every business feature file, and a business module is not forced to contain Avalonia and Blazor presentation in the same project.
@@ -34,12 +34,12 @@ Host-specific presentation projects are created only when an implemented slice n
 The intended shape is:
 
 ```text
-SquiFlow.sln
+Application.sln
 
 apps/
   desktop/
     workstation/
-      SquiFlow.Workstation/
+      Application.Workstation/
         App.axaml
         Program.cs
         Shell/
@@ -49,31 +49,31 @@ apps/
         Themes/
         Platform/
     guard/
-      SquiFlow.Guard/
+      Application.Guard/
 
   web/
-    SquiFlow.Web/
+    Application.Web/
 
 services/
   core-api/
-    SquiFlow.CoreApi/
+    Application.CoreApi/
 
 foundation/
   application-kernel/
-    SquiFlow.ApplicationKernel/
+    Application.ApplicationKernel/
 
 modules/
   orders/
-    SquiFlow.Orders/                 # shared domain/application/contracts as compact as the slice permits
+    Application.Orders/                 # shared domain/application/contracts as compact as the slice permits
 
-    SquiFlow.Orders.Workstation/     # create only when desktop Orders UI exists
+    Application.Orders.Workstation/     # create only when desktop Orders UI exists
       Views/
       ViewModels/
       Navigation/
       Commands/
       OrdersWorkstationContribution.cs
 
-    SquiFlow.Orders.Web/             # create only when Web Orders UI exists
+    Application.Orders.Web/             # create only when Web Orders UI exists
       Components/
       Pages/
       OrdersWebContribution.cs
@@ -88,7 +88,7 @@ This is a dependency direction, not an instruction to scaffold empty projects. A
 
 ## 3. Workstation host ownership
 
-`SquiFlow.Workstation` owns desktop-host concerns that should not be repeated inside every module:
+`Application.Workstation` owns desktop-host concerns that should not be repeated inside every module:
 
 - Avalonia application lifetime and composition root;
 - main shell/window behavior;

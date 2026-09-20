@@ -23,7 +23,7 @@ The current solution contains compact host-neutral ApplicationProfiles, Branding
 
 The repository does not yet contain a production feature catalog, durable Tenant Application Profile authority, production profile-specific resolution, real ZITADEL-instance evidence, login/callback/session flows, account/tenant provisioning operations, OpenFGA roles/permissions, tenant-owned business tables or RLS, an external PostgreSQL pooler, devices, Worker, Web UI, Workstation or a general ApplicationKernel/module runtime. Those responsibilities remain `NOT_INTRODUCED`. A deployment must provide the public Branding values, Authentication authority/audience, exact `AllowedHosts` and primary database connection; checked-in configuration exposes bounded authentication timing, bootstrap cache and database/profile-runtime resource policies for deliberate deployment review and override. Blank, permissive or unsafe configuration fails startup. DbMigrator additionally requires a deployment-specific nonzero advisory-lock key and explicit bounded lock timeout.
 
-The ignored `reference-sources/snapshots/` research workspace may contain upstream `.csproj`, source and test files at pinned revisions. Those files are external evidence only: they are not SquiFlow projects, are not referenced by product code, and are excluded from this implementation inventory.
+The ignored `reference-sources/snapshots/` research workspace may contain upstream `.csproj`, source and test files at pinned revisions. Those files are external evidence only: they are not application projects, are not referenced by product code, and are excluded from this implementation inventory.
 
 The deleted `PartyKind` slice and its executable scaffolding were purged on 2026-09-17. The decision and exact removed inventory are recorded in `docs/decisions/CURRENT_IMPLEMENTATION_PURGE_2026-09-17.md`.
 
@@ -41,10 +41,10 @@ The next slice starts from a useful application responsibility, not a phase labe
 
 1. use a focused maintained package;
 2. adapt bounded source when its license permits the intended use and distribution;
-3. reuse tests, failure cases, or algorithms while retaining SquiFlow ownership; or
+3. reuse tests, failure cases, or algorithms while retaining repository ownership; or
 4. keep the source as reference with a concrete rejection reason.
 
-For any selected source, record its immutable revision, exact inspected types/tests, license, entry mode, framework assumptions, SquiFlow-owned authority, known gaps, exit path, and SquiFlow-owned evidence.
+For any selected source, record its immutable revision, exact inspected types/tests, license, entry mode, framework assumptions, repository-owned authority, known gaps, exit path, and repository-owned evidence.
 
 License is not an exclusion filter for internal research. Research access does not itself authorize copying, dependency adoption or distribution; those decisions record and satisfy the applicable obligations when they occur.
 

@@ -4,7 +4,7 @@ These rules apply below `modules/` in addition to the root instructions.
 
 ## Current capability truth
 
-The current capability projects are `SquiFlow.ApplicationProfiles`, `SquiFlow.Branding`, `SquiFlow.IdentityAccess`, `SquiFlow.Tenancy`, and the earned provider-isolated IdentityAccess/Tenancy PostgreSQL adapters. ApplicationProfiles owns bounded feature definitions, catalog graph validation and deterministic effective-selection compilation; it owns no production feature catalog, durable tenant profile authority, activation, authorization or Autofac integration. Branding owns bounded public deployment identity. IdentityAccess owns stable external `(issuer, subject)` account binding. Tenancy owns the tenant registry, current account membership query and membership-derived `TenantContext`; it owns no OpenFGA role/permission model or tenant-owned business data. The former `SquiFlow.Parties` enum-only slice remains purged.
+The current capability projects are `Application.Profiles`, `Application.Branding`, `Application.IdentityAccess`, `Application.Tenancy`, and the earned provider-isolated IdentityAccess/Tenancy PostgreSQL adapters. ApplicationProfiles owns bounded feature definitions, catalog graph validation and deterministic effective-selection compilation; it owns no production feature catalog, durable tenant profile authority, activation, authorization or Autofac integration. Branding owns bounded public deployment identity. IdentityAccess owns stable external `(issuer, subject)` account binding. Tenancy owns the tenant registry, current account membership query and membership-derived `TenantContext`; it owns no OpenFGA role/permission model or tenant-owned business data. The former `Application.Parties` enum-only slice remains purged.
 
 The next module starts from a useful capability journey and the source-admission rule in `docs/review/APPLICATION_BASELINE_IMPLEMENTATION_SOURCE_REVIEW.md`. Do not harden discovery-sensitive `Customer / Party / Account / Commercial Relationship` distinctions or choose an internal-ID encoding until the active journey and accepted owner require them.
 
@@ -32,7 +32,7 @@ Prefer one compact host-neutral capability project first. Split it into `Core`, 
 
 ## Business code rules
 
-- Use domain language from SquiFlow product/domain docs.
+- Use domain language from the repository's product/domain docs.
 - Put invariants/state transitions where the owning business concept/application use case can enforce them consistently.
 - Keep money, quantities, identifiers, revisions, timestamps/business dates explicit when the implemented journey requires them.
 - Historical/issued truth uses correction/revision semantics where the domain requires it; do not silently overwrite history.
@@ -58,7 +58,7 @@ Reusable capability meaning must not reference:
 - identity/authorization/key-management provider SDK types;
 - scheduler/actor/broker/provider telemetry types.
 
-Adapters may depend on their framework/provider but must translate into SquiFlow-owned contracts before calling core/application behavior.
+Adapters may depend on their framework/provider but must translate into repository-owned contracts before calling core/application behavior.
 
 The current unit tests mechanically protect ApplicationProfiles, Branding, IdentityAccess and Tenancy from ASP.NET, EF/Npgsql, OpenFGA and FSH dependencies. Preserve and extend those checks as capability boundaries grow.
 

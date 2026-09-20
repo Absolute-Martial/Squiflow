@@ -74,7 +74,7 @@ The compiler deliberately rejects several common conveniences:
 
 ## 5. Implementation and state classification
 
-`modules/application-profiles/SquiFlow.ApplicationProfiles` owns the current pure compiler:
+`modules/application-profiles/Application.Profiles` owns the current pure compiler:
 
 ```text
 FeatureDefinition
@@ -84,7 +84,7 @@ FeatureDefinition
 → CompiledFeatureSelection
 ```
 
-The declared scope is `PRODUCTION_HONEST` for deterministic, bounded, host/provider/container-neutral feature compilation. The permanent regression guard is `tests/unit/SquiFlow.ApplicationProfiles.Tests` plus the repository verification command.
+The declared scope is `PRODUCTION_HONEST` for deterministic, bounded, host/provider/container-neutral feature compilation. The permanent regression guard is `tests/unit/Application.Profiles.Tests` plus the repository verification command.
 
 These responsibilities remain `NOT_INTRODUCED`:
 

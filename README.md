@@ -80,7 +80,7 @@ retain recurring regression guards
 qualify only with BLOCKED = none
 ```
 
-Production-honest does not mean writing every mechanism from scratch. Before custom infrastructure, inspect the source review and record whether a focused dependency, bounded source adaptation, reusable tests/algorithms, or reference-only decision fits the active responsibility. SquiFlow keeps ownership of its business meaning, authority, security, compatibility, and evidence.
+Production-honest does not mean writing every mechanism from scratch. Before custom infrastructure, inspect the source review and record whether a focused dependency, bounded source adaptation, reusable tests/algorithms, or reference-only decision fits the active responsibility. The repository keeps ownership of its business meaning, authority, security, compatibility, and evidence.
 
 ## Gate and verification status
 

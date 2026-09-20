@@ -6,7 +6,7 @@ configuration="${CONFIGURATION:-Release}"
 
 cd "$repository_root"
 
-dotnet restore SquiFlow.slnx
-dotnet format SquiFlow.slnx --no-restore --verify-no-changes
-dotnet build SquiFlow.slnx --configuration "$configuration" --no-restore
-dotnet test SquiFlow.slnx --configuration "$configuration" --no-build --no-restore
+dotnet restore Application.slnx
+dotnet format Application.slnx --no-restore --verify-no-changes
+dotnet build Application.slnx --configuration "$configuration" --no-restore
+dotnet test Application.slnx --configuration "$configuration" --no-build --no-restore

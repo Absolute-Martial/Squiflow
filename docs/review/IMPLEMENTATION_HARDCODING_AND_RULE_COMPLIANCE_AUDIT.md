@@ -2,7 +2,7 @@
 
 **Version:** v0.1.0
 **Audited:** 2026-09-20
-**Baseline reviewed:** `main` after `5bea7ff`
+**Baseline reviewed:** `main` after `695afdf`, including the subsequent neutral artifact-identity correction
 **Scope:** current production/test projects, executable configuration, migrations, CI wrapper, closest `AGENTS.md` rules and current implementation claims
 
 ## 1. Result
@@ -26,6 +26,7 @@ The audit did find convenience defaults and hardcoded runtime behavior that conf
 | Profile-runtime limits had code defaults as well as checked-in configuration | Missing configuration silently fell back instead of failing the resource-bound gate | code defaults were removed; options validation now rejects omitted values | host startup/options validation and profile-runtime tests |
 | Several host/migrator implementation helpers were public | They were assembly implementation details rather than reusable contracts | endpoint helpers, access result and metadata types, migration runner and migration exception are now internal; explicit friend assemblies expose migrator internals only to their integration tests | successful real-host OpenAPI, endpoint and PostgreSQL migrator tests |
 | Migrator ignored operator cancellation | The one-shot process did not carry cancellation into lock waits/list/apply operations | Ctrl+C now cancels the owned operation and returns exit code 130 | build plus existing cancellation-aware operations; process-signal proof remains part of deployment qualification |
+| Compiled projects, assemblies, namespaces and synthetic PostgreSQL test resources retained the development codename | Build logs and binaries embedded an identity that must remain replaceable and must not become a product assumption | active solution, project, directory, namespace, assembly, test and synthetic resource identities now use neutral `Application.*`/`application_*` names | repository test scans active project/solution paths and loaded assembly identities; the normal build log exposes neutral output names |
 
 ## 3. Deliberate constants that remain
 
@@ -36,7 +37,7 @@ Hardcoded does not automatically mean incorrect. These constants express compati
 - feature count/dependency/identifier bounds, identity component sizes and branding field/URL limits are input/resource safety bounds with tests.
 - `v0.1.0` is the explicitly requested product-version lock until the production-capable product gate changes it.
 - `Application.CoreApi.PrimaryDatabase` and `Application.CoreApi.ProfileRuntime` are brand-neutral internal telemetry namespaces; they contain no public product or development codename.
-- C# namespaces, project/assembly names, repository paths and synthetic test database/role names retain the repository codename as internal development identity. They are not public branding, tenant data, secrets, wire identity, telemetry identity, or new database coordination contracts.
+- The external GitHub repository name may still place the codename in a hosted-runner checkout path. That path is controlled by the repository name rather than the .NET solution or compiled artifacts; removing it requires a separate repository rename.
 - event IDs, advisory-lock polling interval and maximum lock-timeout bound are implementation/operations protocol constants with named ownership, rather than tenant/business policy.
 
 The checked-in pool sizes, retention periods, authentication timings and cache age are explicit deployable starting configuration. They are not measured production capacity claims and must be overridden when the qualified deployment evidence requires different values.
@@ -80,7 +81,7 @@ The checked-in pool sizes, retention periods, authentication timings and cache a
 - Product version remains exactly v0.1.0.
 - Runtime branding and OpenAPI title come from required configuration without a codename fallback.
 - Public responses and checked-in runtime configuration have tests preventing codename exposure.
-- Repository/project/namespace names remain internal development identifiers and are not used as configurable customer branding.
+- Active project, namespace, assembly, test and synthetic resource identities are neutral and contain no development codename.
 
 ## 5. Known non-claims
 

@@ -4,11 +4,11 @@ This is the repository-wide instruction map. A closer `AGENTS.md` in a subtree a
 
 ## 1. Current implementation truth
 
-SquiFlow is the internal development codename. It is not a public product/tenant brand and must not appear as a runtime branding fallback, user-facing message, public telemetry namespace, deployment credential/configuration name, or new wire/persistence contract. Existing source namespaces, project paths and historical records may retain the codename until a final product name is deliberately adopted.
+SquiFlow is the repository's internal development codename. It is not a public product/tenant brand and must not appear in active solution/project names, project directories, C# namespaces, assembly names, test identities, synthetic runtime resources, branding fallbacks, user-facing messages, public telemetry, deployment configuration or new wire/persistence contracts. Active compiled/build identity uses the neutral `Application.*` family until a real product name is selected. The repository hosting name, explanatory documentation and historical records may retain the codename.
 
 The current product version is locked at **v0.1.0** until the complete production-capable product gate is explicitly qualified. API/schema/migration versions and Git revisions are separate compatibility or traceability identifiers and do not change the product version. Phase 0A is the qualified reset baseline. The former Phase 0B Parties implementation was purged on 2026-09-17 and is retained only as historical evidence.
 
-The current tree contains eight production projects, seven test projects, `SquiFlow.slnx`, CoreApi, DbMigrator, a repository build/test contract and a thin GitHub verification wrapper. The narrow ApplicationProfiles feature-compiler, Branding, IdentityAccess, Tenancy, CoreApi, PostgreSQL migration and internal Autofac runtime claims described by `README.IMPLEMENTATION.md` are implemented; a production feature catalog, durable profile authority, broader business, Web, Workstation, SyncApi, AdminApi and Worker responsibilities remain `NOT_INTRODUCED`. `BLOCKED = none`.
+The current tree contains eight production projects, seven test projects, `Application.slnx`, CoreApi, DbMigrator, a repository build/test contract and a thin GitHub verification wrapper. The narrow ApplicationProfiles feature-compiler, Branding, IdentityAccess, Tenancy, CoreApi, PostgreSQL migration and internal Autofac runtime claims described by `README.IMPLEMENTATION.md` are implemented; a production feature catalog, durable profile authority, broader business, Web, Workstation, SyncApi, AdminApi and Worker responsibilities remain `NOT_INTRODUCED`. `BLOCKED = none`.
 
 The deleted `PartyKind` enum and its scaffolding must not be treated as a current baseline or recreated by memory. The accepted domain language remains available to a later useful capability journey, which may choose a different representation.
 
@@ -164,9 +164,9 @@ Do not recreate the purged Parties slice, solution, build/package files, tests, 
 
 ## 8. Testing and evidence
 
-There is currently no test project, solution, repository-owned build/test command, or active CI verification contract. Do not claim restore, build, test, or CI success for the post-purge tree. The old 0B commands and GitHub/GitLab evidence are historical only.
+The current tree has seven test projects, `Application.slnx`, the repository-owned `./eng/verify.sh` restore/format/build/test contract, and the thin GitHub verification workflow. Report a local or remote result only after that exact run is inspected. Former 0B commands and CI evidence remain historical only.
 
-When real executable code returns, introduce the smallest test/build/CI surface required to prove its declared claims. Select the test framework and commands from the actual runtime/toolchain needs rather than recreating the deleted setup automatically.
+When another executable responsibility is introduced, extend only the smallest test/build/CI surface required to prove its declared claims. Select evidence from the actual runtime/toolchain needs rather than recreating deleted setup automatically.
 
 For every material active claim, identify:
 

@@ -8,14 +8,9 @@
 
 `SquiFlow` is the repository's internal development codename. It is not an assumed product, tenant, deployment, company or legal name.
 
-The codename may remain in internal source identifiers while development continues:
+The codename may remain in the repository hosting name, explanatory repository documentation and historical decision, phase and research records. Active compiled/build identities use the neutral `Application.*` family until an actual product identity is selected. This includes solution/project filenames, project directories, C# namespaces, assembly names, test identities and synthetic local resource names.
 
-- repository and solution filenames;
-- C# namespaces, assembly names and project paths;
-- test namespaces and synthetic local resource names;
-- historical decision, phase and research records that used the codename.
-
-Those identifiers are implementation details. Public and deployment-facing behavior must not require or expose the codename as identity.
+`Application.*` is an implementation placeholder, not a public product brand. Public and deployment-facing behavior obtains its identity from validated configuration.
 
 The codename must not be used as:
 
@@ -26,7 +21,7 @@ The codename must not be used as:
 - a new wire, persistence or interoperability discriminator;
 - a tenant-specific brand or an authorization boundary.
 
-Existing namespaces and migration metadata are not renamed speculatively. A final product-name decision can migrate internal artifacts deliberately, with compatibility impact assessed separately.
+Existing database schema names and migration identifiers remain capability contracts because changing them would alter persistence compatibility. CLR namespaces embedded only in EF model snapshots may move with the neutral source identity when model/migration agreement remains proven.
 
 ## 2. Public identity source
 
@@ -79,4 +74,5 @@ The version change must update the lock in `Directory.Build.props`, both root ve
 - Branding construction rejects missing or unsafe public identity values.
 - CoreApi's checked-in branding values are blank so a deployment cannot accidentally publish the codename.
 - CoreApi tests prove the bootstrap response contains only the configured brand.
-- Runtime-facing codename scans are part of review whenever configuration, API messages, telemetry or public presentation changes.
+- CoreApi tests prove active project, solution and compiled assembly identities do not contain the development codename.
+- Runtime-facing codename scans are part of review whenever source identity, configuration, API messages, telemetry or public presentation changes.

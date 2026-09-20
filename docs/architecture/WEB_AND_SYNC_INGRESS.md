@@ -16,7 +16,7 @@ They invoke the same capability-owned business modules.
               +--------------+--------------+
               |                             |
               v                             v
-        SquiFlow.CoreApi              SquiFlow.SyncApi
+        Application.CoreApi              Application.SyncApi
         interactive/Web role          workstation sync host
               |                             |
               +--------------+--------------+
@@ -342,6 +342,6 @@ services/
 `- worker/      # create only when the first durable background workload earns it
 ```
 
-There is currently one `services/core-api/SquiFlow.CoreApi` project. It must evolve into, or be renamed as, the interactive Web/API host rather than becoming an extra network hop in front of another WebApi. SyncApi and Worker remain absent until a real synchronization or durable-work slice earns them.
+There is currently one `services/core-api/Application.CoreApi` project. It must evolve into, or be renamed as, the interactive Web/API host rather than becoming an extra network hop in front of another WebApi. SyncApi and Worker remain absent until a real synchronization or durable-work slice earns them.
 
 Do not scaffold empty hosts, cache providers, brokers, processing databases, or per-host business modules only to satisfy this diagram.

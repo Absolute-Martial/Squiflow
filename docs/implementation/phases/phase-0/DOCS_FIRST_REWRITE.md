@@ -21,24 +21,24 @@ MR !54 merged that rewrite into `main` at merge commit `a7f2ff9aea8cbe1431187219
 
 ```text
 foundation/
-├── application-kernel/SquiFlow.ApplicationKernel
-└── observability/SquiFlow.Observability
+├── application-kernel/Application.ApplicationKernel
+└── observability/Application.Observability
 
 modules/customers/
-├── SquiFlow.Customers
-└── SquiFlow.Customers.Workstation
+├── Application.Customers
+└── Application.Customers.Workstation
 
 apps/
-├── web/SquiFlow.Web
+├── web/Application.Web
 └── desktop/
-    ├── workstation/SquiFlow.Workstation
-    └── guard/SquiFlow.Guard
+    ├── workstation/Application.Workstation
+    └── guard/Application.Guard
 
-services/core-api/SquiFlow.CoreApi
+services/core-api/Application.CoreApi
 
 tests/
-├── SquiFlow.Phase0.Specs
-└── SquiFlow.Architecture.Specs
+├── Application.Phase0.Specs
+└── Application.Architecture.Specs
 ```
 
 No future WebApi, SyncApi, Worker, Admin, Diagnostics, Maintenance, Sync-helper, or Document-helper executable was scaffolded.

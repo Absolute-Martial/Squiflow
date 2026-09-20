@@ -254,12 +254,12 @@ Expected touched paths, created only in their activating increment:
 | Path | Responsibility |
 |---|---|
 | `Directory.Packages.props` | centrally pinned Autofac package versions |
-| `services/core-api/SquiFlow.CoreApi/SquiFlow.CoreApi.csproj` | host-only Autofac package references |
-| `services/core-api/SquiFlow.CoreApi/Program.cs` | service-provider factory and explicit composition wiring |
-| `services/core-api/SquiFlow.CoreApi/Composition/` | internal registry, leases, explicit executor and Autofac modules |
+| `services/core-api/Application.CoreApi/Application.CoreApi.csproj` | host-only Autofac package references |
+| `services/core-api/Application.CoreApi/Program.cs` | service-provider factory and explicit composition wiring |
+| `services/core-api/Application.CoreApi/Composition/` | internal registry, leases, explicit executor and Autofac modules |
 | `modules/application-profiles/` | host-neutral profile identity/revision/publication contracts once earned |
 | `services/db-migrator/` | ordered profile migrations only when durable profile persistence is introduced |
-| `tests/integration/SquiFlow.CoreApi.Tests/` | real host, authority ordering, resolution, drain and cross-tenant evidence |
+| `tests/integration/Application.CoreApi.Tests/` | real host, authority ordering, resolution, drain and cross-tenant evidence |
 | a focused benchmark project only when Increment B starts | non-gating cold/warm/memory measurements |
 
 Do not create Workstation, Worker, Sync or Admin profile-runtime projects in advance. Extract shared composition support only when a second real executable needs it.

@@ -141,9 +141,9 @@ Use the strongest applicable layer for the property actually introduced: static/
 
 Mocks do not prove behavior owned by a real provider/database/framework/process boundary.
 
-The current repository verification contract is `dotnet restore SquiFlow.slnx`, `dotnet build SquiFlow.slnx --no-restore`, and `dotnet test SquiFlow.slnx --no-build --no-restore`. Report only commands actually run. Former 0B tests and CI runs remain historical evidence only; no current CI execution claim exists.
+The current repository verification contract is `dotnet restore Application.slnx`, `dotnet build Application.slnx --no-restore`, and `dotnet test Application.slnx --no-build --no-restore`. Report only commands actually run and link remote CI only after inspecting that run. Former 0B tests and CI runs remain historical evidence only.
 
-The next executable slice must define repository-owned verification commands and introduce the smallest test/CI surface that proves its actual claims.
+The next executable slice must extend the repository-owned verification contract with the smallest test/CI surface that proves its actual claims.
 
 A qualified material claim keeps a permanent or recurring regression guard and explicit requalification triggers. `Manual once` is not a regression strategy.
 

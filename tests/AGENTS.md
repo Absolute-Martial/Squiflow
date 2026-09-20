@@ -82,7 +82,7 @@ Current unit tests guard the host/provider neutrality of ApplicationProfiles, Br
 
 ## Current executable commands
 
-Use `dotnet restore SquiFlow.slnx`, `dotnet build SquiFlow.slnx --no-restore`, and `dotnet test SquiFlow.slnx --no-build --no-restore`. Provider tests require Docker because they run PostgreSQL 17 through Testcontainers.
+Use `dotnet restore Application.slnx`, `dotnet build Application.slnx --no-restore`, and `dotnet test Application.slnx --no-build --no-restore`. Provider tests require Docker because they run PostgreSQL 17 through Testcontainers.
 
 ## DO NOT
 

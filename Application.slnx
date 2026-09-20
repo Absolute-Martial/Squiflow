@@ -1,0 +1,23 @@
+<Solution>
+  <Folder Name="/modules/">
+    <Project Path="modules/application-profiles/Application.Profiles/Application.Profiles.csproj" />
+    <Project Path="modules/branding/Application.Branding/Application.Branding.csproj" />
+    <Project Path="modules/identity-access/Application.IdentityAccess.Postgres/Application.IdentityAccess.Postgres.csproj" />
+    <Project Path="modules/identity-access/Application.IdentityAccess/Application.IdentityAccess.csproj" />
+    <Project Path="modules/tenancy/Application.Tenancy.Postgres/Application.Tenancy.Postgres.csproj" />
+    <Project Path="modules/tenancy/Application.Tenancy/Application.Tenancy.csproj" />
+  </Folder>
+  <Folder Name="/services/">
+    <Project Path="services/core-api/Application.CoreApi/Application.CoreApi.csproj" />
+    <Project Path="services/db-migrator/Application.DatabaseMigrator/Application.DatabaseMigrator.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/integration/Application.CoreApi.Tests/Application.CoreApi.Tests.csproj" />
+    <Project Path="tests/integration/Application.IdentityAccess.Postgres.Tests/Application.IdentityAccess.Postgres.Tests.csproj" />
+    <Project Path="tests/integration/Application.Tenancy.Postgres.Tests/Application.Tenancy.Postgres.Tests.csproj" />
+    <Project Path="tests/unit/Application.Profiles.Tests/Application.Profiles.Tests.csproj" />
+    <Project Path="tests/unit/Application.Branding.Tests/Application.Branding.Tests.csproj" />
+    <Project Path="tests/unit/Application.IdentityAccess.Tests/Application.IdentityAccess.Tests.csproj" />
+    <Project Path="tests/unit/Application.Tenancy.Tests/Application.Tenancy.Tests.csproj" />
+  </Folder>
+</Solution>

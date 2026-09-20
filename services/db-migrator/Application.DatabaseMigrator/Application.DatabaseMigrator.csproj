@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <NoWarn>$(NoWarn);CA1303</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../modules/identity-access/Application.IdentityAccess.Postgres/Application.IdentityAccess.Postgres.csproj" />
+    <ProjectReference Include="../../../modules/tenancy/Application.Tenancy.Postgres/Application.Tenancy.Postgres.csproj" />
+  </ItemGroup>
+</Project>

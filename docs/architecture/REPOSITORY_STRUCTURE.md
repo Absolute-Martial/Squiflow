@@ -22,7 +22,7 @@ A capability owns one source implementation of its business meaning. `Core`, `Se
 
 ## 2. Current implementation state
 
-The current tree contains four compact host-neutral capability projects (`SquiFlow.ApplicationProfiles`, `SquiFlow.Branding`, `SquiFlow.IdentityAccess`, and `SquiFlow.Tenancy`), two capability-owned PostgreSQL adapters, CoreApi and DbMigrator executables, seven test projects and a repository build/test contract. ApplicationProfiles validates bounded feature graphs and compiles deterministic dependency-closed selections, but contains no production catalog or durable profile authority. CoreApi has configured standards-based JWT validation plus authenticated account and active-membership queries. Tenancy can resolve an immutable context from current membership. The tree contains no Foundation/ApplicationKernel project, OpenFGA authorization, tenant-owned business data/RLS or business capability.
+The current tree contains four compact host-neutral capability projects (`Application.Profiles`, `Application.Branding`, `Application.IdentityAccess`, and `Application.Tenancy`), two capability-owned PostgreSQL adapters, CoreApi and DbMigrator executables, seven test projects and a repository build/test contract. ApplicationProfiles validates bounded feature graphs and compiles deterministic dependency-closed selections, but contains no production catalog or durable profile authority. CoreApi has configured standards-based JWT validation plus authenticated account and active-membership queries. Tenancy can resolve an immutable context from current membership. The tree contains no Foundation/ApplicationKernel project, OpenFGA authorization, tenant-owned business data/RLS or business capability.
 
 The former 0B Parties slice was purged on 2026-09-17. Its phase record and earlier Phase-0 code remain historical evidence, not current implementation authority.
 
@@ -51,9 +51,9 @@ SquiFlow/
 |  `- worker/                     # durable background execution host when needed
 |- modules/
 |  `- <capability>/
-|     |- SquiFlow.<Capability>/
-|     |- SquiFlow.<Capability>.Postgres/       # only with real provider code
-|     `- SquiFlow.<Capability>.Workstation/    # only with real local adapter code
+|     |- Application.<Capability>/
+|     |- Application.<Capability>.Postgres/       # only with real provider code
+|     `- Application.<Capability>.Workstation/    # only with real local adapter code
 |- foundation/
 |  |- application-kernel/         # only as current consumers earn shared primitives
 |  |- observability/              # only with real instrumentation consumers
@@ -76,7 +76,7 @@ When a real capability is implemented, prefer a compact capability-owned project
 
 ```text
 modules/orders/
-`- SquiFlow.Orders/
+`- Application.Orders/
    |- Domain/
    |- Application/
    |  |- Commands/
@@ -94,8 +94,8 @@ A provider split is earned when provider code would contaminate host-neutral bus
 
 ```text
 modules/orders/
-|- SquiFlow.Orders/
-`- SquiFlow.Orders.Postgres/
+|- Application.Orders/
+`- Application.Orders.Postgres/
 ```
 
 A Workstation adapter is created when actual Workstation-specific presentation/local execution/platform code exists.
@@ -106,10 +106,10 @@ A later compile-time split may be:
 
 ```text
 modules/orders/
-|- SquiFlow.Orders.Core/
-|- SquiFlow.Orders.Server/
-|- SquiFlow.Orders.Workstation/
-`- SquiFlow.Orders.Postgres/
+|- Application.Orders.Core/
+|- Application.Orders.Server/
+|- Application.Orders.Workstation/
+`- Application.Orders.Postgres/
 ```
 
 Only use it when at least one concrete pressure exists: genuine cross-host deterministic reuse, compiler-enforced provider/platform neutrality, package/reference isolation, module size/ownership clarity, selective packaging, or materially different application responsibilities.

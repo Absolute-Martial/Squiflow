@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <PackageReference Include="Autofac" />
+    <PackageReference Include="Autofac.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Npgsql" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../modules/branding/Application.Branding/Application.Branding.csproj" />
+    <ProjectReference Include="../../../modules/identity-access/Application.IdentityAccess.Postgres/Application.IdentityAccess.Postgres.csproj" />
+    <ProjectReference Include="../../../modules/identity-access/Application.IdentityAccess/Application.IdentityAccess.csproj" />
+    <ProjectReference Include="../../../modules/tenancy/Application.Tenancy.Postgres/Application.Tenancy.Postgres.csproj" />
+    <ProjectReference Include="../../../modules/tenancy/Application.Tenancy/Application.Tenancy.csproj" />
+  </ItemGroup>
+</Project>

@@ -19,7 +19,7 @@ A log message may change for clarity without breaking alerts, support queries, d
 
 ## 2. Registry ownership
 
-Maintain a source-controlled registry owned by `SquiFlow.Observability`.
+Maintain a source-controlled registry owned by `Application.Observability`.
 
 The registry must enforce:
 - unique EventId;
@@ -69,21 +69,21 @@ Use governed categories rather than one global logger or class-name-only taxonom
 Recommended top-level categories:
 
 ```text
-SquiFlow.Api
-SquiFlow.Application
-SquiFlow.Domain
-SquiFlow.Database
-SquiFlow.Sync
-SquiFlow.Outbox
-SquiFlow.Worker
-SquiFlow.Rules
-SquiFlow.Documents
-SquiFlow.Storage
-SquiFlow.Security
-SquiFlow.Tenancy
-SquiFlow.Diagnostics
-SquiFlow.Guard
-SquiFlow.Configuration
+Application.Api
+Application.Application
+Application.Domain
+Application.Database
+Application.Sync
+Application.Outbox
+Application.Worker
+Application.Rules
+Application.Documents
+Application.Storage
+Application.Security
+Application.Tenancy
+Application.Diagnostics
+Application.Guard
+Application.Configuration
 ```
 
 Subcategories may be added when they improve filtering without becoming arbitrary per-class noise.
