@@ -35,15 +35,16 @@ Repository state proves what is implemented. Architecture documents can define f
 ## Current implementation boundary
 
 ```text
-production projects: 7
-test projects:       6
+production projects: 8
+test projects:       7
 executable hosts:    2
 solution/build/test contract: present
 active runtime responsibilities: public application bootstrap; classified OpenAPI v1 description; JWT access-token validation; authenticated account resolution; tenant membership listing/context resolution; account/tenancy persistence; one-shot DB migration
+active host-neutral responsibilities: bounded feature graph validation and deterministic effective-selection compilation
 BLOCKED: none
 ```
 
-The deleted `PartyKind` enum and Parties implementation are not current implementation. The current solution/build/test files belong only to the independently earned Branding, IdentityAccess, Tenancy, CoreApi and DbMigrator slices and do not revive the retired 0B shape.
+The deleted `PartyKind` enum and Parties implementation are not current implementation. The current solution/build/test files belong only to the independently earned ApplicationProfiles, Branding, IdentityAccess, Tenancy, CoreApi and DbMigrator slices and do not revive the retired 0B shape.
 
 ## Architecture direction
 

@@ -22,7 +22,7 @@ A capability owns one source implementation of its business meaning. `Core`, `Se
 
 ## 2. Current implementation state
 
-The current tree contains three compact host-neutral capability projects (`SquiFlow.Branding`, `SquiFlow.IdentityAccess`, and `SquiFlow.Tenancy`), two capability-owned PostgreSQL adapters, CoreApi and DbMigrator executables, six test projects and a repository build/test contract. CoreApi has configured standards-based JWT validation plus authenticated account and active-membership queries. Tenancy can resolve an immutable context from current membership. The tree contains no Foundation/ApplicationKernel project, OpenFGA authorization, tenant-owned business data/RLS or business capability.
+The current tree contains four compact host-neutral capability projects (`SquiFlow.ApplicationProfiles`, `SquiFlow.Branding`, `SquiFlow.IdentityAccess`, and `SquiFlow.Tenancy`), two capability-owned PostgreSQL adapters, CoreApi and DbMigrator executables, seven test projects and a repository build/test contract. ApplicationProfiles validates bounded feature graphs and compiles deterministic dependency-closed selections, but contains no production catalog or durable profile authority. CoreApi has configured standards-based JWT validation plus authenticated account and active-membership queries. Tenancy can resolve an immutable context from current membership. The tree contains no Foundation/ApplicationKernel project, OpenFGA authorization, tenant-owned business data/RLS or business capability.
 
 The former 0B Parties slice was purged on 2026-09-17. Its phase record and earlier Phase-0 code remain historical evidence, not current implementation authority.
 

@@ -12,7 +12,7 @@ The intended outcome is that a validated tenant operation can select a reviewed 
 
 The first declared scope is deliberately narrower than the eventual platform:
 
-- CoreApi uses Autofac as its host container without changing existing Branding, IdentityAccess or Tenancy behavior.
+- CoreApi uses Autofac as its host container without changing existing ApplicationProfiles, Branding, IdentityAccess or Tenancy behavior.
 - An authenticated account and current active membership establish `TenantContext` before profile-specific implementation resolution.
 - A process-local registry creates at most one usable Autofac profile runtime for one immutable implementation fingerprint/revision at a time.
 - An operation receives an ordinary child lifetime scope containing its immutable `TenantContext` and effective profile revision.
@@ -64,7 +64,7 @@ Both packages declare MIT licensing. The resolved CoreApi package graph was insp
 
 ### 3.2 Host composition
 
-CoreApi now uses `AutofacServiceProviderFactory` while preserving existing `builder.Services` registrations. Autofac-specific registrations remain in the CoreApi composition boundary. Branding, IdentityAccess and Tenancy projects do not reference Autofac.
+CoreApi now uses `AutofacServiceProviderFactory` while preserving existing `builder.Services` registrations. Autofac-specific registrations remain in the CoreApi composition boundary. ApplicationProfiles, Branding, IdentityAccess and Tenancy projects do not reference Autofac.
 
 Do not convert every service registration to Autofac syntax. Existing framework/provider extension methods continue through `IServiceCollection`; use `ContainerBuilder` only for profile runtime infrastructure and qualified implementation overrides.
 
@@ -208,7 +208,17 @@ Declared result: Autofac root composition is `PRODUCTION_HONEST`; production ten
 
 Declared result: the internal mechanics prove single-flight construction, operation-context isolation, retained/build capacity, retry after failed build, idle retirement, in-flight draining, disposal and collectable metrics. A representative benchmark/load envelope is still an activation prerequisite rather than a current production claim. Production tenant-specific resolution remains `NOT_INTRODUCED`.
 
-### Increment C — authoritative profile snapshot and activation
+### Increment C1 — host-neutral feature-profile compiler — complete
+
+1. Introduce the focused ApplicationProfiles capability without a dependency on CoreApi, Autofac, ASP.NET Core, EF Core or a provider SDK.
+2. Validate stable feature identifiers, duplicates, missing dependencies, cycles, always-enabled features and dependency-only features.
+3. Bound catalog, dependency and requested-selection inputs before materialization.
+4. Produce deterministic dependency-first effective selections plus catalog/selection fingerprints.
+5. Keep settings, permissions, release targeting, persistence and runtime activation outside this compiler.
+
+Declared result: pure feature catalog/selection compilation is `PRODUCTION_HONEST`; a production catalog, durable profile authority and profile activation remain `NOT_INTRODUCED`.
+
+### Increment C2 — authoritative profile snapshot and activation
 
 1. Introduce the focused Application Profiles capability and its exact lifecycle.
 2. Add the smallest durable provider/migration and administration path that can publish one immutable profile safely.
@@ -216,7 +226,7 @@ Declared result: the internal mechanics prove single-flight construction, operat
 4. Validate schema version, dependency closure, allow-listed variants and implementation fingerprint before activation.
 5. Make rollback activate a prior compatible revision rather than mutate history.
 
-Declared result: profile publication/query is `PRODUCTION_HONEST`; implementation overrides may still be `NOT_INTRODUCED`.
+Declared result when completed: profile publication/query is `PRODUCTION_HONEST`; implementation overrides may still be `NOT_INTRODUCED`.
 
 ### Increment D — first production implementation override
 
@@ -299,7 +309,7 @@ If Autofac cannot meet lifecycle, compatibility or bounded-memory requirements, 
 | tenant identification and authorization | membership-derived `TenantContext` exists; no request acquires a profile runtime | first profile-aware capability must prove missing/unknown/non-member/suspended denial before acquisition |
 | data isolation | account and membership queries are scoped; no tenant-owned business table/cache/blob/search surface exists | owning capability plus PostgreSQL isolation/RLS and cross-tenant provider tests |
 | DI lifetime | Autofac root and ordinary scopes are active; internal profile runtimes are bounded and lease-drained | permanent CoreApi host/registry tests |
-| profile configuration and secrets | `NOT_INTRODUCED`; no secret/profile is stored in a container definition | Application Profiles capability plus secret-provider boundary |
+| profile configuration and secrets | bounded feature selection compilation exists; no production catalog, durable profile or secret is stored in a container definition | immutable profile publication plus secret-provider boundary |
 | disk/durable storage | containers are never serialized; profile authority is `NOT_INTRODUCED` | immutable PostgreSQL profile schema/publication/rollback in Increment C |
 | request pipeline | authentication and membership endpoints exist; profile execution is absent | authority-ordering test in first profile-aware endpoint |
 | background work/messages | `NOT_INTRODUCED` | future Worker must receive and revalidate explicit tenant/profile context without `HttpContext` |

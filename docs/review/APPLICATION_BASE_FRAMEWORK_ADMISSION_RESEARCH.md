@@ -33,6 +33,8 @@ If a single existing full framework had to be chosen on breadth alone, ABP is th
 
 FullStackHero is the selected source-owned backend starting base. Its complete pinned backend source is retained locally, but SquiFlow does not run the template generator or import the complete predefined module/infrastructure graph. Each subsystem is admitted, rewritten and tested against SquiFlow's active responsibility. The part-by-part record is `FULLSTACKHERO_BACKEND_ADOPTION_LEDGER.md`.
 
+The focused comparison that admits the current feature/profile compiler is `TENANT_APPLICATION_PROFILE_INDUSTRY_COMPARISON.md`. It records the inspected Orchard Core, ABP, Finbuckle, Autofac, FullStackHero, Oqtane and alternative-runtime boundaries rather than treating this broad base decision as implementation evidence.
+
 At the time of this source study, runtime responsibilities were `NOT_INTRODUCED`. The current implementation truth is maintained in `README.IMPLEMENTATION.md`; this research does not independently authorize an empty kernel project, solution, host, package graph or test tree.
 
 ## 2. License rule for research and adoption

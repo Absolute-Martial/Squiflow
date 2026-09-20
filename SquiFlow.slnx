@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/modules/">
+    <Project Path="modules/application-profiles/SquiFlow.ApplicationProfiles/SquiFlow.ApplicationProfiles.csproj" />
     <Project Path="modules/branding/SquiFlow.Branding/SquiFlow.Branding.csproj" />
     <Project Path="modules/identity-access/SquiFlow.IdentityAccess.Postgres/SquiFlow.IdentityAccess.Postgres.csproj" />
     <Project Path="modules/identity-access/SquiFlow.IdentityAccess/SquiFlow.IdentityAccess.csproj" />
@@ -14,6 +15,7 @@
     <Project Path="tests/integration/SquiFlow.CoreApi.Tests/SquiFlow.CoreApi.Tests.csproj" />
     <Project Path="tests/integration/SquiFlow.IdentityAccess.Postgres.Tests/SquiFlow.IdentityAccess.Postgres.Tests.csproj" />
     <Project Path="tests/integration/SquiFlow.Tenancy.Postgres.Tests/SquiFlow.Tenancy.Postgres.Tests.csproj" />
+    <Project Path="tests/unit/SquiFlow.ApplicationProfiles.Tests/SquiFlow.ApplicationProfiles.Tests.csproj" />
     <Project Path="tests/unit/SquiFlow.Branding.Tests/SquiFlow.Branding.Tests.csproj" />
     <Project Path="tests/unit/SquiFlow.IdentityAccess.Tests/SquiFlow.IdentityAccess.Tests.csproj" />
     <Project Path="tests/unit/SquiFlow.Tenancy.Tests/SquiFlow.Tenancy.Tests.csproj" />

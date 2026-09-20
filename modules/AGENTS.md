@@ -4,7 +4,7 @@ These rules apply below `modules/` in addition to the root instructions.
 
 ## Current capability truth
 
-The current capability projects are `SquiFlow.Branding`, `SquiFlow.IdentityAccess`, `SquiFlow.Tenancy`, and their earned provider-isolated PostgreSQL adapters. Branding owns bounded public deployment identity. IdentityAccess owns stable external `(issuer, subject)` account binding. Tenancy owns the tenant registry, current account membership query and membership-derived `TenantContext`; it owns no OpenFGA role/permission model or tenant-owned business data. The former `SquiFlow.Parties` enum-only slice remains purged.
+The current capability projects are `SquiFlow.ApplicationProfiles`, `SquiFlow.Branding`, `SquiFlow.IdentityAccess`, `SquiFlow.Tenancy`, and the earned provider-isolated IdentityAccess/Tenancy PostgreSQL adapters. ApplicationProfiles owns bounded feature definitions, catalog graph validation and deterministic effective-selection compilation; it owns no production feature catalog, durable tenant profile authority, activation, authorization or Autofac integration. Branding owns bounded public deployment identity. IdentityAccess owns stable external `(issuer, subject)` account binding. Tenancy owns the tenant registry, current account membership query and membership-derived `TenantContext`; it owns no OpenFGA role/permission model or tenant-owned business data. The former `SquiFlow.Parties` enum-only slice remains purged.
 
 The next module starts from a useful capability journey and the source-admission rule in `docs/review/APPLICATION_BASELINE_IMPLEMENTATION_SOURCE_REVIEW.md`. Do not harden discovery-sensitive `Customer / Party / Account / Commercial Relationship` distinctions or choose an internal-ID encoding until the active journey and accepted owner require them.
 
@@ -60,7 +60,7 @@ Reusable capability meaning must not reference:
 
 Adapters may depend on their framework/provider but must translate into SquiFlow-owned contracts before calling core/application behavior.
 
-The current unit tests mechanically protect Branding, IdentityAccess and Tenancy from ASP.NET, EF/Npgsql, OpenFGA and FSH dependencies. Preserve and extend those checks as capability boundaries grow.
+The current unit tests mechanically protect ApplicationProfiles, Branding, IdentityAccess and Tenancy from ASP.NET, EF/Npgsql, OpenFGA and FSH dependencies. Preserve and extend those checks as capability boundaries grow.
 
 ## DO NOT
 
@@ -81,4 +81,4 @@ The current unit tests mechanically protect Branding, IdentityAccess and Tenancy
 - Add cross-tenant/current-authority negative tests for protected operations.
 - When versioned contracts are introduced, preserve old fixtures and compatibility tests.
 
-Current active claims are limited to bounded Branding values, exact external-account binding, current active tenant-membership queries and membership-derived `TenantContext`. Provider behavior is additionally tested against real PostgreSQL.
+Current active claims are limited to bounded feature graph/selection compilation, bounded Branding values, exact external-account binding, current active tenant-membership queries and membership-derived `TenantContext`. Provider behavior is additionally tested against real PostgreSQL.

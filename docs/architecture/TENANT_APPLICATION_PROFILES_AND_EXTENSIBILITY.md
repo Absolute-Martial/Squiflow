@@ -1,8 +1,10 @@
 # Tenant Application Profiles and Bounded Extensibility
 
-**Status:** accepted strategic architecture direction. CoreApi now uses Autofac as its root provider and contains an internal bounded profile-runtime registry qualified through isolated tests. Durable profile authority, production profile acquisition, flexible tenant record storage and tenant-specific implementation composition remain `NOT_INTRODUCED`.
+**Status:** accepted strategic architecture direction. The host-neutral ApplicationProfiles capability now validates bounded feature catalogs and compiles deterministic dependency-closed feature selections. CoreApi uses Autofac as its root provider and contains an internal bounded profile-runtime registry qualified through isolated tests. A production feature catalog, durable profile authority, production profile acquisition, flexible tenant record storage and tenant-specific implementation composition remain `NOT_INTRODUCED`.
 
 **Authority boundary:** this document owns how SquiFlow represents tenant-selectable capabilities, personalization depth, trusted implementation variation and the failure-containment expectations created by that variation. Capability business meaning, tenant isolation, workflow/rules, persistence and resource limits remain owned by their focused documents.
+
+**Framework evidence:** `docs/review/TENANT_APPLICATION_PROFILE_INDUSTRY_COMPARISON.md` records the source-level comparison and exact adopt/reject boundary behind the current compiler.
 
 ## 1. Business intent
 

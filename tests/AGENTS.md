@@ -4,7 +4,7 @@ These rules apply below `tests/` in addition to the root instructions.
 
 ## Current test model
 
-The current verification contract uses Branding, IdentityAccess and Tenancy unit tests, real CoreApi pipeline tests, and real PostgreSQL IdentityAccess/Tenancy/migrator tests. The former Parties tests and older Phase-0 spec projects remain retired history.
+The current verification contract uses ApplicationProfiles, Branding, IdentityAccess and Tenancy unit tests, real CoreApi pipeline tests, and real PostgreSQL IdentityAccess/Tenancy/migrator tests. The former Parties tests and older Phase-0 spec projects remain retired history.
 
 Add a test project only when a real implementation claim earns it. Select the smallest layer that can falsify the actual property, and adapt relevant proven upstream tests where the source-admission record identifies them.
 
@@ -78,7 +78,7 @@ The first durable contracts are the IdentityAccess and Tenancy PostgreSQL schema
 
 Architecture tests/specs are executable architecture documentation for boundaries that actually exist.
 
-Current unit tests guard the host/provider neutrality of Branding, IdentityAccess and Tenancy. Add broader project-graph tests only when more dependencies make a separate architecture suite useful.
+Current unit tests guard the host/provider neutrality of ApplicationProfiles, Branding, IdentityAccess and Tenancy. Add broader project-graph tests only when more dependencies make a separate architecture suite useful.
 
 ## Current executable commands
 
