@@ -58,6 +58,11 @@ public sealed class AutofacHostCompositionTests : IClassFixture<WhiteLabelApiFac
                 builder.UseSetting(
                     "Authentication:Audience",
                     WhiteLabelApiFactory.Audience);
+                builder.UseSetting("Authorization:OpenFga:ApiUrl", "http://localhost:8080");
+                builder.UseSetting("Authorization:OpenFga:StoreId", "01ARZ3NDEKTSV4RRFFQ69G5FAV");
+                builder.UseSetting("Authorization:OpenFga:AuthorizationModelId", "01ARZ3NDEKTSV4RRFFQ69G5FAW");
+                builder.UseSetting("Authorization:OpenFga:RequestTimeoutSeconds", "3");
+                builder.UseSetting("Authorization:OpenFga:CredentialMethod", "None");
                 builder.UseSetting(
                     "ConnectionStrings:PrimaryDatabase",
                     "Host=unused.example.test;Database=application");

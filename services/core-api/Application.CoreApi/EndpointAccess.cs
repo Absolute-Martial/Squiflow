@@ -7,6 +7,7 @@ internal enum EndpointAccess
     PublicLiveness,
     AuthenticatedAccount,
     AuthenticatedTenantMemberships,
+    AuthorizedTenantWorkspace,
 }
 
 internal sealed record EndpointAccessMetadata(EndpointAccess Access);

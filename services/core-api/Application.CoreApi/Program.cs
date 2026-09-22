@@ -1,12 +1,17 @@
 using Autofac.Extensions.DependencyInjection;
+using Finbuckle.MultiTenant.Abstractions;
+using Finbuckle.MultiTenant.AspNetCore.Extensions;
+using Finbuckle.MultiTenant.Extensions;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Npgsql;
 using System.Text.Json;
 using Application.Branding;
 using Application.CoreApi;
+using Application.CoreApi.Authorization;
 using Application.CoreApi.Composition;
 using Application.IdentityAccess;
 using Application.IdentityAccess.Postgres;
@@ -21,6 +26,7 @@ var brandingConfiguration = builder.Configuration
     .Get<BrandingConfiguration>()
     ?? throw new InvalidOperationException("The Branding configuration section is required.");
 var authenticationConfiguration = OidcAuthenticationConfiguration.From(builder.Configuration);
+var openFgaAuthorizationConfiguration = OpenFgaAuthorizationConfiguration.From(builder.Configuration);
 var databaseConfiguration = RuntimeDatabaseConfiguration.From(builder.Configuration);
 RequestHostConfiguration.Validate(builder.Configuration);
 var brandProfile = brandingConfiguration.ToProfile();
@@ -28,6 +34,11 @@ var bootstrapCacheMaxAgeSeconds = brandingConfiguration.GetCacheMaxAgeSeconds();
 
 builder.Services.AddSingleton(brandProfile);
 builder.Services.AddSingleton(authenticationConfiguration);
+builder.Services.AddSingleton(openFgaAuthorizationConfiguration);
+builder.Services.AddSingleton<OpenFga.Sdk.Client.IOpenFgaClient>(_ =>
+    new OpenFga.Sdk.Client.OpenFgaClient(openFgaAuthorizationConfiguration.ToClientConfiguration()));
+builder.Services.AddSingleton<ITenantWorkspaceAuthorization, OpenFgaTenantWorkspaceAuthorization>();
+builder.Services.AddScoped<IAuthorizationHandler, ViewTenantWorkspaceAuthorizationHandler>();
 builder.Services.AddSingleton(databaseConfiguration);
 builder.Services.AddSingleton<NpgsqlDataSource>(serviceProvider =>
     databaseConfiguration.CreateDataSource(
@@ -111,6 +122,10 @@ builder.Services
         };
     });
 builder.Services.AddAuthorization();
+builder.Services
+    .AddMultiTenant<TenantInfo>()
+    .WithRouteStrategy("tenantId", useTenantAmbientRouteValue: false)
+    .WithEchoStore();
 builder.Services.AddProblemDetails();
 builder.Services.AddHealthChecks();
 builder.Services.AddCoreApiOpenApi();
@@ -119,6 +134,8 @@ builder.Services.AddProfileRuntimeComposition(builder.Configuration);
 var app = builder.Build();
 
 app.UseExceptionHandler();
+app.UseRouting();
+app.UseMultiTenant();
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -156,6 +173,17 @@ app.MapGet("/api/v1/account/tenants", TenantMembershipEndpoint.ListAsync)
     .Produces<TenantMembershipResponse[]>()
     .ProducesProblem(StatusCodes.Status401Unauthorized)
     .ProducesProblem(StatusCodes.Status403Forbidden);
+
+app.MapGet("/api/v1/tenants/{tenantId:guid}/workspace", TenantWorkspaceEndpoint.GetAsync)
+    .WithName("GetTenantWorkspace")
+    .WithTags("Tenant")
+    .WithSummary("Returns a tenant workspace after current membership and OpenFGA permission checks.")
+    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthorizedTenantWorkspace))
+    .RequireAuthorization()
+    .Produces<TenantWorkspaceResponse>()
+    .ProducesProblem(StatusCodes.Status401Unauthorized)
+    .ProducesProblem(StatusCodes.Status403Forbidden)
+    .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
 app.MapHealthChecks("/health/live", new HealthCheckOptions
 {

@@ -7,6 +7,7 @@
     <PackageReference Include="Autofac" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Testcontainers" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio">
       <PrivateAssets>all</PrivateAssets>
@@ -15,5 +16,10 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../../services/core-api/Application.CoreApi/Application.CoreApi.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="../../../infrastructure/authorization/openfga/tenant-workspace-model.json"
+             Link="OpenFga/tenant-workspace-model.json"
+             CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

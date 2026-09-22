@@ -56,6 +56,7 @@ The checked-in pool sizes, retention periods, authentication timings and cache a
 - Host-neutral ApplicationProfiles, Branding, IdentityAccess and Tenancy projects contain no ASP.NET, EF/Npgsql, Autofac, OpenFGA, scheduler, broker, UI or OS dependencies.
 - PostgreSQL types stay inside provider adapters and executable composition.
 - CoreApi authenticates and resolves current account/membership authority; it does not trust a query/header TenantId or fall back to a default tenant.
+- Finbuckle resolves only the `{tenantId}` route candidate; current membership still creates `TenantContext`, and OpenFGA separately authorizes the workspace read.
 - There is no Web/Sync/Worker/Admin duplicate business implementation and no in-process module call converted to HTTP/gRPC.
 
 ### Persistence and execution
@@ -89,7 +90,7 @@ This audit does not qualify unintroduced responsibilities. In particular, it doe
 
 - production deployment/TLS/edge readiness;
 - PostgreSQL RLS or tenant-owned business persistence;
-- OpenFGA authorization;
+- broader OpenFGA roles, application tuple administration/reconciliation and tenant-owned business-resource authorization;
 - durable application-profile publication/activation;
 - Worker, Sync, Web, Workstation or Admin implementation;
 - backup/restore, HA, external pooler, measured rack capacity or zero downtime;

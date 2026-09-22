@@ -2,9 +2,11 @@
   <ItemGroup>
     <PackageReference Include="Autofac" />
     <PackageReference Include="Autofac.Extensions.DependencyInjection" />
+    <PackageReference Include="Finbuckle.MultiTenant.AspNetCore" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <PackageReference Include="Npgsql" />
+    <PackageReference Include="OpenFga.Sdk" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../../modules/branding/Application.Branding/Application.Branding.csproj" />

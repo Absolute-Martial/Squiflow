@@ -55,10 +55,14 @@ public sealed class OpenApiContractTests : IClassFixture<WhiteLabelApiFactory>
         var memberships = paths
             .GetProperty("/api/v1/account/tenants")
             .GetProperty("get");
+        var workspace = paths
+            .GetProperty("/api/v1/tenants/{tenantId}/workspace")
+            .GetProperty("get");
 
         Assert.False(bootstrap.TryGetProperty("security", out _));
         Assert.True(HasOidcRequirement(account));
         Assert.True(HasOidcRequirement(memberships));
+        Assert.True(HasOidcRequirement(workspace));
     }
 
     private static bool HasOidcRequirement(JsonElement operation) =>

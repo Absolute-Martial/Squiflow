@@ -10,7 +10,7 @@ The current focused owner, `docs/security/TENANT_PERMISSIONS.md`, selects OpenFG
 
 Running Casbin and OpenFGA as parallel authorities is rejected. It would create two policy languages, two mutation paths, two freshness models, and an unsafe question whenever they disagree.
 
-This review admits Casbin.NET as a **POC-gated replacement candidate**. OpenFGA remains the selected but `NOT_INTRODUCED` engine until the proof below either earns a deliberate superseding decision or rejects Casbin for this product.
+This review admits Casbin.NET as a **POC-gated replacement candidate**. OpenFGA is now the selected and narrowly introduced engine for the tenant-workspace read. Casbin would have to replace that provider boundary and reproduce its current evidence plus the broader proof below; it must not run as a parallel authority.
 
 ## 2. Product workload being tested
 

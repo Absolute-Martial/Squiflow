@@ -93,6 +93,7 @@ This file records accepted direction only. Detailed reasoning and supersession h
 - ASP.NET Core policy/requirements/`IAuthorizationService` remain server integration points. Tenant hosts use tenant authorization; Admin API uses separate platform authorization.
 - OpenFGA does not replace database tenant isolation, business validation, workflow guards, idempotency, concurrency checks, consumption accounting, or limits.
 - OpenFGA production calls pin an explicit authorization model ID; model migrations are versioned/controlled.
+- The first implemented OpenFGA operation is the authenticated tenant-workspace read. Finbuckle resolves its route tenant only as an untrusted candidate; current SquiFlow membership creates `TenantContext`; the pinned OpenFGA model then requires both contextual current membership and a persisted `workspace_viewer` relation through `can_view_workspace` at `HIGHER_CONSISTENCY`. Provider timeout/error fails closed. This does not introduce role or tuple-administration workflows.
 - Tenant-created custom roles/assignments are data/tuples, not a new authorization model deployment per edit.
 - OpenFGA tuples use opaque SquiFlow IDs rather than unnecessary PII.
 - Permission/relationship changes return success only after the authoritative external change is known/applied; ambiguous outcomes are reconciled.

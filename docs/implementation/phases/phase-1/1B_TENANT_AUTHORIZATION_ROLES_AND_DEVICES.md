@@ -1,6 +1,6 @@
 # Phase 1B — Tenant Authorization, Roles, and Devices
 
-**Current implementation note:** current tenant/account membership lookup and membership-derived `TenantContext` exist. Phase 1B is not qualified: the first OpenFGA model/store, role/permission administration, device authority, tenant-owned resource isolation and hostile provider/authorization evidence remain `NOT_INTRODUCED`.
+**Current implementation note:** current tenant/account membership lookup, membership-derived `TenantContext`, Finbuckle route-candidate plumbing and one pinned-model OpenFGA `can_view_workspace` read check exist. This is a qualified narrow slice, not Phase 1B qualification. Owner/Staff/custom roles, application tuple administration/reconciliation, authorization revision, device authority, tenant-owned resource isolation and their full hostile-provider/authorization evidence remain `NOT_INTRODUCED`.
 
 **Gate-quality owner:** `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md`  
 **Evidence/permanence owner:** `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md`
@@ -23,7 +23,7 @@ authenticated subject
 → SquiFlow domain/workflow validation
 ```
 
-Implement the first OpenFGA store/model and pin the model ID used by SquiFlow.
+Extend the already pinned tenant-workspace model into the first role/resource model only when a real capability operation earns it; do not treat the narrow workspace relation as proof of the remaining gate.
 
 ## Initial concepts
 

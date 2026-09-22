@@ -2,7 +2,7 @@
 
 **Version:** v0.1.0
 
-**Current implementation:** SquiFlow owns a global tenant registry, current active account memberships and an immutable membership-derived `TenantContext`. OpenFGA models/tuples/checks, role administration, authorization revision, device authority and tenant-owned business resource checks remain `NOT_INTRODUCED`.
+**Current implementation:** SquiFlow owns a global tenant registry, current active account memberships and an immutable membership-derived `TenantContext`. The Core API implements one narrow OpenFGA-backed read: `tenant#can_view_workspace` requires both verified current membership supplied as a contextual tuple and a persisted `workspace_viewer` relation under an explicitly configured model ID. Role/custom-role administration, application tuple writes/reconciliation, authorization revision, device authority and tenant-owned business resource checks remain `NOT_INTRODUCED`.
 
 SquiFlow is small-team-first. `Owner` and `Staff` are default templates, not fixed product roles.
 
@@ -101,6 +101,19 @@ Attributes such as RequiresFeature or RequiresPermission may declare method/cont
 ZITADEL application/project roles or token claims may assist identity/bootstrap flows only when explicitly mapped and revalidated. They are not current SquiFlow business permission truth and do not replace OpenFGA.
 
 ## 6. OpenFGA modeling rule
+
+The first checked-in model is intentionally smaller than the future role system:
+
+```text
+type tenant
+  member            [user]  supplied contextually only after current membership validation
+  workspace_viewer  [user]  persisted OpenFGA permission relation
+  can_view_workspace = member AND workspace_viewer
+```
+
+This is a real authorization decision, not a second membership store: membership remains SquiFlow authority and cannot be created by an OpenFGA tuple. Conversely, membership alone does not fabricate `workspace_viewer`. The application adapter performs `Check` only and holds no tuple-administration API. The checked-in model contract lives at `infrastructure/authorization/openfga/tenant-workspace-model.json`.
+
+The broader role model below remains the selected direction and is still `NOT_INTRODUCED`.
 
 Follow OpenFGA's domain-oriented custom-role pattern rather than generating a new authorization model for every tenant role edit.
 

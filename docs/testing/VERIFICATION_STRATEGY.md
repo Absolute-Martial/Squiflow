@@ -49,6 +49,8 @@ Cover:
 Where possible use an isolated real ZITADEL test environment/config rather than pretending token parsing alone proves identity integration.
 
 ### OpenFGA authorization tests
+The current tenant-workspace slice exercises the first subset against a real isolated OpenFGA server: pinned model identity, persisted permission allow/deny, contextual membership, opaque identifiers, and a newer-model pinning regression. The remaining cases activate with role/tuple administration and business resources.
+
 Use the real OpenFGA API/SDK against an isolated store for:
 - pinned authorization model ID;
 - Owner/Staff role behavior;

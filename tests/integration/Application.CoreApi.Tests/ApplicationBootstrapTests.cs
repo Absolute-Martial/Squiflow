@@ -12,6 +12,7 @@ using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using Application.Branding;
 using Application.CoreApi;
+using Application.CoreApi.Authorization;
 using Application.IdentityAccess.Postgres;
 using Application.IdentityAccess;
 using Application.Tenancy;
@@ -165,6 +166,7 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
     private readonly RsaSecurityKey _signingKey;
     private readonly TestAccountBindingDirectory _bindings = new();
     private readonly TestTenantMembershipDirectory _memberships = new();
+    private readonly TestTenantWorkspaceAuthorization _workspaceAuthorization = new();
 
     public WhiteLabelApiFactory()
     {
@@ -176,6 +178,15 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
 
     public void AddTenantMembership(Guid accountId, Guid tenantId, string displayName) =>
         _memberships.Add(accountId, new TenantMembership(tenantId, displayName));
+
+    public void SetWorkspaceDecision(Guid accountId, Guid tenantId, bool allowed) =>
+        _workspaceAuthorization.SetDecision(accountId, tenantId, allowed);
+
+    public void SetWorkspaceUnavailable(Guid accountId, Guid tenantId) =>
+        _workspaceAuthorization.SetUnavailable(accountId, tenantId);
+
+    public int GetWorkspaceCheckCount(Guid accountId, Guid tenantId) =>
+        _workspaceAuthorization.GetCheckCount(accountId, tenantId);
 
     public string CreateToken(
         string? subject = "subject-42",
@@ -206,6 +217,11 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
     {
         builder.UseSetting("Authentication:Authority", Authority);
         builder.UseSetting("Authentication:Audience", Audience);
+        builder.UseSetting("Authorization:OpenFga:ApiUrl", "http://localhost:8080");
+        builder.UseSetting("Authorization:OpenFga:StoreId", "01ARZ3NDEKTSV4RRFFQ69G5FAV");
+        builder.UseSetting("Authorization:OpenFga:AuthorizationModelId", "01ARZ3NDEKTSV4RRFFQ69G5FAW");
+        builder.UseSetting("Authorization:OpenFga:RequestTimeoutSeconds", "3");
+        builder.UseSetting("Authorization:OpenFga:CredentialMethod", "None");
         builder.UseSetting("AllowedHosts", "localhost");
         builder.UseSetting("ConnectionStrings:PrimaryDatabase", "Host=unused.example.test;Database=application");
         builder.UseSetting("Branding:DisplayName", "Example Operations");
@@ -223,6 +239,8 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
             services.AddSingleton<IAccountBindingDirectory>(_bindings);
             services.RemoveAll<ITenantMembershipDirectory>();
             services.AddSingleton<ITenantMembershipDirectory>(_memberships);
+            services.RemoveAll<ITenantWorkspaceAuthorization>();
+            services.AddSingleton<ITenantWorkspaceAuthorization>(_workspaceAuthorization);
             services.PostConfigure<JwtBearerOptions>(
                 JwtBearerDefaults.AuthenticationScheme,
                 options =>
@@ -316,5 +334,60 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
                     values.Any(value => value.TenantId == tenantId));
             }
         }
+    }
+
+    private sealed class TestTenantWorkspaceAuthorization : ITenantWorkspaceAuthorization
+    {
+        private readonly Dictionary<(Guid AccountId, Guid TenantId), Decision> _decisions = [];
+        private readonly Dictionary<(Guid AccountId, Guid TenantId), int> _checks = [];
+        private readonly object _gate = new();
+
+        public void SetDecision(Guid accountId, Guid tenantId, bool allowed)
+        {
+            lock (_gate)
+            {
+                _decisions[(accountId, tenantId)] = new Decision(allowed, Unavailable: false);
+            }
+        }
+
+        public void SetUnavailable(Guid accountId, Guid tenantId)
+        {
+            lock (_gate)
+            {
+                _decisions[(accountId, tenantId)] = new Decision(Allowed: false, Unavailable: true);
+            }
+        }
+
+        public int GetCheckCount(Guid accountId, Guid tenantId)
+        {
+            lock (_gate)
+            {
+                return _checks.GetValueOrDefault((accountId, tenantId));
+            }
+        }
+
+        public Task<bool> CanViewAsync(
+            Guid accountId,
+            Guid tenantId,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (_gate)
+            {
+                var key = (accountId, tenantId);
+                _checks[key] = _checks.GetValueOrDefault(key) + 1;
+                var decision = _decisions.GetValueOrDefault(key);
+                if (decision.Unavailable)
+                {
+                    throw new AuthorizationProviderUnavailableException(
+                        "Synthetic provider outage.",
+                        new HttpRequestException("Synthetic provider outage."));
+                }
+
+                return Task.FromResult(decision.Allowed);
+            }
+        }
+
+        private readonly record struct Decision(bool Allowed, bool Unavailable);
     }
 }
