@@ -1,6 +1,6 @@
 # Phase 1B — Tenant Authorization, Roles, and Devices
 
-**Current implementation note:** current tenant/account membership lookup, membership-derived `TenantContext`, Finbuckle route-candidate plumbing and one pinned-model OpenFGA `can_view_workspace` read check exist. This is a qualified narrow slice, not Phase 1B qualification. Owner/Staff/custom roles, application tuple administration/reconciliation, authorization revision, device authority, tenant-owned resource isolation and their full hostile-provider/authorization evidence remain `NOT_INTRODUCED`.
+**Current implementation note:** current tenant/account membership lookup, membership-derived `TenantContext`, Finbuckle route-candidate plumbing, pinned-model OpenFGA workspace/order checks and narrow forced-RLS Orders persistence exist. This is a qualified bounded slice, not Phase 1B qualification. Owner/Staff/custom roles, application tuple administration/reconciliation, authorization revision, device authority and broader tenant-owned resource isolation remain `NOT_INTRODUCED`.
 
 **Gate-quality owner:** `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md`  
 **Evidence/permanence owner:** `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md`

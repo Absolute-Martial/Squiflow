@@ -2,7 +2,7 @@
 
 **Version:** v0.1.0
 
-**Current implementation:** the global tenant registry, account-membership schema/query and membership-derived immutable `TenantContext` exist. These are security/control data, not tenant-owned business rows. Client-selected tenant execution, tenant-owned persistence and PostgreSQL RLS remain `NOT_INTRODUCED`.
+**Current implementation:** the global tenant registry, account-membership schema/query and membership-derived immutable `TenantContext` exist. The narrow Orders draft-intake slice adds the first tenant-owned business rows with explicit tenant predicates, transaction-local tenant context and forced PostgreSQL RLS. Broader client-selected execution and tenant-owned persistence remain `NOT_INTRODUCED`; the exact active claim is owned by `docs/implementation/ORDER_DRAFT_INTAKE_SLICE.md`.
 
 ## 1. Isolation is a spectrum, not one permanent topology
 

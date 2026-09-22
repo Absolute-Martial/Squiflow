@@ -1,0 +1,119 @@
+{
+  "schema_version": "1.1",
+  "type_definitions": [
+    {
+      "type": "user",
+      "relations": {},
+      "metadata": {
+        "relations": {}
+      }
+    },
+    {
+      "type": "tenant",
+      "relations": {
+        "member": {
+          "this": {}
+        },
+        "workspace_viewer": {
+          "this": {}
+        },
+        "order_creator": {
+          "this": {}
+        },
+        "order_viewer": {
+          "this": {}
+        },
+        "can_view_workspace": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "workspace_viewer"
+                }
+              }
+            ]
+          }
+        },
+        "can_create_order": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "order_creator"
+                }
+              }
+            ]
+          }
+        },
+        "can_view_orders": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "order_viewer"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "relations": {
+          "member": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
+          },
+          "workspace_viewer": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
+          },
+          "order_creator": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
+          },
+          "order_viewer": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
+          },
+          "can_view_workspace": {
+            "directly_related_user_types": []
+          },
+          "can_create_order": {
+            "directly_related_user_types": []
+          },
+          "can_view_orders": {
+            "directly_related_user_types": []
+          }
+        }
+      }
+    }
+  ],
+  "conditions": {}
+}

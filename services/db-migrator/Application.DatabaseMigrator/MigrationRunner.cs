@@ -2,6 +2,7 @@ using System.Data.Common;
 using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Application.IdentityAccess.Postgres;
+using Application.Orders.Postgres;
 using Application.Tenancy.Postgres;
 
 namespace Application.DatabaseMigrator;
@@ -38,9 +39,14 @@ internal sealed class MigrationRunner
         var tenancyMigrations = await tenancyDatabase.Database
             .GetPendingMigrationsAsync(cancellationToken)
             .ConfigureAwait(false);
+        await using var orderDatabase = CreateOrderDatabase();
+        var orderMigrations = await orderDatabase.Database
+            .GetPendingMigrationsAsync(cancellationToken)
+            .ConfigureAwait(false);
 
         return identityMigrations.Select(migration => $"identity-access/{migration}")
             .Concat(tenancyMigrations.Select(migration => $"tenancy/{migration}"))
+            .Concat(orderMigrations.Select(migration => $"orders/{migration}"))
             .ToArray();
     }
 
@@ -68,6 +74,8 @@ internal sealed class MigrationRunner
             await identityDatabase.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
             await using var tenancyDatabase = CreateTenancyDatabase();
             await tenancyDatabase.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
+            await using var orderDatabase = CreateOrderDatabase();
+            await orderDatabase.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -87,6 +95,13 @@ internal sealed class MigrationRunner
         var builder = new DbContextOptionsBuilder<TenancyDbContext>();
         PostgresTenancyOptions.Configure(builder, _connectionString);
         return new TenancyDbContext(builder.Options);
+    }
+
+    private OrderDbContext CreateOrderDatabase()
+    {
+        var builder = new DbContextOptionsBuilder<OrderDbContext>();
+        PostgresOrderOptions.Configure(builder, _connectionString);
+        return new OrderDbContext(builder.Options);
     }
 
     private static async Task AcquireLockAsync(

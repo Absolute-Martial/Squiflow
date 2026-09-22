@@ -8,6 +8,8 @@ internal enum EndpointAccess
     AuthenticatedAccount,
     AuthenticatedTenantMemberships,
     AuthorizedTenantWorkspace,
+    AuthorizedTenantOrderCreation,
+    AuthorizedTenantOrderRead,
 }
 
 internal sealed record EndpointAccessMetadata(EndpointAccess Access);

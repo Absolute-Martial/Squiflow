@@ -17,10 +17,10 @@ public sealed class OpenFgaAuthorizationTimeoutTests
         var configuration = CreateConfiguration();
         using var httpClient = new HttpClient(new NeverRespondingHandler());
         using var client = new OpenFgaClient(configuration.ToClientConfiguration(), httpClient);
-        var authorization = new OpenFgaTenantWorkspaceAuthorization(
+        var authorization = new OpenFgaTenantAuthorization(
             client,
             configuration,
-            NullLogger<OpenFgaTenantWorkspaceAuthorization>.Instance);
+            NullLogger<OpenFgaTenantAuthorization>.Instance);
 
         var started = Stopwatch.StartNew();
         await Assert.ThrowsAsync<AuthorizationProviderUnavailableException>(() =>
@@ -35,10 +35,10 @@ public sealed class OpenFgaAuthorizationTimeoutTests
         var configuration = CreateConfiguration();
         using var httpClient = new HttpClient(new NeverRespondingHandler());
         using var client = new OpenFgaClient(configuration.ToClientConfiguration(), httpClient);
-        var authorization = new OpenFgaTenantWorkspaceAuthorization(
+        var authorization = new OpenFgaTenantAuthorization(
             client,
             configuration,
-            NullLogger<OpenFgaTenantWorkspaceAuthorization>.Instance);
+            NullLogger<OpenFgaTenantAuthorization>.Instance);
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
 
@@ -53,10 +53,10 @@ public sealed class OpenFgaAuthorizationTimeoutTests
         var handler = new CapturingHandler();
         using var httpClient = new HttpClient(handler);
         using var client = new OpenFgaClient(configuration.ToClientConfiguration(), httpClient);
-        var authorization = new OpenFgaTenantWorkspaceAuthorization(
+        var authorization = new OpenFgaTenantAuthorization(
             client,
             configuration,
-            NullLogger<OpenFgaTenantWorkspaceAuthorization>.Instance);
+            NullLogger<OpenFgaTenantAuthorization>.Instance);
         var accountId = Guid.Parse("11111111-1111-1111-1111-111111111111");
         var tenantId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 

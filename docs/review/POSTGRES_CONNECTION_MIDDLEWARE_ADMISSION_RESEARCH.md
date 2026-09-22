@@ -1,13 +1,13 @@
 # PostgreSQL Connection Middleware Admission Research
 
 **Version:** v0.1.0
-**Reviewed:** 2026-09-20
+**Reviewed:** 2026-09-23
 **Decision owner:** `docs/data/PERSISTENCE_SELECTION.md`
 **Status:** Direct Npgsql pooling is the current runtime baseline. External PostgreSQL middleware is `NOT_INTRODUCED`.
 
 ## 1. Decision
 
-CoreApi currently uses one process-wide, named `NpgsqlDataSource`. IdentityAccess and Tenancy DbContexts share that data source and therefore share one bounded driver pool for the exact runtime connection configuration. The checked-in values are conservative starting values, not a measured production capacity claim:
+CoreApi currently uses one process-wide, named `NpgsqlDataSource`. IdentityAccess, Tenancy and Orders DbContexts share that data source and therefore share one bounded driver pool for the exact runtime connection configuration. The checked-in values are conservative starting values, not a measured production capacity claim:
 
 ```text
 ConnectionMode                    Direct
@@ -33,10 +33,10 @@ The current facts are narrow:
 - CoreApi is the only runtime database client process.
 - DbMigrator is a separate one-shot privileged process.
 - PostgreSQL is a single-primary central authority at the current baseline.
-- IdentityAccess and Tenancy perform small, indexed security/control reads.
-- There is no Worker, Sync API, tenant-owned business table, RLS policy, read replica, sharding topology, or HA manager yet.
-- Future tenant-owned pooled tables must use application tenant scope plus PostgreSQL RLS defense in depth.
-- Any RLS custom setting must use `SET LOCAL` in the same explicit transaction as the protected operations.
+- IdentityAccess and Tenancy perform small, indexed security/control reads; Orders adds bounded draft create/read transactions.
+- The narrow Orders schema is tenant-owned and uses forced RLS. There is no Worker, Sync API, read replica, sharding topology, or HA manager yet.
+- Tenant-owned pooled tables use application tenant scope plus PostgreSQL RLS defense in depth.
+- The Orders RLS setting is transaction-local in the same explicit transaction as protected operations, with real pool-reset tests.
 - Runtime and migration identities remain separate.
 
 The future pressure is also known: CoreApi replicas, Worker concurrency, Web/API bursts, and offline Workstation reconnects can multiply client concurrency. That is an admission trigger for measurement, not proof that a proxy is already necessary.

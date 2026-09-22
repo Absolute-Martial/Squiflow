@@ -11,7 +11,7 @@ using Xunit;
 
 namespace Application.CoreApi.Tests;
 
-public sealed class OpenFgaTenantWorkspaceAuthorizationTests : IAsyncLifetime
+public sealed class OpenFgaTenantAuthorizationTests : IAsyncLifetime
 {
     private const ushort OpenFgaPort = 8080;
     private readonly IContainer _server = new ContainerBuilder("openfga/openfga:v1.21.0")
@@ -22,7 +22,7 @@ public sealed class OpenFgaTenantWorkspaceAuthorizationTests : IAsyncLifetime
         .Build();
 
     [Fact]
-    public async Task RealServerRequiresPersistedPermissionAndUsesPinnedModel()
+    public async Task RealServerRequiresPersistedOrderPermissionsAndUsesPinnedModel()
     {
         var apiUrl = $"http://127.0.0.1:{_server.GetMappedPublicPort(OpenFgaPort)}";
         using var administrativeClient = new HttpClient { BaseAddress = new Uri(apiUrl) };
@@ -30,7 +30,7 @@ public sealed class OpenFgaTenantWorkspaceAuthorizationTests : IAsyncLifetime
         var modelJson = await File.ReadAllTextAsync(Path.Combine(
             AppContext.BaseDirectory,
             "OpenFga",
-            "tenant-workspace-model.json"));
+            "tenant-authorization-model.json"));
         var pinnedModelId = await WriteModelAsync(administrativeClient, storeId, modelJson);
 
         var configuration = OpenFgaAuthorizationConfiguration.From(new ConfigurationBuilder()
@@ -46,30 +46,98 @@ public sealed class OpenFgaTenantWorkspaceAuthorizationTests : IAsyncLifetime
             })
             .Build());
         using var client = new OpenFgaClient(configuration.ToClientConfiguration());
-        var authorization = new OpenFgaTenantWorkspaceAuthorization(
+        var authorization = new OpenFgaTenantAuthorization(
             client,
             configuration,
-            NullLogger<OpenFgaTenantWorkspaceAuthorization>.Instance);
-        var accountId = Guid.NewGuid();
+            NullLogger<OpenFgaTenantAuthorization>.Instance);
+        ITenantOrderAuthorization orderAuthorization = authorization;
+        var orderCreatorAccountId = Guid.NewGuid();
+        var orderViewerAccountId = Guid.NewGuid();
+        var workspaceViewerAccountId = Guid.NewGuid();
         var tenantId = Guid.NewGuid();
 
-        Assert.False(await authorization.CanViewAsync(accountId, tenantId, CancellationToken.None));
-
-        await WriteWorkspaceViewerAsync(
+        Assert.False(await authorization.CanViewAsync(
+            workspaceViewerAccountId,
+            tenantId,
+            CancellationToken.None));
+        await WriteTenantRelationAsync(
             administrativeClient,
             storeId,
             pinnedModelId,
-            accountId,
-            tenantId);
-        Assert.True(await authorization.CanViewAsync(accountId, tenantId, CancellationToken.None));
+            workspaceViewerAccountId,
+            tenantId,
+            "workspace_viewer");
+        Assert.True(await authorization.CanViewAsync(
+            workspaceViewerAccountId,
+            tenantId,
+            CancellationToken.None));
 
-        var newerDenyingModel = modelJson.Replace(
-            "workspace_viewer",
-            "blocked_viewer",
-            StringComparison.Ordinal);
+        Assert.False(await orderAuthorization.CanCreateAsync(
+            orderCreatorAccountId,
+            tenantId,
+            CancellationToken.None));
+        Assert.False(await orderAuthorization.CanViewAsync(
+            orderCreatorAccountId,
+            tenantId,
+            CancellationToken.None));
+        Assert.False(await orderAuthorization.CanCreateAsync(
+            orderViewerAccountId,
+            tenantId,
+            CancellationToken.None));
+        Assert.False(await orderAuthorization.CanViewAsync(
+            orderViewerAccountId,
+            tenantId,
+            CancellationToken.None));
+
+        await WriteTenantRelationAsync(
+            administrativeClient,
+            storeId,
+            pinnedModelId,
+            orderCreatorAccountId,
+            tenantId,
+            "order_creator");
+        Assert.True(await orderAuthorization.CanCreateAsync(
+            orderCreatorAccountId,
+            tenantId,
+            CancellationToken.None));
+        Assert.False(await orderAuthorization.CanViewAsync(
+            orderCreatorAccountId,
+            tenantId,
+            CancellationToken.None));
+
+        await WriteTenantRelationAsync(
+            administrativeClient,
+            storeId,
+            pinnedModelId,
+            orderViewerAccountId,
+            tenantId,
+            "order_viewer");
+        Assert.False(await orderAuthorization.CanCreateAsync(
+            orderViewerAccountId,
+            tenantId,
+            CancellationToken.None));
+        Assert.True(await orderAuthorization.CanViewAsync(
+            orderViewerAccountId,
+            tenantId,
+            CancellationToken.None));
+        Assert.True(await authorization.CanViewAsync(
+            workspaceViewerAccountId,
+            tenantId,
+            CancellationToken.None));
+
+        var newerDenyingModel = modelJson
+            .Replace("order_creator", "blocked_order_creator", StringComparison.Ordinal)
+            .Replace("order_viewer", "blocked_order_viewer", StringComparison.Ordinal);
         _ = await WriteModelAsync(administrativeClient, storeId, newerDenyingModel);
 
-        Assert.True(await authorization.CanViewAsync(accountId, tenantId, CancellationToken.None));
+        Assert.True(await orderAuthorization.CanCreateAsync(
+            orderCreatorAccountId,
+            tenantId,
+            CancellationToken.None));
+        Assert.True(await orderAuthorization.CanViewAsync(
+            orderViewerAccountId,
+            tenantId,
+            CancellationToken.None));
     }
 
     public Task InitializeAsync() => _server.StartAsync();
@@ -98,12 +166,13 @@ public sealed class OpenFgaTenantWorkspaceAuthorizationTests : IAsyncLifetime
             ?? throw new InvalidOperationException("OpenFGA did not return an authorization model ID.");
     }
 
-    private static async Task WriteWorkspaceViewerAsync(
+    private static async Task WriteTenantRelationAsync(
         HttpClient client,
         string storeId,
         string authorizationModelId,
         Guid accountId,
-        Guid tenantId)
+        Guid tenantId,
+        string relation)
     {
         using var response = await client.PostAsJsonAsync(
             $"/stores/{storeId}/write",
@@ -116,7 +185,7 @@ public sealed class OpenFgaTenantWorkspaceAuthorizationTests : IAsyncLifetime
                         new
                         {
                             user = $"user:{accountId:N}",
-                            relation = "workspace_viewer",
+                            relation,
                             @object = $"tenant:{tenantId:N}",
                         },
                     },

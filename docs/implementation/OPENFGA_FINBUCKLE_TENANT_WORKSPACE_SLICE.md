@@ -25,9 +25,9 @@ An authenticated account can request a selected tenant's workspace only when the
 - Owner/Staff/custom-role models and permission catalog;
 - application tuple writes, grant/revoke workflows, reconciliation and authorization revision;
 - tenant branding/settings persistence or mutation;
-- tenant-owned business resources and PostgreSQL RLS;
+- tenant-owned business resources beyond the separately qualified narrow Orders draft-intake slice;
 - a production OpenFGA deployment topology, backup/restore qualification or automated model rollout;
-- Finbuckle EF integration, because no tenant-owned business table exists yet;
+- Finbuckle EF integration; the Orders adapter uses explicit `TenantContext`, tenant predicates and PostgreSQL RLS instead;
 - tenant-specific Autofac runtime acquisition.
 
 These absences do not weaken the declared read boundary: its initial permission relationships are deployment-provisioned, and the application cannot report an unimplemented grant/revoke operation as successful.

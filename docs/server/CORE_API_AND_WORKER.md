@@ -1,13 +1,13 @@
 # Core API and Worker Architecture
 
 **Version:** v0.1.0
-**Status:** CoreApi exists for public bootstrap/liveness, a classified OpenAPI v1 document, and narrow authenticated-account and active-membership queries. AdminApi and Worker remain `NOT_INTRODUCED`. Responsibilities below become active contracts only when a current implementation slice earns the corresponding workload.
+**Status:** CoreApi exists for public bootstrap/liveness, a classified OpenAPI v1 document, narrow authenticated-account and active-membership queries, authorized tenant-workspace read, and the bounded Order draft intake slice. AdminApi and Worker remain `NOT_INTRODUCED`. Responsibilities below become active contracts only when a current implementation slice earns the corresponding workload.
 
 ## 1. Core API
 
-`services/core-api` is the current compact ASP.NET Core composition host. Its implemented scope is public brand bootstrap/liveness, a generated `/openapi/v1.json` contract, configured JWT bearer validation, exact external-identity-to-account resolution, and current active-membership listing. The API document uses configured public brand identity and describes the configured OpenID Connect discovery authority only on protected operations. The Tenancy capability can establish `TenantContext` only after a current membership check. CoreApi does not yet call OpenFGA or expose tenant business operations.
+`services/core-api` is the current compact ASP.NET Core composition host. Its implemented scope is public brand bootstrap/liveness, a generated `/openapi/v1.json` contract, configured JWT bearer validation, exact external-identity-to-account resolution, current active-membership listing, authorized tenant-workspace read, and immutable priced Order draft create/read. The API document uses configured public brand identity and describes the configured OpenID Connect discovery authority only on protected operations. The Tenancy capability establishes `TenantContext` only after a current membership check. Workspace and Orders operations then use typed ASP.NET resource requirements backed by the pinned OpenFGA model. The Orders create operation requires caller-scoped semantic idempotency and delegates business validation and durable effects to the Orders capability. Its exact scope is owned by `docs/implementation/ORDER_DRAFT_INTAKE_SLICE.md`.
 
-When introduced, the compact tenant/business host owns:
+The compact tenant/business host owns, as each responsibility is introduced:
 - request pipeline;
 - ZITADEL OIDC/session integration for tenant/business surfaces when identity scope exists;
 - tenant context resolution;

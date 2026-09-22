@@ -1,13 +1,13 @@
 # Implementation Hardcoding and Rule-Compliance Audit
 
 **Version:** v0.1.0
-**Audited:** 2026-09-20
-**Baseline reviewed:** `main` after `695afdf`, including the subsequent neutral artifact-identity correction
+**Audited:** 2026-09-23
+**Baseline reviewed:** current Orders draft-intake change, including its neutral artifact identities
 **Scope:** current production/test projects, executable configuration, migrations, CI wrapper, closest `AGENTS.md` rules and current implementation claims
 
 ## 1. Result
 
-The current implementation remains a narrow production-honest baseline. The audit found no recreated Parties slice, generic repository/unit-of-work layer, fake durable store, cross-module HTTP, default-tenant fallback, embedded production credential, business rule duplicated in host code, or introduced-but-unqualified business capability.
+The current implementation remains a narrow production-honest baseline. The audit found no recreated Parties slice, generic repository/unit-of-work layer, fake durable store, cross-module HTTP, default-tenant fallback, embedded production credential, business rule duplicated in host code, or introduced-but-unqualified broader business lifecycle. The Orders slice uses concrete capability-owned data access rather than a separate SQL service.
 
 The audit did find convenience defaults and hardcoded runtime behavior that conflicted with the fail-fast, least-surprise, retry-ownership, minimal-public-surface, and codename-separation rules. They were corrected in the same change rather than accepted as later hardening.
 
@@ -53,16 +53,17 @@ The checked-in pool sizes, retention periods, authentication timings and cache a
 
 ### Dependency and authority direction
 
-- Host-neutral ApplicationProfiles, Branding, IdentityAccess and Tenancy projects contain no ASP.NET, EF/Npgsql, Autofac, OpenFGA, scheduler, broker, UI or OS dependencies.
+- Host-neutral ApplicationProfiles, Branding, IdentityAccess, Tenancy and Orders projects contain no ASP.NET, EF/Npgsql, Autofac, OpenFGA, scheduler, broker, UI or OS dependencies.
 - PostgreSQL types stay inside provider adapters and executable composition.
 - CoreApi authenticates and resolves current account/membership authority; it does not trust a query/header TenantId or fall back to a default tenant.
-- Finbuckle resolves only the `{tenantId}` route candidate; current membership still creates `TenantContext`, and OpenFGA separately authorizes the workspace read.
+- Finbuckle resolves only the `{tenantId}` route candidate; current membership still creates `TenantContext`, and OpenFGA separately authorizes workspace and Order operations.
 - There is no Web/Sync/Worker/Admin duplicate business implementation and no in-process module call converted to HTTP/gRPC.
 
 ### Persistence and execution
 
 - Capability-owned concrete queries are used; there is no `IRepository<T>`, universal unit of work or provider-neutral persistence hierarchy.
 - Runtime DbContexts share one bounded/resetting Npgsql data source.
+- Orders persistence uses parameterized capability-owned SQL, explicit tenant predicates, forced RLS, transaction-local tenant context and an atomic command receipt; real PostgreSQL tests cover hostile writes, pool reset, concurrent duplicate intent and response replay.
 - DbMigrator remains a separate privileged one-shot process; CoreApi does not run migrations at startup.
 - There is no in-memory queue presented as durable work and no fake persistence.
 - The `Task.Run` inside the profile registry is owned by a `Lazy<Task<...>>`, awaited by acquisitions/retirement/shutdown, bounded by a semaphore and observed for failure. It is not untracked fire-and-forget work.
@@ -89,8 +90,8 @@ The checked-in pool sizes, retention periods, authentication timings and cache a
 This audit does not qualify unintroduced responsibilities. In particular, it does not claim:
 
 - production deployment/TLS/edge readiness;
-- PostgreSQL RLS or tenant-owned business persistence;
-- broader OpenFGA roles, application tuple administration/reconciliation and tenant-owned business-resource authorization;
+- tenant-owned persistence beyond the narrow immutable Order draft/line/receipt schema;
+- broader OpenFGA roles, application tuple administration/reconciliation and business-resource authorization beyond workspace and the narrow Orders relations;
 - durable application-profile publication/activation;
 - Worker, Sync, Web, Workstation or Admin implementation;
 - backup/restore, HA, external pooler, measured rack capacity or zero downtime;
@@ -104,6 +105,6 @@ Repeat this audit when any of the following changes:
 
 - a new executable, public endpoint, persistent schema or serialized contract is introduced;
 - a retry, cache, queue, scheduler, actor, broker, external pooler or runtime plugin path is activated;
-- tenant-owned data/RLS, OpenFGA, profile publication or implementation variants become active;
+- another tenant-owned data/RLS or OpenFGA permission family, profile publication or implementation variant becomes active;
 - product branding/versioning/package identity changes;
 - deployment topology gains another API/Worker replica or privileged operations path.

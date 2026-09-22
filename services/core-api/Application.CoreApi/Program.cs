@@ -5,6 +5,7 @@ using Finbuckle.MultiTenant.Extensions;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Npgsql;
@@ -15,6 +16,8 @@ using Application.CoreApi.Authorization;
 using Application.CoreApi.Composition;
 using Application.IdentityAccess;
 using Application.IdentityAccess.Postgres;
+using Application.Orders;
+using Application.Orders.Postgres;
 using Application.Tenancy;
 using Application.Tenancy.Postgres;
 
@@ -37,8 +40,14 @@ builder.Services.AddSingleton(authenticationConfiguration);
 builder.Services.AddSingleton(openFgaAuthorizationConfiguration);
 builder.Services.AddSingleton<OpenFga.Sdk.Client.IOpenFgaClient>(_ =>
     new OpenFga.Sdk.Client.OpenFgaClient(openFgaAuthorizationConfiguration.ToClientConfiguration()));
-builder.Services.AddSingleton<ITenantWorkspaceAuthorization, OpenFgaTenantWorkspaceAuthorization>();
+builder.Services.AddSingleton<OpenFgaTenantAuthorization>();
+builder.Services.AddSingleton<ITenantWorkspaceAuthorization>(serviceProvider =>
+    serviceProvider.GetRequiredService<OpenFgaTenantAuthorization>());
+builder.Services.AddSingleton<ITenantOrderAuthorization>(serviceProvider =>
+    serviceProvider.GetRequiredService<OpenFgaTenantAuthorization>());
 builder.Services.AddScoped<IAuthorizationHandler, ViewTenantWorkspaceAuthorizationHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, CreateOrderAuthorizationHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, ViewOrdersAuthorizationHandler>();
 builder.Services.AddSingleton(databaseConfiguration);
 builder.Services.AddSingleton<NpgsqlDataSource>(serviceProvider =>
     databaseConfiguration.CreateDataSource(
@@ -55,6 +64,13 @@ builder.Services.AddDbContext<TenancyDbContext>((serviceProvider, options) =>
         serviceProvider.GetRequiredService<NpgsqlDataSource>()));
 builder.Services.AddScoped<ITenantMembershipDirectory, PostgresTenantMembershipDirectory>();
 builder.Services.AddScoped<ResolveTenantContext>();
+builder.Services.AddDbContext<OrderDbContext>((serviceProvider, options) =>
+    PostgresOrderOptions.Configure(
+        options,
+        serviceProvider.GetRequiredService<NpgsqlDataSource>()));
+builder.Services.AddScoped<IOrderDraftStore, PostgresOrderDraftStore>();
+builder.Services.AddScoped<CreateOrderDraft>();
+builder.Services.AddScoped<GetOrderDraft>();
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -183,6 +199,38 @@ app.MapGet("/api/v1/tenants/{tenantId:guid}/workspace", TenantWorkspaceEndpoint.
     .Produces<TenantWorkspaceResponse>()
     .ProducesProblem(StatusCodes.Status401Unauthorized)
     .ProducesProblem(StatusCodes.Status403Forbidden)
+    .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+
+app.MapPost("/api/v1/tenants/{tenantId:guid}/orders", TenantOrderEndpoint.CreateAsync)
+    .WithName("CreateTenantOrderDraft")
+    .WithTags("Orders")
+    .WithSummary("Creates a tenant order draft using a required Idempotency-Key header.")
+    .WithDescription("Requires current tenant membership and the pinned OpenFGA can_create_order permission.")
+    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthorizedTenantOrderCreation))
+    .WithMetadata(new RequestSizeLimitAttribute(TenantOrderEndpoint.MaximumCreateRequestBodyBytes))
+    .RequireAuthorization()
+    .Accepts<CreateOrderDraftPayload>("application/json")
+    .Produces<OrderDraftResponse>(StatusCodes.Status201Created)
+    .Produces<OrderDraftResponse>(StatusCodes.Status200OK)
+    .ProducesProblem(StatusCodes.Status400BadRequest)
+    .ProducesProblem(StatusCodes.Status401Unauthorized)
+    .ProducesProblem(StatusCodes.Status403Forbidden)
+    .ProducesProblem(StatusCodes.Status409Conflict)
+    .ProducesProblem(StatusCodes.Status413PayloadTooLarge)
+    .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+
+app.MapGet("/api/v1/tenants/{tenantId:guid}/orders/{orderId:guid}", TenantOrderEndpoint.GetAsync)
+    .WithName("GetTenantOrderDraft")
+    .WithTags("Orders")
+    .WithSummary("Returns a tenant order draft after current membership and OpenFGA permission checks.")
+    .WithDescription("Requires current tenant membership and the pinned OpenFGA can_view_orders permission.")
+    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthorizedTenantOrderRead))
+    .RequireAuthorization()
+    .Produces<OrderDraftResponse>()
+    .ProducesProblem(StatusCodes.Status400BadRequest)
+    .ProducesProblem(StatusCodes.Status401Unauthorized)
+    .ProducesProblem(StatusCodes.Status403Forbidden)
+    .ProducesProblem(StatusCodes.Status404NotFound)
     .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
 app.MapHealthChecks("/health/live", new HealthCheckOptions

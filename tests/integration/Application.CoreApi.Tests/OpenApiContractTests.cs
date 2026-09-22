@@ -65,6 +65,41 @@ public sealed class OpenApiContractTests : IClassFixture<WhiteLabelApiFactory>
         Assert.True(HasOidcRequirement(workspace));
     }
 
+    [Fact]
+    public async Task CreateOrderDocumentsIdempotencyAndResponseHeaders()
+    {
+        using var response = await _client.GetAsync("/openapi/v1.json");
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var createOrder = document.RootElement
+            .GetProperty("paths")
+            .GetProperty("/api/v1/tenants/{tenantId}/orders")
+            .GetProperty("post");
+
+        var idempotencyKey = createOrder
+            .GetProperty("parameters")
+            .EnumerateArray()
+            .Single(parameter =>
+                parameter.GetProperty("name").GetString() == "Idempotency-Key" &&
+                parameter.GetProperty("in").GetString() == "header");
+        Assert.True(idempotencyKey.GetProperty("required").GetBoolean());
+        Assert.Equal("string", idempotencyKey.GetProperty("schema").GetProperty("type").GetString());
+        Assert.Equal(1, idempotencyKey.GetProperty("schema").GetProperty("minLength").GetInt32());
+        Assert.Equal(128, idempotencyKey.GetProperty("schema").GetProperty("maxLength").GetInt32());
+        Assert.Contains("one value", idempotencyKey.GetProperty("description").GetString());
+
+        var responses = createOrder.GetProperty("responses");
+        Assert.True(responses
+            .GetProperty("200")
+            .GetProperty("headers")
+            .TryGetProperty("Idempotency-Replayed", out var replayedHeader));
+        Assert.Equal("string", replayedHeader.GetProperty("schema").GetProperty("type").GetString());
+        Assert.True(responses
+            .GetProperty("201")
+            .GetProperty("headers")
+            .TryGetProperty("Location", out var locationHeader));
+        Assert.Equal("string", locationHeader.GetProperty("schema").GetProperty("type").GetString());
+    }
+
     private static bool HasOidcRequirement(JsonElement operation) =>
         operation.GetProperty("security")
             .EnumerateArray()

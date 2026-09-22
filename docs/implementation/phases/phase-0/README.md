@@ -19,7 +19,7 @@ production projects: 8
 test projects:       7
 executable hosts:    2
 solution/build/test contract: present
-active runtime responsibilities: public application bootstrap; JWT validation; account and tenant-membership queries; IdentityAccess/Tenancy PostgreSQL persistence; one-shot migration; Autofac root composition and isolated profile-runtime mechanics
+active runtime responsibilities: public application bootstrap; JWT validation; account and tenant-membership queries; workspace/order OpenFGA checks; IdentityAccess/Tenancy/Orders PostgreSQL persistence; narrow Order draft create/read; ordered one-shot migration; Autofac root composition and isolated profile-runtime mechanics
 active host-neutral responsibilities: bounded feature graph validation and deterministic effective-selection compilation
 BLOCKED: none
 ```

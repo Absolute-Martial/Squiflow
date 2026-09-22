@@ -1,8 +1,5 @@
 using System.Security.Claims;
-using Finbuckle.MultiTenant.Abstractions;
-using Finbuckle.MultiTenant.AspNetCore.Extensions;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Application.CoreApi.Authorization;
 using Application.IdentityAccess;
 using Application.Tenancy;
@@ -21,29 +18,16 @@ internal static class TenantWorkspaceEndpoint
         IAuthorizationService authorization,
         CancellationToken cancellationToken)
     {
-        var candidate = httpContext.GetTenantInfo<TenantInfo>()?.Identifier;
-        if (!Guid.TryParseExact(candidate, "D", out var candidateTenantId) ||
-            candidateTenantId != tenantId)
-        {
-            return Denied("tenant_context_invalid", "The tenant context could not be established.");
-        }
-
-        var access = await AuthenticatedAccountAccess.ResolveAsync(
+        var access = await TenantRequestAccess.ResolveAsync(
+            tenantId,
+            httpContext,
             principal,
             resolveAccount,
+            resolveTenantContext,
             cancellationToken);
         if (access.Failure is not null)
         {
             return access.Failure;
-        }
-
-        var tenantContext = await resolveTenantContext.ExecuteAsync(
-            access.Account!.AccountId,
-            tenantId,
-            cancellationToken);
-        if (tenantContext is null)
-        {
-            return Denied("tenant_access_denied", "The requested tenant is not available to this account.");
         }
 
         AuthorizationResult decision;
@@ -51,7 +35,7 @@ internal static class TenantWorkspaceEndpoint
         {
             decision = await authorization.AuthorizeAsync(
                 principal,
-                new TenantWorkspaceResource(tenantContext, cancellationToken),
+                new TenantWorkspaceResource(access.TenantContext!, cancellationToken),
                 ViewTenantWorkspaceRequirement.Instance);
         }
         catch (AuthorizationProviderUnavailableException)
@@ -68,16 +52,20 @@ internal static class TenantWorkspaceEndpoint
 
         if (!decision.Succeeded)
         {
-            return Denied("tenant_permission_denied", "The account is not permitted to enter this tenant.");
+            return TenantRequestAccess.Problem(
+                "tenant_permission_denied",
+                "The account is not permitted to enter this tenant.");
         }
 
         var currentMembership = (await memberships.ListActiveAsync(
-                access.Account.AccountId,
+                access.TenantContext!.AccountId,
                 cancellationToken))
             .SingleOrDefault(value => value.TenantId == tenantId);
         if (currentMembership is null)
         {
-            return Denied("tenant_access_denied", "The requested tenant is not available to this account.");
+            return TenantRequestAccess.Problem(
+                "tenant_access_denied",
+                "The requested tenant is not available to this account.");
         }
 
         httpContext.Response.Headers.CacheControl = "no-store";
@@ -85,13 +73,6 @@ internal static class TenantWorkspaceEndpoint
             currentMembership.TenantId,
             currentMembership.DisplayName));
     }
-
-    private static ProblemHttpResult Denied(string code, string detail) =>
-        TypedResults.Problem(
-            statusCode: StatusCodes.Status403Forbidden,
-            title: "Tenant access denied.",
-            detail: detail,
-            extensions: new Dictionary<string, object?> { ["code"] = code });
 }
 
 internal sealed record TenantWorkspaceResponse(Guid TenantId, string DisplayName);

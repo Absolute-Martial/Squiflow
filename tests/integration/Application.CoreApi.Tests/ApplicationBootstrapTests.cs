@@ -15,6 +15,7 @@ using Application.CoreApi;
 using Application.CoreApi.Authorization;
 using Application.IdentityAccess.Postgres;
 using Application.IdentityAccess;
+using Application.Orders;
 using Application.Tenancy;
 using Application.Tenancy.Postgres;
 using System.Security.Claims;
@@ -167,6 +168,8 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
     private readonly TestAccountBindingDirectory _bindings = new();
     private readonly TestTenantMembershipDirectory _memberships = new();
     private readonly TestTenantWorkspaceAuthorization _workspaceAuthorization = new();
+    private readonly TestTenantOrderAuthorization _orderAuthorization = new();
+    private readonly TestOrderDraftStore _orders = new();
 
     public WhiteLabelApiFactory()
     {
@@ -187,6 +190,28 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
 
     public int GetWorkspaceCheckCount(Guid accountId, Guid tenantId) =>
         _workspaceAuthorization.GetCheckCount(accountId, tenantId);
+
+    public void SetOrderCreateDecision(Guid accountId, Guid tenantId, bool allowed) =>
+        _orderAuthorization.SetCreateDecision(accountId, tenantId, allowed);
+
+    public void SetOrderCreateUnavailable(Guid accountId, Guid tenantId) =>
+        _orderAuthorization.SetCreateUnavailable(accountId, tenantId);
+
+    public void SetOrderViewDecision(Guid accountId, Guid tenantId, bool allowed) =>
+        _orderAuthorization.SetViewDecision(accountId, tenantId, allowed);
+
+    public void SetOrderViewUnavailable(Guid accountId, Guid tenantId) =>
+        _orderAuthorization.SetViewUnavailable(accountId, tenantId);
+
+    public int GetOrderCreateCheckCount(Guid accountId, Guid tenantId) =>
+        _orderAuthorization.GetCreateCheckCount(accountId, tenantId);
+
+    public int GetOrderViewCheckCount(Guid accountId, Guid tenantId) =>
+        _orderAuthorization.GetViewCheckCount(accountId, tenantId);
+
+    public int GetOrderCreateCount(Guid tenantId) => _orders.GetCreateCount(tenantId);
+
+    public int GetOrderFindCount(Guid tenantId) => _orders.GetFindCount(tenantId);
 
     public string CreateToken(
         string? subject = "subject-42",
@@ -241,6 +266,10 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
             services.AddSingleton<ITenantMembershipDirectory>(_memberships);
             services.RemoveAll<ITenantWorkspaceAuthorization>();
             services.AddSingleton<ITenantWorkspaceAuthorization>(_workspaceAuthorization);
+            services.RemoveAll<ITenantOrderAuthorization>();
+            services.AddSingleton<ITenantOrderAuthorization>(_orderAuthorization);
+            services.RemoveAll<IOrderDraftStore>();
+            services.AddSingleton<IOrderDraftStore>(_orders);
             services.PostConfigure<JwtBearerOptions>(
                 JwtBearerDefaults.AuthenticationScheme,
                 options =>
@@ -389,5 +418,186 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
         }
 
         private readonly record struct Decision(bool Allowed, bool Unavailable);
+    }
+
+    private sealed class TestTenantOrderAuthorization : ITenantOrderAuthorization
+    {
+        private readonly Dictionary<(Guid AccountId, Guid TenantId), bool> _createDecisions = [];
+        private readonly Dictionary<(Guid AccountId, Guid TenantId), bool> _viewDecisions = [];
+        private readonly Dictionary<(Guid AccountId, Guid TenantId), int> _createChecks = [];
+        private readonly Dictionary<(Guid AccountId, Guid TenantId), int> _viewChecks = [];
+        private readonly HashSet<(Guid AccountId, Guid TenantId)> _unavailableCreates = [];
+        private readonly HashSet<(Guid AccountId, Guid TenantId)> _unavailableViews = [];
+        private readonly object _gate = new();
+
+        public void SetCreateDecision(Guid accountId, Guid tenantId, bool allowed)
+        {
+            lock (_gate)
+            {
+                _createDecisions[(accountId, tenantId)] = allowed;
+                _unavailableCreates.Remove((accountId, tenantId));
+            }
+        }
+
+        public void SetCreateUnavailable(Guid accountId, Guid tenantId)
+        {
+            lock (_gate)
+            {
+                _unavailableCreates.Add((accountId, tenantId));
+            }
+        }
+
+        public void SetViewDecision(Guid accountId, Guid tenantId, bool allowed)
+        {
+            lock (_gate)
+            {
+                _viewDecisions[(accountId, tenantId)] = allowed;
+                _unavailableViews.Remove((accountId, tenantId));
+            }
+        }
+
+        public void SetViewUnavailable(Guid accountId, Guid tenantId)
+        {
+            lock (_gate)
+            {
+                _unavailableViews.Add((accountId, tenantId));
+            }
+        }
+
+        public int GetCreateCheckCount(Guid accountId, Guid tenantId)
+        {
+            lock (_gate)
+            {
+                return _createChecks.GetValueOrDefault((accountId, tenantId));
+            }
+        }
+
+        public int GetViewCheckCount(Guid accountId, Guid tenantId)
+        {
+            lock (_gate)
+            {
+                return _viewChecks.GetValueOrDefault((accountId, tenantId));
+            }
+        }
+
+        public Task<bool> CanCreateAsync(
+            Guid accountId,
+            Guid tenantId,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (_gate)
+            {
+                var key = (accountId, tenantId);
+                _createChecks[key] = _createChecks.GetValueOrDefault(key) + 1;
+                if (_unavailableCreates.Contains(key))
+                {
+                    throw new AuthorizationProviderUnavailableException(
+                        "Synthetic order authorization provider outage.",
+                        new HttpRequestException("Synthetic order authorization provider outage."));
+                }
+
+                return Task.FromResult(_createDecisions.GetValueOrDefault(key));
+            }
+        }
+
+        public Task<bool> CanViewAsync(
+            Guid accountId,
+            Guid tenantId,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (_gate)
+            {
+                var key = (accountId, tenantId);
+                _viewChecks[key] = _viewChecks.GetValueOrDefault(key) + 1;
+                if (_unavailableViews.Contains(key))
+                {
+                    throw new AuthorizationProviderUnavailableException(
+                        "Synthetic order view authorization provider outage.",
+                        new HttpRequestException("Synthetic order view authorization provider outage."));
+                }
+
+                return Task.FromResult(_viewDecisions.GetValueOrDefault(key));
+            }
+        }
+    }
+
+    private sealed class TestOrderDraftStore : IOrderDraftStore
+    {
+        private readonly Dictionary<(Guid TenantId, Guid AccountId, string Key), Receipt> _receipts = [];
+        private readonly Dictionary<(Guid TenantId, Guid OrderId), OrderDraftSnapshot> _orders = [];
+        private readonly Dictionary<Guid, int> _createCounts = [];
+        private readonly Dictionary<Guid, int> _findCounts = [];
+        private readonly object _gate = new();
+
+        public int GetCreateCount(Guid tenantId)
+        {
+            lock (_gate)
+            {
+                return _createCounts.GetValueOrDefault(tenantId);
+            }
+        }
+
+        public int GetFindCount(Guid tenantId)
+        {
+            lock (_gate)
+            {
+                return _findCounts.GetValueOrDefault(tenantId);
+            }
+        }
+
+        public Task<CreateOrderDraftResult> CreateAsync(
+            TenantContext tenantContext,
+            OrderDraftIntent intent,
+            string idempotencyKey,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (_gate)
+            {
+                var receiptKey = (tenantContext.TenantId, tenantContext.AccountId, idempotencyKey);
+                if (_receipts.TryGetValue(receiptKey, out var receipt))
+                {
+                    return Task.FromResult(string.Equals(
+                        receipt.Fingerprint,
+                        intent.Fingerprint,
+                        StringComparison.Ordinal)
+                        ? new CreateOrderDraftResult(CreateOrderDraftStatus.Replayed, receipt.Order)
+                        : new CreateOrderDraftResult(CreateOrderDraftStatus.IdempotencyKeyConflict, null));
+                }
+
+                var order = new OrderDraftSnapshot(
+                    Guid.CreateVersion7(),
+                    tenantContext.TenantId,
+                    tenantContext.AccountId,
+                    intent.Summary,
+                    intent.CurrencyCode,
+                    intent.Total,
+                    Revision: 1,
+                    DateTimeOffset.UtcNow,
+                    intent.Lines);
+                _receipts.Add(receiptKey, new Receipt(intent.Fingerprint, order));
+                _orders.Add((tenantContext.TenantId, order.OrderId), order);
+                _createCounts[tenantContext.TenantId] = _createCounts.GetValueOrDefault(tenantContext.TenantId) + 1;
+                return Task.FromResult(new CreateOrderDraftResult(CreateOrderDraftStatus.Created, order));
+            }
+        }
+
+        public Task<OrderDraftSnapshot?> FindAsync(
+            TenantContext tenantContext,
+            Guid orderId,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (_gate)
+            {
+                _findCounts[tenantContext.TenantId] = _findCounts.GetValueOrDefault(tenantContext.TenantId) + 1;
+                _orders.TryGetValue((tenantContext.TenantId, orderId), out var order);
+                return Task.FromResult(order);
+            }
+        }
+
+        private sealed record Receipt(string Fingerprint, OrderDraftSnapshot Order);
     }
 }

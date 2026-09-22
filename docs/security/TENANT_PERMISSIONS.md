@@ -2,7 +2,7 @@
 
 **Version:** v0.1.0
 
-**Current implementation:** SquiFlow owns a global tenant registry, current active account memberships and an immutable membership-derived `TenantContext`. The Core API implements one narrow OpenFGA-backed read: `tenant#can_view_workspace` requires both verified current membership supplied as a contextual tuple and a persisted `workspace_viewer` relation under an explicitly configured model ID. Role/custom-role administration, application tuple writes/reconciliation, authorization revision, device authority and tenant-owned business resource checks remain `NOT_INTRODUCED`.
+**Current implementation:** SquiFlow owns a global tenant registry, current active account memberships and an immutable membership-derived `TenantContext`. The Core API checks `tenant#can_view_workspace`, `tenant#can_create_order`, and `tenant#can_view_orders` under one explicitly configured model ID. Each computed relation requires verified current membership supplied as a contextual tuple plus its separate persisted permission relation. Role/custom-role administration, application tuple writes/reconciliation, authorization revision, device authority and resource-specific order relationships remain `NOT_INTRODUCED`.
 
 SquiFlow is small-team-first. `Owner` and `Staff` are default templates, not fixed product roles.
 
@@ -102,16 +102,20 @@ ZITADEL application/project roles or token claims may assist identity/bootstrap 
 
 ## 6. OpenFGA modeling rule
 
-The first checked-in model is intentionally smaller than the future role system:
+The checked-in model is intentionally smaller than the future role system:
 
 ```text
 type tenant
   member            [user]  supplied contextually only after current membership validation
   workspace_viewer  [user]  persisted OpenFGA permission relation
   can_view_workspace = member AND workspace_viewer
+  order_creator     [user]  persisted OpenFGA permission relation
+  can_create_order  = member AND order_creator
+  order_viewer      [user]  persisted OpenFGA permission relation
+  can_view_orders   = member AND order_viewer
 ```
 
-This is a real authorization decision, not a second membership store: membership remains SquiFlow authority and cannot be created by an OpenFGA tuple. Conversely, membership alone does not fabricate `workspace_viewer`. The application adapter performs `Check` only and holds no tuple-administration API. The checked-in model contract lives at `infrastructure/authorization/openfga/tenant-workspace-model.json`.
+These are real authorization decisions, not a second membership store: membership remains SquiFlow authority and cannot be created by an OpenFGA tuple. Conversely, membership alone does not fabricate a permission relation. The application adapter performs `Check` only and holds no tuple-administration API. The checked-in model contract lives at `infrastructure/authorization/openfga/tenant-authorization-model.json`.
 
 The broader role model below remains the selected direction and is still `NOT_INTRODUCED`.
 

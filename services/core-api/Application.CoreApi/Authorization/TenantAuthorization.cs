@@ -14,37 +14,72 @@ internal interface ITenantWorkspaceAuthorization
     Task<bool> CanViewAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
 }
 
-internal sealed class OpenFgaTenantWorkspaceAuthorization(
+internal interface ITenantOrderAuthorization
+{
+    Task<bool> CanCreateAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
+
+    Task<bool> CanViewAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
+}
+
+internal sealed class OpenFgaTenantAuthorization(
     IOpenFgaClient client,
     OpenFgaAuthorizationConfiguration configuration,
-    ILogger<OpenFgaTenantWorkspaceAuthorization> logger) : ITenantWorkspaceAuthorization
+    ILogger<OpenFgaTenantAuthorization> logger) :
+    ITenantWorkspaceAuthorization,
+    ITenantOrderAuthorization
 {
     private const string MemberRelation = "member";
     private const string ViewWorkspaceRelation = "can_view_workspace";
+    private const string CreateOrderRelation = "can_create_order";
+    private const string ViewOrdersRelation = "can_view_orders";
     private static readonly Meter Meter = new("Application.CoreApi.Authorization", "0.1.0");
     private static readonly Counter<long> Decisions = Meter.CreateCounter<long>("application.authorization.decisions");
     private static readonly Histogram<double> Duration = Meter.CreateHistogram<double>(
         "application.authorization.duration",
         "ms");
-    private static readonly Action<ILogger, string, Guid, Guid, string, Exception?> LogDecision =
-        LoggerMessage.Define<string, Guid, Guid, string>(
+    private static readonly Action<ILogger, string, string, Guid, Guid, string, Exception?> LogDecision =
+        LoggerMessage.Define<string, string, Guid, Guid, string>(
             LogLevel.Debug,
-            new EventId(1, "TenantWorkspaceAuthorizationDecision"),
-            "OpenFGA tenant-workspace authorization returned {Decision} for account {AccountId} and tenant {TenantId} using model {AuthorizationModelId}.");
-    private static readonly Action<ILogger, Guid, Guid, string, Exception?> LogTimeout =
-        LoggerMessage.Define<Guid, Guid, string>(
+            new EventId(1, "TenantAuthorizationDecision"),
+            "OpenFGA authorization returned {Decision} for relation {PermissionRelation}, account {AccountId}, and tenant {TenantId} using model {AuthorizationModelId}.");
+    private static readonly Action<ILogger, string, Guid, Guid, string, Exception?> LogTimeout =
+        LoggerMessage.Define<string, Guid, Guid, string>(
             LogLevel.Warning,
-            new EventId(2, "TenantWorkspaceAuthorizationTimeout"),
-            "OpenFGA tenant-workspace authorization timed out for account {AccountId} and tenant {TenantId} using model {AuthorizationModelId}.");
-    private static readonly Action<ILogger, Guid, Guid, string, Exception?> LogUnavailable =
-        LoggerMessage.Define<Guid, Guid, string>(
+            new EventId(2, "TenantAuthorizationTimeout"),
+            "OpenFGA authorization timed out for relation {PermissionRelation}, account {AccountId}, and tenant {TenantId} using model {AuthorizationModelId}.");
+    private static readonly Action<ILogger, string, Guid, Guid, string, Exception?> LogUnavailable =
+        LoggerMessage.Define<string, Guid, Guid, string>(
             LogLevel.Warning,
-            new EventId(3, "TenantWorkspaceAuthorizationUnavailable"),
-            "OpenFGA tenant-workspace authorization was unavailable for account {AccountId} and tenant {TenantId} using model {AuthorizationModelId}.");
+            new EventId(3, "TenantAuthorizationUnavailable"),
+            "OpenFGA authorization was unavailable for relation {PermissionRelation}, account {AccountId}, and tenant {TenantId} using model {AuthorizationModelId}.");
 
     public async Task<bool> CanViewAsync(
         Guid accountId,
         Guid tenantId,
+        CancellationToken cancellationToken) =>
+        await CheckAsync(
+                accountId,
+                tenantId,
+                ViewWorkspaceRelation,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+    Task<bool> ITenantOrderAuthorization.CanCreateAsync(
+        Guid accountId,
+        Guid tenantId,
+        CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, CreateOrderRelation, cancellationToken);
+
+    Task<bool> ITenantOrderAuthorization.CanViewAsync(
+        Guid accountId,
+        Guid tenantId,
+        CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, ViewOrdersRelation, cancellationToken);
+
+    private async Task<bool> CheckAsync(
+        Guid accountId,
+        Guid tenantId,
+        string permissionRelation,
         CancellationToken cancellationToken)
     {
         ArgumentOutOfRangeException.ThrowIfEqual(accountId, Guid.Empty);
@@ -62,7 +97,7 @@ internal sealed class OpenFgaTenantWorkspaceAuthorization(
                 new ClientCheckRequest
                 {
                     User = user,
-                    Relation = ViewWorkspaceRelation,
+                    Relation = permissionRelation,
                     Object = tenant,
                     ContextualTuples =
                     [
@@ -83,10 +118,14 @@ internal sealed class OpenFgaTenantWorkspaceAuthorization(
                 timeout.Token);
 
             var allowed = response.Allowed is true;
-            Decisions.Add(1, new KeyValuePair<string, object?>("decision", allowed ? "allow" : "deny"));
+            Decisions.Add(
+                1,
+                new KeyValuePair<string, object?>("decision", allowed ? "allow" : "deny"),
+                new KeyValuePair<string, object?>("relation", permissionRelation));
             LogDecision(
                 logger,
                 allowed ? "allow" : "deny",
+                permissionRelation,
                 accountId,
                 tenantId,
                 configuration.AuthorizationModelId,
@@ -95,9 +134,13 @@ internal sealed class OpenFgaTenantWorkspaceAuthorization(
         }
         catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
         {
-            Decisions.Add(1, new KeyValuePair<string, object?>("decision", "unavailable"));
+            Decisions.Add(
+                1,
+                new KeyValuePair<string, object?>("decision", "unavailable"),
+                new KeyValuePair<string, object?>("relation", permissionRelation));
             LogTimeout(
                 logger,
+                permissionRelation,
                 accountId,
                 tenantId,
                 configuration.AuthorizationModelId,
@@ -106,9 +149,13 @@ internal sealed class OpenFgaTenantWorkspaceAuthorization(
         }
         catch (Exception exception) when (exception is ApiException or HttpRequestException)
         {
-            Decisions.Add(1, new KeyValuePair<string, object?>("decision", "unavailable"));
+            Decisions.Add(
+                1,
+                new KeyValuePair<string, object?>("decision", "unavailable"),
+                new KeyValuePair<string, object?>("relation", permissionRelation));
             LogUnavailable(
                 logger,
+                permissionRelation,
                 accountId,
                 tenantId,
                 configuration.AuthorizationModelId,
@@ -117,7 +164,9 @@ internal sealed class OpenFgaTenantWorkspaceAuthorization(
         }
         finally
         {
-            Duration.Record(Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+            Duration.Record(
+                Stopwatch.GetElapsedTime(started).TotalMilliseconds,
+                new KeyValuePair<string, object?>("relation", permissionRelation));
         }
     }
 }
