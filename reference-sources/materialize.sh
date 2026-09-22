@@ -143,6 +143,19 @@ materialize direct-candidates openfga-dotnet-sdk squiflow-ref-openfga-dotnet \
   LICENSE README.md SUPPORTED_FRAMEWORKS.md OpenFga.Sdk.sln \
   src/OpenFga.Sdk src/OpenFga.Sdk.Test
 
+materialize poc-gated casbin-net squiflow-ref-casbin-net \
+  https://github.com/apache/casbin-Casbin.NET.git \
+  30b142f0f5c4598852e8258d638bded3e24caf2c Apache-2.0 \
+  LICENSE NOTICE DISCLAIMER README.md INCREMENTAL_FILTERED_POLICY.md Casbin.NET.sln global.json \
+  Casbin Casbin.UnitTests Casbin.Benchmark
+
+materialize poc-gated casbin-efcore-adapter squiflow-ref-casbin-efcore \
+  https://github.com/apache/casbin-efcore-adapter.git \
+  1cc2c9ae985e48a93c38d1b884095502d15d52f8 Apache-2.0 \
+  LICENSE README.md MULTI_CONTEXT_DESIGN.md MULTI_CONTEXT_USAGE_GUIDE.md EFCore-Adapter.sln \
+  Casbin.Persist.Adapter.EFCore Casbin.Persist.Adapter.EFCore.UnitTest \
+  Casbin.Persist.Adapter.EFCore.IntegrationTest
+
 materialize direct-candidates stateless squiflow-ref-stateless \
   https://github.com/dotnet-state-machine/stateless.git \
   588f1a1a08683b452eb7c05562d9f055693cba5d Apache-2.0 \

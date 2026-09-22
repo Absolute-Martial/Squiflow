@@ -8,6 +8,7 @@
 
 - `docs/review/APPLICATION_BASELINE_IMPLEMENTATION_SOURCE_REVIEW.md`
 - `docs/review/APPLICATION_BASE_FRAMEWORK_ADMISSION_RESEARCH.md`
+- `docs/review/CASBIN_NET_AUTHORIZATION_ADMISSION_REVIEW.md`
 - `docs/review/WORKSTATION_FRAMEWORK_ADMISSION_RESEARCH.md`
 - `docs/server/WORKER_RUNTIME_AND_SCHEDULING.md`
 
@@ -18,6 +19,8 @@
 | CommunityToolkit.Mvvm | `b135626dd54d33b8f05f2ff31591592c004aa848` | MIT | direct-candidates | MVVM runtime, generators and focused tests | preferred Workstation presentation dependency when a real slice is activated |
 | Finbuckle.MultiTenant | `ad67b15ecb6158f041abbb0c39ae4d718f3fda42` | Apache-2.0 | direct-candidates | resolver, ASP.NET Core and EF Core implementation/tests | focused candidate when tenant-aware host/EF boundaries exist |
 | OpenFGA .NET SDK | `ec8ee04761b41e2400693b911a17463877e500c3` | Apache-2.0 | direct-candidates | high-level client, generated API models, retry/auth configuration and tests | focused provider adapter candidate for pinned-model authorization checks; never host-neutral authority |
+| Casbin.NET | `30b142f0f5c4598852e8258d638bded3e24caf2c` | Apache-2.0 | poc-gated | enforcer/model/policy store, domain RBAC, resource roles, filtered loading, watcher contracts, benchmarks and tests | replacement candidate for OpenFGA only after the authorization admission POC; never a parallel authority |
+| Casbin EF Core adapter | `1cc2c9ae985e48a93c38d1b884095502d15d52f8` | Apache-2.0 | poc-gated | adapter source, PostgreSQL-capable persistence, filtered policy, transaction design and tests | persistence candidate inside the same replacement POC; generic schema and replica freshness are not accepted by dependency alone |
 | Stateless | `588f1a1a08683b452eb7c05562d9f055693cba5d` | Apache-2.0 | direct-candidates | state-machine source and tests | candidate for a small deterministic entity lifecycle |
 | Dock.Avalonia | `cc08602d02fde1b85067cec064da29f34785e505` | MIT | poc-gated | Dock source and tests | admit only if a real workflow needs persistent docking/floating |
 | IdentityModel OIDC Client | `6eaad5d969799f3a7eb388238fecaa655c66bd19` | Apache-2.0 | poc-gated | native OIDC client source/tests and system-browser sample | candidate after ZITADEL/system-browser/security POC |
