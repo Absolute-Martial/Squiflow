@@ -221,18 +221,18 @@ The relationship is:
 
 The Capability Core is not itself a network service and does not imply a mandatory `CoreApi` hop.
 
-## 6. Workstation local execution is not server authority
+## 6. Workstation preparation is not server authority
 
-The Workstation can execute deterministic capability code locally for offline continuity, but that result is provisional where central authority matters.
+The Workstation can use deterministic capability code to prepare an operation and maintain an immediate provisional projection for offline continuity, but that result is not an authoritative business transition where central authority matters.
 
 ```text
 Workstation
   local facts/snapshots
        │
        ▼
- Capability Core
+ Capability Core preparation
        │
- provisional result
+ provisional projection
        │
  SQLite + local outbox
        │
@@ -242,15 +242,15 @@ Workstation
  SyncApi
        │
        ▼
- authoritative module admission
+ authoritative module admission/commit
        │
        ▼
  PostgreSQL authority
 ```
 
-This supersedes simplistic wording such as “execute the complete transaction twice.” The accepted model is **provisional local execution → authoritative admission/commit**.
+This supersedes simplistic wording such as “execute the complete transaction twice.” The accepted model is **prepare and project locally → admit and commit authoritatively once → reconcile locally**.
 
-The operation envelope carries semantic intent and revision/evidence needed for safe admission. It is not a second full copy of the database.
+The operation envelope carries one semantic operation identity, intent and revision/dependency evidence needed for safe admission. It is not a second full copy of the database and it does not authorize the server to trust client-computed state. The operation-owned admission strategy determines whether the server validates and commits, enforces an expected revision, performs a proven convergent merge, verifies a bounded delegation, or requires an online server operation. The canonical details are owned by `docs/architecture/CAPABILITY_CORE_AND_HOST_EXECUTION.md`.
 
 ## 7. Reads are also module-owned
 

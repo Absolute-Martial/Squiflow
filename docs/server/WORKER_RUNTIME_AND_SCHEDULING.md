@@ -2,7 +2,7 @@
 
 **Status:** Accepted implementation direction for the first `SquiFlow.Worker` slice.  
 **Applies from:** v0.0.18 architecture baseline; executable creation remains Phase 6.  
-**Owner boundary:** This document owns the selected Worker execution runtime and scheduler mechanics. `docs/server/CORE_API_AND_WORKER.md` remains the owner of API/Worker responsibility, durable-job semantics, command/event distinction, retries, external effects, and authorization classes. `docs/decisions/DUAL_PROCESSING_AND_IN_PROCESS_COORDINATION.md` remains the owner of Workstation/server dual processing and process-local Channel semantics.
+**Owner boundary:** This document owns the selected Worker execution runtime and scheduler mechanics. `docs/server/CORE_API_AND_WORKER.md` remains the owner of API/Worker responsibility, durable-job semantics, command/event distinction, retries, external effects, and authorization classes. `docs/decisions/DUAL_PROCESSING_AND_IN_PROCESS_COORDINATION.md` remains the owner of Workstation/server staged authority and process-local Channel semantics.
 
 ## 1. Decision
 

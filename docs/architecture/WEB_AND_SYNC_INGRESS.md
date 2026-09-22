@@ -161,13 +161,17 @@ Workstation
   -> semantic idempotency
   -> current resource/business authorization
   -> revision/dependency comparison
-  -> selective re-evaluation where needed
+  -> operation-owned admission strategy
+       validate/current-fact computation
+       expected-revision check
+       proven convergent merge
+       bounded-delegation verification
   -> authoritative transaction
   -> PostgreSQL
   -> authoritative receipt
 ```
 
-SyncApi owns sync transport/workload policy. The owning module owns what an Order operation means and how it is authoritatively admitted.
+The capability names above are illustrative; they are not claims that an Orders module exists. SyncApi owns sync transport/workload policy. The owning module owns what an operation means, which admission strategy is valid, and how it is authoritatively committed. SyncApi never applies arbitrary client table changes as business authority.
 
 ## 7. Sync pull/download path
 

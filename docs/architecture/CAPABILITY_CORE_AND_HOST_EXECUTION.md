@@ -127,8 +127,8 @@ May own:
 
 - Avalonia presentation and ViewModels;
 - local fact providers backed by SQLite/local snapshots;
-- provisional execution orchestration;
-- local persistence/outbox;
+- operation preparation and provisional projection orchestration;
+- local operation/projection persistence and outbox;
 - local hardware/platform integration;
 - local process/runtime integration.
 
@@ -172,7 +172,7 @@ ServerAuthoritative
 ```
 
 - **DeviceLocal** exists only on the Workstation/device and has no server business effect.
-- **LocalProvisional** may execute locally for offline continuity and later requires authoritative admission.
+- **LocalProvisional** may prepare an operation and update a clearly provisional local projection for offline continuity; it later requires authoritative admission before it has a central business effect.
 - **ServerAuthoritative** requires current server authority and does not become valid merely because a client UI exposed it.
 
 Examples:
@@ -187,22 +187,86 @@ Examples:
 | Printer/scanner integration | DeviceLocal | unavailable |
 | Guard/update recovery | DeviceLocal | unavailable |
 
-## 7. Provisional execution is not blind double processing
+## 7. One semantic operation, staged authority
 
-The accepted Workstation flow is:
+Do not describe the model as “the Workstation executes and the server executes again.” A `LocalProvisional` path has one semantic operation identity and two different responsibilities:
 
 ```text
-local intent
-  -> deterministic local execution
-  -> SQLite + local outbox
-  -> semantic OperationEnvelope + revision evidence
+Workstation: prepare
+  -> validate locally available shape and business facts
+  -> compute immediate provisional projection/user feedback
+  -> atomically persist operation + projection + outbox in SQLite
+  -> submit semantic OperationEnvelope + dependency evidence
   -> SyncApi
-  -> authoritative admission
-  -> fast path or selective re-evaluation
-  -> PostgreSQL authoritative commit
+
+Server: admit and commit
+  -> deduplicate OperationId
+  -> authenticate and authorize current actor/device/tenant
+  -> load current authoritative facts, rules and dependency versions
+  -> choose the operation-owned admission strategy
+  -> commit authoritative state + receipt + outbox atomically where one store owns them
+
+Workstation: reconcile
+  -> durably apply authoritative receipt/change
+  -> replace, adjust or retain the provisional projection for review
 ```
 
-The server does not trust a local result merely because the same rule version was used. Current security/authority and protected invariants are still enforced. Revision evidence exists to avoid unnecessary recomputation, not to transfer authority to the device.
+The local durable commit means the user's intent will survive restart and can remain useful offline. It does not claim that PostgreSQL, another device, an external provider or a central invariant has accepted the operation.
+
+The server owns the only authoritative state transition. It can reuse the same deterministic Capability Core, but it does so as part of admission against trusted facts. The client result is evidence and a provisional projection; it is never a trusted state delta or permission grant.
+
+### 7.1 Operation envelope semantics
+
+When introduced by a real capability, the transport-independent envelope carries the minimum semantic evidence required by that operation, such as:
+
+- stable `OperationId` and operation kind/version;
+- tenant, actor and device references that the server independently validates;
+- semantic intent rather than arbitrary table writes;
+- expected aggregate/base revisions and the identifiers of facts on which the provisional result depended;
+- rule/configuration/schema versions relevant to compatibility;
+- payload integrity and client timing metadata where useful for diagnosis, never as server authority.
+
+The envelope is not a serialized dependency-injection container, a client database changeset, or permission to replay provider effects.
+
+### 7.2 Admission strategy belongs to the operation
+
+There is no universal “run it again” rule. Each introduced operation declares one of these strategies and proves that it preserves its invariants:
+
+| Strategy | Use when | Server behavior |
+|---|---|---|
+| `ServerRequired` | Current security, external authority or a protected shared invariant is required before useful local progress | Workstation may save a draft/intent, but does not present a provisional business success; server performs the authoritative operation online |
+| `ValidateAndCommit` | The intent is locally useful, but the final transition depends on current authority or shared facts | Server validates current facts and computes the authoritative transition; unchanged dependency evidence can avoid unrelated reads/work |
+| `ExpectedRevision` | The operation targets a versioned aggregate and concurrent edits must be detected | Server applies only against the expected revision, then accepts, reports conflict, or invokes an operation-specific merge/rebase policy |
+| `ConvergentMerge` | The operation is proven mergeable while preserving its named invariants | Server merges the semantic operation and records the canonical result; generic last-write-wins is insufficient proof |
+| `BoundedDelegation` | A scarce capability can be safely leased in advance with an explicit limit and expiry | Workstation consumes a signed/identified grant offline; server verifies single use and limits during admission |
+
+`BoundedDelegation` is an optional capability-specific optimization, for example a preallocated identifier range or explicitly reserved quantity. It is not general offline authority and must define issuance, expiry, revocation limits, exhaustion, duplicate use and reconciliation before adoption.
+
+### 7.3 Receipts are the reconciliation contract
+
+An authoritative receipt is stable by `OperationId` and distinguishes at least the semantic outcomes needed by the operation. Candidate outcome classes are:
+
+```text
+Accepted
+Adjusted
+Conflict
+Rejected
+AuthorizationChanged
+UpgradeRequired
+AlreadyApplied
+```
+
+The receipt identifies the authoritative revision/result or the reason and recovery action. A repeated equivalent submission returns the stored outcome; the same `OperationId` with changed intent is rejected. The Workstation acknowledges/removes an outbox item only after it has durably applied the corresponding receipt or authoritative change. Rejected or conflicting user work remains available for explanation, correction, export or retry according to policy.
+
+### 7.4 Why this is a hybrid rather than a universal sync algorithm
+
+Database-change capture can efficiently transport rows, but raw SQLite changesets require compatible schemas/base state and an application conflict handler. A local-database sync engine can manage local persistence, upload queues and server-to-client replication, but its own model still sends writes through an application backend that may accept, modify or deny them. Neither mechanism replaces capability authorization or invariant admission.
+
+CRDT/convergent structures are appropriate only for operations whose merge is proven to preserve the required business invariants. Invariant-confluence research gives the relevant test: if independently valid states can merge into an invalid state, coordination or server admission is required. Expected revisions/optimistic concurrency remain the ordinary choice for non-mergeable aggregate edits.
+
+No general sync engine or CRDT framework is selected by this decision. A future capability may POC a transport/storage mechanism against its real payload, conflict, encryption, migration and recovery obligations while preserving this semantic contract. The focused decision owner is `docs/decisions/DUAL_PROCESSING_AND_IN_PROCESS_COORDINATION.md`; detailed trust/sync rules are in `docs/sync/SYNC_AND_AUTHORITY.md`.
+
+Evidence informing this boundary includes the [SQLite Session Extension](https://www.sqlite.org/sessionintro.html), [PowerSync's server-authoritative upload path](https://powersync.com/blog/checkpoint-requests-client-synced-now), [Automerge conflict semantics](https://automerge.org/docs/reference/documents/conflicts/), the [invariant-confluence paper](https://www.vldb.org/pvldb/vol8/p185-bailis.pdf), [RFC 9110 conditional requests](https://www.rfc-editor.org/rfc/rfc9110.html#section-13.1.1), and [EF Core optimistic concurrency guidance](https://learn.microsoft.com/en-us/ef/core/saving/concurrency). These are pattern evidence, not selected dependencies.
 
 ## 8. Presentation sharing rule
 

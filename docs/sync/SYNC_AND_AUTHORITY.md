@@ -37,6 +37,8 @@ best-effort process-local wake signal
 
 If the local commit succeeds, the provisional business state and pending operation are durable according to the selected SQLite contract. If it fails, neither becomes successful local business state.
 
+`LocalCommitted` means the operation intent and provisional projection are safely stored on that Workstation. It does not mean the central business transition has executed or been accepted.
+
 An in-memory Channel/signal can wake sync but is never the durable queue.
 
 Guard may restart the Workstation after failure, but sync recovery always comes from durable local state rather than Guard/process memory.
@@ -54,12 +56,12 @@ OperationEnvelope
 ├── tenant/device references required by the protocol
 ├── intent payload
 ├── expected/base aggregate version where applicable
-├── dependency revision tokens used by provisional execution
+├── dependency revision tokens used by local preparation
 │   ├── RuleSetRevision
 │   ├── CustomerRevision
 │   ├── PricingRevision
 │   └── operation-specific dependencies
-├── optional bounded ExecutionReceipt / decision hashes
+├── optional bounded LocalDecisionEvidence / decision hashes
 └── correlation/causation metadata
 ```
 
@@ -86,7 +88,7 @@ A local save is not server acceptance.
 
 `Adjusted` means the operation remains valid but authoritative values/result differ from the provisional local decision. It is not automatically a user conflict.
 
-## 5. Upload and authoritative admission flow
+## 5. Upload, authoritative admission and reconciliation
 
 ```text
 select bounded pending operation batch
@@ -96,20 +98,21 @@ select bounded pending operation batch
 → deduplicate/idempotency receipt
 → authorize each semantic operation through current OpenFGA/SquiFlow path
 → compare relevant dependency/version evidence with current state
-→ unchanged dependencies: fast admission path
-→ changed dependencies: selectively re-evaluate affected decisions
-→ always perform mandatory server-required invariants/concurrency/constraints
+→ invoke the capability operation's declared admission strategy
+     ServerRequired / ValidateAndCommit / ExpectedRevision
+     ConvergentMerge / BoundedDelegation
+→ always perform mandatory current invariants/concurrency/constraints
 → commit authoritative transaction
 → record receipt/change feed/outbox where co-owned
 → return per-item authoritative result/diff/reason
-→ persist/reconcile result locally
+→ durably reconcile result locally, then acknowledge the pending operation
 ```
 
 Prefer per-item results unless a group is intentionally one atomic business operation.
 
 Batch limits are bounded by item count **and encoded bytes**.
 
-The fast path is an optimization, never authority delegated to the Workstation.
+Unchanged dependency evidence may avoid unrelated fact loads or calculations inside `ValidateAndCommit`; it never authorizes the server to persist a client-computed state transition. `ConvergentMerge` and `BoundedDelegation` require operation-specific invariant and failure proofs rather than being generic conflict fallbacks.
 
 ## 6. Revision/dependency validation
 
@@ -131,9 +134,9 @@ A change to unrelated catalog metadata must not automatically force all credit l
 
 Mandatory server-only checks such as current authorization, tenant isolation and strict shared invariants still run even when all client revision tokens match.
 
-## 7. ExecutionReceipt is evidence, not authority
+## 7. LocalDecisionEvidence is evidence, not authority
 
-A Workstation may persist/send a bounded `ExecutionReceipt` with:
+A Workstation may persist/send bounded `LocalDecisionEvidence` with:
 
 - OperationId;
 - rule/feature/config revisions used;
@@ -141,9 +144,9 @@ A Workstation may persist/send a bounded `ExecutionReceipt` with:
 - input/decision hashes where useful;
 - provisional decision values needed for reconciliation/explanation.
 
-The server treats it as **untrusted optimization and explainability evidence**.
+The server treats it as **untrusted optimization and explainability evidence**. An authoritative `OperationReceipt` is a separate server-owned record/result created by admission.
 
-Forging or modifying a receipt must never bypass current authorization, server-required facts, concurrency, constraints or domain invariants.
+Forging or modifying local decision evidence must never bypass current authorization, server-required facts, concurrency, constraints or domain invariants.
 
 ## 8. Authorization snapshot versus current OpenFGA state
 
@@ -251,7 +254,7 @@ Rule/workflow/feature snapshots can be stale just like permissions.
 
 The Workstation may use compatible published snapshots for provisional/local processing according to the fact/rule authority class and feature offline policy.
 
-On reconnect the server compares relevant revisions and re-evaluates invalidated decisions. A `ServerRequired` fact such as current shared credit/stock/security context cannot become authoritative merely because a local evaluation once succeeded.
+On reconnect the server applies the operation's declared admission strategy against current authoritative facts. A `ServerRequired` fact such as current shared credit/stock/security context cannot become authoritative merely because a local evaluation once succeeded.
 
 ## 16. Web versus Workstation
 

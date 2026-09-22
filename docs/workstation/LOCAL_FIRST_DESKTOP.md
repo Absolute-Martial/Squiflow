@@ -37,15 +37,16 @@ For a business operation explicitly allowed offline:
 
 ```text
 User action
-→ local validation
+→ prepare semantic operation
+→ local validation using available facts
 → applicable immutable local rule/config snapshot
 → one durable local transaction
-     business record/state + outbox/change record
+     operation intent + provisional projection + outbox record
 → immediate local UI update
 → background synchronization later
 ```
 
-If the Workstation crashes after the local commit, Guard may restart the process, but recovery comes from the durable local store—not from Guard memory.
+If the Workstation crashes after the local commit, Guard may restart the process, but recovery comes from the durable local store—not from Guard memory. The local commit protects the user's intent and provisional view; it does not claim central acceptance.
 
 In-memory channels/signals may wake synchronization but are never durable truth.
 
@@ -72,7 +73,7 @@ Examples:
 ## 6. Authority classes
 
 ### Local-capable / remotely reconciled
-The user can perform the action offline and keep working after durable local commit.
+The user can prepare the action offline and keep working from a durable provisional projection. The owning operation must define whether authoritative admission can accept it directly, merge it, adjust it or require review.
 
 ### Local provisional
 The user can proceed locally but the UI must show that current server authority/facts can still reject or alter the final outcome.
@@ -105,17 +106,19 @@ Remote synchronization updates local state in the background.
 ## 9. Sync path
 
 ```text
-LocalCommitted change
+Locally committed operation
 → durable outbox
 → bounded batch
 → authenticated Sync API
 → server TenantContext
 → OpenFGA authorization
-→ business/rule/concurrency validation
-→ idempotent central transaction
+→ operation-owned admission using current authoritative facts
+→ idempotent authoritative transaction
 → per-item result/receipt
-→ local durable acknowledgement
+→ local durable reconciliation and acknowledgement
 ```
+
+The Workstation submits semantic intent and dependency evidence. It does not upload arbitrary SQL/row changes as authoritative business mutations. A local-database replication engine may later be evaluated for transport and server-to-client projection delivery, but it cannot replace the capability's admission contract.
 
 Remote changes:
 

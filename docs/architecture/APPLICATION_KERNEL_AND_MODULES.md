@@ -246,14 +246,14 @@ ServerAuthoritative
 ```
 
 - `DeviceLocal`: device-only behavior with no server business effect.
-- `LocalProvisional`: Workstation may execute/store a provisional local result and later submit semantic intent for authoritative admission.
+- `LocalProvisional`: Workstation may prepare/store a provisional local projection and later submit the semantic operation for authoritative admission.
 - `ServerAuthoritative`: current server authority required; cannot become authoritative offline.
 
 Do not introduce a global enum merely because these terms are accepted architecture vocabulary. Introduce the narrow concrete representation when a real operation needs the distinction.
 
 These values are semantic execution/authority categories, not process names.
 
-The Workstation/server two-stage contract is `Provisional Execution + Authoritative Admission`, not blind double execution. See `docs/decisions/DUAL_PROCESSING_AND_IN_PROCESS_COORDINATION.md` and `docs/sync/SYNC_AND_AUTHORITY.md`.
+The Workstation/server contract is `Local Preparation + Authoritative Admission/Commit + Reconciliation`. One semantic operation has one authoritative transition. See `docs/decisions/DUAL_PROCESSING_AND_IN_PROCESS_COORDINATION.md` and `docs/sync/SYNC_AND_AUTHORITY.md`.
 
 Web normally enters authoritative application use cases directly once that surface exists. A future SyncApi receives semantic Workstation operations and performs current admission/reconciliation. Both reach the same Capability Core semantics rather than parallel business implementations.
 
