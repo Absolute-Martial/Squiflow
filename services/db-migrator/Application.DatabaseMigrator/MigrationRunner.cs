@@ -126,12 +126,18 @@ internal sealed class MigrationRunner
             }
 
             var remaining = timeout - elapsed.Elapsed;
+            if (remaining <= TimeSpan.Zero)
+            {
+                break;
+            }
+
             var delay = remaining < LockPollInterval
                 ? remaining
                 : LockPollInterval;
             await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         throw new MigrationLockUnavailableException(timeout);
     }
 
