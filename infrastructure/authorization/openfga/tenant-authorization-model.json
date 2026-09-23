@@ -23,6 +23,9 @@
         "order_viewer": {
           "this": {}
         },
+        "order_abandoner": {
+          "this": {}
+        },
         "can_view_workspace": {
           "intersection": {
             "child": [
@@ -70,6 +73,22 @@
               }
             ]
           }
+        },
+        "can_abandon_order": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "order_abandoner"
+                }
+              }
+            ]
+          }
         }
       },
       "metadata": {
@@ -102,6 +121,13 @@
               }
             ]
           },
+          "order_abandoner": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
+          },
           "can_view_workspace": {
             "directly_related_user_types": []
           },
@@ -109,6 +135,9 @@
             "directly_related_user_types": []
           },
           "can_view_orders": {
+            "directly_related_user_types": []
+          },
+          "can_abandon_order": {
             "directly_related_user_types": []
           }
         }

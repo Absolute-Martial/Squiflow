@@ -203,15 +203,30 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
     public void SetOrderViewUnavailable(Guid accountId, Guid tenantId) =>
         _orderAuthorization.SetViewUnavailable(accountId, tenantId);
 
+    public void SetOrderAbandonDecision(Guid accountId, Guid tenantId, bool allowed) =>
+        _orderAuthorization.SetAbandonDecision(accountId, tenantId, allowed);
+
+    public void SetOrderAbandonUnavailable(Guid accountId, Guid tenantId) =>
+        _orderAuthorization.SetAbandonUnavailable(accountId, tenantId);
+
     public int GetOrderCreateCheckCount(Guid accountId, Guid tenantId) =>
         _orderAuthorization.GetCreateCheckCount(accountId, tenantId);
 
     public int GetOrderViewCheckCount(Guid accountId, Guid tenantId) =>
         _orderAuthorization.GetViewCheckCount(accountId, tenantId);
 
+    public int GetOrderAbandonCheckCount(Guid accountId, Guid tenantId) =>
+        _orderAuthorization.GetAbandonCheckCount(accountId, tenantId);
+
     public int GetOrderCreateCount(Guid tenantId) => _orders.GetCreateCount(tenantId);
 
     public int GetOrderFindCount(Guid tenantId) => _orders.GetFindCount(tenantId);
+
+    public int GetOrderListCount(Guid tenantId) => _orders.GetListCount(tenantId);
+
+    public int GetOrderAbandonCount(Guid tenantId) => _orders.GetAbandonCount(tenantId);
+
+    public ListOrderDraftsRequest? GetLastOrderListRequest(Guid tenantId) => _orders.GetLastListRequest(tenantId);
 
     public string CreateToken(
         string? subject = "subject-42",
@@ -424,10 +439,13 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
     {
         private readonly Dictionary<(Guid AccountId, Guid TenantId), bool> _createDecisions = [];
         private readonly Dictionary<(Guid AccountId, Guid TenantId), bool> _viewDecisions = [];
+        private readonly Dictionary<(Guid AccountId, Guid TenantId), bool> _abandonDecisions = [];
         private readonly Dictionary<(Guid AccountId, Guid TenantId), int> _createChecks = [];
         private readonly Dictionary<(Guid AccountId, Guid TenantId), int> _viewChecks = [];
+        private readonly Dictionary<(Guid AccountId, Guid TenantId), int> _abandonChecks = [];
         private readonly HashSet<(Guid AccountId, Guid TenantId)> _unavailableCreates = [];
         private readonly HashSet<(Guid AccountId, Guid TenantId)> _unavailableViews = [];
+        private readonly HashSet<(Guid AccountId, Guid TenantId)> _unavailableAbandons = [];
         private readonly object _gate = new();
 
         public void SetCreateDecision(Guid accountId, Guid tenantId, bool allowed)
@@ -464,6 +482,23 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
             }
         }
 
+        public void SetAbandonDecision(Guid accountId, Guid tenantId, bool allowed)
+        {
+            lock (_gate)
+            {
+                _abandonDecisions[(accountId, tenantId)] = allowed;
+                _unavailableAbandons.Remove((accountId, tenantId));
+            }
+        }
+
+        public void SetAbandonUnavailable(Guid accountId, Guid tenantId)
+        {
+            lock (_gate)
+            {
+                _unavailableAbandons.Add((accountId, tenantId));
+            }
+        }
+
         public int GetCreateCheckCount(Guid accountId, Guid tenantId)
         {
             lock (_gate)
@@ -477,6 +512,14 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
             lock (_gate)
             {
                 return _viewChecks.GetValueOrDefault((accountId, tenantId));
+            }
+        }
+
+        public int GetAbandonCheckCount(Guid accountId, Guid tenantId)
+        {
+            lock (_gate)
+            {
+                return _abandonChecks.GetValueOrDefault((accountId, tenantId));
             }
         }
 
@@ -521,14 +564,39 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
                 return Task.FromResult(_viewDecisions.GetValueOrDefault(key));
             }
         }
+
+        public Task<bool> CanAbandonAsync(
+            Guid accountId,
+            Guid tenantId,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (_gate)
+            {
+                var key = (accountId, tenantId);
+                _abandonChecks[key] = _abandonChecks.GetValueOrDefault(key) + 1;
+                if (_unavailableAbandons.Contains(key))
+                {
+                    throw new AuthorizationProviderUnavailableException(
+                        "Synthetic order abandon authorization provider outage.",
+                        new HttpRequestException("Synthetic order abandon authorization provider outage."));
+                }
+
+                return Task.FromResult(_abandonDecisions.GetValueOrDefault(key));
+            }
+        }
     }
 
     private sealed class TestOrderDraftStore : IOrderDraftStore
     {
         private readonly Dictionary<(Guid TenantId, Guid AccountId, string Key), Receipt> _receipts = [];
+        private readonly Dictionary<(Guid TenantId, Guid AccountId, string Key), AbandonReceipt> _abandonReceipts = [];
         private readonly Dictionary<(Guid TenantId, Guid OrderId), OrderDraftSnapshot> _orders = [];
         private readonly Dictionary<Guid, int> _createCounts = [];
         private readonly Dictionary<Guid, int> _findCounts = [];
+        private readonly Dictionary<Guid, int> _listCounts = [];
+        private readonly Dictionary<Guid, int> _abandonCounts = [];
+        private readonly Dictionary<Guid, ListOrderDraftsRequest> _lastListRequests = [];
         private readonly object _gate = new();
 
         public int GetCreateCount(Guid tenantId)
@@ -544,6 +612,30 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
             lock (_gate)
             {
                 return _findCounts.GetValueOrDefault(tenantId);
+            }
+        }
+
+        public int GetListCount(Guid tenantId)
+        {
+            lock (_gate)
+            {
+                return _listCounts.GetValueOrDefault(tenantId);
+            }
+        }
+
+        public int GetAbandonCount(Guid tenantId)
+        {
+            lock (_gate)
+            {
+                return _abandonCounts.GetValueOrDefault(tenantId);
+            }
+        }
+
+        public ListOrderDraftsRequest? GetLastListRequest(Guid tenantId)
+        {
+            lock (_gate)
+            {
+                return _lastListRequests.GetValueOrDefault(tenantId);
             }
         }
 
@@ -598,6 +690,99 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
             }
         }
 
+        public Task<OrderDraftPage> ListAsync(
+            TenantContext tenantContext,
+            ListOrderDraftsRequest request,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (_gate)
+            {
+                _listCounts[tenantContext.TenantId] = _listCounts.GetValueOrDefault(tenantContext.TenantId) + 1;
+                _lastListRequests[tenantContext.TenantId] = request;
+                var ordered = _orders.Values
+                    .Where(order => order.TenantId == tenantContext.TenantId)
+                    .OrderByDescending(order => order.CreatedAt)
+                    .ThenByDescending(order => order.OrderId)
+                    .Where(order => request.After is null || IsAfter(order, request.After))
+                    .ToArray();
+                var items = ordered
+                    .Take(request.Limit + 1)
+                    .Select(order => new OrderDraftListItem(
+                        order.OrderId,
+                        order.Summary,
+                        order.CurrencyCode,
+                        order.Total,
+                        order.Revision,
+                        order.CreatedAt,
+                        order.State,
+                        order.AbandonedAt))
+                    .ToArray();
+                var hasNext = items.Length > request.Limit;
+                if (hasNext)
+                {
+                    items = items[..request.Limit];
+                }
+
+                var nextCursor = hasNext
+                    ? new OrderDraftPageCursor(items[^1].CreatedAt, items[^1].OrderId)
+                    : null;
+                return Task.FromResult(new OrderDraftPage(items, nextCursor));
+            }
+        }
+
+        public Task<AbandonOrderDraftResult> AbandonAsync(
+            TenantContext tenantContext,
+            AbandonOrderDraftRequest request,
+            string idempotencyKey,
+            string fingerprint,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (_gate)
+            {
+                _abandonCounts[tenantContext.TenantId] = _abandonCounts.GetValueOrDefault(tenantContext.TenantId) + 1;
+                var receiptKey = (tenantContext.TenantId, tenantContext.AccountId, idempotencyKey);
+                if (_abandonReceipts.TryGetValue(receiptKey, out var receipt))
+                {
+                    return Task.FromResult(string.Equals(receipt.Fingerprint, fingerprint, StringComparison.Ordinal)
+                        ? new AbandonOrderDraftResult(AbandonOrderDraftStatus.Replayed, receipt.Order)
+                        : new AbandonOrderDraftResult(AbandonOrderDraftStatus.IdempotencyKeyConflict, null));
+                }
+
+                if (!_orders.TryGetValue((tenantContext.TenantId, request.OrderId), out var order))
+                {
+                    return Task.FromResult(new AbandonOrderDraftResult(AbandonOrderDraftStatus.NotFound, null));
+                }
+
+                if (order.State == OrderDraftState.Abandoned)
+                {
+                    return Task.FromResult(new AbandonOrderDraftResult(AbandonOrderDraftStatus.AlreadyAbandoned, null));
+                }
+
+                if (order.Revision != request.ExpectedRevision)
+                {
+                    return Task.FromResult(new AbandonOrderDraftResult(AbandonOrderDraftStatus.RevisionConflict, null));
+                }
+
+                var abandoned = order with
+                {
+                    State = OrderDraftState.Abandoned,
+                    Revision = order.Revision + 1,
+                    AbandonedAt = DateTimeOffset.UtcNow,
+                    AbandonedByAccountId = tenantContext.AccountId,
+                };
+                _orders[(tenantContext.TenantId, request.OrderId)] = abandoned;
+                _abandonReceipts.Add(receiptKey, new AbandonReceipt(fingerprint, abandoned));
+                return Task.FromResult(new AbandonOrderDraftResult(AbandonOrderDraftStatus.Abandoned, abandoned));
+            }
+        }
+
+        private static bool IsAfter(OrderDraftSnapshot order, OrderDraftPageCursor after) =>
+            order.CreatedAt < after.CreatedAt ||
+            (order.CreatedAt == after.CreatedAt && order.OrderId.CompareTo(after.OrderId) < 0);
+
         private sealed record Receipt(string Fingerprint, OrderDraftSnapshot Order);
+        private sealed record AbandonReceipt(string Fingerprint, OrderDraftSnapshot Order);
     }
 }

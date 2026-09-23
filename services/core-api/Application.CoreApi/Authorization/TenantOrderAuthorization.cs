@@ -25,6 +25,15 @@ internal sealed class ViewOrdersRequirement : IAuthorizationRequirement
     }
 }
 
+internal sealed class AbandonOrderRequirement : IAuthorizationRequirement
+{
+    internal static AbandonOrderRequirement Instance { get; } = new();
+
+    private AbandonOrderRequirement()
+    {
+    }
+}
+
 internal sealed class CreateOrderAuthorizationHandler(ITenantOrderAuthorization authorization)
     : AuthorizationHandler<CreateOrderRequirement, TenantOrderResource>
 {
@@ -54,6 +63,25 @@ internal sealed class ViewOrdersAuthorizationHandler(ITenantOrderAuthorization a
     {
         if (context.User.Identity?.IsAuthenticated is true &&
             await authorization.CanViewAsync(
+                resource.TenantContext.AccountId,
+                resource.TenantContext.TenantId,
+                resource.CancellationToken))
+        {
+            context.Succeed(requirement);
+        }
+    }
+}
+
+internal sealed class AbandonOrderAuthorizationHandler(ITenantOrderAuthorization authorization)
+    : AuthorizationHandler<AbandonOrderRequirement, TenantOrderResource>
+{
+    protected override async Task HandleRequirementAsync(
+        AuthorizationHandlerContext context,
+        AbandonOrderRequirement requirement,
+        TenantOrderResource resource)
+    {
+        if (context.User.Identity?.IsAuthenticated is true &&
+            await authorization.CanAbandonAsync(
                 resource.TenantContext.AccountId,
                 resource.TenantContext.TenantId,
                 resource.CancellationToken))

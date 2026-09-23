@@ -48,6 +48,7 @@ builder.Services.AddSingleton<ITenantOrderAuthorization>(serviceProvider =>
 builder.Services.AddScoped<IAuthorizationHandler, ViewTenantWorkspaceAuthorizationHandler>();
 builder.Services.AddScoped<IAuthorizationHandler, CreateOrderAuthorizationHandler>();
 builder.Services.AddScoped<IAuthorizationHandler, ViewOrdersAuthorizationHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, AbandonOrderAuthorizationHandler>();
 builder.Services.AddSingleton(databaseConfiguration);
 builder.Services.AddSingleton<NpgsqlDataSource>(serviceProvider =>
     databaseConfiguration.CreateDataSource(
@@ -71,6 +72,8 @@ builder.Services.AddDbContext<OrderDbContext>((serviceProvider, options) =>
 builder.Services.AddScoped<IOrderDraftStore, PostgresOrderDraftStore>();
 builder.Services.AddScoped<CreateOrderDraft>();
 builder.Services.AddScoped<GetOrderDraft>();
+builder.Services.AddScoped<ListOrderDrafts>();
+builder.Services.AddScoped<AbandonOrderDraft>();
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -219,6 +222,19 @@ app.MapPost("/api/v1/tenants/{tenantId:guid}/orders", TenantOrderEndpoint.Create
     .ProducesProblem(StatusCodes.Status413PayloadTooLarge)
     .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
+app.MapGet("/api/v1/tenants/{tenantId:guid}/orders", TenantOrderEndpoint.ListAsync)
+    .WithName("ListTenantOrderDrafts")
+    .WithTags("Orders")
+    .WithSummary("Returns a bounded page of tenant order drafts after current membership and OpenFGA permission checks.")
+    .WithDescription("Requires current tenant membership and the pinned OpenFGA can_view_orders permission.")
+    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthorizedTenantOrderBrowse))
+    .RequireAuthorization()
+    .Produces<OrderDraftPageResponse>()
+    .ProducesProblem(StatusCodes.Status400BadRequest)
+    .ProducesProblem(StatusCodes.Status401Unauthorized)
+    .ProducesProblem(StatusCodes.Status403Forbidden)
+    .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+
 app.MapGet("/api/v1/tenants/{tenantId:guid}/orders/{orderId:guid}", TenantOrderEndpoint.GetAsync)
     .WithName("GetTenantOrderDraft")
     .WithTags("Orders")
@@ -231,6 +247,23 @@ app.MapGet("/api/v1/tenants/{tenantId:guid}/orders/{orderId:guid}", TenantOrderE
     .ProducesProblem(StatusCodes.Status401Unauthorized)
     .ProducesProblem(StatusCodes.Status403Forbidden)
     .ProducesProblem(StatusCodes.Status404NotFound)
+    .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+
+app.MapPost("/api/v1/tenants/{tenantId:guid}/orders/{orderId:guid}/abandon", TenantOrderEndpoint.AbandonAsync)
+    .WithName("AbandonTenantOrderDraft")
+    .WithTags("Orders")
+    .WithSummary("Abandons a tenant order draft using an expected revision and Idempotency-Key.")
+    .WithDescription("Requires current tenant membership and the pinned OpenFGA can_abandon_order permission. Supply JSON {\"expectedRevision\":1} and one Idempotency-Key header; an exact retry returns the committed result.")
+    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthorizedTenantOrderAbandon))
+    .WithMetadata(new RequestSizeLimitAttribute(TenantOrderEndpoint.MaximumAbandonRequestBodyBytes))
+    .RequireAuthorization()
+    .Produces<AbandonOrderDraftResponse>(StatusCodes.Status200OK)
+    .ProducesProblem(StatusCodes.Status400BadRequest)
+    .ProducesProblem(StatusCodes.Status401Unauthorized)
+    .ProducesProblem(StatusCodes.Status403Forbidden)
+    .ProducesProblem(StatusCodes.Status404NotFound)
+    .ProducesProblem(StatusCodes.Status409Conflict)
+    .ProducesProblem(StatusCodes.Status413PayloadTooLarge)
     .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
 app.MapHealthChecks("/health/live", new HealthCheckOptions

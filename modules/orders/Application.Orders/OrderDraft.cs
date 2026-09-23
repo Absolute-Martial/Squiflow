@@ -13,6 +13,12 @@ public sealed record OrderDraftLine(
     decimal UnitPrice,
     decimal LineTotal);
 
+public enum OrderDraftState
+{
+    Draft = 0,
+    Abandoned = 1,
+}
+
 public sealed record OrderDraftSnapshot(
     Guid OrderId,
     Guid TenantId,
@@ -22,7 +28,32 @@ public sealed record OrderDraftSnapshot(
     decimal Total,
     long Revision,
     DateTimeOffset CreatedAt,
-    IReadOnlyList<OrderDraftLine> Lines);
+    IReadOnlyList<OrderDraftLine> Lines,
+    OrderDraftState State = OrderDraftState.Draft,
+    DateTimeOffset? AbandonedAt = null,
+    Guid? AbandonedByAccountId = null);
+
+public sealed record OrderDraftListItem(
+    Guid OrderId,
+    string Summary,
+    string CurrencyCode,
+    decimal Total,
+    long Revision,
+    DateTimeOffset CreatedAt,
+    OrderDraftState State = OrderDraftState.Draft,
+    DateTimeOffset? AbandonedAt = null);
+
+public sealed record OrderDraftPageCursor(
+    DateTimeOffset CreatedAt,
+    Guid OrderId);
+
+public sealed record ListOrderDraftsRequest(
+    int Limit,
+    OrderDraftPageCursor? After);
+
+public sealed record OrderDraftPage(
+    IReadOnlyList<OrderDraftListItem> Items,
+    OrderDraftPageCursor? NextCursor);
 
 public sealed record OrderDraftLineInput(
     string Description,
@@ -46,6 +77,40 @@ public sealed record CreateOrderDraftResult(
     CreateOrderDraftStatus Status,
     OrderDraftSnapshot? Order);
 
+public sealed record AbandonOrderDraftRequest(
+    Guid OrderId,
+    long ExpectedRevision);
+
+public enum AbandonOrderDraftStatus
+{
+    Abandoned = 1,
+    Replayed = 2,
+    NotFound = 3,
+    RevisionConflict = 4,
+    AlreadyAbandoned = 5,
+    IdempotencyKeyConflict = 6,
+}
+
+public sealed record AbandonOrderDraftResult(
+    AbandonOrderDraftStatus Status,
+    OrderDraftSnapshot? Order);
+
+public static class OrderDraftLifecycle
+{
+    public static AbandonOrderDraftStatus AssessAbandon(
+        OrderDraftState state,
+        long currentRevision,
+        long expectedRevision) =>
+        state switch
+        {
+            OrderDraftState.Abandoned => AbandonOrderDraftStatus.AlreadyAbandoned,
+            OrderDraftState.Draft when currentRevision != expectedRevision =>
+                AbandonOrderDraftStatus.RevisionConflict,
+            OrderDraftState.Draft => AbandonOrderDraftStatus.Abandoned,
+            _ => throw new InvalidOperationException("The order draft has an unsupported state."),
+        };
+}
+
 public sealed class OrderDraftValidationException(string code, string message)
     : ArgumentException(message)
 {
@@ -63,6 +128,18 @@ public interface IOrderDraftStore
     Task<OrderDraftSnapshot?> FindAsync(
         TenantContext tenantContext,
         Guid orderId,
+        CancellationToken cancellationToken);
+
+    Task<OrderDraftPage> ListAsync(
+        TenantContext tenantContext,
+        ListOrderDraftsRequest request,
+        CancellationToken cancellationToken);
+
+    Task<AbandonOrderDraftResult> AbandonAsync(
+        TenantContext tenantContext,
+        AbandonOrderDraftRequest request,
+        string idempotencyKey,
+        string fingerprint,
         CancellationToken cancellationToken);
 }
 
@@ -98,6 +175,78 @@ public sealed class GetOrderDraft(IOrderDraftStore store)
         }
 
         return store.FindAsync(tenantContext, orderId, cancellationToken);
+    }
+}
+
+public sealed class ListOrderDrafts(IOrderDraftStore store)
+{
+    public Task<OrderDraftPage> ExecuteAsync(
+        TenantContext tenantContext,
+        ListOrderDraftsRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(tenantContext);
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (request.Limit is < 1 or > 50)
+        {
+            throw new OrderDraftValidationException(
+                "page_size_invalid",
+                "Page size must be between 1 and 50.");
+        }
+
+        if (request.After is { } cursor && !IsValidCursor(cursor))
+        {
+            throw new OrderDraftValidationException(
+                "cursor_invalid",
+                "The page cursor is invalid.");
+        }
+
+        return store.ListAsync(tenantContext, request, cancellationToken);
+    }
+
+    private static bool IsValidCursor(OrderDraftPageCursor cursor) =>
+        cursor.OrderId != Guid.Empty &&
+        cursor.CreatedAt != default &&
+        cursor.CreatedAt.Offset == TimeSpan.Zero;
+}
+
+public sealed class AbandonOrderDraft(IOrderDraftStore store)
+{
+    public Task<AbandonOrderDraftResult> ExecuteAsync(
+        TenantContext tenantContext,
+        AbandonOrderDraftRequest request,
+        string idempotencyKey,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(tenantContext);
+        ArgumentNullException.ThrowIfNull(request);
+        if (request.OrderId == Guid.Empty)
+        {
+            throw new OrderDraftValidationException(
+                "order_id_invalid",
+                "Order identity cannot be empty.");
+        }
+
+        if (request.ExpectedRevision < 1)
+        {
+            throw new OrderDraftValidationException(
+                "expected_revision_invalid",
+                "Expected revision must be a positive integer.");
+        }
+
+        var normalizedKey = OrderDraftRules.NormalizeIdempotencyKey(idempotencyKey);
+        var canonical = string.Create(
+            CultureInfo.InvariantCulture,
+            $"v1:abandon-order-draft:{request.OrderId:N}:{request.ExpectedRevision}");
+        var fingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)))
+            .ToLowerInvariant();
+        return store.AbandonAsync(
+            tenantContext,
+            request,
+            normalizedKey,
+            fingerprint,
+            cancellationToken);
     }
 }
 

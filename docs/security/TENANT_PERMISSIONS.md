@@ -2,7 +2,7 @@
 
 **Version:** v0.1.0
 
-**Current implementation:** SquiFlow owns a global tenant registry, current active account memberships and an immutable membership-derived `TenantContext`. The Core API checks `tenant#can_view_workspace`, `tenant#can_create_order`, and `tenant#can_view_orders` under one explicitly configured model ID. Each computed relation requires verified current membership supplied as a contextual tuple plus its separate persisted permission relation. Role/custom-role administration, application tuple writes/reconciliation, authorization revision, device authority and resource-specific order relationships remain `NOT_INTRODUCED`.
+**Current implementation:** SquiFlow owns a global tenant registry, current active account memberships and an immutable membership-derived `TenantContext`. The Core API checks `tenant#can_view_workspace`, `tenant#can_create_order`, `tenant#can_view_orders`, and `tenant#can_abandon_order` under one explicitly configured model ID. Each computed relation requires verified current membership supplied as a contextual tuple plus its separate persisted permission relation. Role/custom-role administration, application tuple writes/reconciliation, authorization revision, device authority and resource-specific order relationships remain `NOT_INTRODUCED`.
 
 SquiFlow is small-team-first. `Owner` and `Staff` are default templates, not fixed product roles.
 
@@ -25,6 +25,7 @@ customers.edit
 orders.view
 orders.create
 orders.edit
+orders.abandon
 orders.cancel
 orders.apply_manual_price
 orders.approve
@@ -113,9 +114,11 @@ type tenant
   can_create_order  = member AND order_creator
   order_viewer      [user]  persisted OpenFGA permission relation
   can_view_orders   = member AND order_viewer
+  order_abandoner   [user]  persisted OpenFGA permission relation
+  can_abandon_order = member AND order_abandoner
 ```
 
-These are real authorization decisions, not a second membership store: membership remains SquiFlow authority and cannot be created by an OpenFGA tuple. Conversely, membership alone does not fabricate a permission relation. The application adapter performs `Check` only and holds no tuple-administration API. The checked-in model contract lives at `infrastructure/authorization/openfga/tenant-authorization-model.json`.
+These are real authorization decisions, not a second membership store: membership remains SquiFlow authority and cannot be created by an OpenFGA tuple. Conversely, membership alone does not fabricate a permission relation. Creation/view grants do not imply abandonment, and abandonment does not imply view. The abandon response exposes only transition metadata; priced content still requires `order_viewer`. The transition needs its own persisted relation. The application adapter performs `Check` only and holds no tuple-administration API. The checked-in model contract lives at `infrastructure/authorization/openfga/tenant-authorization-model.json`. A deployment must write the new immutable model, configure its explicit ID, and provision the intended `order_abandoner` tuples before the abandonment route can be used; the application does not mutate models or tuples on startup.
 
 The broader role model below remains the selected direction and is still `NOT_INTRODUCED`.
 

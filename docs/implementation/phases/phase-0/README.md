@@ -15,16 +15,16 @@ Phase 0 is developed as a sequence of **smallest useful production-honest scopes
 ## Current repository state
 
 ```text
-production projects: 8
-test projects:       7
+production projects: 10
+test projects:       9
 executable hosts:    2
 solution/build/test contract: present
-active runtime responsibilities: public application bootstrap; JWT validation; account and tenant-membership queries; workspace/order OpenFGA checks; IdentityAccess/Tenancy/Orders PostgreSQL persistence; narrow Order draft create/read; ordered one-shot migration; Autofac root composition and isolated profile-runtime mechanics
+active runtime responsibilities: public application bootstrap; JWT validation; account and tenant-membership queries; workspace/order OpenFGA checks; IdentityAccess/Tenancy/Orders PostgreSQL persistence; narrow Order draft create/read/browse/abandon; ordered one-shot migration; Autofac root composition and isolated profile-runtime mechanics
 active host-neutral responsibilities: bounded feature graph validation and deterministic effective-selection compilation
 BLOCKED: none
 ```
 
-Phase 0A remains the qualified reset baseline. The former 0B enum-only implementation and all scaffolding created solely for it were purged by `docs/decisions/CURRENT_IMPLEMENTATION_PURGE_2026-09-17.md`. Its phase files remain historical evidence. ApplicationProfiles, Branding, IdentityAccess, Tenancy, CoreApi and DbMigrator were subsequently earned as independent production-honest slices; `README.IMPLEMENTATION.md` owns their current inventory.
+Phase 0A remains the qualified reset baseline. The former 0B enum-only implementation and all scaffolding created solely for it were purged by `docs/decisions/CURRENT_IMPLEMENTATION_PURGE_2026-09-17.md`. Its phase files remain historical evidence. ApplicationProfiles, Branding, IdentityAccess, Tenancy, Orders, CoreApi and DbMigrator were subsequently earned as independent production-honest slices; `README.IMPLEMENTATION.md` owns their current inventory.
 
 Read first:
 

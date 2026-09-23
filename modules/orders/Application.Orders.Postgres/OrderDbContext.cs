@@ -38,6 +38,10 @@ public sealed class OrderDbContext(DbContextOptions<OrderDbContext> options)
                 table.HasCheckConstraint("ck_order_drafts_currency_code", "currency_code ~ '^[A-Z]{3}$'");
                 table.HasCheckConstraint("ck_order_drafts_total", "total >= 0");
                 table.HasCheckConstraint("ck_order_drafts_revision", "revision > 0");
+                table.HasCheckConstraint(
+                    "ck_order_drafts_lifecycle",
+                    "(state = 'draft' AND revision = 1 AND abandoned_at IS NULL AND abandoned_by_account_id IS NULL) OR " +
+                    "(state = 'abandoned' AND revision = 2 AND abandoned_at IS NOT NULL AND abandoned_by_account_id IS NOT NULL)");
             });
             entity.HasKey(row => new { row.TenantId, row.Id }).HasName("pk_order_drafts");
             entity.Property(row => row.TenantId).HasColumnName("tenant_id");
@@ -48,6 +52,12 @@ public sealed class OrderDbContext(DbContextOptions<OrderDbContext> options)
             entity.Property(row => row.Total).HasPrecision(19, 4).HasColumnName("total");
             entity.Property(row => row.Revision).HasColumnName("revision");
             entity.Property(row => row.CreatedAt).HasColumnName("created_at");
+            entity.Property(row => row.State).HasMaxLength(16).HasDefaultValue("draft").HasColumnName("state");
+            entity.Property(row => row.AbandonedAt).HasColumnName("abandoned_at");
+            entity.Property(row => row.AbandonedByAccountId).HasColumnName("abandoned_by_account_id");
+            entity.HasIndex(row => new { row.TenantId, row.CreatedAt, row.Id })
+                .IsDescending(false, true, true)
+                .HasDatabaseName("ix_order_drafts_tenant_created_at_id");
             entity.HasIndex(row => row.Id).IsUnique().HasDatabaseName("ux_order_drafts_id");
             entity.HasOne<TenantReferenceRow>()
                 .WithMany()
@@ -59,6 +69,11 @@ public sealed class OrderDbContext(DbContextOptions<OrderDbContext> options)
                 .HasForeignKey(row => row.CreatedByAccountId)
                 .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("fk_order_drafts_accounts_created_by_account_id");
+            entity.HasOne<AccountReferenceRow>()
+                .WithMany()
+                .HasForeignKey(row => row.AbandonedByAccountId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("fk_order_drafts_accounts_abandoned_by_account_id");
         });
 
         modelBuilder.Entity<OrderDraftLineRow>(entity =>
@@ -132,6 +147,9 @@ internal sealed class OrderDraftRow
     public decimal Total { get; set; }
     public long Revision { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
+    public string State { get; set; } = "draft";
+    public DateTimeOffset? AbandonedAt { get; set; }
+    public Guid? AbandonedByAccountId { get; set; }
 }
 
 internal sealed class OrderDraftLineRow

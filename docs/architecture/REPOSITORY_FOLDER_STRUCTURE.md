@@ -1,19 +1,24 @@
 # Repository Folder-Only Structure
 
 **Version:** v0.1.0
-**Purpose:** directory-only view of SquiFlow repository structure.  
-**Important:** directory presence is not proof that a runtime/project/responsibility is production-qualified. The current post-purge implementation is limited to Branding, CoreApi and their tests.
+**Purpose:** directory-only view of the tracked SquiFlow repository structure.
+
+**Current inventory:** the solution contains ten production projects and nine test projects, including Orders and its PostgreSQL adapter. See `README.IMPLEMENTATION.md` for the current responsibility-level implementation truth.
+
+**Important:** directory presence is not proof that a runtime/project/responsibility is production-qualified.
 
 This document complements `REPOSITORY_STRUCTURE.md`. It intentionally shows **folders only**. Files, project files, source files, configuration files, and documentation filenames are omitted from every tree.
 
-For physical `.csproj` placement, `REPOSITORY_STRUCTURE.md` is the more specific project-structure owner. A logical `core` responsibility does not require an extra `core/` folder when a compact capability is represented by one `SquiFlow.<Capability>/` project.
+For physical project placement, `REPOSITORY_STRUCTURE.md` is the more specific project-structure owner. A logical `core` responsibility does not require an extra `core/` folder when a compact capability is represented by one `Application.<Capability>/` project.
 
 ## 1. Current physical folder tree
 
-The current tree retains documentation and ownership directories only:
+This tree lists directories represented by tracked repository paths. Project and test project directories are shown as folders; no filenames are included. Some folders also reserve ownership without containing a current runtime project.
 
 ```text
 SquiFlow/
+├── .github/
+│   └── workflows/
 ├── apps/
 │   ├── desktop/
 │   │   ├── guard/
@@ -31,6 +36,7 @@ SquiFlow/
 │   │   └── phases/
 │   │       ├── phase-0/
 │   │       ├── phase-1/
+│   │       ├── phase-10/
 │   │       ├── phase-2/
 │   │       ├── phase-3/
 │   │       ├── phase-4/
@@ -38,8 +44,7 @@ SquiFlow/
 │   │       ├── phase-6/
 │   │       ├── phase-7/
 │   │       ├── phase-8/
-│   │       ├── phase-9/
-│   │       └── phase-10/
+│   │       └── phase-9/
 │   ├── integrations/
 │   ├── observability/
 │   ├── operations/
@@ -57,16 +62,55 @@ SquiFlow/
 │   ├── workflow/
 │   └── workstation/
 ├── foundation/
+├── infrastructure/
+│   └── authorization/
+│       └── openfga/
 ├── modules/
-│   └── parties/
+│   ├── application-profiles/
+│   │   └── Application.Profiles/
+│   ├── branding/
+│   │   └── Application.Branding/
+│   ├── identity-access/
+│   │   ├── Application.IdentityAccess/
+│   │   └── Application.IdentityAccess.Postgres/
+│   │       ├── Migrations/
+│   │       └── Properties/
+│   ├── orders/
+│   │   ├── Application.Orders/
+│   │   └── Application.Orders.Postgres/
+│   │       ├── Migrations/
+│   │       └── Properties/
+│   └── tenancy/
+│       ├── Application.Tenancy/
+│       └── Application.Tenancy.Postgres/
+│           ├── Migrations/
+│           └── Properties/
 ├── reference-sources/
-│   └── snapshots/
 ├── services/
+│   ├── core-api/
+│   │   └── Application.CoreApi/
+│   │       ├── Authorization/
+│   │       ├── Composition/
+│   │       └── Properties/
+│   └── db-migrator/
+│       └── Application.DatabaseMigrator/
+│           └── Properties/
+├── eng/
 └── tests/
+    ├── integration/
+    │   ├── Application.CoreApi.Tests/
+    │   ├── Application.IdentityAccess.Postgres.Tests/
+    │   ├── Application.Orders.Postgres.Tests/
+    │   └── Application.Tenancy.Postgres.Tests/
     └── unit/
+        ├── Application.Branding.Tests/
+        ├── Application.IdentityAccess.Tests/
+        ├── Application.Orders.Tests/
+        ├── Application.Profiles.Tests/
+        └── Application.Tenancy.Tests/
 ```
 
-These directories reserve ownership and scoped instructions. They do not imply a runtime, project, or production responsibility exists. `reference-sources/` is a research workspace: its tracked manifest/materializer records curated upstream evidence, while its ignored `snapshots/` payload contains no SquiFlow implementation and must never become a project dependency.
+Tracked folders show physical layout only; they do not establish a runtime or production claim. The ignored `reference-sources/snapshots/` research payload is not part of this tracked-folder tree and is not a product project or dependency.
 
 ## 2. Accepted growth map — folders only
 
@@ -118,7 +162,7 @@ The current preferred compact physical shape is:
 ```text
 modules/
 └── <capability>/
-    └── SquiFlow.<Capability>/
+    └── Application.<Capability>/
         ├── Domain/
         ├── Application/
         ├── Decisions/
@@ -138,9 +182,9 @@ When real boundaries appear, a capability may later gain responsibility-specific
 ```text
 modules/
 └── <capability>/
-    ├── SquiFlow.<Capability>/
-    ├── SquiFlow.<Capability>.Postgres/
-    └── SquiFlow.<Capability>.Workstation/
+    ├── Application.<Capability>/
+    ├── Application.<Capability>.Postgres/
+    └── Application.<Capability>.Workstation/
 ```
 
 and, only when a separate authoritative application/compile-time boundary is genuinely useful, another project may be introduced for that responsibility according to `REPOSITORY_STRUCTURE.md` and the focused capability owner.
@@ -176,7 +220,7 @@ These are workload/process boundaries, not separate business implementations. Co
 
 ## 7. Testing folder growth
 
-The current unit and integration test projects cover the Branding/CoreApi slice. As implementation grows, `tests/` may gain additional verification responsibilities:
+The current unit and integration test projects cover the implemented slices listed in `README.IMPLEMENTATION.md`. As implementation grows, `tests/` may gain additional verification responsibilities:
 
 ```text
 tests/

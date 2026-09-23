@@ -460,6 +460,277 @@ public sealed class TenantOrderEndpointTests : IClassFixture<WhiteLabelApiFactor
         Assert.Equal(0, _factory.GetOrderFindCount(tenantId));
     }
 
+    [Fact]
+    public async Task CurrentMemberCanBrowseAnEmptyTenantOrderDraftPage()
+    {
+        var accountId = Guid.NewGuid();
+        var tenantId = Guid.NewGuid();
+        _factory.Bind("order-browse-empty-subject", accountId);
+        _factory.AddTenantMembership(accountId, tenantId, "Empty Browse Tenant");
+        _factory.SetOrderViewDecision(accountId, tenantId, allowed: true);
+
+        using var response = await _client.SendAsync(BrowseRequest(
+            tenantId,
+            _factory.CreateToken("order-browse-empty-subject")));
+        var page = await response.Content.ReadFromJsonAsync<OrderDraftPageContract>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+        Assert.NotNull(page);
+        Assert.Empty(page.Items);
+        Assert.Null(page.NextCursor);
+        Assert.Equal(1, _factory.GetOrderViewCheckCount(accountId, tenantId));
+        Assert.Equal(1, _factory.GetOrderListCount(tenantId));
+        Assert.Equal(25, _factory.GetLastOrderListRequest(tenantId)?.Limit);
+        Assert.Null(_factory.GetLastOrderListRequest(tenantId)?.After);
+    }
+
+    [Fact]
+    public async Task BrowseReturnsBoundedOpaqueCursorPageWithoutCreatorOrLineDetails()
+    {
+        var accountId = Guid.NewGuid();
+        var tenantId = Guid.NewGuid();
+        const string subject = "order-browse-page-subject";
+        _factory.Bind(subject, accountId);
+        _factory.AddTenantMembership(accountId, tenantId, "Paged Browse Tenant");
+        _factory.SetOrderCreateDecision(accountId, tenantId, allowed: true);
+        _factory.SetOrderViewDecision(accountId, tenantId, allowed: true);
+
+        foreach (var summary in new[] { "First draft", "Second draft", "Third draft" })
+        {
+            using var create = CreateRequest(tenantId, _factory.CreateToken(subject), $"browse-{summary}", summary);
+            using var createResponse = await _client.SendAsync(create);
+            Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        }
+
+        using var firstResponse = await _client.SendAsync(BrowseRequest(
+            tenantId,
+            _factory.CreateToken(subject),
+            "limit=2"));
+        var firstPage = await firstResponse.Content.ReadFromJsonAsync<OrderDraftPageContract>();
+
+        Assert.Equal(HttpStatusCode.OK, firstResponse.StatusCode);
+        Assert.NotNull(firstPage);
+        Assert.Equal(2, firstPage.Items.Count);
+        Assert.All(firstPage.Items, item =>
+        {
+            Assert.NotEqual(Guid.Empty, item.OrderId);
+            Assert.NotEmpty(item.Summary);
+            Assert.Equal("USD", item.CurrencyCode);
+            Assert.Equal(25.00m, item.Total);
+            Assert.Equal(1, item.Revision);
+        });
+        Assert.False(string.IsNullOrWhiteSpace(firstPage.NextCursor));
+        Assert.DoesNotContain(".", firstPage.NextCursor!, StringComparison.Ordinal);
+
+        using var nextResponse = await _client.SendAsync(BrowseRequest(
+            tenantId,
+            _factory.CreateToken(subject),
+            $"limit=2&after={firstPage.NextCursor}"));
+        var nextPage = await nextResponse.Content.ReadFromJsonAsync<OrderDraftPageContract>();
+
+        Assert.Equal(HttpStatusCode.OK, nextResponse.StatusCode);
+        Assert.NotNull(nextPage);
+        Assert.Single(nextPage.Items);
+        Assert.Null(nextPage.NextCursor);
+        Assert.Empty(firstPage.Items.Select(item => item.OrderId).Intersect(nextPage.Items.Select(item => item.OrderId)));
+    }
+
+    [Fact]
+    public async Task BrowseRejectsMissingMembershipBeforeAuthorizationOrStorage()
+    {
+        var accountId = Guid.NewGuid();
+        var tenantId = Guid.NewGuid();
+        _factory.Bind("order-browse-no-membership-subject", accountId);
+        _factory.SetOrderViewDecision(accountId, tenantId, allowed: true);
+
+        using var response = await _client.SendAsync(BrowseRequest(
+            tenantId,
+            _factory.CreateToken("order-browse-no-membership-subject")));
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal("tenant_access_denied", await ReadProblemCodeAsync(response));
+        Assert.Equal(0, _factory.GetOrderViewCheckCount(accountId, tenantId));
+        Assert.Equal(0, _factory.GetOrderListCount(tenantId));
+    }
+
+    [Fact]
+    public async Task BrowseDenialAndAuthorizationOutageDoNotReadStorage()
+    {
+        var deniedAccountId = Guid.NewGuid();
+        var deniedTenantId = Guid.NewGuid();
+        _factory.Bind("order-browse-denied-subject", deniedAccountId);
+        _factory.AddTenantMembership(deniedAccountId, deniedTenantId, "Denied Browse Tenant");
+        _factory.SetOrderViewDecision(deniedAccountId, deniedTenantId, allowed: false);
+
+        using var denied = await _client.SendAsync(BrowseRequest(
+            deniedTenantId,
+            _factory.CreateToken("order-browse-denied-subject")));
+        Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+        Assert.Equal("tenant_permission_denied", await ReadProblemCodeAsync(denied));
+        Assert.Equal(0, _factory.GetOrderListCount(deniedTenantId));
+
+        var unavailableAccountId = Guid.NewGuid();
+        var unavailableTenantId = Guid.NewGuid();
+        _factory.Bind("order-browse-unavailable-subject", unavailableAccountId);
+        _factory.AddTenantMembership(unavailableAccountId, unavailableTenantId, "Unavailable Browse Tenant");
+        _factory.SetOrderViewUnavailable(unavailableAccountId, unavailableTenantId);
+
+        using var unavailable = await _client.SendAsync(BrowseRequest(
+            unavailableTenantId,
+            _factory.CreateToken("order-browse-unavailable-subject")));
+        var unavailableBody = await unavailable.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, unavailable.StatusCode);
+        Assert.Equal("authorization_unavailable", ReadProblemCode(unavailableBody));
+        Assert.DoesNotContain("Synthetic order view authorization provider outage.", unavailableBody, StringComparison.Ordinal);
+        Assert.Equal(0, _factory.GetOrderListCount(unavailableTenantId));
+    }
+
+    [Theory]
+    [InlineData("limit=0", "page_size_invalid")]
+    [InlineData("limit=51", "page_size_invalid")]
+    [InlineData("limit=two", "page_size_invalid")]
+    [InlineData("limit=1&limit=2", "page_size_invalid")]
+    [InlineData("after=not-a-cursor", "cursor_invalid")]
+    [InlineData("after=", "cursor_invalid")]
+    [InlineData("after=a&after=b", "cursor_invalid")]
+    public async Task BrowseRejectsInvalidOrRepeatedPageParameters(string query, string expectedCode)
+    {
+        var accountId = Guid.NewGuid();
+        var tenantId = Guid.NewGuid();
+        var subject = $"order-browse-query-{Guid.NewGuid():N}";
+        _factory.Bind(subject, accountId);
+        _factory.AddTenantMembership(accountId, tenantId, "Query Browse Tenant");
+        _factory.SetOrderViewDecision(accountId, tenantId, allowed: true);
+
+        using var response = await _client.SendAsync(BrowseRequest(tenantId, _factory.CreateToken(subject), query));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(expectedCode, await ReadProblemCodeAsync(response));
+        Assert.Equal(1, _factory.GetOrderViewCheckCount(accountId, tenantId));
+        Assert.Equal(0, _factory.GetOrderListCount(tenantId));
+    }
+
+    [Fact]
+    public async Task BrowseRejectsAnUnsupportedOpaqueCursorVersionAfterAuthorization()
+    {
+        var accountId = Guid.NewGuid();
+        var tenantId = Guid.NewGuid();
+        const string subject = "order-browse-unsupported-cursor-subject";
+        _factory.Bind(subject, accountId);
+        _factory.AddTenantMembership(accountId, tenantId, "Unsupported Cursor Tenant");
+        _factory.SetOrderViewDecision(accountId, tenantId, allowed: true);
+        var unsupportedCursor = ToBase64Url(
+            $"v2:{tenantId:N}:{DateTimeOffset.UtcNow.Ticks}:{Guid.NewGuid():N}");
+
+        using var response = await _client.SendAsync(BrowseRequest(
+            tenantId,
+            _factory.CreateToken(subject),
+            $"after={unsupportedCursor}"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("cursor_invalid", await ReadProblemCodeAsync(response));
+        Assert.Equal(1, _factory.GetOrderViewCheckCount(accountId, tenantId));
+        Assert.Equal(0, _factory.GetOrderListCount(tenantId));
+    }
+
+    [Fact]
+    public async Task BrowseRejectsAnOversizedCursorBeforeStorage()
+    {
+        var accountId = Guid.NewGuid();
+        var tenantId = Guid.NewGuid();
+        const string subject = "order-browse-oversized-cursor-subject";
+        _factory.Bind(subject, accountId);
+        _factory.AddTenantMembership(accountId, tenantId, "Oversized Cursor Tenant");
+        _factory.SetOrderViewDecision(accountId, tenantId, allowed: true);
+
+        using var response = await _client.SendAsync(BrowseRequest(
+            tenantId,
+            _factory.CreateToken(subject),
+            $"after={new string('a', OrderDraftPageCursorCodec.MaximumEncodedLength + 1)}"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("cursor_invalid", await ReadProblemCodeAsync(response));
+        Assert.Equal(1, _factory.GetOrderViewCheckCount(accountId, tenantId));
+        Assert.Equal(0, _factory.GetOrderListCount(tenantId));
+    }
+
+    [Fact]
+    public async Task BrowseRejectsAContinuationIssuedForAnotherTenant()
+    {
+        var accountId = Guid.NewGuid();
+        var sourceTenantId = Guid.NewGuid();
+        var requestingTenantId = Guid.NewGuid();
+        const string subject = "order-browse-foreign-cursor-subject";
+        _factory.Bind(subject, accountId);
+        _factory.AddTenantMembership(accountId, sourceTenantId, "Cursor Source Tenant");
+        _factory.AddTenantMembership(accountId, requestingTenantId, "Cursor Request Tenant");
+        _factory.SetOrderCreateDecision(accountId, sourceTenantId, allowed: true);
+        _factory.SetOrderViewDecision(accountId, sourceTenantId, allowed: true);
+        _factory.SetOrderViewDecision(accountId, requestingTenantId, allowed: true);
+        var token = _factory.CreateToken(subject);
+
+        using (var firstCreate = CreateRequest(sourceTenantId, token, "foreign-cursor-order-1", "First source draft"))
+        using (var firstResponse = await _client.SendAsync(firstCreate))
+        {
+            Assert.Equal(HttpStatusCode.Created, firstResponse.StatusCode);
+        }
+
+        using (var secondCreate = CreateRequest(sourceTenantId, token, "foreign-cursor-order-2", "Second source draft"))
+        using (var secondResponse = await _client.SendAsync(secondCreate))
+        {
+            Assert.Equal(HttpStatusCode.Created, secondResponse.StatusCode);
+        }
+
+        using var sourceResponse = await _client.SendAsync(BrowseRequest(sourceTenantId, token, "limit=1"));
+        var sourcePage = await sourceResponse.Content.ReadFromJsonAsync<OrderDraftPageContract>();
+        Assert.Equal(HttpStatusCode.OK, sourceResponse.StatusCode);
+        Assert.NotNull(sourcePage);
+        Assert.False(string.IsNullOrWhiteSpace(sourcePage.NextCursor));
+
+        using var response = await _client.SendAsync(BrowseRequest(
+            requestingTenantId,
+            token,
+            $"after={sourcePage.NextCursor}"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("cursor_invalid", await ReadProblemCodeAsync(response));
+        Assert.Equal(1, _factory.GetOrderViewCheckCount(accountId, requestingTenantId));
+        Assert.Equal(0, _factory.GetOrderListCount(requestingTenantId));
+    }
+
+    [Fact]
+    public async Task BrowseNeverReturnsAnotherTenantOrders()
+    {
+        var accountId = Guid.NewGuid();
+        var sourceTenantId = Guid.NewGuid();
+        var requestingTenantId = Guid.NewGuid();
+        const string subject = "order-browse-cross-tenant-subject";
+        _factory.Bind(subject, accountId);
+        _factory.AddTenantMembership(accountId, sourceTenantId, "Source Browse Tenant");
+        _factory.AddTenantMembership(accountId, requestingTenantId, "Requesting Browse Tenant");
+        _factory.SetOrderCreateDecision(accountId, sourceTenantId, allowed: true);
+        _factory.SetOrderViewDecision(accountId, requestingTenantId, allowed: true);
+
+        using var create = CreateRequest(
+            sourceTenantId,
+            _factory.CreateToken(subject),
+            "cross-tenant-browse-order",
+            "Source-only draft");
+        using var createResponse = await _client.SendAsync(create);
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        using var response = await _client.SendAsync(BrowseRequest(
+            requestingTenantId,
+            _factory.CreateToken(subject)));
+        var page = await response.Content.ReadFromJsonAsync<OrderDraftPageContract>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(page);
+        Assert.Empty(page.Items);
+        Assert.Equal(1, _factory.GetOrderListCount(requestingTenantId));
+    }
+
     private static HttpRequestMessage CreateRequest(
         Guid tenantId,
         string token,
@@ -505,6 +776,21 @@ public sealed class TenantOrderEndpointTests : IClassFixture<WhiteLabelApiFactor
         return request;
     }
 
+    private static HttpRequestMessage BrowseRequest(Guid tenantId, string token, string? query = null)
+    {
+        var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/v1/tenants/{tenantId:D}/orders{(string.IsNullOrEmpty(query) ? string.Empty : $"?{query}")}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return request;
+    }
+
+    private static string ToBase64Url(string value) =>
+        Convert.ToBase64String(Encoding.UTF8.GetBytes(value))
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
+
     private static async Task<string?> ReadProblemCodeAsync(HttpResponseMessage response)
     {
         return ReadProblemCode(await response.Content.ReadAsStringAsync());
@@ -531,4 +817,16 @@ public sealed class TenantOrderEndpointTests : IClassFixture<WhiteLabelApiFactor
         string UnitCode,
         decimal UnitPrice,
         decimal LineTotal);
+
+    private sealed record OrderDraftPageContract(
+        IReadOnlyList<OrderDraftListItemContract> Items,
+        string? NextCursor);
+
+    private sealed record OrderDraftListItemContract(
+        Guid OrderId,
+        string Summary,
+        string CurrencyCode,
+        decimal Total,
+        long Revision,
+        DateTimeOffset CreatedAt);
 }

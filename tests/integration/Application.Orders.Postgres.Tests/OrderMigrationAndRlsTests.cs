@@ -1,4 +1,5 @@
 using Application.Orders;
+using Application.Orders.Postgres.Migrations;
 using Application.Tenancy;
 using Application.Tenancy.Postgres;
 using Microsoft.EntityFrameworkCore;
@@ -9,6 +10,35 @@ namespace Application.Orders.Postgres.Tests;
 
 public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
 {
+    [Fact]
+    public void MigrationTargetModelsKeepTheirHistoricalShape()
+    {
+        const string draftEntity = "Application.Orders.Postgres.OrderDraftRow";
+        var initial = new InitialOrderDrafts().TargetModel.FindEntityType(draftEntity);
+        var browse = new OrderDraftBrowseIndex().TargetModel.FindEntityType(draftEntity);
+        var abandonment = new OrderDraftAbandonment().TargetModel.FindEntityType(draftEntity);
+
+        Assert.NotNull(initial);
+        Assert.NotNull(browse);
+        Assert.NotNull(abandonment);
+        Assert.Null(initial.FindProperty("State"));
+        Assert.Null(browse.FindProperty("State"));
+        Assert.Null(initial.FindProperty("AbandonedAt"));
+        Assert.Null(browse.FindProperty("AbandonedAt"));
+        Assert.NotNull(abandonment.FindProperty("State"));
+        Assert.NotNull(abandonment.FindProperty("AbandonedAt"));
+        Assert.NotNull(abandonment.FindProperty("AbandonedByAccountId"));
+
+        static bool HasBrowseIndex(Microsoft.EntityFrameworkCore.Metadata.IEntityType entity) =>
+            entity.GetIndexes().Any(index =>
+                index.Properties.Select(property => property.Name)
+                    .SequenceEqual(["TenantId", "CreatedAt", "Id"]));
+
+        Assert.False(HasBrowseIndex(initial));
+        Assert.True(HasBrowseIndex(browse));
+        Assert.True(HasBrowseIndex(abandonment));
+    }
+
     [Fact]
     public async Task AppliedOrderMigrationMatchesTheOrderModel()
     {
@@ -260,6 +290,244 @@ public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
     }
 
     [Fact]
+    public async Task AbandonmentPreservesPricedDraftAndCreateReceiptWhileCurrentReadsShowNewState()
+    {
+        await ApplyOrderSchemaAsync();
+        var accountId = Guid.CreateVersion7();
+        var tenantId = Guid.CreateVersion7();
+        await SeedAuthorityRowsAsync(accountId, tenantId);
+        await using var dataSource = new NpgsqlDataSourceBuilder(await CreateRuntimeRoleAsync()).Build();
+        var store = new PostgresOrderDraftStore(dataSource, new FixedTimeProvider());
+        var context = await ResolveContextAsync(tenantId, accountId);
+        var intent = CreateIntent("Abandon priced draft");
+        var created = await store.CreateAsync(context, intent, "create-key", CancellationToken.None);
+        var original = Assert.IsType<OrderDraftSnapshot>(created.Order);
+
+        var abandoned = await store.AbandonAsync(
+            context, new AbandonOrderDraftRequest(original.OrderId, 1), "abandon-key",
+            new string('a', 64), CancellationToken.None);
+        var current = await store.FindAsync(context, original.OrderId, CancellationToken.None);
+        var page = await store.ListAsync(context, new ListOrderDraftsRequest(10, null), CancellationToken.None);
+        var creationReplay = await store.CreateAsync(context, intent, "create-key", CancellationToken.None);
+        var abandonmentReplay = await store.AbandonAsync(
+            context, new AbandonOrderDraftRequest(original.OrderId, 1), "abandon-key",
+            new string('a', 64), CancellationToken.None);
+
+        Assert.Equal(AbandonOrderDraftStatus.Abandoned, abandoned.Status);
+        Assert.Equal(AbandonOrderDraftStatus.Replayed, abandonmentReplay.Status);
+        Assert.Equal(OrderDraftState.Abandoned, current?.State);
+        Assert.Equal(2, current?.Revision);
+        Assert.Equal(accountId, current?.AbandonedByAccountId);
+        Assert.Equal(new FixedTimeProvider().GetUtcNow(), current?.AbandonedAt);
+        Assert.Equal(original.Total, current?.Total);
+        Assert.Equal(original.Lines, current?.Lines);
+        Assert.Equivalent(current, abandoned.Order);
+        Assert.Equivalent(current, abandonmentReplay.Order);
+        Assert.Equal(OrderDraftState.Abandoned, Assert.Single(page.Items).State);
+        Assert.Equal(current?.AbandonedAt, page.Items[0].AbandonedAt);
+        Assert.Equal(CreateOrderDraftStatus.Replayed, creationReplay.Status);
+        Assert.Equivalent(original, creationReplay.Order);
+        Assert.Equal(OrderDraftState.Draft, creationReplay.Order?.State);
+        Assert.Equal(1, await CountOrdersAsync(tenantId));
+        Assert.Equal(2, await CountReceiptsAsync(tenantId));
+    }
+
+    [Fact]
+    public async Task AbandonmentRejectsForeignAbsentStaleAndAlreadyAbandonedDraftsWithoutReceipts()
+    {
+        await ApplyOrderSchemaAsync();
+        var accountId = Guid.CreateVersion7();
+        var tenantA = Guid.CreateVersion7();
+        var tenantB = Guid.CreateVersion7();
+        await SeedAuthorityRowsAsync(accountId, tenantA, tenantB);
+        await using var dataSource = new NpgsqlDataSourceBuilder(await CreateRuntimeRoleAsync()).Build();
+        var store = new PostgresOrderDraftStore(dataSource, new FixedTimeProvider());
+        var contextA = await ResolveContextAsync(tenantA, accountId);
+        var contextB = await ResolveContextAsync(tenantB, accountId);
+        var created = await store.CreateAsync(contextA, CreateIntent("Scoped order"), "create-key", CancellationToken.None);
+        var orderId = Assert.IsType<OrderDraftSnapshot>(created.Order).OrderId;
+        var fingerprint = new string('a', 64);
+
+        Assert.Equal(AbandonOrderDraftStatus.NotFound, (await store.AbandonAsync(
+            contextB, new AbandonOrderDraftRequest(orderId, 1), "foreign-key", fingerprint,
+            CancellationToken.None)).Status);
+        Assert.Equal(AbandonOrderDraftStatus.NotFound, (await store.AbandonAsync(
+            contextA, new AbandonOrderDraftRequest(Guid.CreateVersion7(), 1), "missing-key", fingerprint,
+            CancellationToken.None)).Status);
+        Assert.Equal(AbandonOrderDraftStatus.RevisionConflict, (await store.AbandonAsync(
+            contextA, new AbandonOrderDraftRequest(orderId, 2), "stale-key", fingerprint,
+            CancellationToken.None)).Status);
+        Assert.Equal(1, await CountReceiptsAsync(tenantA));
+
+        Assert.Equal(AbandonOrderDraftStatus.Abandoned, (await store.AbandonAsync(
+            contextA, new AbandonOrderDraftRequest(orderId, 1), "winning-key", fingerprint,
+            CancellationToken.None)).Status);
+        Assert.Equal(AbandonOrderDraftStatus.AlreadyAbandoned, (await store.AbandonAsync(
+            contextA, new AbandonOrderDraftRequest(orderId, 1), "later-key", fingerprint,
+            CancellationToken.None)).Status);
+        Assert.Equal(AbandonOrderDraftStatus.IdempotencyKeyConflict, (await store.AbandonAsync(
+            contextA, new AbandonOrderDraftRequest(orderId, 1), "winning-key", new string('b', 64),
+            CancellationToken.None)).Status);
+        Assert.Equal(2, await CountReceiptsAsync(tenantA));
+        Assert.Equal(0, await CountReceiptsAsync(tenantB));
+    }
+
+    [Fact]
+    public async Task ConcurrentAbandonmentWithOneKeyReplaysWinnerAndDifferentKeyCannotMutateAgain()
+    {
+        await ApplyOrderSchemaAsync();
+        var accountId = Guid.CreateVersion7();
+        var tenantId = Guid.CreateVersion7();
+        await SeedAuthorityRowsAsync(accountId, tenantId);
+        await using var dataSource = new NpgsqlDataSourceBuilder(await CreateRuntimeRoleAsync()).Build();
+        var store = new PostgresOrderDraftStore(dataSource, new FixedTimeProvider());
+        var context = await ResolveContextAsync(tenantId, accountId);
+        var created = await store.CreateAsync(context, CreateIntent("Raced order"), "create-key", CancellationToken.None);
+        var request = new AbandonOrderDraftRequest(Assert.IsType<OrderDraftSnapshot>(created.Order).OrderId, 1);
+        var fingerprint = new string('a', 64);
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        async Task<AbandonOrderDraftResult> SubmitAsync(string key, string intent)
+        {
+            await start.Task;
+            return await store.AbandonAsync(context, request, key, intent, CancellationToken.None);
+        }
+
+        var first = SubmitAsync("same-key", fingerprint);
+        var second = SubmitAsync("same-key", fingerprint);
+        start.SetResult();
+        var sameKeyResults = await Task.WhenAll(first, second);
+        Assert.Single(sameKeyResults, result => result.Status == AbandonOrderDraftStatus.Abandoned);
+        Assert.Single(sameKeyResults, result => result.Status == AbandonOrderDraftStatus.Replayed);
+        Assert.Equivalent(sameKeyResults[0].Order, sameKeyResults[1].Order);
+        Assert.Equal(AbandonOrderDraftStatus.AlreadyAbandoned, (await store.AbandonAsync(
+            context, request, "different-key", fingerprint, CancellationToken.None)).Status);
+        Assert.Equal(2, await CountReceiptsAsync(tenantId));
+    }
+
+    [Fact]
+    public async Task ConcurrentAbandonmentWithOneKeyAndDifferentIntentsReturnsOneKeyConflict()
+    {
+        await ApplyOrderSchemaAsync();
+        var accountId = Guid.CreateVersion7();
+        var tenantId = Guid.CreateVersion7();
+        await SeedAuthorityRowsAsync(accountId, tenantId);
+        await using var dataSource = new NpgsqlDataSourceBuilder(await CreateRuntimeRoleAsync()).Build();
+        var store = new PostgresOrderDraftStore(dataSource, new FixedTimeProvider());
+        var context = await ResolveContextAsync(tenantId, accountId);
+        var created = await store.CreateAsync(context, CreateIntent("Contended order"), "create-key", CancellationToken.None);
+        var request = new AbandonOrderDraftRequest(Assert.IsType<OrderDraftSnapshot>(created.Order).OrderId, 1);
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        async Task<AbandonOrderDraftResult> SubmitAsync(string fingerprint)
+        {
+            await start.Task;
+            return await store.AbandonAsync(context, request, "shared-abandon-key", fingerprint, CancellationToken.None);
+        }
+
+        var first = SubmitAsync(new string('a', 64));
+        var second = SubmitAsync(new string('b', 64));
+        start.SetResult();
+        var results = await Task.WhenAll(first, second);
+        Assert.Single(results, result => result.Status == AbandonOrderDraftStatus.Abandoned);
+        Assert.Single(results, result => result.Status == AbandonOrderDraftStatus.IdempotencyKeyConflict);
+        Assert.Equal(2, await CountReceiptsAsync(tenantId));
+    }
+
+    [Fact]
+    public async Task ConcurrentDifferentKeysHaveOneWinnerAndReceiptsStayScopedToTheCaller()
+    {
+        await ApplyOrderSchemaAsync();
+        var firstAccountId = Guid.CreateVersion7();
+        var secondAccountId = Guid.CreateVersion7();
+        var tenantId = Guid.CreateVersion7();
+        await SeedAuthorityRowsAsync(firstAccountId, tenantId);
+        await SeedAdditionalAccountAsync(secondAccountId, tenantId);
+        await using var dataSource = new NpgsqlDataSourceBuilder(await CreateRuntimeRoleAsync()).Build();
+        var store = new PostgresOrderDraftStore(dataSource, new FixedTimeProvider());
+        var firstContext = await ResolveContextAsync(tenantId, firstAccountId);
+        var secondContext = await ResolveContextAsync(tenantId, secondAccountId);
+        var created = await store.CreateAsync(
+            firstContext, CreateIntent("Different key race"), "create-key", CancellationToken.None);
+        var request = new AbandonOrderDraftRequest(Assert.IsType<OrderDraftSnapshot>(created.Order).OrderId, 1);
+        var fingerprint = new string('a', 64);
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        async Task<AbandonOrderDraftResult> SubmitAsync(TenantContext context, string key)
+        {
+            await start.Task;
+            return await store.AbandonAsync(context, request, key, fingerprint, CancellationToken.None);
+        }
+
+        var first = SubmitAsync(firstContext, "first-key");
+        var second = SubmitAsync(secondContext, "second-key");
+        start.SetResult();
+        var results = await Task.WhenAll(first, second);
+        Assert.Single(results, result => result.Status == AbandonOrderDraftStatus.Abandoned);
+        Assert.Single(results, result => result.Status == AbandonOrderDraftStatus.AlreadyAbandoned);
+
+        var winnerContext = results[0].Status == AbandonOrderDraftStatus.Abandoned
+            ? firstContext : secondContext;
+        var loserContext = results[0].Status == AbandonOrderDraftStatus.Abandoned
+            ? secondContext : firstContext;
+        var winnerKey = results[0].Status == AbandonOrderDraftStatus.Abandoned
+            ? "first-key" : "second-key";
+        Assert.Equal(AbandonOrderDraftStatus.Replayed, (await store.AbandonAsync(
+            winnerContext, request, winnerKey, fingerprint, CancellationToken.None)).Status);
+        Assert.Equal(AbandonOrderDraftStatus.AlreadyAbandoned, (await store.AbandonAsync(
+            loserContext, request, winnerKey, fingerprint, CancellationToken.None)).Status);
+        Assert.Equal(2, await CountReceiptsAsync(tenantId));
+    }
+
+    [Fact]
+    public async Task RuntimeRoleCannotAbandonWithoutTenantContextOrChangePriceAndDatabaseRejectsIncompleteState()
+    {
+        await ApplyOrderSchemaAsync();
+        var accountId = Guid.CreateVersion7();
+        var tenantId = Guid.CreateVersion7();
+        await SeedAuthorityRowsAsync(accountId, tenantId);
+        var orderId = Guid.CreateVersion7();
+        await InsertOrderHeaderAsync(tenantId, orderId, accountId);
+        var runtimeConnectionString = await CreateRuntimeRoleAsync();
+        await using var connection = new NpgsqlConnection(runtimeConnectionString);
+        await connection.OpenAsync(CancellationToken.None);
+        await using (var noContext = connection.CreateCommand())
+        {
+            noContext.CommandText = """
+                UPDATE orders.order_drafts
+                SET state = 'abandoned', revision = 2,
+                    abandoned_at = '2026-09-23T12:00:00Z', abandoned_by_account_id = @account_id
+                WHERE tenant_id = @tenant_id AND id = @order_id
+                """;
+            noContext.Parameters.AddWithValue("account_id", accountId);
+            noContext.Parameters.AddWithValue("tenant_id", tenantId);
+            noContext.Parameters.AddWithValue("order_id", orderId);
+            Assert.Equal(0, await noContext.ExecuteNonQueryAsync(CancellationToken.None));
+        }
+
+        await SetTenantContextAsync(connection, tenantId);
+        await using (var priceUpdate = connection.CreateCommand())
+        {
+            priceUpdate.CommandText = "UPDATE orders.order_drafts SET total = 100 WHERE tenant_id = @tenant_id";
+            priceUpdate.Parameters.AddWithValue("tenant_id", tenantId);
+            var denied = await Assert.ThrowsAsync<PostgresException>(() =>
+                priceUpdate.ExecuteNonQueryAsync(CancellationToken.None));
+            Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, denied.SqlState);
+        }
+
+        await using (var incomplete = connection.CreateCommand())
+        {
+            incomplete.CommandText = """
+                UPDATE orders.order_drafts SET state = 'abandoned', revision = 2
+                WHERE tenant_id = @tenant_id AND id = @order_id
+                """;
+            incomplete.Parameters.AddWithValue("tenant_id", tenantId);
+            incomplete.Parameters.AddWithValue("order_id", orderId);
+            var rejected = await Assert.ThrowsAsync<PostgresException>(() =>
+                incomplete.ExecuteNonQueryAsync(CancellationToken.None));
+            Assert.Equal(PostgresErrorCodes.CheckViolation, rejected.SqlState);
+            Assert.Equal("ck_order_drafts_lifecycle", rejected.ConstraintName);
+        }
+    }
+
+    [Fact]
     public async Task ConcurrentCommandsWithOneKeyCommitOnlyOneOrder()
     {
         await ApplyOrderSchemaAsync();
@@ -388,6 +656,187 @@ public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
         Assert.Equal(2, await CountReceiptsAsync(tenantId));
     }
 
+    [Fact]
+    public async Task RuntimeRoleCanBrowseAnEmptyTenantWithoutElevatedDatabasePrivileges()
+    {
+        await ApplyOrderSchemaAsync();
+
+        var accountId = Guid.CreateVersion7();
+        var tenantId = Guid.CreateVersion7();
+        await SeedAuthorityRowsAsync(accountId, tenantId);
+        var runtimeConnectionString = await CreateRuntimeRoleAsync();
+        await using var dataSource = new NpgsqlDataSourceBuilder(runtimeConnectionString).Build();
+        var store = new PostgresOrderDraftStore(dataSource);
+        var context = await ResolveContextAsync(tenantId, accountId);
+
+        var page = await store.ListAsync(
+            context,
+            new ListOrderDraftsRequest(10, After: null),
+            CancellationToken.None);
+
+        Assert.Empty(page.Items);
+        Assert.Null(page.NextCursor);
+
+        await using var runtimeConnection = new NpgsqlConnection(runtimeConnectionString);
+        await runtimeConnection.OpenAsync(CancellationToken.None);
+        await SetTenantContextAsync(runtimeConnection, tenantId);
+        await using var forbiddenUpdate = runtimeConnection.CreateCommand();
+        forbiddenUpdate.CommandText = "UPDATE orders.order_drafts SET total = 999 WHERE tenant_id = @tenant_id";
+        forbiddenUpdate.Parameters.AddWithValue("tenant_id", tenantId);
+        var exception = await Assert.ThrowsAsync<PostgresException>(() =>
+            forbiddenUpdate.ExecuteNonQueryAsync(CancellationToken.None));
+        Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, exception.SqlState);
+    }
+
+    [Fact]
+    public async Task BrowseReturnsNewestFirstAndUsesAContinuationCursorOnlyWhenMoreRowsExist()
+    {
+        await ApplyOrderSchemaAsync();
+
+        var accountId = Guid.CreateVersion7();
+        var tenantId = Guid.CreateVersion7();
+        await SeedAuthorityRowsAsync(accountId, tenantId);
+        var oldestOrderId = Guid.CreateVersion7();
+        var middleOrderId = Guid.CreateVersion7();
+        var newestOrderId = Guid.CreateVersion7();
+        await InsertOrderHeaderAsync(
+            tenantId,
+            oldestOrderId,
+            accountId,
+            new DateTimeOffset(2026, 9, 23, 10, 0, 0, TimeSpan.Zero),
+            CancellationToken.None);
+        await InsertOrderHeaderAsync(
+            tenantId,
+            middleOrderId,
+            accountId,
+            new DateTimeOffset(2026, 9, 23, 11, 0, 0, TimeSpan.Zero),
+            CancellationToken.None);
+        await InsertOrderHeaderAsync(
+            tenantId,
+            newestOrderId,
+            accountId,
+            new DateTimeOffset(2026, 9, 23, 12, 0, 0, TimeSpan.Zero),
+            CancellationToken.None);
+
+        var runtimeConnectionString = await CreateRuntimeRoleAsync();
+        await using var dataSource = new NpgsqlDataSourceBuilder(runtimeConnectionString).Build();
+        var store = new PostgresOrderDraftStore(dataSource);
+        var context = await ResolveContextAsync(tenantId, accountId);
+
+        var firstPage = await store.ListAsync(
+            context,
+            new ListOrderDraftsRequest(2, After: null),
+            CancellationToken.None);
+        var secondPage = await store.ListAsync(
+            context,
+            new ListOrderDraftsRequest(2, firstPage.NextCursor),
+            CancellationToken.None);
+
+        Assert.Equal([newestOrderId, middleOrderId], firstPage.Items.Select(item => item.OrderId));
+        Assert.Equal(
+            new OrderDraftPageCursor(
+                new DateTimeOffset(2026, 9, 23, 11, 0, 0, TimeSpan.Zero),
+                middleOrderId),
+            firstPage.NextCursor);
+        Assert.Equal([oldestOrderId], secondPage.Items.Select(item => item.OrderId));
+        Assert.Null(secondPage.NextCursor);
+    }
+
+    [Fact]
+    public async Task BrowseUsesOrderIdToContinueThroughRowsWithTheSameTimestampWithoutDuplicatesOrGaps()
+    {
+        await ApplyOrderSchemaAsync();
+
+        var accountId = Guid.CreateVersion7();
+        var tenantId = Guid.CreateVersion7();
+        await SeedAuthorityRowsAsync(accountId, tenantId);
+        var createdAt = new DateTimeOffset(2026, 9, 23, 12, 0, 0, TimeSpan.Zero);
+        foreach (var orderId in Enumerable.Range(0, 5).Select(_ => Guid.CreateVersion7()))
+        {
+            await InsertOrderHeaderAsync(tenantId, orderId, accountId, createdAt, CancellationToken.None);
+        }
+
+        var runtimeConnectionString = await CreateRuntimeRoleAsync();
+        await using var dataSource = new NpgsqlDataSourceBuilder(runtimeConnectionString).Build();
+        var store = new PostgresOrderDraftStore(dataSource);
+        var context = await ResolveContextAsync(tenantId, accountId);
+
+        var completePage = await store.ListAsync(
+            context,
+            new ListOrderDraftsRequest(50, After: null),
+            CancellationToken.None);
+        var firstPage = await store.ListAsync(
+            context,
+            new ListOrderDraftsRequest(2, After: null),
+            CancellationToken.None);
+        var secondPage = await store.ListAsync(
+            context,
+            new ListOrderDraftsRequest(2, firstPage.NextCursor),
+            CancellationToken.None);
+        var thirdPage = await store.ListAsync(
+            context,
+            new ListOrderDraftsRequest(2, secondPage.NextCursor),
+            CancellationToken.None);
+
+        var pagedOrderIds = firstPage.Items
+            .Concat(secondPage.Items)
+            .Concat(thirdPage.Items)
+            .Select(item => item.OrderId)
+            .ToArray();
+        Assert.Equal(completePage.Items.Select(item => item.OrderId), pagedOrderIds);
+        Assert.Equal(5, pagedOrderIds.Distinct().Count());
+        Assert.NotNull(firstPage.NextCursor);
+        Assert.NotNull(secondPage.NextCursor);
+        Assert.Null(thirdPage.NextCursor);
+    }
+
+    [Fact]
+    public async Task BrowseNeverRevealsAnotherTenantsRowsWhenGivenThatTenantsCursor()
+    {
+        await ApplyOrderSchemaAsync();
+
+        var accountId = Guid.CreateVersion7();
+        var tenantA = Guid.CreateVersion7();
+        var tenantB = Guid.CreateVersion7();
+        await SeedAuthorityRowsAsync(accountId, tenantA, tenantB);
+        var tenantAOrderIds = new[] { Guid.CreateVersion7(), Guid.CreateVersion7() };
+        var tenantBCursorOrderId = Guid.CreateVersion7();
+        await InsertOrderHeaderAsync(
+            tenantA,
+            tenantAOrderIds[0],
+            accountId,
+            new DateTimeOffset(2026, 9, 23, 11, 0, 0, TimeSpan.Zero),
+            CancellationToken.None);
+        await InsertOrderHeaderAsync(
+            tenantA,
+            tenantAOrderIds[1],
+            accountId,
+            new DateTimeOffset(2026, 9, 23, 10, 0, 0, TimeSpan.Zero),
+            CancellationToken.None);
+        var foreignCursor = new OrderDraftPageCursor(
+            new DateTimeOffset(2026, 9, 23, 12, 0, 0, TimeSpan.Zero),
+            tenantBCursorOrderId);
+        await InsertOrderHeaderAsync(
+            tenantB,
+            tenantBCursorOrderId,
+            accountId,
+            foreignCursor.CreatedAt,
+            CancellationToken.None);
+
+        var runtimeConnectionString = await CreateRuntimeRoleAsync();
+        await using var dataSource = new NpgsqlDataSourceBuilder(runtimeConnectionString).Build();
+        var store = new PostgresOrderDraftStore(dataSource);
+        var tenantAContext = await ResolveContextAsync(tenantA, accountId);
+
+        var page = await store.ListAsync(
+            tenantAContext,
+            new ListOrderDraftsRequest(10, foreignCursor),
+            CancellationToken.None);
+
+        Assert.Equal(tenantAOrderIds.OrderByDescending(orderId => orderId), page.Items.Select(item => item.OrderId).OrderByDescending(orderId => orderId));
+        Assert.DoesNotContain(page.Items, item => item.OrderId == tenantBCursorOrderId);
+    }
+
     private async Task SeedAuthorityRowsAsync(Guid accountId, params Guid[] tenantIds)
     {
         await using var connection = new NpgsqlConnection(ConnectionString);
@@ -468,6 +917,7 @@ public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
                      {
                          "fk_order_drafts_tenants_tenant_id",
                          "fk_order_drafts_accounts_created_by_account_id",
+                         "fk_order_drafts_accounts_abandoned_by_account_id",
                          "fk_order_draft_lines_order_drafts",
                          "fk_command_receipts_accounts_account_id",
                          "fk_command_receipts_order_drafts",
@@ -500,6 +950,22 @@ public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
             Assert.Contains("app.current_tenant", policy.Using, StringComparison.Ordinal);
             Assert.Contains("app.current_tenant", policy.WithCheck, StringComparison.Ordinal);
         }
+        await policyReader.DisposeAsync();
+
+        await using var indexCommand = connection.CreateCommand();
+        indexCommand.CommandText = """
+            SELECT indexdef
+            FROM pg_indexes
+            WHERE schemaname = 'orders'
+              AND tablename = 'order_drafts'
+              AND indexname = 'ix_order_drafts_tenant_created_at_id'
+            """;
+        var browseIndexDefinition = await indexCommand.ExecuteScalarAsync(CancellationToken.None) as string;
+        Assert.NotNull(browseIndexDefinition);
+        Assert.Contains(
+            "tenant_id, created_at DESC, id DESC",
+            browseIndexDefinition,
+            StringComparison.Ordinal);
     }
 
     private static async Task AssertRlsWithCheckRejectsMissingAndWrongTenantAsync(
@@ -530,16 +996,46 @@ public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
         Guid accountId,
         CancellationToken cancellationToken)
     {
+        await InsertOrderHeaderAsync(
+            connection,
+            tenantId,
+            orderId,
+            accountId,
+            new DateTimeOffset(2026, 9, 22, 12, 0, 0, TimeSpan.Zero),
+            cancellationToken);
+    }
+
+    private async Task InsertOrderHeaderAsync(
+        Guid tenantId,
+        Guid orderId,
+        Guid accountId,
+        DateTimeOffset createdAt,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync(cancellationToken);
+        await InsertOrderHeaderAsync(connection, tenantId, orderId, accountId, createdAt, cancellationToken);
+    }
+
+    private static async Task InsertOrderHeaderAsync(
+        NpgsqlConnection connection,
+        Guid tenantId,
+        Guid orderId,
+        Guid accountId,
+        DateTimeOffset createdAt,
+        CancellationToken cancellationToken)
+    {
         await using var command = connection.CreateCommand();
         command.CommandText = """
             INSERT INTO orders.order_drafts
                 (tenant_id, id, created_by_account_id, summary, currency_code, total, revision, created_at)
             VALUES
-                (@tenant_id, @id, @account_id, 'Database fixture order', 'USD', 0, 1, '2026-09-22T12:00:00Z')
+                (@tenant_id, @id, @account_id, 'Database fixture order', 'USD', 0, 1, @created_at)
             """;
         command.Parameters.AddWithValue("tenant_id", tenantId);
         command.Parameters.AddWithValue("id", orderId);
         command.Parameters.AddWithValue("account_id", accountId);
+        command.Parameters.AddWithValue("created_at", createdAt);
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
@@ -604,6 +1100,8 @@ public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
             GRANT CONNECT ON DATABASE application_tests TO application_orders_runtime;
             GRANT USAGE ON SCHEMA orders TO application_orders_runtime;
             GRANT SELECT, INSERT ON orders.order_drafts TO application_orders_runtime;
+            GRANT UPDATE (state, revision, abandoned_at, abandoned_by_account_id)
+                ON orders.order_drafts TO application_orders_runtime;
             GRANT SELECT, INSERT ON orders.order_draft_lines TO application_orders_runtime;
             GRANT SELECT, INSERT ON orders.command_receipts TO application_orders_runtime;
             """;

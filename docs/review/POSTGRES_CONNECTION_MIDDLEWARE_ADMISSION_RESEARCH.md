@@ -33,7 +33,7 @@ The current facts are narrow:
 - CoreApi is the only runtime database client process.
 - DbMigrator is a separate one-shot privileged process.
 - PostgreSQL is a single-primary central authority at the current baseline.
-- IdentityAccess and Tenancy perform small, indexed security/control reads; Orders adds bounded draft create/read transactions.
+- IdentityAccess and Tenancy perform small, indexed security/control reads; Orders adds bounded draft create/read transactions and a keyset-paginated header browse.
 - The narrow Orders schema is tenant-owned and uses forced RLS. There is no Worker, Sync API, read replica, sharding topology, or HA manager yet.
 - Tenant-owned pooled tables use application tenant scope plus PostgreSQL RLS defense in depth.
 - The Orders RLS setting is transaction-local in the same explicit transaction as protected operations, with real pool-reset tests.

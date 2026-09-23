@@ -7,16 +7,16 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Application.Orders.Postgres.Migrations;
 
 [DbContext(typeof(OrderDbContext))]
-[Migration("202609220001_InitialOrderDrafts")]
-partial class InitialOrderDrafts
+[Migration("202609230002_OrderDraftAbandonment")]
+partial class OrderDraftAbandonment
 {
     protected override void BuildTargetModel(ModelBuilder modelBuilder)
     {
-        OrderModelV202609220001.Build(modelBuilder);
+        OrderModelV202609230002.Build(modelBuilder);
     }
 }
 
-internal static class OrderModelV202609220001
+internal static class OrderModelV202609230002
 {
     internal static void Build(ModelBuilder modelBuilder)
     {
@@ -47,6 +47,12 @@ internal static class OrderModelV202609220001
             entity.Property<DateTimeOffset>("CreatedAt")
                 .HasColumnType("timestamp with time zone")
                 .HasColumnName("created_at");
+            entity.Property<Guid?>("AbandonedByAccountId")
+                .HasColumnType("uuid")
+                .HasColumnName("abandoned_by_account_id");
+            entity.Property<DateTimeOffset?>("AbandonedAt")
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("abandoned_at");
             entity.Property<string>("CurrencyCode")
                 .IsRequired()
                 .IsFixedLength()
@@ -54,6 +60,12 @@ internal static class OrderModelV202609220001
                 .HasColumnType("character(3)")
                 .HasColumnName("currency_code");
             entity.Property<long>("Revision").HasColumnType("bigint").HasColumnName("revision");
+            entity.Property<string>("State")
+                .IsRequired()
+                .HasMaxLength(16)
+                .HasColumnType("character varying(16)")
+                .HasDefaultValue("draft")
+                .HasColumnName("state");
             entity.Property<string>("Summary")
                 .IsRequired()
                 .HasMaxLength(200)
@@ -65,6 +77,10 @@ internal static class OrderModelV202609220001
                 .HasColumnName("total");
             entity.HasKey("TenantId", "Id").HasName("pk_order_drafts");
             entity.HasIndex("CreatedByAccountId");
+            entity.HasIndex("AbandonedByAccountId");
+            entity.HasIndex("TenantId", "CreatedAt", "Id")
+                .IsDescending(false, true, true)
+                .HasDatabaseName("ix_order_drafts_tenant_created_at_id");
             entity.HasIndex("Id").IsUnique().HasDatabaseName("ux_order_drafts_id");
             entity.ToTable("order_drafts", "orders", table =>
             {
@@ -72,6 +88,7 @@ internal static class OrderModelV202609220001
                 table.HasCheckConstraint("ck_order_drafts_currency_code", "currency_code ~ '^[A-Z]{3}$'");
                 table.HasCheckConstraint("ck_order_drafts_total", "total >= 0");
                 table.HasCheckConstraint("ck_order_drafts_revision", "revision > 0");
+                table.HasCheckConstraint("ck_order_drafts_lifecycle", "(state = 'draft' AND revision = 1 AND abandoned_at IS NULL AND abandoned_by_account_id IS NULL) OR (state = 'abandoned' AND revision = 2 AND abandoned_at IS NOT NULL AND abandoned_by_account_id IS NOT NULL)");
             });
         });
 
@@ -154,6 +171,11 @@ internal static class OrderModelV202609220001
 
         modelBuilder.Entity("Application.Orders.Postgres.OrderDraftRow", entity =>
         {
+            entity.HasOne("Application.Orders.Postgres.AccountReferenceRow", null)
+                .WithMany()
+                .HasForeignKey("AbandonedByAccountId")
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("fk_order_drafts_accounts_abandoned_by_account_id");
             entity.HasOne("Application.Orders.Postgres.AccountReferenceRow", null)
                 .WithMany()
                 .HasForeignKey("CreatedByAccountId")

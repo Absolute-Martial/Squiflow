@@ -58,11 +58,15 @@ public sealed class OpenApiContractTests : IClassFixture<WhiteLabelApiFactory>
         var workspace = paths
             .GetProperty("/api/v1/tenants/{tenantId}/workspace")
             .GetProperty("get");
+        var orders = paths
+            .GetProperty("/api/v1/tenants/{tenantId}/orders")
+            .GetProperty("get");
 
         Assert.False(bootstrap.TryGetProperty("security", out _));
         Assert.True(HasOidcRequirement(account));
         Assert.True(HasOidcRequirement(memberships));
         Assert.True(HasOidcRequirement(workspace));
+        Assert.True(HasOidcRequirement(orders));
     }
 
     [Fact]
@@ -98,6 +102,80 @@ public sealed class OpenApiContractTests : IClassFixture<WhiteLabelApiFactory>
             .GetProperty("headers")
             .TryGetProperty("Location", out var locationHeader));
         Assert.Equal("string", locationHeader.GetProperty("schema").GetProperty("type").GetString());
+    }
+
+    [Fact]
+    public async Task BrowseOrdersDocumentsBoundedOpaquePageParametersAndResponse()
+    {
+        using var response = await _client.GetAsync("/openapi/v1.json");
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var browseOrders = document.RootElement
+            .GetProperty("paths")
+            .GetProperty("/api/v1/tenants/{tenantId}/orders")
+            .GetProperty("get");
+
+        var parameters = browseOrders.GetProperty("parameters").EnumerateArray();
+        var limit = parameters.Single(parameter =>
+            parameter.GetProperty("name").GetString() == "limit" &&
+            parameter.GetProperty("in").GetString() == "query");
+        Assert.False(limit.TryGetProperty("required", out var required) && required.GetBoolean());
+        Assert.Equal("integer", limit.GetProperty("schema").GetProperty("type").GetString());
+        Assert.Equal(1, limit.GetProperty("schema").GetProperty("minimum").GetInt32());
+        Assert.Equal(50, limit.GetProperty("schema").GetProperty("maximum").GetInt32());
+        Assert.Equal(25, limit.GetProperty("schema").GetProperty("default").GetInt32());
+
+        var after = parameters.Single(parameter =>
+            parameter.GetProperty("name").GetString() == "after" &&
+            parameter.GetProperty("in").GetString() == "query");
+        Assert.Equal("string", after.GetProperty("schema").GetProperty("type").GetString());
+        Assert.Equal(128, after.GetProperty("schema").GetProperty("maxLength").GetInt32());
+        Assert.Contains("Opaque tenant-bound cursor", after.GetProperty("description").GetString());
+
+        Assert.True(browseOrders.GetProperty("responses").TryGetProperty("200", out var ok));
+        var responseSchema = ok.GetProperty("content")
+            .GetProperty("application/json")
+            .GetProperty("schema");
+        Assert.True(responseSchema.TryGetProperty("$ref", out _));
+    }
+
+    [Fact]
+    public async Task AbandonOrderDocumentsAuthorizationRevisionBodyAndRetryHeader()
+    {
+        using var response = await _client.GetAsync("/openapi/v1.json");
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var abandon = document.RootElement.GetProperty("paths")
+            .GetProperty("/api/v1/tenants/{tenantId}/orders/{orderId}/abandon")
+            .GetProperty("post");
+
+        Assert.True(HasOidcRequirement(abandon));
+        var key = abandon.GetProperty("parameters").EnumerateArray()
+            .Single(parameter => parameter.GetProperty("name").GetString() == "Idempotency-Key");
+        Assert.True(key.GetProperty("required").GetBoolean());
+        Assert.Contains("expectedRevision", abandon.GetProperty("description").GetString());
+        var requestBody = abandon.GetProperty("requestBody");
+        Assert.True(requestBody.GetProperty("required").GetBoolean());
+        var bodySchema = requestBody.GetProperty("content")
+            .GetProperty("application/json")
+            .GetProperty("schema");
+        Assert.Contains(bodySchema.GetProperty("required").EnumerateArray(),
+            property => property.GetString() == "expectedRevision");
+        Assert.False(bodySchema.GetProperty("additionalProperties").GetBoolean());
+        Assert.Equal("integer", bodySchema.GetProperty("properties")
+            .GetProperty("expectedRevision").GetProperty("type").GetString());
+        Assert.Equal(1, bodySchema.GetProperty("properties")
+            .GetProperty("expectedRevision").GetProperty("minimum").GetInt64());
+        var successSchema = abandon.GetProperty("responses").GetProperty("200")
+            .GetProperty("content").GetProperty("application/json").GetProperty("schema");
+        var successName = successSchema.GetProperty("$ref").GetString()!.Split('/').Last();
+        var successProperties = document.RootElement.GetProperty("components")
+            .GetProperty("schemas").GetProperty(successName).GetProperty("properties");
+        Assert.Equal(4, successProperties.EnumerateObject().Count());
+        Assert.False(successProperties.TryGetProperty("summary", out _));
+        Assert.Equal("date-time", successProperties.GetProperty("abandonedAt")
+            .GetProperty("format").GetString());
+        Assert.True(abandon.GetProperty("responses").GetProperty("200")
+            .GetProperty("headers").TryGetProperty("Idempotency-Replayed", out _));
+        Assert.True(abandon.GetProperty("responses").TryGetProperty("409", out _));
     }
 
     private static bool HasOidcRequirement(JsonElement operation) =>

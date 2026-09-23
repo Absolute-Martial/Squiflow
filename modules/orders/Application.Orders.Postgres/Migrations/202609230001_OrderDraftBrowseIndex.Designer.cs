@@ -7,16 +7,16 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Application.Orders.Postgres.Migrations;
 
 [DbContext(typeof(OrderDbContext))]
-[Migration("202609220001_InitialOrderDrafts")]
-partial class InitialOrderDrafts
+[Migration("202609230001_OrderDraftBrowseIndex")]
+partial class OrderDraftBrowseIndex
 {
     protected override void BuildTargetModel(ModelBuilder modelBuilder)
     {
-        OrderModelV202609220001.Build(modelBuilder);
+        OrderModelV202609230001.Build(modelBuilder);
     }
 }
 
-internal static class OrderModelV202609220001
+internal static class OrderModelV202609230001
 {
     internal static void Build(ModelBuilder modelBuilder)
     {
@@ -65,6 +65,9 @@ internal static class OrderModelV202609220001
                 .HasColumnName("total");
             entity.HasKey("TenantId", "Id").HasName("pk_order_drafts");
             entity.HasIndex("CreatedByAccountId");
+            entity.HasIndex("TenantId", "CreatedAt", "Id")
+                .IsDescending(false, true, true)
+                .HasDatabaseName("ix_order_drafts_tenant_created_at_id");
             entity.HasIndex("Id").IsUnique().HasDatabaseName("ux_order_drafts_id");
             entity.ToTable("order_drafts", "orders", table =>
             {

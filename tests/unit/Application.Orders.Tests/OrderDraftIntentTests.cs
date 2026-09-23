@@ -239,5 +239,19 @@ public sealed class OrderDraftIntentTests
             Guid orderId,
             CancellationToken cancellationToken) =>
             throw new NotSupportedException();
+
+        public Task<OrderDraftPage> ListAsync(
+            TenantContext tenantContext,
+            ListOrderDraftsRequest request,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<AbandonOrderDraftResult> AbandonAsync(
+            TenantContext tenantContext,
+            AbandonOrderDraftRequest request,
+            string idempotencyKey,
+            string fingerprint,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
     }
 }

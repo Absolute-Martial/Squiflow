@@ -10,6 +10,8 @@ internal enum EndpointAccess
     AuthorizedTenantWorkspace,
     AuthorizedTenantOrderCreation,
     AuthorizedTenantOrderRead,
+    AuthorizedTenantOrderBrowse,
+    AuthorizedTenantOrderAbandon,
 }
 
 internal sealed record EndpointAccessMetadata(EndpointAccess Access);

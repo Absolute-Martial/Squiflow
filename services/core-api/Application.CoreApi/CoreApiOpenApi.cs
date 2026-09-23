@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.OpenApi;
+using System.Text.Json.Nodes;
 using Application.Branding;
 
 namespace Application.CoreApi;
@@ -17,6 +18,8 @@ internal static class CoreApiOpenApi
             options.AddDocumentTransformer<ApiIdentityDocumentTransformer>();
             options.AddOperationTransformer<ProtectedOperationSecurityTransformer>();
             options.AddOperationTransformer<OrderCreateOperationTransformer>();
+            options.AddOperationTransformer<OrderBrowseOperationTransformer>();
+            options.AddOperationTransformer<OrderAbandonOperationTransformer>();
         });
 
         return services;
@@ -111,7 +114,7 @@ internal sealed class OrderCreateOperationTransformer : IOpenApiOperationTransfo
         return Task.CompletedTask;
     }
 
-    private static void AddRequiredIdempotencyKeyHeader(OpenApiOperation operation)
+    internal static void AddRequiredIdempotencyKeyHeader(OpenApiOperation operation)
     {
         operation.Parameters ??= [];
         operation.Parameters.Add(new OpenApiParameter
@@ -119,7 +122,7 @@ internal sealed class OrderCreateOperationTransformer : IOpenApiOperationTransfo
             Name = "Idempotency-Key",
             In = ParameterLocation.Header,
             Required = true,
-            Description = "Provide one value from 1 to 128 characters. Reusing it with the same order request replays the committed result.",
+            Description = "Provide one value from 1 to 128 characters. Reusing it with the same operation request replays the committed result.",
             Schema = new OpenApiSchema
             {
                 Type = JsonSchemaType.String,
@@ -129,7 +132,7 @@ internal sealed class OrderCreateOperationTransformer : IOpenApiOperationTransfo
         });
     }
 
-    private static void AddReplayHeader(OpenApiOperation operation) =>
+    internal static void AddReplayHeader(OpenApiOperation operation) =>
         AddResponseHeader(
             operation,
             StatusCodes.Status200OK,
@@ -163,5 +166,97 @@ internal sealed class OrderCreateOperationTransformer : IOpenApiOperationTransfo
                 Type = JsonSchemaType.String,
             },
         };
+    }
+}
+
+internal sealed class OrderAbandonOperationTransformer : IOpenApiOperationTransformer
+{
+    public Task TransformAsync(
+        OpenApiOperation operation,
+        OpenApiOperationTransformerContext context,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (context.Description.ActionDescriptor.EndpointMetadata
+            .OfType<EndpointAccessMetadata>()
+            .Any(value => value.Access == EndpointAccess.AuthorizedTenantOrderAbandon))
+        {
+            OrderCreateOperationTransformer.AddRequiredIdempotencyKeyHeader(operation);
+            OrderCreateOperationTransformer.AddReplayHeader(operation);
+            operation.RequestBody = new OpenApiRequestBody
+            {
+                Required = true,
+                Content = new Dictionary<string, OpenApiMediaType>
+                {
+                    ["application/json"] = new OpenApiMediaType
+                    {
+                        Schema = new OpenApiSchema
+                        {
+                            Type = JsonSchemaType.Object,
+                            Required = new HashSet<string> { "expectedRevision" },
+                            Properties = new Dictionary<string, IOpenApiSchema>
+                            {
+                                ["expectedRevision"] = new OpenApiSchema
+                                {
+                                    Type = JsonSchemaType.Integer,
+                                    Minimum = "1",
+                                    Maximum = long.MaxValue.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                                },
+                            },
+                            AdditionalPropertiesAllowed = false,
+                        },
+                    },
+                },
+            };
+        }
+
+        return Task.CompletedTask;
+    }
+}
+
+internal sealed class OrderBrowseOperationTransformer : IOpenApiOperationTransformer
+{
+    public Task TransformAsync(
+        OpenApiOperation operation,
+        OpenApiOperationTransformerContext context,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var metadata = context.Description.ActionDescriptor.EndpointMetadata;
+        if (!metadata.OfType<EndpointAccessMetadata>().Any(value =>
+                value.Access == EndpointAccess.AuthorizedTenantOrderBrowse))
+        {
+            return Task.CompletedTask;
+        }
+
+        operation.Parameters ??= [];
+        operation.Parameters.Add(new OpenApiParameter
+        {
+            Name = "limit",
+            In = ParameterLocation.Query,
+            Required = false,
+            Description = "Maximum number of drafts to return. Defaults to 25 and cannot exceed 50.",
+            Schema = new OpenApiSchema
+            {
+                Type = JsonSchemaType.Integer,
+                Minimum = "1",
+                Maximum = "50",
+                Default = JsonValue.Create(25),
+            },
+        });
+        operation.Parameters.Add(new OpenApiParameter
+        {
+            Name = "after",
+            In = ParameterLocation.Query,
+            Required = false,
+            Description = "Opaque tenant-bound cursor returned by the previous page. Do not construct or modify this value.",
+            Schema = new OpenApiSchema
+            {
+                Type = JsonSchemaType.String,
+                MaxLength = OrderDraftPageCursorCodec.MaximumEncodedLength,
+            },
+        });
+        return Task.CompletedTask;
     }
 }

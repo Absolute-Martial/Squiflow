@@ -53,6 +53,7 @@ public sealed class OpenFgaTenantAuthorizationTests : IAsyncLifetime
         ITenantOrderAuthorization orderAuthorization = authorization;
         var orderCreatorAccountId = Guid.NewGuid();
         var orderViewerAccountId = Guid.NewGuid();
+        var orderAbandonerAccountId = Guid.NewGuid();
         var workspaceViewerAccountId = Guid.NewGuid();
         var tenantId = Guid.NewGuid();
 
@@ -88,6 +89,10 @@ public sealed class OpenFgaTenantAuthorizationTests : IAsyncLifetime
             orderViewerAccountId,
             tenantId,
             CancellationToken.None));
+        Assert.False(await orderAuthorization.CanAbandonAsync(
+            orderAbandonerAccountId,
+            tenantId,
+            CancellationToken.None));
 
         await WriteTenantRelationAsync(
             administrativeClient,
@@ -101,6 +106,10 @@ public sealed class OpenFgaTenantAuthorizationTests : IAsyncLifetime
             tenantId,
             CancellationToken.None));
         Assert.False(await orderAuthorization.CanViewAsync(
+            orderCreatorAccountId,
+            tenantId,
+            CancellationToken.None));
+        Assert.False(await orderAuthorization.CanAbandonAsync(
             orderCreatorAccountId,
             tenantId,
             CancellationToken.None));
@@ -120,6 +129,29 @@ public sealed class OpenFgaTenantAuthorizationTests : IAsyncLifetime
             orderViewerAccountId,
             tenantId,
             CancellationToken.None));
+        Assert.False(await orderAuthorization.CanAbandonAsync(
+            orderViewerAccountId,
+            tenantId,
+            CancellationToken.None));
+        Assert.False(await orderAuthorization.CanAbandonAsync(
+            orderCreatorAccountId,
+            tenantId,
+            CancellationToken.None));
+        await WriteTenantRelationAsync(
+            administrativeClient,
+            storeId,
+            pinnedModelId,
+            orderAbandonerAccountId,
+            tenantId,
+            "order_abandoner");
+        Assert.True(await orderAuthorization.CanAbandonAsync(
+            orderAbandonerAccountId,
+            tenantId,
+            CancellationToken.None));
+        Assert.False(await orderAuthorization.CanViewAsync(
+            orderAbandonerAccountId,
+            tenantId,
+            CancellationToken.None));
         Assert.True(await authorization.CanViewAsync(
             workspaceViewerAccountId,
             tenantId,
@@ -128,6 +160,8 @@ public sealed class OpenFgaTenantAuthorizationTests : IAsyncLifetime
         var newerDenyingModel = modelJson
             .Replace("order_creator", "blocked_order_creator", StringComparison.Ordinal)
             .Replace("order_viewer", "blocked_order_viewer", StringComparison.Ordinal);
+        newerDenyingModel = newerDenyingModel.Replace(
+            "order_abandoner", "blocked_order_abandoner", StringComparison.Ordinal);
         _ = await WriteModelAsync(administrativeClient, storeId, newerDenyingModel);
 
         Assert.True(await orderAuthorization.CanCreateAsync(
@@ -136,6 +170,10 @@ public sealed class OpenFgaTenantAuthorizationTests : IAsyncLifetime
             CancellationToken.None));
         Assert.True(await orderAuthorization.CanViewAsync(
             orderViewerAccountId,
+            tenantId,
+            CancellationToken.None));
+        Assert.True(await orderAuthorization.CanAbandonAsync(
+            orderAbandonerAccountId,
             tenantId,
             CancellationToken.None));
     }

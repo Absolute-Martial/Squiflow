@@ -19,6 +19,8 @@ internal interface ITenantOrderAuthorization
     Task<bool> CanCreateAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
 
     Task<bool> CanViewAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
+
+    Task<bool> CanAbandonAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
 }
 
 internal sealed class OpenFgaTenantAuthorization(
@@ -32,6 +34,7 @@ internal sealed class OpenFgaTenantAuthorization(
     private const string ViewWorkspaceRelation = "can_view_workspace";
     private const string CreateOrderRelation = "can_create_order";
     private const string ViewOrdersRelation = "can_view_orders";
+    private const string AbandonOrderRelation = "can_abandon_order";
     private static readonly Meter Meter = new("Application.CoreApi.Authorization", "0.1.0");
     private static readonly Counter<long> Decisions = Meter.CreateCounter<long>("application.authorization.decisions");
     private static readonly Histogram<double> Duration = Meter.CreateHistogram<double>(
@@ -75,6 +78,12 @@ internal sealed class OpenFgaTenantAuthorization(
         Guid tenantId,
         CancellationToken cancellationToken) =>
         CheckAsync(accountId, tenantId, ViewOrdersRelation, cancellationToken);
+
+    Task<bool> ITenantOrderAuthorization.CanAbandonAsync(
+        Guid accountId,
+        Guid tenantId,
+        CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, AbandonOrderRelation, cancellationToken);
 
     private async Task<bool> CheckAsync(
         Guid accountId,
