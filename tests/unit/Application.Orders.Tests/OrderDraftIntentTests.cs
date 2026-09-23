@@ -146,6 +146,9 @@ public sealed class OrderDraftIntentTests
         Assert.DoesNotContain(references, name => name.StartsWith("Npgsql", StringComparison.Ordinal));
         Assert.DoesNotContain(references, name => name.StartsWith("OpenFga", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(references, name => name.StartsWith("Autofac", StringComparison.Ordinal));
+        Assert.DoesNotContain(references, name =>
+            name.StartsWith("Application.", StringComparison.Ordinal) &&
+            name != "Application.Tenancy");
     }
 
     public static TheoryData<CreateOrderDraftRequest, string> InvalidDrafts => new()

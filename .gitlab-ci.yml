@@ -1,0 +1,24 @@
+include:
+  - template: Jobs/SAST.gitlab-ci.yml
+  - template: Jobs/Dependency-Scanning.v2.gitlab-ci.yml
+
+variables:
+  AST_ENABLE_MR_PIPELINES: "true"
+
+verify:
+  stage: test
+  image: mcr.microsoft.com/dotnet/sdk:10.0
+  services:
+    - name: docker:27.5.1-dind
+      alias: docker
+  variables:
+    DOCKER_HOST: "tcp://docker:2375"
+    DOCKER_TLS_CERTDIR: ""
+    COLLECT_COVERAGE: "1"
+  script:
+    - ./eng/verify.sh
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - artifacts/coverage/report/

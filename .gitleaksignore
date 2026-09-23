@@ -1,0 +1,14 @@
+# Reviewed Gitleaks 8.30.1 generic-api-key false positives in existing history.
+# The first three are synthetic numeric PostgreSQL advisory-lock keys in tests;
+# the remaining matches are prose containing words such as "key-service".
+# Keep these fingerprints exact so new findings still fail the scan.
+09f3e8e049537ee4d99875978f01a4d98414676d:tests/integration/Application.Orders.Postgres.Tests/PostgresTestDatabase.cs:generic-api-key:11
+695afdf1d63d5338755567ed92e9bd66d9e463e6:tests/integration/SquiFlow.IdentityAccess.Postgres.Tests/PostgresTestDatabase.cs:generic-api-key:10
+695afdf1d63d5338755567ed92e9bd66d9e463e6:tests/integration/SquiFlow.Tenancy.Postgres.Tests/PostgresTestDatabase.cs:generic-api-key:11
+e45effead0a2d4612253109dd4f5e7386d876fc8:docs/implementation/phases/phase-0/0B_APPLICATION_KERNEL_AND_MODULE_FOUNDATION.md:generic-api-key:68
+f109b6d1865c76fb83b3f92f2b9c9fb82697dc22:docs/implementation/phases/phase-0/0B_APPLICATION_KERNEL_AND_MODULE_FOUNDATION.md:generic-api-key:88
+d57c71c17c7c9eeaf73c86cd09a05c0ff49a830b:AGENTS.md:generic-api-key:68
+3885eb8c9d9a959e0fb6d8efb563817edce37a0c:docs/implementation/phases/phase-0/0B_APPLICATION_KERNEL_AND_MODULE_FOUNDATION.md:generic-api-key:43
+80a3e30e77e1053813507ab76d2756b945a32694:docs/review/bytebytego_308/STUDY_URL_043.md:generic-api-key:28
+35d356b619e7ee540b43f62d3740af1c885849af:docs/review/bytebytego_308/STUDY_URL_043.md:generic-api-key:28
+ceda693b5eb47ade6bed47db92981d731c6421b6:docs/review/BYTEBYTEGO_DISTRIBUTED_SYSTEMS_SOURCE_REVIEW.md:generic-api-key:496

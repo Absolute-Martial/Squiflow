@@ -4,6 +4,29 @@
 
 SquiFlow uses the smallest test layer that can prove a real invariant. Lean architecture does **not** mean shallow testing: edge/failure behavior that protects core capability remains required.
 
+## Current executable tooling
+
+`./eng/verify.sh` is the repository-owned verification contract: locked NuGet restore with transitive vulnerability auditing, `dotnet format --verify-no-changes`, Release build and all nine xUnit test projects. The integration projects use Testcontainers with real PostgreSQL; Docker is required. `COLLECT_COVERAGE=1 ./eng/verify.sh` also collects Coverlet Cobertura reports and merges them with the pinned local ReportGenerator tool under ignored `artifacts/coverage/report/`. The GitHub verification workflow invokes this mode and retains the merged report as a CI artifact. The GitLab verification job invokes the same script and retains the report; its Docker-in-Docker service requires a runner that permits it. A local pass does not establish that either remote runner has passed.
+
+SDK Roslyn analyzers and the root `.editorconfig` run through the build/format contract. Current host-neutral dependency tests enforce the active compile-time boundaries. NuGet lockfiles are committed for every active project; the verification script restores in locked mode so package changes must deliberately regenerate and review those files. The GitLab SAST and SBOM dependency-scanning templates are configured, and a GitHub Gitleaks history-scan workflow is configured. Gitleaks 8.30.1 passed a local scan of the existing history after exact fingerprints for ten reviewed false positives were recorded in `.gitleaksignore`; new findings remain failures. These are configuration and local-scan claims, not claims of inspected remote security results.
+
+`./eng/mutate-orders.sh` is an **exploratory**, locally run Stryker.NET check for `OrderDraft.cs`. Its first run killed 82 of 120 tested mutants and left 38 surviving (58.57% score). This is a diagnostic baseline, not a CI gate or a claim that surviving cases are harmless. A mutation threshold should follow review of the surviving behavior and tests, not an arbitrary number.
+
+| Requested tool | Current decision |
+| --- | --- |
+| xUnit, Testcontainers.NET | Active test framework and real PostgreSQL adapter evidence. |
+| Coverlet, ReportGenerator | Active collection and reviewable merged coverage report; no arbitrary percentage gate. |
+| EditorConfig, `dotnet format`, Roslyn analyzers | Active style and static-analysis checks. |
+| GitLab SAST, dependency scanning; Gitleaks | Configured scan paths; remote outcomes must be inspected before claiming a remote pass. |
+| Stryker.NET | Active local diagnostic for the current Orders domain code; no mutation gate yet. |
+| FluentAssertions, NSubstitute | Not selected: current xUnit assertions and explicit test doubles express the existing tests without another abstraction/dependency. Reconsider for a concrete test whose readability or controlled boundary improves. |
+| StyleCop, NetArchTest | Not selected: current SDK analyzers, format check and executable assembly-reference tests cover the present rules. Reconsider when a specific unenforced rule appears. |
+| Playwright, Avalonia.Headless | `NOT_INTRODUCED`: no Web UI or Avalonia Workstation runtime exists. Add with those runtimes and their actual interaction contracts. |
+| BenchmarkDotNet | `NOT_INTRODUCED`: no named benchmark workload or target hardware/result contract exists. Add when a measured performance decision needs it. |
+| SonarQube/SonarCloud | `NOT_INTRODUCED`: no chosen service, project identity, token or review policy. Add only with an owned remote analysis contract. |
+
+The current verification and coverage generation claims are `PRODUCTION_HONEST` within this narrow local scope; remote scanner execution, mutation-score enforcement, UI testing and benchmark qualification are not claimed. Requalify when dependencies or target frameworks change, a new runtime/test project is introduced, CI runner behavior changes, or a scanner reports new findings.
+
 ## 1. Test layers
 
 ### Domain/property tests
