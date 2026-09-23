@@ -82,6 +82,13 @@ internal sealed class ProfileRuntimeRegistry : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(definition);
         ArgumentNullException.ThrowIfNull(tenantContext);
+        if (definition.Key.TenantId != tenantContext.TenantId)
+        {
+            throw new ArgumentException(
+                "The tenant context must match the runtime tenant.",
+                nameof(tenantContext));
+        }
+
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfNotAccepting();
 
@@ -110,7 +117,7 @@ internal sealed class ProfileRuntimeRegistry : IAsyncDisposable
             throw;
         }
 
-        if (!runtime.TryAcquire(_timeProvider.GetUtcNow()))
+        if (!slot.TryAcquire(runtime, _timeProvider.GetUtcNow()))
         {
             throw new InvalidOperationException(
                 $"Profile runtime {definition.Key} is retiring and cannot accept new operations.");
@@ -434,6 +441,14 @@ internal sealed class ProfileRuntimeRegistry : IAsyncDisposable
         }
 
         internal Task<RuntimeEntry> GetRuntimeAsync() => _runtime.Value;
+
+        internal bool TryAcquire(RuntimeEntry runtime, DateTimeOffset now)
+        {
+            lock (_gate)
+            {
+                return _retirement is null && runtime.TryAcquire(now);
+            }
+        }
 
         internal bool TryGetReadyRuntime(out RuntimeEntry runtime)
         {

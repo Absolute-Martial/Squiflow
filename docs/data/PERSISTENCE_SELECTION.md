@@ -69,6 +69,12 @@ Instead:
 
 Containment is enough until migration is real.
 
+### Runtime SQL source ownership
+
+When a provider adapter uses substantial raw SQL, keep the statement in a provider-owned, version-controlled `.sql` resource and keep parameter binding, transaction control, mapping and error handling in the adapter. Orders PostgreSQL runtime statements use embedded resources; a missing resource fails immediately. Short statements may remain beside their owning operation. For the current Orders slice, EF Core owns the schema model, migrations and migration history; direct Npgsql owns runtime reads, commands, transaction-local tenant context and atomic idempotency receipts. These two paths must not independently implement one runtime operation. Other EF Core LINQ queries remain in their provider adapter code, and versioned EF migrations retain their schema-changing SQL with the migration that owns it. This is source separation inside the same deployable application, not a separate SQL service or a new business authority.
+
+The owning provider integration tests must still exercise the real statement against PostgreSQL, including tenant scope, RLS and concurrency behavior. Requalify those tests when SQL text, parameters, schema or resource embedding changes.
+
 ## 4. Authoritative schema design
 
 The authoritative relational model starts normalized around real business identities and relationships because write correctness, understandable constraints, and maintainable evolution matter more than optimizing one screen prematurely.

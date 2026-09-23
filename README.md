@@ -2,7 +2,7 @@
 
 **Current product version:** `v0.1.0` (locked until the complete production-capable product gate)
 
-**Implementation state:** first independently earned backend/API slice after the 2026-09-17 purge. Phase 0A remains qualified; the former 0B Parties implementation is retired history.
+**Implementation state:** narrow independently earned backend/API slices after the 2026-09-17 purge. Phase 0A remains qualified; the former 0B Parties implementation is retired history.
 
 The repository codename is not the public product identity. Every deployed presentation obtains its name, legal identity, theme and links from validated branding configuration; the checked-in runtime has no codename branding fallback. Earlier code and retired phase records remain in Git history as evidence and context, not current implementation authority.
 
@@ -35,16 +35,16 @@ Repository state proves what is implemented. Architecture documents can define f
 ## Current implementation boundary
 
 ```text
-production projects: 8
-test projects:       7
+production projects: 10
+test projects:       9
 executable hosts:    2
 solution/build/test contract: present
-active runtime responsibilities: public application bootstrap; classified OpenAPI v1 description; JWT access-token validation; authenticated account resolution; tenant membership listing/context resolution; account/tenancy persistence; one-shot DB migration
-active host-neutral responsibilities: bounded feature graph validation and deterministic effective-selection compilation
+active runtime responsibilities: public application bootstrap; classified OpenAPI v1 description; JWT access-token validation; authenticated account and tenant membership resolution; Finbuckle route-candidate resolution; pinned-model OpenFGA workspace/order authorization; account/tenancy/order-draft PostgreSQL persistence with tenant RLS; liveness and bounded dependency readiness; Autofac root composition and dormant tenant-keyed runtime mechanics; ordered one-shot DB migration
+active host-neutral responsibilities: bounded feature graph validation and effective-selection compilation; priced order-draft creation, read, browse and abandonment with caller-scoped semantic idempotency
 BLOCKED: none
 ```
 
-The deleted `PartyKind` enum and Parties implementation are not current implementation. The current solution/build/test files belong only to the independently earned ApplicationProfiles, Branding, IdentityAccess, Tenancy, CoreApi and DbMigrator slices and do not revive the retired 0B shape.
+The deleted `PartyKind` enum and Parties implementation are not current implementation. The current solution/build/test files belong to independently earned ApplicationProfiles, Branding, IdentityAccess, Tenancy, Orders, CoreApi and DbMigrator slices and do not revive the retired 0B shape. The tenant-keyed Autofac registry is internal mechanics; no production request acquires it, and durable Tenant Application Profile authority remains absent.
 
 ## Architecture direction
 
@@ -54,7 +54,7 @@ The deleted `PartyKind` enum and Parties implementation are not current implemen
 - The product starts as a modular monolith; ordinary capability communication is in-process.
 - One capability owns one source implementation of its business meaning.
 - PostgreSQL remains selected central transactional storage and SQLite/WAL remains selected Workstation local storage when those responsibilities are introduced.
-- ZITADEL remains the selected identity platform; CoreApi now enforces its configured OIDC/JWT issuer and audience contract, while live-provider/login/session evidence remains pending. OpenFGA and OpenBao/Vault-style key management remain accepted directions, not current runtimes.
+- ZITADEL remains the selected identity platform; CoreApi enforces its configured OIDC/JWT issuer and audience contract, while live-provider/login/session evidence remains pending. OpenFGA is the active pinned-model tenant workspace/order permission provider. OpenBao/Vault-style key management remains a future direction, not a current runtime.
 - Guard remains a future supervision/recovery boundary, not business authority.
 - Projects, processes, providers, interfaces, and protocols are earned by a real boundary.
 

@@ -75,7 +75,7 @@ TenantApplicationProfile
 
 The profile is control data, not a mutable bag read piecemeal during one operation. A request, command, sync batch, workflow continuation or claimed job is pinned to one effective compatible revision for every decision that must remain internally consistent.
 
-Tenants may share an identical profile definition or compiled runtime. Tenant identity and tenant-owned state never become shared merely because the composition fingerprint is the same.
+Tenants may share an identical immutable profile definition, shipped code, and compilation artifacts. Each active tenant owns its own retained Autofac runtime scope, even when its implementation fingerprint matches another tenant's. This gives tenant-owned clients, bounded caches, lifecycle and resource accounting an explicit owner; it does not make the scope a security or process-fault boundary.
 
 ## 4. Composition model
 
@@ -88,14 +88,14 @@ TenantProfileResolver
     ↓
 immutable effective profile revision
     ↓
-ProfileRuntimeRegistry
+tenant-keyed ProfileRuntimeRegistry
     ↓
-shared compiled profile runtime OR tenant-specific runtime where required
+bounded retained runtime for this tenant and immutable revision
     ↓
 ordinary request/job scope + immutable TenantContext
 ```
 
-The runtime key and ownership are explicit. Possible keys include a profile fingerprint when many tenants use the same trusted implementation graph, or a tenant/profile revision when tenant-specific lifetime/state is genuinely required. Tenant-specific mutable business state must not live only in the DI runtime.
+The retained runtime key includes tenant identity and the immutable composition revision. An implementation fingerprint can identify reusable code or compiled definitions, but it cannot make two tenants share a retained lifetime scope. The current internal mechanics key uses tenant identity plus implementation fingerprint/revision; when durable profile publication exists, the key must also distinguish any published profile/configuration revision that changes retained registrations or compiled tenant state. Tenant-specific mutable business state must not live only in the DI runtime.
 
 Profile runtimes are built lazily or ahead of activation according to measured cost. They are never rebuilt on every request. Activation validates the complete dependency closure before routing work to the revision. Retirement uses bounded draining and disposal; in-flight work remains pinned or fails with a defined retry/recovery outcome rather than using a half-reconfigured graph.
 
@@ -107,8 +107,8 @@ Autofac is not the tenant profile, feature system, flexible-data model, authorit
 
 - ordinary variation continues through data/rules/settings or fixed strategy registries;
 - a SquiFlow registry owns immutable runtime keys, cache bounds, leases, activation, draining and disposal around Autofac scopes;
-- tenants with the same implementation fingerprint may share a runtime while retaining separate operation-scoped `TenantContext` and data;
-- a tenant-specific runtime key is used only when the implementation lifetime itself must be tenant-exclusive.
+- each retained runtime is tenant-exclusive even when implementation fingerprints match;
+- each authorized request or Worker task uses a short-lived operation scope with current `TenantContext`, account/authorization checks and transaction state outside the retained scope.
 
 CoreApi uses Autofac at its host composition boundary while capability projects remain container-neutral. Profile-specific resolution will occur only after authoritative account/membership-derived `TenantContext`; an untrusted route/header/domain/token value may identify a candidate but must not select secret-bearing tenant services. The executor must also work for non-HTTP Worker/synchronization execution.
 
@@ -173,7 +173,7 @@ Rollback activates a compatible earlier or corrective revision; it does not muta
 
 The first implementation-variant slice must prove:
 
-1. one tenant cannot resolve another tenant/profile's implementation or state;
+1. one tenant cannot acquire another tenant's retained runtime, implementation or state, including when their implementation fingerprints match;
 2. invalid profile revisions cannot become active;
 3. concurrent first-use creates one usable runtime and disposes losing builds safely;
 4. cold/warm resolution, memory growth and GC behavior at representative profile/tenant counts;

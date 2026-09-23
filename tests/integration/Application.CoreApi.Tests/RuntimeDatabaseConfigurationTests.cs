@@ -21,6 +21,7 @@ public sealed class RuntimeDatabaseConfigurationTests
                 ["Database:ConnectionIdleLifetimeSeconds"] = "240",
                 ["Database:ConnectionPruningIntervalSeconds"] = "12",
                 ["Database:ConnectionLifetimeSeconds"] = "1800",
+                ["Database:CommandTimeoutSeconds"] = "12",
             });
 
         var validated = RuntimeDatabaseConfiguration.From(configuration);
@@ -34,6 +35,7 @@ public sealed class RuntimeDatabaseConfigurationTests
         Assert.Equal(240, effective.ConnectionIdleLifetime);
         Assert.Equal(12, effective.ConnectionPruningInterval);
         Assert.Equal(1800, effective.ConnectionLifetime);
+        Assert.Equal(12, effective.CommandTimeout);
         Assert.False(effective.NoResetOnClose);
         Assert.False(effective.Multiplexing);
         Assert.False(effective.LogParameters);
@@ -80,6 +82,8 @@ public sealed class RuntimeDatabaseConfigurationTests
     [InlineData("Database:MinimumPoolSize", "21", "cannot exceed MaximumPoolSize")]
     [InlineData("Database:ConnectionPruningIntervalSeconds", "0", "must be greater than zero")]
     [InlineData("Database:ConnectionIdleLifetimeSeconds", "invalid", "must be a non-negative integer")]
+    [InlineData("Database:CommandTimeoutSeconds", "0", "must be between 1 and 60")]
+    [InlineData("Database:CommandTimeoutSeconds", "61", "must be between 1 and 60")]
     public void InvalidResourceBoundsFailConfiguration(
         string key,
         string value,
@@ -113,6 +117,7 @@ public sealed class RuntimeDatabaseConfigurationTests
             ["Database:ConnectionIdleLifetimeSeconds"] = "300",
             ["Database:ConnectionPruningIntervalSeconds"] = "10",
             ["Database:ConnectionLifetimeSeconds"] = "3600",
+            ["Database:CommandTimeoutSeconds"] = "15",
         };
 
     private static IConfiguration CreateConfiguration(Dictionary<string, string?> values) =>

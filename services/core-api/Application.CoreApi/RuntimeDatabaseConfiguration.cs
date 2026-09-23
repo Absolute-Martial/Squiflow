@@ -16,7 +16,8 @@ internal sealed class RuntimeDatabaseConfiguration
         int minimumPoolSize,
         int connectionIdleLifetimeSeconds,
         int connectionPruningIntervalSeconds,
-        int connectionLifetimeSeconds)
+        int connectionLifetimeSeconds,
+        int commandTimeoutSeconds)
     {
         _connectionString = connectionString;
         MaximumPoolSize = maximumPoolSize;
@@ -24,6 +25,7 @@ internal sealed class RuntimeDatabaseConfiguration
         ConnectionIdleLifetimeSeconds = connectionIdleLifetimeSeconds;
         ConnectionPruningIntervalSeconds = connectionPruningIntervalSeconds;
         ConnectionLifetimeSeconds = connectionLifetimeSeconds;
+        CommandTimeoutSeconds = commandTimeoutSeconds;
     }
 
     internal int MaximumPoolSize { get; }
@@ -35,6 +37,8 @@ internal sealed class RuntimeDatabaseConfiguration
     internal int ConnectionPruningIntervalSeconds { get; }
 
     internal int ConnectionLifetimeSeconds { get; }
+
+    internal int CommandTimeoutSeconds { get; }
 
     internal static RuntimeDatabaseConfiguration From(IConfiguration configuration)
     {
@@ -87,6 +91,7 @@ internal sealed class RuntimeDatabaseConfiguration
         var idleLifetime = ReadNonNegativeInt(section, "ConnectionIdleLifetimeSeconds");
         var pruningInterval = ReadNonNegativeInt(section, "ConnectionPruningIntervalSeconds");
         var connectionLifetime = ReadNonNegativeInt(section, "ConnectionLifetimeSeconds");
+        var commandTimeout = ReadNonNegativeInt(section, "CommandTimeoutSeconds");
 
         if (maximumPoolSize == 0)
         {
@@ -106,13 +111,20 @@ internal sealed class RuntimeDatabaseConfiguration
                 $"{SectionName}:ConnectionPruningIntervalSeconds must be greater than zero.");
         }
 
+        if (commandTimeout is < 1 or > 60)
+        {
+            throw new InvalidOperationException(
+                $"{SectionName}:CommandTimeoutSeconds must be between 1 and 60.");
+        }
+
         return new RuntimeDatabaseConfiguration(
             source.ConnectionString,
             maximumPoolSize,
             minimumPoolSize,
             idleLifetime,
             pruningInterval,
-            connectionLifetime);
+            connectionLifetime,
+            commandTimeout);
     }
 
     internal NpgsqlDataSource CreateDataSource(ILoggerFactory loggerFactory)
@@ -127,6 +139,7 @@ internal sealed class RuntimeDatabaseConfiguration
             ConnectionIdleLifetime = ConnectionIdleLifetimeSeconds,
             ConnectionPruningInterval = ConnectionPruningIntervalSeconds,
             ConnectionLifetime = ConnectionLifetimeSeconds,
+            CommandTimeout = CommandTimeoutSeconds,
             NoResetOnClose = false,
             Multiplexing = false,
             LogParameters = false,

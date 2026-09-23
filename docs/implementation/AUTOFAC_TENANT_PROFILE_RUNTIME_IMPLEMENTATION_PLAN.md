@@ -14,9 +14,9 @@ The first declared scope is deliberately narrower than the eventual platform:
 
 - CoreApi uses Autofac as its host container without changing existing ApplicationProfiles, Branding, IdentityAccess or Tenancy behavior.
 - An authenticated account and current active membership establish `TenantContext` before profile-specific implementation resolution.
-- A process-local registry creates at most one usable Autofac profile runtime for one immutable implementation fingerprint/revision at a time.
+- A process-local registry creates at most one usable Autofac runtime per tenant and immutable implementation fingerprint/revision at a time.
 - An operation receives an ordinary child lifetime scope containing its immutable `TenantContext` and effective profile revision.
-- Equivalent implementation graphs may share a profile runtime; tenant-owned data and operation context never become shared.
+- Equivalent implementation graphs may reuse shipped code or immutable definitions, but not a retained Autofac scope across tenants.
 - Profile runtimes are reconstructable acceleration state. Durable authority never lives only in the container.
 - The first production implementation override is activated only with a real capability whose supported implementations differ materially. Branding/settings/connection strings/custom fields/rules alone do not qualify.
 
@@ -38,7 +38,7 @@ root ASP.NET request scope
 → current membership check
 → immutable TenantContext
 → active immutable Tenant Application Profile lookup
-→ acquire ProfileRuntimeLease by implementation key
+→ acquire ProfileRuntimeLease by tenant and immutable implementation key
 → begin Autofac operation scope
    + TenantContext
    + effective profile revision
@@ -74,7 +74,7 @@ The initial internal host-owned types are conceptually:
 
 ```text
 ProfileRuntimeKey
-  = ImplementationFingerprint + ImplementationRevision
+  = TenantId + ImplementationFingerprint + ImplementationRevision
 
 ProfileRuntimeRegistry
   EnsureConfigured(profile)
@@ -90,7 +90,7 @@ TenantProfileExecutor
   Execute<TEntryPoint, TResult>(tenantContext, profile, operation)
 ```
 
-Tenant identity is excluded from the shared runtime key when the implementation graph is identical. A tenant-specific key is allowed only when the implementation lifetime itself must be tenant-exclusive and that need is proven. `TenantContext`, settings, secrets, connections and business state belong to the operation scope or authoritative adapters, not a shared profile singleton.
+Tenant identity is part of every retained-runtime key, including when the implementation graph is identical. A future published profile/configuration revision joins the key whenever it changes retained registrations or compiled tenant state. The immutable definition must belong to the same validated tenant as the operation. Current user/account, authorization decisions, request objects, tokens, database connections/transactions, mutable `DbContext` instances and unrestricted credentials stay out of the retained runtime. `TenantContext` remains operation-scoped; authoritative business state remains in its owning adapters.
 
 The registry may wrap `MultitenantContainer` explicit-key operations and the upstream configure/remove behavior, but SquiFlow owns the outer state machine and lease accounting. Code outside the composition boundary does not receive `IContainer`, `ILifetimeScope`, `IComponentContext` or `IServiceProvider` for arbitrary resolution.
 
@@ -270,8 +270,8 @@ Do not create Workstation, Worker, Sync or Admin profile-runtime projects in adv
 |---|---|
 | existing host behavior survives Autofac migration | full current CoreApi integration suite plus explicit scoped-lifetime/disposal test |
 | authority precedes profile-specific resolution | real pipeline test showing unauthenticated, unbound, suspended and non-member requests create/acquire no profile runtime |
-| tenant graphs do not cross | negative tests with two tenant contexts and different profile keys/variants |
-| equivalent graphs can share safely | shared runtime identity/build-count assertion with distinct operation-scoped `TenantContext` values |
+| tenant graphs do not cross | negative tests with two tenant contexts using the same implementation fingerprint/revision but separate retained scopes; mismatched definition/context acquisition fails |
+| same-tenant reuse is bounded | same-tenant warm acquisition and single-flight build-count assertions; separate tenants consume separate retained capacity |
 | no container build per request | concurrent/warm acquisition build-count invariant |
 | first-use is race-safe | concurrent acquisition yields one ready runtime; losing resources are disposed |
 | publication is revision-stable | in-flight operation remains on old key while new operations use the new key |

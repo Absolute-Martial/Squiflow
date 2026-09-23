@@ -45,6 +45,16 @@ Keep version-controlled deployment/infrastructure definitions and runbooks suffi
 
 This is an infrastructure/deployment concern. It does **not** mean tenant or platform operators should normally edit YAML/Terraform files for business/application settings; those remain first-class Web/Admin API concerns where implemented.
 
+The current CoreApi database role can be granted after the one-shot DatabaseMigrator has applied the IdentityAccess, Tenancy and Orders schemas. Create the login role and deliver its password through deployment secret management first; do not run CoreApi with the migration credential. From the repository root, connect as an administrator able to grant on the migrated objects and run:
+
+```bash
+psql "$MIGRATION_DATABASE_URL" -X -v ON_ERROR_STOP=1 \
+  -v runtime_role="$CORE_API_DB_ROLE" \
+  -f eng/postgres/apply-core-api-runtime.psql
+```
+
+`eng/postgres/grant-core-api-runtime.sql` grants only the current CoreApi read access to IdentityAccess/Tenancy and read/insert plus the four Orders abandonment update columns. It checks the role's effective privileges on those objects, forced Orders RLS, ownership, elevated role attributes and inherited/assumable role memberships inside the same transaction. The dedicated runtime login must have no membership in another role. Existing excess rights fail the run and roll back its grants; an administrator must correct the role before retrying. Repeat this step after an applicable schema or privilege change. The script neither creates a role nor stores credentials, and its verification covers only the current seven application tables and three schemas, not every object in the PostgreSQL cluster. Its exact SQL is exercised by `CoreApiRuntimeRoleProvisioningTests` against PostgreSQL 17; the production release still needs a deployment-specific role/credential review.
+
 The exact IaC/automation mechanism is OPEN. A simple version-controlled host/container/service setup is valid if it is reproducible and testable. Do not introduce Kubernetes, Flux, Terraform or another platform solely to claim IaC/GitOps.
 
 Production qualification includes rebuilding SquiFlow on a clean/replacement environment using these definitions/runbooks rather than relying on the original machine state.
@@ -67,6 +77,8 @@ Baseline requirements:
 - record who approves, performs, observes, and can stop/recover the release without inventing a large-team ceremony.
 
 On a single active rack node, a maintenance window with honest downtime can be safer than pretending to provide zero downtime. Blue-green, canary, rolling, or feature-flagged exposure is adopted only when the deployment has the spare capacity/routing, compatible data contracts, observability, and rollback controls to make that strategy real.
+
+For the current CoreApi, `/health/live` is dependency-free process liveness. `/health/ready` checks primary PostgreSQL connectivity and read access to the exact configured OpenFGA model, returning status only (200 or 503) without dependency details. Each dependency check is bounded to five seconds and results are cached for five seconds per process with single-flight refresh. The route is a readiness signal for routing and release checks, not proof that migrations, tenant permissions, business data, or a full authorized journey are correct. An outage may remain visible for up to the cache window after recovery. Requalify the readiness tests and probe policy when dependency credentials, model selection, database topology, or deployment health cadence change.
 
 Database rollback is not assumed. Many schema/data migrations are safer through compatible expand-migrate-switch-contract and roll-forward. See `docs/data/PERSISTENCE_SELECTION.md`.
 

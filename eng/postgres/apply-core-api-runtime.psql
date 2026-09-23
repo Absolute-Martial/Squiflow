@@ -1,0 +1,11 @@
+\set ON_ERROR_STOP on
+\if :{?runtime_role}
+\else
+\echo 'Pass an existing runtime role with -v runtime_role=...'
+DO $$ BEGIN RAISE EXCEPTION 'CoreApi runtime role was not supplied'; END $$;
+\endif
+
+BEGIN;
+SELECT set_config('app.provision_runtime_role', :'runtime_role', true);
+\ir grant-core-api-runtime.sql
+COMMIT;

@@ -13,17 +13,18 @@ namespace Application.CoreApi.Tests;
 public sealed class ProfileRuntimeRegistryTests
 {
     [Fact]
-    public async Task ConcurrentFirstUseBuildsOneRuntimeAndKeepsTenantContextOperationScoped()
+    public async Task ConcurrentFirstUseForOneTenantBuildsOneRuntimeAndKeepsTenantContextOperationScoped()
     {
         await using var root = new ContainerBuilder().Build();
         await using var registry = CreateRegistry(root);
         var buildCount = 0;
+        var tenantId = Guid.NewGuid();
         var definition = new ProfileRuntimeDefinition(
-            new ProfileRuntimeKey("shared-orders", 1),
+            new ProfileRuntimeKey(tenantId, "shared-orders", 1),
             _ => Interlocked.Increment(ref buildCount));
         var contexts = await Task.WhenAll(
-            CreateTenantContextAsync(),
-            CreateTenantContextAsync());
+            CreateTenantContextAsync(tenantId),
+            CreateTenantContextAsync(tenantId));
 
         var acquisitions = Enumerable.Range(0, 24)
             .Select(index => registry.AcquireAsync(
@@ -48,17 +49,67 @@ public sealed class ProfileRuntimeRegistryTests
     }
 
     [Fact]
+    public async Task SameImplementationForDifferentTenantsBuildsSeparateRetainedScopes()
+    {
+        await using var root = new ContainerBuilder().Build();
+        await using var registry = CreateRegistry(root);
+        var firstContext = await CreateTenantContextAsync();
+        var secondContext = await CreateTenantContextAsync();
+        var buildCount = 0;
+
+        ProfileRuntimeDefinition CreateDefinition(TenantContext context) => new(
+            new ProfileRuntimeKey(context.TenantId, "same-implementation", 1),
+            builder =>
+            {
+                Interlocked.Increment(ref buildCount);
+                builder.RegisterInstance(new DisposalTracker()).OwnedByLifetimeScope();
+            });
+
+        var firstDefinition = CreateDefinition(firstContext);
+        var secondDefinition = CreateDefinition(secondContext);
+        var firstLease = await registry.AcquireAsync(firstDefinition, firstContext);
+        await using var secondLease = await registry.AcquireAsync(secondDefinition, secondContext);
+        var firstTracker = firstLease.Resolve<DisposalTracker>();
+        var secondTracker = secondLease.Resolve<DisposalTracker>();
+
+        Assert.Equal(2, Volatile.Read(ref buildCount));
+        Assert.Equal(2, registry.RetainedRuntimeCount);
+        Assert.NotSame(firstTracker, secondTracker);
+
+        await firstLease.DisposeAsync();
+        Assert.True(await registry.RetireAsync(firstDefinition.Key));
+        Assert.Equal(1, firstTracker.DisposeCount);
+        Assert.Equal(0, secondTracker.DisposeCount);
+        Assert.Equal(1, registry.RetainedRuntimeCount);
+        Assert.Same(secondTracker, secondLease.Resolve<DisposalTracker>());
+    }
+
+    [Fact]
+    public async Task RuntimeKeyRejectsAnotherTenantContextBeforeCreatingAScope()
+    {
+        await using var root = new ContainerBuilder().Build();
+        await using var registry = CreateRegistry(root);
+        var firstContext = await CreateTenantContextAsync();
+        var secondContext = await CreateTenantContextAsync();
+        var definition = Definition(firstContext.TenantId, "tenant-bound", 1);
+
+        await Assert.ThrowsAsync<ArgumentException>(async () =>
+            await registry.AcquireAsync(definition, secondContext));
+        Assert.Equal(0, registry.RetainedRuntimeCount);
+    }
+
+    [Fact]
     public async Task RetirementRejectsNewLeasesAndWaitsForTheLastActiveLease()
     {
         await using var root = new ContainerBuilder().Build();
         await using var registry = CreateRegistry(root);
         var tracker = new DisposalTracker();
+        var context = await CreateTenantContextAsync();
         var definition = new ProfileRuntimeDefinition(
-            new ProfileRuntimeKey("billing-vendor-a", 4),
+            new ProfileRuntimeKey(context.TenantId, "billing-vendor-a", 4),
             builder => builder
                 .RegisterInstance(tracker)
                 .OwnedByLifetimeScope());
-        var context = await CreateTenantContextAsync();
         var lease = await registry.AcquireAsync(definition, context);
         _ = lease.Resolve<DisposalTracker>();
 
@@ -76,25 +127,26 @@ public sealed class ProfileRuntimeRegistryTests
     }
 
     [Fact]
-    public async Task RetainedRuntimeLimitRejectsColdBuildUntilCapacityIsReleased()
+    public async Task RetainedRuntimeLimitAppliesAcrossTenantsWithTheSameImplementation()
     {
         await using var root = new ContainerBuilder().Build();
         await using var registry = CreateRegistry(
             root,
             maximumRetainedRuntimes: 1);
-        var context = await CreateTenantContextAsync();
-        var firstDefinition = Definition("first", 1);
-        var secondDefinition = Definition("second", 1);
-        var firstLease = await registry.AcquireAsync(firstDefinition, context);
+        var firstContext = await CreateTenantContextAsync();
+        var secondContext = await CreateTenantContextAsync();
+        var firstDefinition = Definition(firstContext.TenantId, "same-implementation", 1);
+        var secondDefinition = Definition(secondContext.TenantId, "same-implementation", 1);
+        var firstLease = await registry.AcquireAsync(firstDefinition, firstContext);
 
         await Assert.ThrowsAsync<ProfileRuntimeCapacityException>(async () =>
-            await registry.AcquireAsync(secondDefinition, context));
+            await registry.AcquireAsync(secondDefinition, secondContext));
 
         await firstLease.DisposeAsync();
         Assert.True(await registry.RetireAsync(firstDefinition.Key));
 
         await using var secondLease =
-            await registry.AcquireAsync(secondDefinition, context);
+            await registry.AcquireAsync(secondDefinition, secondContext);
         Assert.Equal(secondDefinition.Key, secondLease.Key);
     }
 
@@ -103,8 +155,8 @@ public sealed class ProfileRuntimeRegistryTests
     {
         await using var root = new ContainerBuilder().Build();
         await using var registry = CreateRegistry(root);
-        var definition = Definition("idle", 1);
         var context = await CreateTenantContextAsync();
+        var definition = Definition(context.TenantId, "idle", 1);
         await using (var lease = await registry.AcquireAsync(definition, context))
         {
             Assert.Equal(definition.Key, lease.Key);
@@ -122,8 +174,9 @@ public sealed class ProfileRuntimeRegistryTests
         await using var root = new ContainerBuilder().Build();
         await using var registry = CreateRegistry(root);
         var attempts = 0;
+        var context = await CreateTenantContextAsync();
         var definition = new ProfileRuntimeDefinition(
-            new ProfileRuntimeKey("retryable", 2),
+            new ProfileRuntimeKey(context.TenantId, "retryable", 2),
             _ =>
             {
                 if (Interlocked.Increment(ref attempts) == 1)
@@ -131,7 +184,6 @@ public sealed class ProfileRuntimeRegistryTests
                     throw new InvalidOperationException("Synthetic build failure.");
                 }
             });
-        var context = await CreateTenantContextAsync();
 
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await registry.AcquireAsync(definition, context));
@@ -159,7 +211,7 @@ public sealed class ProfileRuntimeRegistryTests
 
         ProfileRuntimeDefinition CreateBlockingDefinition(string fingerprint) =>
             new(
-                new ProfileRuntimeKey(fingerprint, 1),
+                new ProfileRuntimeKey(context.TenantId, fingerprint, 1),
                 _ =>
                 {
                     var current = Interlocked.Increment(ref currentBuilds);
@@ -212,8 +264,8 @@ public sealed class ProfileRuntimeRegistryTests
 
         await using var root = new ContainerBuilder().Build();
         await using var registry = CreateRegistry(root);
-        var definition = Definition("observable", 1);
         var context = await CreateTenantContextAsync();
+        var definition = Definition(context.TenantId, "observable", 1);
         await using (var lease = await registry.AcquireAsync(definition, context))
         {
             Assert.Equal(definition.Key, lease.Key);
@@ -235,7 +287,7 @@ public sealed class ProfileRuntimeRegistryTests
     }
 
     [Fact]
-    public async Task ShutdownDrainTimeoutDoesNotWaitForeverForAStuckBuildCallback()
+    public async Task ShutdownDrainTimeoutDisposesLateBuildWithoutAdmittingANewLease()
     {
         await using var root = new ContainerBuilder().Build();
         var registry = CreateRegistry(
@@ -244,14 +296,16 @@ public sealed class ProfileRuntimeRegistryTests
         using var releaseBuild = new ManualResetEventSlim();
         var buildEntered = new TaskCompletionSource<bool>(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        var tracker = new DisposalTracker();
+        var context = await CreateTenantContextAsync();
         var definition = new ProfileRuntimeDefinition(
-            new ProfileRuntimeKey("slow-build", 1),
-            _ =>
+            new ProfileRuntimeKey(context.TenantId, "slow-build", 1),
+            builder =>
             {
+                builder.RegisterInstance(tracker).OwnedByLifetimeScope();
                 buildEntered.TrySetResult(true);
                 releaseBuild.Wait(TimeSpan.FromSeconds(5));
             });
-        var context = await CreateTenantContextAsync();
         var acquisition = Task.Run(async () =>
             await registry.AcquireAsync(definition, context));
         await buildEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -260,17 +314,14 @@ public sealed class ProfileRuntimeRegistryTests
         await registry.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(1));
         elapsed.Stop();
         Assert.True(elapsed.Elapsed < TimeSpan.FromSeconds(1));
+        Assert.Equal(0, tracker.DisposeCount);
         releaseBuild.Set();
 
-        try
-        {
-            await using var lease =
-                await acquisition.WaitAsync(TimeSpan.FromSeconds(5));
-        }
-        catch (InvalidOperationException)
-        {
-            // Retirement may win the race after the trusted registration callback returns.
-        }
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await acquisition.WaitAsync(TimeSpan.FromSeconds(5)));
+        await tracker.Disposed.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(1, tracker.DisposeCount);
+        Assert.Equal(0, registry.RetainedRuntimeCount);
     }
 
     private static ProfileRuntimeRegistry CreateRegistry(
@@ -296,20 +347,21 @@ public sealed class ProfileRuntimeRegistryTests
     }
 
     private static ProfileRuntimeDefinition Definition(
+        Guid tenantId,
         string fingerprint,
         long revision) =>
-        new(new ProfileRuntimeKey(fingerprint, revision), _ => { });
+        new(new ProfileRuntimeKey(tenantId, fingerprint, revision), _ => { });
 
-    private static async Task<TenantContext> CreateTenantContextAsync()
+    private static async Task<TenantContext> CreateTenantContextAsync(Guid? tenantId = null)
     {
         var accountId = Guid.NewGuid();
-        var tenantId = Guid.NewGuid();
+        var resolvedTenantId = tenantId ?? Guid.NewGuid();
         var resolver = new ResolveTenantContext(
-            new ActiveMembershipDirectory(accountId, tenantId));
+            new ActiveMembershipDirectory(accountId, resolvedTenantId));
 
         return await resolver.ExecuteAsync(
                    accountId,
-                   tenantId,
+                   resolvedTenantId,
                    CancellationToken.None)
                ?? throw new InvalidOperationException("The synthetic membership was not resolved.");
     }
@@ -335,12 +387,17 @@ public sealed class ProfileRuntimeRegistryTests
     private sealed class DisposalTracker : IDisposable
     {
         private int _disposeCount;
+        private readonly TaskCompletionSource<bool> _disposed = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
 
         internal int DisposeCount => Volatile.Read(ref _disposeCount);
+
+        internal Task Disposed => _disposed.Task;
 
         public void Dispose()
         {
             Interlocked.Increment(ref _disposeCount);
+            _disposed.TrySetResult(true);
         }
     }
 

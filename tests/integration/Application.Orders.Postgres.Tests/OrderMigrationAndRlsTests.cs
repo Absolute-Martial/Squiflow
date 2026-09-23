@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Application.Orders;
 using Application.Orders.Postgres.Migrations;
 using Application.Tenancy;
@@ -233,11 +235,14 @@ public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
         }.ConnectionString;
         await using var dataSource = new NpgsqlDataSourceBuilder(pooledConnectionString).Build();
 
-        await using (var connection = await dataSource.OpenConnectionAsync(CancellationToken.None))
-        await using (var transaction = await connection.BeginTransactionAsync(CancellationToken.None))
+        var committedTenant = Guid.CreateVersion7();
+        await using (var session = await OrderTenantDbSession.OpenAsync(
+            dataSource, committedTenant, CancellationToken.None))
         {
-            await SetTransactionLocalTenantContextAsync(connection, transaction, Guid.CreateVersion7());
-            await transaction.CommitAsync(CancellationToken.None);
+            await using var command = session.CreateCommand("SELECT current_setting('app.current_tenant', true)");
+            Assert.Equal(committedTenant.ToString("D"), await command.ExecuteScalarAsync(CancellationToken.None));
+            await session.CommitAsync(CancellationToken.None);
+            Assert.Throws<InvalidOperationException>(() => session.CreateCommand("SELECT 1"));
         }
 
         await using (var checkoutAfterCommit = await dataSource.OpenConnectionAsync(CancellationToken.None))
@@ -245,11 +250,14 @@ public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
             Assert.Null(await ReadTenantContextAsync(checkoutAfterCommit));
         }
 
-        await using (var connection = await dataSource.OpenConnectionAsync(CancellationToken.None))
-        await using (var transaction = await connection.BeginTransactionAsync(CancellationToken.None))
+        var rolledBackTenant = Guid.CreateVersion7();
+        await using (var session = await OrderTenantDbSession.OpenAsync(
+            dataSource, rolledBackTenant, CancellationToken.None))
         {
-            await SetTransactionLocalTenantContextAsync(connection, transaction, Guid.CreateVersion7());
-            await transaction.RollbackAsync(CancellationToken.None);
+            await using var command = session.CreateCommand("SELECT current_setting('app.current_tenant', true)");
+            Assert.Equal(rolledBackTenant.ToString("D"), await command.ExecuteScalarAsync(CancellationToken.None));
+            await session.RollbackAsync(CancellationToken.None);
+            Assert.Throws<InvalidOperationException>(() => session.CreateCommand("SELECT 1"));
         }
 
         await using (var checkoutAfterRollback = await dataSource.OpenConnectionAsync(CancellationToken.None))
@@ -287,6 +295,186 @@ public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
         Assert.Null(conflict.Order);
         Assert.Equal(1, await CountOrdersAsync(tenantId));
         Assert.Equal(1, await CountReceiptsAsync(tenantId));
+    }
+
+    [Fact]
+    public async Task PersistedLegacyReceiptsReplayAlongsideVersionedCreateAndAbandonReceipts()
+    {
+        await ApplyOrderSchemaAsync();
+
+        var accountId = Guid.CreateVersion7();
+        var tenantId = Guid.CreateVersion7();
+        await SeedAuthorityRowsAsync(accountId, tenantId);
+        await using var dataSource = new NpgsqlDataSourceBuilder(await CreateRuntimeRoleAsync()).Build();
+        var store = new PostgresOrderDraftStore(dataSource, new FixedTimeProvider());
+        var context = await ResolveContextAsync(tenantId, accountId);
+        var intent = CreateIntent("Legacy receipt order");
+        var created = Assert.IsType<OrderDraftSnapshot>((await store.CreateAsync(
+            context, intent, "new-create-key", CancellationToken.None)).Order);
+        var abandonFingerprint = new string('a', 64);
+        var abandoned = Assert.IsType<OrderDraftSnapshot>((await store.AbandonAsync(
+            context, new AbandonOrderDraftRequest(created.OrderId, 1), "new-abandon-key",
+            abandonFingerprint, CancellationToken.None)).Order);
+
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync(CancellationToken.None);
+        foreach (var (operation, key, expectedState) in new[]
+                 {
+                     ("create-order-draft", "new-create-key", 0),
+                     ("abandon-order-draft", "new-abandon-key", 1),
+                 })
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = """
+                SELECT response_json::text
+                FROM orders.command_receipts
+                WHERE tenant_id = @tenant_id AND account_id = @account_id
+                  AND operation = @operation AND idempotency_key = @key
+                """;
+            command.Parameters.AddWithValue("tenant_id", tenantId);
+            command.Parameters.AddWithValue("account_id", accountId);
+            command.Parameters.AddWithValue("operation", operation);
+            command.Parameters.AddWithValue("key", key);
+            var json = Assert.IsType<string>(await command.ExecuteScalarAsync(CancellationToken.None));
+            using var document = JsonDocument.Parse(json);
+            var envelope = document.RootElement;
+            Assert.Equal(1, envelope.GetProperty("schemaVersion").GetInt32());
+            Assert.Equal(operation, envelope.GetProperty("operation").GetString());
+            Assert.Equal(
+                operation == "create-order-draft" ? "order-draft-created" : "order-draft-abandoned",
+                envelope.GetProperty("resultType").GetString());
+            Assert.Equal(created.OrderId, envelope.GetProperty("payload").GetProperty("orderId").GetGuid());
+            Assert.Equal(expectedState, envelope.GetProperty("payload").GetProperty("state").GetInt32());
+        }
+
+        // These literal snapshots model rows persisted before envelopes existed. The create
+        // fixture also predates lifecycle fields; neither comes from the current serializer.
+        var legacyCreate = $$"""
+            {
+              "orderId": "{{created.OrderId:D}}",
+              "tenantId": "{{tenantId:D}}",
+              "createdByAccountId": "{{accountId:D}}",
+              "summary": "Legacy receipt order",
+              "currencyCode": "USD",
+              "total": 25,
+              "revision": 1,
+              "createdAt": "2026-09-22T12:00:00+00:00",
+              "lines": [{"position": 1, "description": "Printed panel", "quantity": 2,
+                         "unitCode": "EA", "unitPrice": 12.5, "lineTotal": 25}]
+            }
+            """;
+        var legacyAbandon = $$"""
+            {
+              "orderId": "{{created.OrderId:D}}",
+              "tenantId": "{{tenantId:D}}",
+              "createdByAccountId": "{{accountId:D}}",
+              "summary": "Legacy receipt order",
+              "currencyCode": "USD",
+              "total": 25,
+              "revision": 2,
+              "createdAt": "2026-09-22T12:00:00+00:00",
+              "lines": [{"position": 1, "description": "Printed panel", "quantity": 2,
+                         "unitCode": "EA", "unitPrice": 12.5, "lineTotal": 25}],
+              "state": 1,
+              "abandonedAt": "2026-09-22T12:00:00+00:00",
+              "abandonedByAccountId": "{{accountId:D}}"
+            }
+            """;
+        await InsertPersistedReceiptFixtureAsync(
+            connection, tenantId, accountId, created.OrderId, "create-order-draft",
+            "legacy-create-key", intent.Fingerprint, legacyCreate);
+        await InsertPersistedReceiptFixtureAsync(
+            connection, tenantId, accountId, created.OrderId, "abandon-order-draft",
+            "legacy-abandon-key", abandonFingerprint, legacyAbandon);
+
+        var createReplay = await store.CreateAsync(context, intent, "legacy-create-key", CancellationToken.None);
+        var abandonReplay = await store.AbandonAsync(
+            context, new AbandonOrderDraftRequest(created.OrderId, 1),
+            "legacy-abandon-key", abandonFingerprint, CancellationToken.None);
+        Assert.Equal(CreateOrderDraftStatus.Replayed, createReplay.Status);
+        Assert.Equivalent(created, createReplay.Order);
+        Assert.Equal(AbandonOrderDraftStatus.Replayed, abandonReplay.Status);
+        Assert.Equivalent(abandoned, abandonReplay.Order);
+    }
+
+    [Fact]
+    public async Task UnsupportedOrMismatchedReceiptEnvelopesFailClosed()
+    {
+        await ApplyOrderSchemaAsync();
+
+        var accountId = Guid.CreateVersion7();
+        var tenantId = Guid.CreateVersion7();
+        await SeedAuthorityRowsAsync(accountId, tenantId);
+        await using var dataSource = new NpgsqlDataSourceBuilder(await CreateRuntimeRoleAsync()).Build();
+        var store = new PostgresOrderDraftStore(dataSource, new FixedTimeProvider());
+        var context = await ResolveContextAsync(tenantId, accountId);
+        var intent = CreateIntent("Receipt envelope order");
+        await store.CreateAsync(context, intent, "envelope-key", CancellationToken.None);
+
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync(CancellationToken.None);
+        await using var read = connection.CreateCommand();
+        read.CommandText = """
+            SELECT response_json::text
+            FROM orders.command_receipts
+            WHERE tenant_id = @tenant_id AND account_id = @account_id
+              AND operation = 'create-order-draft' AND idempotency_key = 'envelope-key'
+            """;
+        read.Parameters.AddWithValue("tenant_id", tenantId);
+        read.Parameters.AddWithValue("account_id", accountId);
+        var originalJson = Assert.IsType<string>(await read.ExecuteScalarAsync(CancellationToken.None));
+
+        foreach (var change in new[]
+                 {
+                     "wrong-operation", "wrong-result-type", "future-version", "missing-version",
+                     "missing-result-type", "missing-payload", "wrong-tenant", "wrong-order",
+                 })
+        {
+            var envelope = JsonNode.Parse(originalJson)?.AsObject()
+                ?? throw new InvalidOperationException("The inserted receipt was not an object.");
+            switch (change)
+            {
+                case "wrong-operation":
+                    envelope["operation"] = "abandon-order-draft";
+                    break;
+                case "future-version":
+                    envelope["schemaVersion"] = 2;
+                    break;
+                case "wrong-result-type":
+                    envelope["resultType"] = "order-draft-abandoned";
+                    break;
+                case "missing-version":
+                    envelope.Remove("schemaVersion");
+                    break;
+                case "missing-result-type":
+                    envelope.Remove("resultType");
+                    break;
+                case "missing-payload":
+                    envelope.Remove("payload");
+                    break;
+                case "wrong-tenant":
+                    envelope["payload"]!["tenantId"] = Guid.CreateVersion7().ToString("D");
+                    break;
+                case "wrong-order":
+                    envelope["payload"]!["orderId"] = Guid.CreateVersion7().ToString("D");
+                    break;
+            }
+
+            await using var command = connection.CreateCommand();
+            command.CommandText = """
+                UPDATE orders.command_receipts
+                SET response_json = @response_json::jsonb
+                WHERE tenant_id = @tenant_id AND account_id = @account_id
+                  AND operation = 'create-order-draft' AND idempotency_key = 'envelope-key'
+                """;
+            command.Parameters.AddWithValue("response_json", envelope.ToJsonString());
+            command.Parameters.AddWithValue("tenant_id", tenantId);
+            command.Parameters.AddWithValue("account_id", accountId);
+            Assert.Equal(1, await command.ExecuteNonQueryAsync(CancellationToken.None));
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                store.CreateAsync(context, intent, "envelope-key", CancellationToken.None));
+        }
     }
 
     [Fact]
@@ -1083,6 +1271,34 @@ public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    private static async Task InsertPersistedReceiptFixtureAsync(
+        NpgsqlConnection connection,
+        Guid tenantId,
+        Guid accountId,
+        Guid orderId,
+        string operation,
+        string idempotencyKey,
+        string fingerprint,
+        string responseJson)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO orders.command_receipts
+                (tenant_id, account_id, operation, idempotency_key, fingerprint, order_id, response_json, created_at)
+            VALUES
+                (@tenant_id, @account_id, @operation, @idempotency_key, @fingerprint,
+                 @order_id, @response_json::jsonb, '2026-09-22T12:00:00Z')
+            """;
+        command.Parameters.AddWithValue("tenant_id", tenantId);
+        command.Parameters.AddWithValue("account_id", accountId);
+        command.Parameters.AddWithValue("operation", operation);
+        command.Parameters.AddWithValue("idempotency_key", idempotencyKey);
+        command.Parameters.AddWithValue("fingerprint", fingerprint);
+        command.Parameters.AddWithValue("order_id", orderId);
+        command.Parameters.AddWithValue("response_json", responseJson);
+        await command.ExecuteNonQueryAsync(CancellationToken.None);
+    }
+
     private TenancyDbContext CreateTenancyContext()
     {
         var builder = new DbContextOptionsBuilder<TenancyDbContext>();
@@ -1141,19 +1357,6 @@ public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
     {
         await using var command = connection.CreateCommand();
         command.CommandText = "SELECT set_config('app.current_tenant', @tenant_id, false)";
-        command.Parameters.AddWithValue("tenant_id", tenantId.ToString("D"));
-        await command.ExecuteNonQueryAsync(CancellationToken.None);
-    }
-
-    private static async Task SetTransactionLocalTenantContextAsync(
-        NpgsqlConnection connection,
-        NpgsqlTransaction transaction,
-        Guid tenantId)
-    {
-        await using var command = new NpgsqlCommand(
-            "SELECT set_config('app.current_tenant', @tenant_id, true)",
-            connection,
-            transaction);
         command.Parameters.AddWithValue("tenant_id", tenantId.ToString("D"));
         await command.ExecuteNonQueryAsync(CancellationToken.None);
     }

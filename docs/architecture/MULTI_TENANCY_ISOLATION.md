@@ -15,7 +15,7 @@ The two source models reviewed for this decision use different vocabulary but po
 
 SquiFlow therefore does not assume that all tenants must always use one physical isolation pattern. Composition variation is another independent axis: a Tenant Application Profile may select capabilities and, where earned, trusted implementation variants without implying a different data or process placement. `TENANT_APPLICATION_PROFILES_AND_EXTENSIBILITY.md` owns that model.
 
-## 2. Current v0.0.15 baseline
+## 2. Current v0.1.0 baseline
 
 For ordinary small and medium tenants, the implementation target is a **pooled application + pooled authoritative data model**:
 

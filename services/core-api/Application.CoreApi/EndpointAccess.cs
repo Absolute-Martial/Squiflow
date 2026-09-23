@@ -5,6 +5,7 @@ internal enum EndpointAccess
     PublicApplicationBootstrap,
     PublicApiDescription,
     PublicLiveness,
+    PublicReadiness,
     AuthenticatedAccount,
     AuthenticatedTenantMemberships,
     AuthorizedTenantWorkspace,

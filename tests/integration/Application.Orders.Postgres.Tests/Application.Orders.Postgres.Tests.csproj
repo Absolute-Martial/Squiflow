@@ -22,4 +22,9 @@
     <ProjectReference Include="../../../modules/tenancy/Application.Tenancy.Postgres/Application.Tenancy.Postgres.csproj" />
     <ProjectReference Include="../../../services/db-migrator/Application.DatabaseMigrator/Application.DatabaseMigrator.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="../../../eng/postgres/grant-core-api-runtime.sql"
+          Link="DatabaseProvisioning/grant-core-api-runtime.sql"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

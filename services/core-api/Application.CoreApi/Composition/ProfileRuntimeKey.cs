@@ -4,8 +4,16 @@ internal sealed record ProfileRuntimeKey
 {
     internal const int MaximumFingerprintLength = 128;
 
-    internal ProfileRuntimeKey(string implementationFingerprint, long implementationRevision)
+    internal ProfileRuntimeKey(
+        Guid tenantId,
+        string implementationFingerprint,
+        long implementationRevision)
     {
+        if (tenantId == Guid.Empty)
+        {
+            throw new ArgumentException("Tenant identity cannot be empty.", nameof(tenantId));
+        }
+
         ArgumentException.ThrowIfNullOrWhiteSpace(implementationFingerprint);
 
         if (implementationFingerprint.Length > MaximumFingerprintLength)
@@ -22,14 +30,17 @@ internal sealed record ProfileRuntimeKey
                 "The implementation revision must be greater than zero.");
         }
 
+        TenantId = tenantId;
         ImplementationFingerprint = implementationFingerprint;
         ImplementationRevision = implementationRevision;
     }
+
+    internal Guid TenantId { get; }
 
     internal string ImplementationFingerprint { get; }
 
     internal long ImplementationRevision { get; }
 
     public override string ToString() =>
-        $"{ImplementationFingerprint}@{ImplementationRevision}";
+        $"{TenantId:D}/{ImplementationFingerprint}@{ImplementationRevision}";
 }

@@ -14,6 +14,7 @@ using Application.Branding;
 using Application.CoreApi;
 using Application.CoreApi.Authorization;
 using Application.CoreApi.Composition;
+using Application.CoreApi.Health;
 using Application.IdentityAccess;
 using Application.IdentityAccess.Postgres;
 using Application.Orders;
@@ -146,7 +147,12 @@ builder.Services
     .WithRouteStrategy("tenantId", useTenantAmbientRouteValue: false)
     .WithEchoStore();
 builder.Services.AddProblemDetails();
-builder.Services.AddHealthChecks();
+builder.Services.AddHealthChecks()
+    .AddCheck<PrimaryDatabaseReadinessCheck>(
+        "primary_database", tags: ["readiness"], timeout: TimeSpan.FromSeconds(5))
+    .AddCheck<OpenFgaReadinessCheck>(
+        "openfga", tags: ["readiness"], timeout: TimeSpan.FromSeconds(5));
+builder.Services.AddSingleton<ReadinessStatusCache>();
 builder.Services.AddCoreApiOpenApi();
 builder.Services.AddProfileRuntimeComposition(builder.Configuration);
 
@@ -271,6 +277,16 @@ app.MapHealthChecks("/health/live", new HealthCheckOptions
     Predicate = static _ => false,
 })
     .WithMetadata(new EndpointAccessMetadata(EndpointAccess.PublicLiveness));
+
+app.MapGet("/health/ready", async (ReadinessStatusCache cache, HttpContext context) =>
+    {
+        context.Response.Headers.CacheControl = "no-store";
+        return await cache.IsReadyAsync(context.RequestAborted)
+            ? Results.StatusCode(StatusCodes.Status200OK)
+            : Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+    })
+    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.PublicReadiness))
+    .ExcludeFromDescription();
 
 await app.RunAsync();
 

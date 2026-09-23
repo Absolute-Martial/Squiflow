@@ -61,6 +61,8 @@ Browse follows the same identity, membership and OpenFGA path, then executes one
 
 CoreApi owns HTTP parsing, headers, status mapping and authorization-framework integration. `Application.Orders` owns draft input meaning, normalization, calculation and idempotency intent identity. `Application.Orders.Postgres` owns parameterized SQL, the transaction, receipt/effect atomicity, RLS context and persistence mapping. There is no SQL microservice, generic repository, generic unit of work or provider type in the host-neutral capability.
 
+CoreApi configures one bounded SQL command timeout on its shared runtime Npgsql data source (`Database:CommandTimeoutSeconds`, default 15, accepted range 1–60). This applies to the current Orders, IdentityAccess and Tenancy runtime commands; it is an individual command limit, not an end-to-end request deadline or proof that a timed-out mutation did not commit. Create and abandon retain their durable idempotency receipts so a caller can safely retry an uncertain response. Different per-operation budgets require measured workload evidence before being introduced.
+
 ## Retry and concurrency contract
 
 The idempotency scope is:
@@ -70,6 +72,10 @@ tenant ID + account ID + operation + Idempotency-Key
 ```
 
 The create receipt stores the normalized intent fingerprint and the original successful response snapshot in the same PostgreSQL transaction as the order and lines. The abandon receipt uses a distinct operation name, fingerprints order identity plus expected revision, and commits atomically with the lifecycle transition.
+
+New `response_json` values use a version-1 envelope containing `schemaVersion`, the create or abandon `operation`, its `resultType`, and the original order snapshot as `payload`. Replay also reads pre-envelope direct snapshot receipts, including creation receipts written before lifecycle fields existed. An unsupported version, incomplete envelope, mismatched operation/result type, or payload with a different tenant or order ID fails closed rather than treating envelope data as a legacy snapshot.
+
+This is forward replay compatibility for the current reader. A binary that only understands direct snapshots cannot read newly written envelopes; a mixed-version deployment or rollback to that binary after the first envelope write is not qualified. The first deployment of this format must use a drained maintenance/roll-forward path, or earn a separate dual-reader rollout before it claims mixed-version operation. No production deployment profile is currently qualified.
 
 - same scope/key and same intent returns the committed result without a second order;
 - same scope/key and changed intent returns `409 idempotency_key_conflict`;
@@ -127,10 +133,12 @@ No new framework was needed. The slice uses the already admitted Npgsql/EF Core 
 | pinned provider authorization | real OpenFGA 1.21.0 container test for workspace/order permission tuples, contextual membership and explicit model ID |
 | migration/model agreement | real PostgreSQL model-change and migration lifecycle tests, plus historical target-model shape assertions for each Orders migration |
 | atomic caller-scoped idempotency | real PostgreSQL create/abandon replay, mismatch, concurrent duplicate, response-loss replay, old-create-receipt replay and independent-account tests |
+| receipt response compatibility | real PostgreSQL assertions on newly persisted versioned create/abandon envelopes, independently inserted legacy direct-snapshot fixtures, and fail-closed unknown/mismatched envelopes and tenant/order payloads |
 | tenant isolation and bounded browse | real PostgreSQL explicit-scope, forced-RLS, no-context, wrong-tenant, pooled-reset, hostile-write, stable keyset-order and no-duplicate/gap tests |
 | least privilege | real PostgreSQL runtime-role tests deny DDL/delete and priced-column updates while permitting only the lifecycle transition |
+| bounded runtime SQL commands | CoreApi startup validation and data-source connection-string tests reject absent, zero or excessive command timeout values |
 
-Requalification triggers include schema/RLS policy, browse index, cursor format or ordering changes; pooling/pooler mode changes; receipt scope/retention changes; draft mutation or deletion; pricing precision/rounding changes; OpenFGA relation/model changes; a new host calling the capability; or a new retry/execution path.
+Requalification triggers include schema/RLS policy, browse index, cursor format or ordering changes; pooling/pooler mode changes; receipt scope/retention or response format/version changes; draft mutation or deletion; pricing precision/rounding changes; OpenFGA relation/model changes; a new host calling the capability; or a new retry/execution path.
 
 ## Explicit non-claims
 
