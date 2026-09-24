@@ -58,6 +58,12 @@ public sealed class CoreApiRuntimeRoleProvisioningTests : PostgresTestDatabase
         var ddlFailure = await Assert.ThrowsAsync<PostgresException>(() =>
             forbiddenDdl.ExecuteNonQueryAsync(CancellationToken.None));
         Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, ddlFailure.SqlState);
+
+        await using var forbiddenRoleCreate = runtime.CreateCommand();
+        forbiddenRoleCreate.CommandText = "CREATE ROLE application_forbidden_runtime_role";
+        var roleFailure = await Assert.ThrowsAsync<PostgresException>(() =>
+            forbiddenRoleCreate.ExecuteNonQueryAsync(CancellationToken.None));
+        Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, roleFailure.SqlState);
     }
 
     [Fact]

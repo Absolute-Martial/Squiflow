@@ -240,7 +240,8 @@
         "dependencies": {
           "Application.IdentityAccess.Postgres": "[0.1.0, )",
           "Application.Orders.Postgres": "[0.1.0, )",
-          "Application.Tenancy.Postgres": "[0.1.0, )"
+          "Application.Tenancy.Postgres": "[0.1.0, )",
+          "Npgsql": "[10.0.2, )"
         }
       },
       "application.identityaccess": {

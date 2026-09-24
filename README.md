@@ -36,7 +36,7 @@ Repository state proves what is implemented. Architecture documents can define f
 
 ```text
 production projects: 10
-test projects:       9
+test projects:       10
 executable hosts:    2
 solution/build/test contract: present
 active runtime responsibilities: public application bootstrap; classified OpenAPI v1 description; JWT access-token validation; authenticated account and tenant membership resolution; Finbuckle route-candidate resolution; pinned-model OpenFGA workspace/order authorization; account/tenancy/order-draft PostgreSQL persistence with tenant RLS; liveness and bounded dependency readiness; Autofac root composition and dormant tenant-keyed runtime mechanics; ordered one-shot DB migration

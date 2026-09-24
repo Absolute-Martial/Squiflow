@@ -9,9 +9,13 @@ namespace Application.IdentityAccess.Postgres.Tests;
 public sealed class MigrationLifecycleTests : PostgresTestDatabase
 {
     [Fact]
-    public async Task MigratorListsAppliesAndRepeatsOwnedMigrations()
+    public async Task MigratorListsAppliesAndRepeatsOwnedMigrationsWithOnePooledConnection()
     {
-        var runner = CreateMigrationRunner();
+        var oneConnectionPool = new NpgsqlConnectionStringBuilder(ConnectionString)
+        {
+            MaxPoolSize = 1,
+        }.ConnectionString;
+        var runner = new MigrationRunner(oneConnectionPool, MigrationAdvisoryLockKey);
 
         var before = await runner.ListPendingAsync(CancellationToken.None);
         Assert.Contains("identity-access/202609170001_InitialAccountBindings", before);
@@ -49,5 +53,40 @@ public sealed class MigrationLifecycleTests : PostgresTestDatabase
         await Assert.ThrowsAsync<MigrationLockUnavailableException>(() =>
             runner.ApplyAsync(TimeSpan.FromMilliseconds(300), CancellationToken.None));
         Assert.InRange(elapsed.Elapsed, TimeSpan.FromMilliseconds(250), TimeSpan.FromSeconds(2));
+    }
+
+    [Fact]
+    public async Task MigratorProcessReturnsDocumentedExitCodeWhenLockIsUnavailable()
+    {
+        await using var lockConnection = new NpgsqlConnection(ConnectionString);
+        await lockConnection.OpenAsync(CancellationToken.None);
+        await using (var acquire = lockConnection.CreateCommand())
+        {
+            acquire.CommandText = "SELECT pg_advisory_lock(@key)";
+            acquire.Parameters.AddWithValue("key", MigrationAdvisoryLockKey);
+            await acquire.ExecuteScalarAsync(CancellationToken.None);
+        }
+
+        var executable = Path.Combine(AppContext.BaseDirectory, "Application.DatabaseMigrator.dll");
+        Assert.True(File.Exists(executable), $"Migrator executable was not copied to {executable}.");
+        var start = new ProcessStartInfo("dotnet")
+        {
+            RedirectStandardError = true,
+            RedirectStandardOutput = true,
+            UseShellExecute = false,
+        };
+        start.ArgumentList.Add(executable);
+        start.ArgumentList.Add("apply");
+        start.Environment["ConnectionStrings__PrimaryDatabase"] = ConnectionString;
+        start.Environment["Migration__AdvisoryLockKey"] = MigrationAdvisoryLockKey.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        start.Environment["Migration__LockTimeoutSeconds"] = "1";
+
+        using var process = Process.Start(start);
+        Assert.NotNull(process);
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        await process.WaitForExitAsync(deadline.Token);
+        var error = await process.StandardError.ReadToEndAsync(deadline.Token);
+        Assert.Equal(3, process.ExitCode);
+        Assert.Contains("[migrator] Lock timeout:", error, StringComparison.Ordinal);
     }
 }

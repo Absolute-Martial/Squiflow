@@ -45,15 +45,21 @@ Keep version-controlled deployment/infrastructure definitions and runbooks suffi
 
 This is an infrastructure/deployment concern. It does **not** mean tenant or platform operators should normally edit YAML/Terraform files for business/application settings; those remain first-class Web/Admin API concerns where implemented.
 
-The current CoreApi database role can be granted after the one-shot DatabaseMigrator has applied the IdentityAccess, Tenancy and Orders schemas. Create the login role and deliver its password through deployment secret management first; do not run CoreApi with the migration credential. From the repository root, connect as an administrator able to grant on the migrated objects and run:
+The current database path has three distinct credential purposes: a database provisioner creates roles and grants rights; the one-shot DatabaseMigrator applies the IdentityAccess, Tenancy and Orders schemas; CoreApi serves requests using a restricted runtime login. Their credentials are delivered through separate deployment secrets. Neither CoreApi nor DatabaseMigrator invokes the provisioning script, and CoreApi never runs EF migrations at startup. The current script provisions only grants for an existing CoreApi login; role creation, credential rotation and the exact provisioner/migrator ownership topology still require a deployment-specific plan.
+
+After the migrator succeeds, create or identify the restricted CoreApi login through the provisioner and deliver its credential separately from the migration credential. From the repository root, connect with a distinct provisioner credential that can grant on the migrated objects and run:
 
 ```bash
-psql "$MIGRATION_DATABASE_URL" -X -v ON_ERROR_STOP=1 \
+psql "$DB_PROVISIONER_URL" -X -v ON_ERROR_STOP=1 \
   -v runtime_role="$CORE_API_DB_ROLE" \
-  -f eng/postgres/apply-core-api-runtime.psql
+  -f deploy/database/apply-core-api-runtime.psql
 ```
 
-`eng/postgres/grant-core-api-runtime.sql` grants only the current CoreApi read access to IdentityAccess/Tenancy and read/insert plus the four Orders abandonment update columns. It checks the role's effective privileges on those objects, forced Orders RLS, ownership, elevated role attributes and inherited/assumable role memberships inside the same transaction. The dedicated runtime login must have no membership in another role. Existing excess rights fail the run and roll back its grants; an administrator must correct the role before retrying. Repeat this step after an applicable schema or privilege change. The script neither creates a role nor stores credentials, and its verification covers only the current seven application tables and three schemas, not every object in the PostgreSQL cluster. Its exact SQL is exercised by `CoreApiRuntimeRoleProvisioningTests` against PostgreSQL 17; the production release still needs a deployment-specific role/credential review.
+`deploy/database/grant-core-api-runtime.sql` grants only the current CoreApi read access to IdentityAccess/Tenancy and read/insert plus the four Orders abandonment update columns. It checks the role's effective privileges on those objects, forced Orders RLS, ownership, elevated role attributes and inherited/assumable role memberships inside the same transaction. The dedicated runtime login must have no membership in another role. Existing excess rights fail the run and roll back its grants; an administrator must correct the role before retrying. Repeat this step after an applicable schema or privilege change. The script neither creates a role nor stores credentials, and its verification covers only the current seven application tables and three schemas, not every object in the PostgreSQL cluster. Its exact SQL is exercised by `CoreApiRuntimeRoleProvisioningTests` against PostgreSQL 17; the production release still needs a deployment-specific role/credential review.
+
+The role test demonstrates that the CoreApi login cannot create schema objects or roles; it does not qualify the as-yet-unselected production provisioner account. A future Worker must receive a separately designed workload login and grants for its actual jobs, not the CoreApi connection string.
+
+DatabaseMigrator retains its advisory lock on a dedicated unpooled PostgreSQL connection while each registered module applies migrations through its own provider context. A real PostgreSQL regression test runs migration with the module pool limited to one connection. Requalify this lock/pool behavior when changing the provider, connection topology, lock scope, or module registry.
 
 The exact IaC/automation mechanism is OPEN. A simple version-controlled host/container/service setup is valid if it is reproducible and testable. Do not introduce Kubernetes, Flux, Terraform or another platform solely to claim IaC/GitOps.
 

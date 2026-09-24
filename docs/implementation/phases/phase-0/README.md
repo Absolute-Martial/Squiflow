@@ -16,7 +16,7 @@ Phase 0 is developed as a sequence of **smallest useful production-honest scopes
 
 ```text
 production projects: 10
-test projects:       9
+test projects:       10
 executable hosts:    2
 solution/build/test contract: present
 active runtime responsibilities: public application bootstrap; JWT validation; account and tenant-membership queries; workspace/order OpenFGA checks; IdentityAccess/Tenancy/Orders PostgreSQL persistence; narrow Order draft create/read/browse/abandon; ordered one-shot migration; Autofac root composition and isolated profile-runtime mechanics

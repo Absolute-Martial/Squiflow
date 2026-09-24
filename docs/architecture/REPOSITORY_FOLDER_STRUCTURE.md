@@ -3,7 +3,7 @@
 **Version:** v0.1.0
 **Purpose:** directory-only view of the tracked SquiFlow repository structure.
 
-**Current inventory:** the solution contains ten production projects and nine test projects, including Orders and its PostgreSQL adapter. See `README.IMPLEMENTATION.md` for the current responsibility-level implementation truth.
+**Current inventory:** the solution contains ten production projects and ten test projects, including Orders and its PostgreSQL adapter. See `README.IMPLEMENTATION.md` for the current responsibility-level implementation truth.
 
 **Important:** directory presence is not proof that a runtime/project/responsibility is production-qualified.
 
@@ -25,6 +25,7 @@ SquiFlow/
 │   │   └── workstation/
 │   └── web/
 ├── deploy/
+│   └── database/
 ├── docs/
 │   ├── admin/
 │   ├── api/
@@ -79,7 +80,8 @@ SquiFlow/
 │   │   ├── Application.Orders/
 │   │   └── Application.Orders.Postgres/
 │   │       ├── Migrations/
-│   │       └── Properties/
+│   │       ├── Properties/
+│   │       └── Sql/
 │   └── tenancy/
 │       ├── Application.Tenancy/
 │       └── Application.Tenancy.Postgres/
@@ -89,14 +91,18 @@ SquiFlow/
 ├── services/
 │   ├── core-api/
 │   │   └── Application.CoreApi/
+│   │       ├── Authentication/
 │   │       ├── Authorization/
 │   │       ├── Composition/
+│   │       ├── Health/
 │   │       └── Properties/
 │   └── db-migrator/
 │       └── Application.DatabaseMigrator/
 │           └── Properties/
 ├── eng/
 └── tests/
+    ├── architecture/
+    │   └── Application.Architecture.Tests/
     ├── integration/
     │   ├── Application.CoreApi.Tests/
     │   ├── Application.IdentityAccess.Postgres.Tests/
@@ -129,6 +135,7 @@ SquiFlow/
 │       └── document/
 ├── services/
 │   ├── core-api/
+│   ├── db-migrator/
 │   ├── web-api/
 │   ├── sync-api/
 │   ├── admin-api/
@@ -211,6 +218,7 @@ Only `workstation/` and `guard/` are reserved primary desktop responsibilities. 
 ```text
 services/
 ├── core-api/
+├── db-migrator/
 ├── sync-api/
 ├── admin-api/
 └── worker/
@@ -220,7 +228,7 @@ These are workload/process boundaries, not separate business implementations. Co
 
 ## 7. Testing folder growth
 
-The current unit and integration test projects cover the implemented slices listed in `README.IMPLEMENTATION.md`. As implementation grows, `tests/` may gain additional verification responsibilities:
+The current architecture, unit and integration test projects cover the implemented slices listed in `README.IMPLEMENTATION.md`. As implementation grows, `tests/` may gain additional verification responsibilities:
 
 ```text
 tests/
@@ -234,7 +242,7 @@ tests/
 └── performance/
 ```
 
-This is a classification map, not a requirement to create all categories. A small architecture assertion may live inside an existing test project; create a separate `tests/architecture/` project/folder only when that distinct verification responsibility is earned.
+This is a classification map, not a requirement to create all categories. `tests/architecture/` is now earned by the current project-graph and inventory drift guard; other categories still require an actual verification responsibility.
 
 ## 8. Folder creation rule
 

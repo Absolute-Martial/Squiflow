@@ -1,9 +1,7 @@
 using System.Data.Common;
 using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
-using Application.IdentityAccess.Postgres;
-using Application.Orders.Postgres;
-using Application.Tenancy.Postgres;
+using Npgsql;
 
 namespace Application.DatabaseMigrator;
 
@@ -31,23 +29,17 @@ internal sealed class MigrationRunner
 
     public async Task<IReadOnlyList<string>> ListPendingAsync(CancellationToken cancellationToken)
     {
-        await using var identityDatabase = CreateIdentityDatabase();
-        var identityMigrations = await identityDatabase.Database
-            .GetPendingMigrationsAsync(cancellationToken)
-            .ConfigureAwait(false);
-        await using var tenancyDatabase = CreateTenancyDatabase();
-        var tenancyMigrations = await tenancyDatabase.Database
-            .GetPendingMigrationsAsync(cancellationToken)
-            .ConfigureAwait(false);
-        await using var orderDatabase = CreateOrderDatabase();
-        var orderMigrations = await orderDatabase.Database
-            .GetPendingMigrationsAsync(cancellationToken)
-            .ConfigureAwait(false);
+        var pending = new List<string>();
+        foreach (var module in MigrationModules.All)
+        {
+            await using var database = module.CreateContext(_connectionString);
+            var migrations = await database.Database
+                .GetPendingMigrationsAsync(cancellationToken)
+                .ConfigureAwait(false);
+            pending.AddRange(migrations.Select(migration => $"{module.Name}/{migration}"));
+        }
 
-        return identityMigrations.Select(migration => $"identity-access/{migration}")
-            .Concat(tenancyMigrations.Select(migration => $"tenancy/{migration}"))
-            .Concat(orderMigrations.Select(migration => $"orders/{migration}"))
-            .ToArray();
+        return pending;
     }
 
     public async Task ApplyAsync(TimeSpan lockTimeout, CancellationToken cancellationToken)
@@ -59,9 +51,13 @@ internal sealed class MigrationRunner
                 "Migration lock timeout must be greater than zero and no more than five minutes.");
         }
 
-        await using var identityDatabase = CreateIdentityDatabase();
-        await identityDatabase.Database.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        var connection = identityDatabase.Database.GetDbConnection();
+        var lockConnectionString = new NpgsqlConnectionStringBuilder(_connectionString)
+        {
+            Pooling = false,
+        }.ConnectionString;
+        await using var lockConnection = new NpgsqlConnection(lockConnectionString);
+        await lockConnection.OpenAsync(cancellationToken).ConfigureAwait(false);
+        DbConnection connection = lockConnection;
 
         await AcquireLockAsync(
                 connection,
@@ -71,37 +67,16 @@ internal sealed class MigrationRunner
             .ConfigureAwait(false);
         try
         {
-            await identityDatabase.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
-            await using var tenancyDatabase = CreateTenancyDatabase();
-            await tenancyDatabase.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
-            await using var orderDatabase = CreateOrderDatabase();
-            await orderDatabase.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
+            foreach (var module in MigrationModules.All)
+            {
+                await using var database = module.CreateContext(_connectionString);
+                await database.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
+            }
         }
         finally
         {
             await ReleaseLockBestEffortAsync(connection, _advisoryLockKey).ConfigureAwait(false);
         }
-    }
-
-    private IdentityAccessDbContext CreateIdentityDatabase()
-    {
-        var builder = new DbContextOptionsBuilder<IdentityAccessDbContext>();
-        PostgresIdentityAccessOptions.Configure(builder, _connectionString);
-        return new IdentityAccessDbContext(builder.Options);
-    }
-
-    private TenancyDbContext CreateTenancyDatabase()
-    {
-        var builder = new DbContextOptionsBuilder<TenancyDbContext>();
-        PostgresTenancyOptions.Configure(builder, _connectionString);
-        return new TenancyDbContext(builder.Options);
-    }
-
-    private OrderDbContext CreateOrderDatabase()
-    {
-        var builder = new DbContextOptionsBuilder<OrderDbContext>();
-        PostgresOrderOptions.Configure(builder, _connectionString);
-        return new OrderDbContext(builder.Options);
     }
 
     private static async Task AcquireLockAsync(

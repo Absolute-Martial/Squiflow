@@ -3,24 +3,14 @@ using Finbuckle.MultiTenant.Abstractions;
 using Finbuckle.MultiTenant.AspNetCore.Extensions;
 using Finbuckle.MultiTenant.Extensions;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
-using Npgsql;
-using System.Text.Json;
 using Application.Branding;
 using Application.CoreApi;
+using Application.CoreApi.Authentication;
 using Application.CoreApi.Authorization;
 using Application.CoreApi.Composition;
 using Application.CoreApi.Health;
-using Application.IdentityAccess;
-using Application.IdentityAccess.Postgres;
-using Application.Orders;
-using Application.Orders.Postgres;
 using Application.Tenancy;
-using Application.Tenancy.Postgres;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseServiceProviderFactory(new AutofacServiceProviderFactory());
@@ -37,111 +27,9 @@ var brandProfile = brandingConfiguration.ToProfile();
 var bootstrapCacheMaxAgeSeconds = brandingConfiguration.GetCacheMaxAgeSeconds();
 
 builder.Services.AddSingleton(brandProfile);
-builder.Services.AddSingleton(authenticationConfiguration);
-builder.Services.AddSingleton(openFgaAuthorizationConfiguration);
-builder.Services.AddSingleton<OpenFga.Sdk.Client.IOpenFgaClient>(_ =>
-    new OpenFga.Sdk.Client.OpenFgaClient(openFgaAuthorizationConfiguration.ToClientConfiguration()));
-builder.Services.AddSingleton<OpenFgaTenantAuthorization>();
-builder.Services.AddSingleton<ITenantWorkspaceAuthorization>(serviceProvider =>
-    serviceProvider.GetRequiredService<OpenFgaTenantAuthorization>());
-builder.Services.AddSingleton<ITenantOrderAuthorization>(serviceProvider =>
-    serviceProvider.GetRequiredService<OpenFgaTenantAuthorization>());
-builder.Services.AddScoped<IAuthorizationHandler, ViewTenantWorkspaceAuthorizationHandler>();
-builder.Services.AddScoped<IAuthorizationHandler, CreateOrderAuthorizationHandler>();
-builder.Services.AddScoped<IAuthorizationHandler, ViewOrdersAuthorizationHandler>();
-builder.Services.AddScoped<IAuthorizationHandler, AbandonOrderAuthorizationHandler>();
-builder.Services.AddSingleton(databaseConfiguration);
-builder.Services.AddSingleton<NpgsqlDataSource>(serviceProvider =>
-    databaseConfiguration.CreateDataSource(
-        serviceProvider.GetRequiredService<ILoggerFactory>()));
-builder.Services.AddDbContext<IdentityAccessDbContext>((serviceProvider, options) =>
-    PostgresIdentityAccessOptions.Configure(
-        options,
-        serviceProvider.GetRequiredService<NpgsqlDataSource>()));
-builder.Services.AddScoped<IAccountBindingDirectory, PostgresAccountBindingDirectory>();
-builder.Services.AddScoped<ResolveAccountBinding>();
-builder.Services.AddDbContext<TenancyDbContext>((serviceProvider, options) =>
-    PostgresTenancyOptions.Configure(
-        options,
-        serviceProvider.GetRequiredService<NpgsqlDataSource>()));
-builder.Services.AddScoped<ITenantMembershipDirectory, PostgresTenantMembershipDirectory>();
-builder.Services.AddScoped<ResolveTenantContext>();
-builder.Services.AddDbContext<OrderDbContext>((serviceProvider, options) =>
-    PostgresOrderOptions.Configure(
-        options,
-        serviceProvider.GetRequiredService<NpgsqlDataSource>()));
-builder.Services.AddScoped<IOrderDraftStore, PostgresOrderDraftStore>();
-builder.Services.AddScoped<CreateOrderDraft>();
-builder.Services.AddScoped<GetOrderDraft>();
-builder.Services.AddScoped<ListOrderDrafts>();
-builder.Services.AddScoped<AbandonOrderDraft>();
-builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.Authority = authenticationConfiguration.Authority;
-        options.Audience = authenticationConfiguration.Audience;
-        options.RequireHttpsMetadata = true;
-        options.MapInboundClaims = false;
-        options.SaveToken = false;
-        options.IncludeErrorDetails = false;
-        options.BackchannelTimeout = authenticationConfiguration.BackchannelTimeout;
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidIssuer = authenticationConfiguration.Authority,
-            ValidAudience = authenticationConfiguration.Audience,
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateIssuerSigningKey = true,
-            ValidateLifetime = true,
-            RequireExpirationTime = true,
-            RequireSignedTokens = true,
-            ClockSkew = authenticationConfiguration.ClockSkew,
-            NameClaimType = "sub",
-        };
-        options.Events = new JwtBearerEvents
-        {
-            OnTokenValidated = context =>
-            {
-                var issuers = context.Principal?.FindAll("iss").Select(claim => claim.Value).ToArray() ?? [];
-                var subjects = context.Principal?.FindAll("sub").Select(claim => claim.Value).ToArray() ?? [];
-
-                if (issuers.Length != 1 || subjects.Length != 1)
-                {
-                    context.Fail("The token does not contain the required issuer and subject identity.");
-                    return Task.CompletedTask;
-                }
-
-                try
-                {
-                    _ = ExternalIdentity.Create(issuers[0], subjects[0]);
-                }
-                catch (ArgumentException)
-                {
-                    context.Fail("The token contains an invalid stable identity.");
-                }
-
-                return Task.CompletedTask;
-            },
-            OnChallenge = async context =>
-            {
-                context.HandleResponse();
-                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                context.Response.ContentType = "application/problem+json";
-                await JsonSerializer.SerializeAsync(
-                    context.Response.Body,
-                    new
-                    {
-                        type = "about:blank",
-                        title = "Authentication required.",
-                        status = StatusCodes.Status401Unauthorized,
-                        code = "authentication_required",
-                    },
-                    cancellationToken: context.HttpContext.RequestAborted);
-            },
-        };
-    });
-builder.Services.AddAuthorization();
+builder.Services.AddCoreApiAuthorization(openFgaAuthorizationConfiguration);
+builder.Services.AddCoreApiPersistence(databaseConfiguration);
+builder.Services.AddCoreApiAuthentication(authenticationConfiguration);
 builder.Services
     .AddMultiTenant<TenantInfo>()
     .WithRouteStrategy("tenantId", useTenantAmbientRouteValue: false)

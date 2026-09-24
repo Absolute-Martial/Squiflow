@@ -24,7 +24,7 @@ A capability owns one source implementation of its business meaning. `Core`, `Se
 
 ## 2. Current implementation state
 
-The current tree contains five compact host-neutral capability projects (`Application.Profiles`, `Application.Branding`, `Application.IdentityAccess`, `Application.Tenancy`, and `Application.Orders`), three capability-owned PostgreSQL adapters, CoreApi and DbMigrator executables, nine test projects, and a repository build/test contract. ApplicationProfiles validates bounded feature graphs and compiles deterministic dependency-closed selections, but has no production catalog or durable profile authority. CoreApi has configured JWT validation, account and active-membership queries, Finbuckle route-candidate plumbing, and pinned-model OpenFGA tenant-workspace plus distinct Order `order_creator`, `order_viewer`, and `order_abandoner` permission checks. Tenancy resolves an immutable context from current membership. Orders owns immutable priced draft create/read/browse and a bounded abandon operation: `order_abandoner` may perform a one-way, expected-revision `draft` to `abandoned` transition, which records the abandoning account and timestamp while preserving priced content and the original create receipt. Its PostgreSQL adapter persists the lifecycle metadata under tenant isolation with explicit tenant predicates and forced RLS. This does not introduce draft editing, deletion, or a broader order lifecycle. The tree has no general Foundation/ApplicationKernel project or broader role/tuple administration. `README.IMPLEMENTATION.md` owns the precise current routes, evidence and non-claims.
+The current tree contains five compact host-neutral capability projects (`Application.Profiles`, `Application.Branding`, `Application.IdentityAccess`, `Application.Tenancy`, and `Application.Orders`), three capability-owned PostgreSQL adapters, CoreApi and DbMigrator executables, ten test projects, and a repository build/test contract. ApplicationProfiles validates bounded feature graphs and compiles deterministic dependency-closed selections, but has no production catalog or durable profile authority. CoreApi has configured JWT validation, account and active-membership queries, Finbuckle route-candidate plumbing, and pinned-model OpenFGA tenant-workspace plus distinct Order `order_creator`, `order_viewer`, and `order_abandoner` permission checks. Tenancy resolves an immutable context from current membership. Orders owns immutable priced draft create/read/browse and a bounded abandon operation: `order_abandoner` may perform a one-way, expected-revision `draft` to `abandoned` transition, which records the abandoning account and timestamp while preserving priced content and the original create receipt. Its PostgreSQL adapter persists the lifecycle metadata under tenant isolation with explicit tenant predicates and forced RLS. This does not introduce draft editing, deletion, or a broader order lifecycle. The tree has no general Foundation/ApplicationKernel project or broader role/tuple administration. `README.IMPLEMENTATION.md` owns the precise current routes, evidence and non-claims.
 
 The former 0B Parties slice was purged on 2026-09-17. Its phase record and earlier Phase-0 code remain historical evidence, not current implementation authority.
 
@@ -46,7 +46,8 @@ SquiFlow/
 |     |- sync/                    # only if desktop sync earns process isolation
 |     `- document/                # only if heavy document work earns process isolation
 |- services/
-|  |- core-api/                   # compact authoritative host if/when reintroduced
+|  |- core-api/                   # current authoritative API host
+|  |- db-migrator/                # current one-shot schema migration host
 |  |- web-api/                    # interactive API host when workload split is real
 |  |- sync-api/                   # Workstation sync host when workload split is real
 |  |- admin-api/                  # private platform-control backend when needed
@@ -192,4 +193,15 @@ Detailed engineering rule: `docs/architecture/ENGINEERING_PRINCIPLES.md`.
 
 Architecture verification proves boundaries that actually exist rather than requiring speculative ones.
 
-There is no current executable architecture test. Provider/host leakage checks, executable-to-executable reference restrictions, Guard isolation, cross-capability ownership, and other dependency rules are added when those concrete boundaries exist.
+`Application.Architecture.Tests` now guards the current project-reference graph, host-neutral provider isolation, adapter ownership, executable classification, exact solution membership, canonical README implementation inventory and direct EF migration calls inside CoreApi. An intentionally invalid graph fixture proves that it detects capability-to-adapter or adapter-to-host references and an Npgsql package in a host-neutral capability. Source-level cross-module SQL ownership and future Guard/Worker boundaries are not claimed by this guard; add their own evidence when introduced.
+
+The current enforceable repository conventions are deliberately short:
+
+| Boundary | Current owner and regression guard |
+|---|---|
+| Host-neutral capabilities cannot depend on hosts or provider packages; PostgreSQL adapters depend toward their owning capability. | `tests/architecture/Application.Architecture.Tests` checks project metadata and solution membership. |
+| Module SQL and migrations stay in their PostgreSQL adapter; the migrator selects known migration modules explicitly. | Adapter integration tests exercise schema and SQL; `MigrationRegistryTests` compares migration-owning projects with the ordered registry. |
+| CoreApi serves requests; DatabaseMigrator runs once with a separate schema credential and advisory lock. | `Program.cs` leaves middleware ordering visible; migrator process tests cover lock contention and documented exit code. Deployment identity separation is described in the operations owner. |
+| Runtime database rights are restricted to current queries and mutations. | `deploy/database/` owns the role-grant artifact; real PostgreSQL tests exercise allowed and forbidden statements. |
+
+The first guard cannot detect arbitrary SQL against another module's tables or transitive assembly behavior. Review those changes at the owning adapter and extend real provider tests when they become a claimed path. Current focused owners and accepted decisions define intended behavior; source, migrations and tests show what is actually implemented. A mismatch is a drift defect to resolve, not permission to silently redefine the decision.
