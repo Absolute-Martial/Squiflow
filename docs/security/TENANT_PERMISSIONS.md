@@ -168,14 +168,14 @@ create new model
 
 A tenant Owner editing a role normally changes tuples, not the model ID.
 
-## 8. Permission assignment is Web-only
+## 8. Permission assignment surfaces and authority
 
-Roles and grants change only through authenticated tenant Web administration:
+Role and grant administration is `NOT_INTRODUCED`. When introduced, changes use an authenticated server-authoritative tenant administration operation. Web is the primary administration surface; an explicitly supported online Workstation action may invoke the same operation, as described in `docs/admin/ADMIN_SURFACES.md`. The following flow is illustrative, not a current API route:
 
 ```text
-Tenant Web → Settings → Team / Roles
-→ /tenant-admin/... API
-→ authenticate via ZITADEL-backed session
+Tenant Web or approved online Workstation action
+→ tenant-administration API
+→ authenticate through the selected ZITADEL-backed Web or Workstation flow
 → current tenant/delegation validation
 → durable authorization-change operation
 → OpenFGA tuple write/delete
@@ -184,10 +184,11 @@ Tenant Web → Settings → Team / Roles
 → return applied state
 ```
 
-The Desktop:
+The Workstation:
 - can display effective permissions;
 - can use a versioned snapshot for local UX/offline eligibility;
-- **cannot write OpenFGA tuples, create roles, or grant/revoke permissions**.
+- cannot directly write OpenFGA tuples or receive OpenFGA administrative credentials;
+- cannot make role creation or grant/revocation locally authoritative or queue it for offline authority.
 
 Platform-level/operator authorization remains separate from ordinary tenant Owner authority.
 

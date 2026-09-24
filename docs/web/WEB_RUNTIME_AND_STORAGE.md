@@ -4,7 +4,7 @@
 
 ## 1. Current decision
 
-SquiFlow Web is **online-only for business operations** in v0.0.15.
+The selected Web architecture is **online-only for business operations** at v0.1.0. The Web runtime remains `NOT_INTRODUCED`.
 
 Do not implement partial offline business behavior now.
 

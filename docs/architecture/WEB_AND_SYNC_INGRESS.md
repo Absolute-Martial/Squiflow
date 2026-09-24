@@ -1,6 +1,6 @@
 # Web API and Workstation Sync Hosts
 
-**Status:** CoreApi is the current compact tenant/business HTTP host. It has no tenant business operations yet. SyncApi and Worker remain `NOT_INTRODUCED`; the separate-host flows below become active only when their workloads are implemented.
+**Status:** CoreApi is the current compact tenant/business HTTP host. Its narrow Orders draft create/read/browse/abandon operations exist. SyncApi and Worker remain `NOT_INTRODUCED`; the separate-host flows below become active only when their workloads are implemented.
 
 ## 1. Decision
 
@@ -35,7 +35,7 @@ They invoke the same capability-owned business modules.
                  authoritative business state
 ```
 
-CoreApi exists for its currently declared narrow scope. The SyncApi, business capabilities and persistence paths in this diagram remain future earned responsibilities.
+CoreApi and its narrow Orders persistence path exist. SyncApi and the other illustrated business capabilities and persistence paths remain future earned responsibilities.
 
 Ephemeral runtime state and durable processing state are used around this path where the workload requires them; they do not form a second business backend.
 
@@ -171,7 +171,7 @@ Workstation
   -> authoritative receipt
 ```
 
-The capability names above are illustrative; they are not claims that an Orders module exists. SyncApi owns sync transport/workload policy. The owning module owns what an operation means, which admission strategy is valid, and how it is authoritatively committed. SyncApi never applies arbitrary client table changes as business authority.
+The SyncApi flow above is illustrative; it does not claim that Orders synchronization exists. CoreApi's current Orders operations are separate from this future sync path. SyncApi owns sync transport/workload policy. The owning module owns what an operation means, which admission strategy is valid, and how it is authoritatively committed. SyncApi never applies arbitrary client table changes as business authority.
 
 ## 7. Sync pull/download path
 
