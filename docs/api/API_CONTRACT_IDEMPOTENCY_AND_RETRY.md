@@ -291,6 +291,8 @@ Classic REST properties remain useful where they help:
 - layered edge/backend topology;
 - stateless business correctness in backend process memory: committed truth is not stored only in one request-process instance.
 
+Current CoreApi responses classified as protected by endpoint metadata carry `Cache-Control: no-store` from middleware after routing and before authentication/authorization. This includes success, authentication/permission rejection, and handled error responses; individual endpoint headers are not the only guard. The public application bootstrap keeps its separately configured `public,max-age` and ETag policy. The real CoreApi host tests cover protected success, `401`, `403`, provider `503`, an unexpected handled exception, and bootstrap caching. Requalify this policy when endpoint classification, routing, authentication, or error middleware changes. It does not define the future Web browser-session cache policy.
+
 But strict REST purity is not a product requirement. Tenant Web may use a server-backed browser session or Blazor Interactive Server circuit state; SquiFlow uses semantic action subresources for material transitions; many authoritative responses are intentionally non-cacheable; code-on-demand is not part of the business API contract.
 
 Do not weaken domain clarity, security, idempotency, or client compatibility merely to make the API look more formally RESTful.

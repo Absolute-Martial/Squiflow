@@ -30,7 +30,22 @@ public sealed class AuthenticatedAccountTests : IClassFixture<WhiteLabelApiFacto
         using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
         Assert.Equal("authentication_required", problem.RootElement.GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task UnexpectedProtectedEndpointFailureKeepsNoStorePolicy()
+    {
+        var subject = $"binding-failure-{Guid.NewGuid():N}";
+        _factory.FailAccountBindingFor(subject);
+
+        using var request = AuthenticatedRequest(_factory.CreateToken(subject));
+        using var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+        Assert.DoesNotContain("Synthetic account binding failure", await response.Content.ReadAsStringAsync());
     }
 
     [Fact]

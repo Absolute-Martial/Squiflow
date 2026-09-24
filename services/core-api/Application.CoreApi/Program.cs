@@ -51,6 +51,7 @@ var app = builder.Build();
 
 app.UseExceptionHandler();
 app.UseRouting();
+app.UseCoreApiNoStoreHeaders();
 app.UseMultiTenant();
 app.UseAuthentication();
 app.UseAuthorization();

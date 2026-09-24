@@ -124,7 +124,7 @@ Do not reopen the existence of Guard merely to reduce process count unless evide
 
 ## API/edge questions to close with implemented surfaces
 
-- Endpoint/cacheability classification for implemented APIs: which responses are explicitly cacheable/private/no-store, for how long, and under which tenant/authorization scope. Current-authority payment/stock/credit/authorization/hard-limit responses cannot become stale cache authority.
+- Cacheability classification for future API surfaces remains open. Current CoreApi protected operations are `no-store` across success and failure responses; public bootstrap has a separate bounded cache/ETag policy. Current-authority payment/stock/credit/authorization/hard-limit responses cannot become stale cache authority.
 - Exact supported HTTP/proxy protocol configuration only after deployment measurements; HTTP/1.1, HTTP/2, or HTTP/3 transport negotiation must not change business semantics.
 - Whether WebSocket/SignalR is needed for any implemented live-update UX. If used, it remains a signal/reconnect mechanism and not durable business or usage truth.
 - Whether the simple edge/reverse proxy remains sufficient or a fuller API-management product is justified by real external-developer/version/transformation/policy requirements.

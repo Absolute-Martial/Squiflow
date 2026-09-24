@@ -182,6 +182,8 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
     public void Bind(string subject, Guid accountId, AccountAvailability availability = AccountAvailability.Active) =>
         _bindings.Bind(Authority, subject, new AccountBinding(accountId, availability));
 
+    public void FailAccountBindingFor(string subject) => _bindings.Fail(subject);
+
     public void AddTenantMembership(Guid accountId, Guid tenantId, string displayName) =>
         _memberships.Add(accountId, new TenantMembership(tenantId, displayName));
 
@@ -338,6 +340,7 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
     private sealed class TestAccountBindingDirectory : IAccountBindingDirectory
     {
         private readonly Dictionary<(string Issuer, string Subject), AccountBinding> _bindings = [];
+        private readonly HashSet<string> _failingSubjects = [];
         private readonly object _gate = new();
 
         public void Bind(string issuer, string subject, AccountBinding binding)
@@ -348,6 +351,14 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
             }
         }
 
+        public void Fail(string subject)
+        {
+            lock (_gate)
+            {
+                _failingSubjects.Add(subject);
+            }
+        }
+
         public Task<AccountBinding?> FindAsync(
             ExternalIdentity identity,
             CancellationToken cancellationToken)
@@ -355,6 +366,11 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
             cancellationToken.ThrowIfCancellationRequested();
             lock (_gate)
             {
+                if (_failingSubjects.Contains(identity.Subject))
+                {
+                    throw new InvalidOperationException("Synthetic account binding failure.");
+                }
+
                 _bindings.TryGetValue((identity.Issuer, identity.Subject), out var binding);
                 return Task.FromResult(binding);
             }

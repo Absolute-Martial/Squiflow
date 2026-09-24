@@ -53,6 +53,7 @@ public sealed class TenantWorkspaceEndpointTests : IClassFixture<WhiteLabelApiFa
         using var response = await _client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
         Assert.Equal("tenant_permission_denied", await ReadProblemCodeAsync(response));
         Assert.Equal(1, _factory.GetWorkspaceCheckCount(accountId, tenantId));
     }
@@ -111,6 +112,7 @@ public sealed class TenantWorkspaceEndpointTests : IClassFixture<WhiteLabelApiFa
         var body = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
         Assert.Equal("authorization_unavailable", await ReadProblemCodeAsync(response, body));
         Assert.DoesNotContain("Synthetic", body, StringComparison.Ordinal);
         Assert.DoesNotContain("OpenFGA", body, StringComparison.OrdinalIgnoreCase);
