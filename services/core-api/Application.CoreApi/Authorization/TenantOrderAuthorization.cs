@@ -34,6 +34,15 @@ internal sealed class AbandonOrderRequirement : IAuthorizationRequirement
     }
 }
 
+internal sealed class EditOrderRequirement : IAuthorizationRequirement
+{
+    internal static EditOrderRequirement Instance { get; } = new();
+
+    private EditOrderRequirement()
+    {
+    }
+}
+
 internal sealed class CreateOrderAuthorizationHandler(ITenantOrderAuthorization authorization)
     : AuthorizationHandler<CreateOrderRequirement, TenantOrderResource>
 {
@@ -82,6 +91,25 @@ internal sealed class AbandonOrderAuthorizationHandler(ITenantOrderAuthorization
     {
         if (context.User.Identity?.IsAuthenticated is true &&
             await authorization.CanAbandonAsync(
+                resource.TenantContext.AccountId,
+                resource.TenantContext.TenantId,
+                resource.CancellationToken))
+        {
+            context.Succeed(requirement);
+        }
+    }
+}
+
+internal sealed class EditOrderAuthorizationHandler(ITenantOrderAuthorization authorization)
+    : AuthorizationHandler<EditOrderRequirement, TenantOrderResource>
+{
+    protected override async Task HandleRequirementAsync(
+        AuthorizationHandlerContext context,
+        EditOrderRequirement requirement,
+        TenantOrderResource resource)
+    {
+        if (context.User.Identity?.IsAuthenticated is true &&
+            await authorization.CanEditAsync(
                 resource.TenantContext.AccountId,
                 resource.TenantContext.TenantId,
                 resource.CancellationToken))

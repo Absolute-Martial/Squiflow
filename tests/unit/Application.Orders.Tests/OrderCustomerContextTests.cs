@@ -145,6 +145,11 @@ public sealed class OrderCustomerContextTests
 
     private sealed class OrderStoreStub : IOrderDraftStore
     {
+        public Task<ReviseOrderDraftResult> ReviseAsync(
+            TenantContext tenantContext, ReviseOrderDraftRequest request, OrderDraftIntent intent,
+            string idempotencyKey, string fingerprint, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public bool WasCalled { get; private set; }
         public OrderDraftIntent? SeenIntent { get; private set; }
 

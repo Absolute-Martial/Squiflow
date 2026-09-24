@@ -19,6 +19,7 @@ public static class OrdersPostgresRegistration
         services.AddScoped<GetOrderDraft>();
         services.AddScoped<ListOrderDrafts>();
         services.AddScoped<AbandonOrderDraft>();
+        services.AddScoped<ReviseOrderDraft>();
 
         return services;
     }

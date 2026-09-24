@@ -114,6 +114,11 @@ public sealed class ListOrderDraftsTests
 
     private sealed class CapturingOrderDraftStore(OrderDraftPage? page = null) : IOrderDraftStore
     {
+        public Task<ReviseOrderDraftResult> ReviseAsync(
+            TenantContext tenantContext, ReviseOrderDraftRequest request, OrderDraftIntent intent,
+            string idempotencyKey, string fingerprint, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public bool ListWasCalled { get; private set; }
 
         public TenantContext? TenantContext { get; private set; }
@@ -158,6 +163,11 @@ public sealed class ListOrderDraftsTests
 
     private sealed class CancelledOrderDraftStore(CancellationToken expectedCancellationToken) : IOrderDraftStore
     {
+        public Task<ReviseOrderDraftResult> ReviseAsync(
+            TenantContext tenantContext, ReviseOrderDraftRequest request, OrderDraftIntent intent,
+            string idempotencyKey, string fingerprint, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public Task<CreateOrderDraftResult> CreateAsync(
             TenantContext tenantContext,
             OrderDraftIntent intent,

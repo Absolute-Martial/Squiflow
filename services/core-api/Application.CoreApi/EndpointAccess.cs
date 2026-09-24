@@ -13,6 +13,7 @@ internal enum EndpointAccess
     AuthorizedTenantOrderRead,
     AuthorizedTenantOrderBrowse,
     AuthorizedTenantOrderAbandon,
+    AuthorizedTenantOrderRevision,
     AuthorizedCustomerOrganizationCreation,
     AuthorizedCustomerOrganizationRead,
     AuthorizedCustomerOrganizationBrowse,

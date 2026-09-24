@@ -1,4 +1,4 @@
-# Order Draft Intake, Browse, and Abandonment Slice
+# Order Draft Intake, Revision, Browse, and Abandonment Slice
 
 **Product version:** v0.1.0
 **State:** `PRODUCTION_HONEST` for the narrow scope below
@@ -16,6 +16,16 @@ An authenticated current tenant member with the persisted OpenFGA `order_creator
 POST /api/v1/tenants/{tenantId}/orders
 Idempotency-Key: caller-generated stable operation key
 ```
+
+An authenticated current tenant member with a separate persisted `order_editor` relation can replace the contents of a still-open draft through:
+
+```text
+PUT /api/v1/tenants/{tenantId}/orders/{orderId}/draft
+Idempotency-Key: caller-generated stable operation key
+{"expectedRevision":1,"summary":"...","currencyCode":"...","lines":[...],"customerContext":null}
+```
+
+This is a full replacement of summary, currency, priced lines and optional customer/program attribution. The same bounded validation, normalization, money calculation and tenant-owned customer-context checks used by create apply to the new content. The path identifies the order; a positive `expectedRevision` guards the replacement. A successful edit advances the revision by one, and the server returns the committed snapshot. It does not change the order's identity, creator, creation timestamp or state. An abandoned draft cannot be edited. The edit permission does not imply creation, viewing, or abandonment permission; its own successful response may reveal the revised priced content to the editor.
 
 An authenticated current tenant member with `order_viewer` can retrieve a draft in the same tenant through:
 
@@ -36,10 +46,10 @@ An authenticated current tenant member with a separate persisted `order_abandone
 ```text
 POST /api/v1/tenants/{tenantId}/orders/{orderId}/abandon
 Idempotency-Key: caller-generated stable operation key
-{"expectedRevision": 1}
+{"expectedRevision": <current revision>}
 ```
 
-Abandonment is a one-way transition from `draft` to `abandoned`. It preserves the priced content, lines, creator, original creation timestamp and original create receipt. The server records the abandoning account and authoritative timestamp, and advances the revision to `2`. It does not delete the draft or reverse an issued, financial, inventory or fulfillment effect; those effects are outside this slice. The abandon response and its replay disclose only order ID, state, revision and abandonment timestamp, because `order_abandoner` does not imply `order_viewer`. Detail and browse require the separate view permission and return current state; replaying the original create key returns its stored original creation response.
+Abandonment is a one-way transition from `draft` to `abandoned`. It preserves the current priced content, lines, creator, original creation timestamp, original create receipt and earlier edit receipts. The server records the abandoning account and authoritative timestamp, and advances the current revision by one. It does not delete the draft or reverse an issued, financial, inventory or fulfillment effect; those effects are outside this slice. The abandon response and its replay disclose only order ID, state, revision and abandonment timestamp, because `order_abandoner` does not imply `order_viewer`. Detail and browse require the separate view permission and return current state; replaying the original create key returns its stored original creation response.
 
 The draft contains a bounded summary, one to one hundred bounded lines, decimal quantity, unit code, unit price, one currency code, calculated line totals, calculated order total, authoritative creation timestamp, creating account and initial revision `1`. Input is normalized before its semantic fingerprint is calculated. Monetary values use decimal precision/scale `19,4`; each line total is explicitly rounded to four decimal places with `MidpointRounding.ToEven` before totals are summed. This rule belongs to this draft-pricing contract and does not introduce exchange rates, accounting, tax, discounts or multi-currency documents. Browse reads the already committed draft header and performs no business mutation.
 
@@ -52,18 +62,18 @@ validated JWT identity
 → active application account
 → current tenant membership
 → immutable TenantContext
-→ pinned OpenFGA create/view/abandon permission check
+→ pinned OpenFGA create/edit/view/abandon permission check
 → host-neutral Application.Orders validation and intent fingerprint
 → Application.Orders.Postgres transaction
 → transaction-local tenant context + explicit tenant predicates + PostgreSQL RLS
 → order rows and idempotency receipt committed atomically
 ```
 
-Browse follows the same identity, membership and OpenFGA path, then executes one capability-owned keyset query under the same transaction-local tenant context, explicit tenant predicate and forced RLS policy. Abandonment follows that path with its separate permission, then uses an expected revision and a one-way state guard in a tenant-scoped transaction.
+Browse follows the same identity, membership and OpenFGA path, then executes one capability-owned keyset query under the same transaction-local tenant context, explicit tenant predicate and forced RLS policy. Editing and abandonment each use a distinct permission, expected revision and state guard in a tenant-scoped transaction.
 
 CoreApi owns HTTP parsing, headers, status mapping and authorization-framework integration. `Application.Orders` owns draft input meaning, normalization, calculation and idempotency intent identity. `Application.Orders.Postgres` owns parameterized SQL, the transaction, receipt/effect atomicity, RLS context and persistence mapping. There is no SQL microservice, generic repository, generic unit of work or provider type in the host-neutral capability.
 
-CoreApi configures one bounded SQL command timeout on its shared runtime Npgsql data source (`Database:CommandTimeoutSeconds`, default 15, accepted range 1–60). This applies to the current Orders, IdentityAccess and Tenancy runtime commands; it is an individual command limit, not an end-to-end request deadline or proof that a timed-out mutation did not commit. Create and abandon retain their durable idempotency receipts so a caller can safely retry an uncertain response. Different per-operation budgets require measured workload evidence before being introduced.
+CoreApi configures one bounded SQL command timeout on its shared runtime Npgsql data source (`Database:CommandTimeoutSeconds`, default 15, accepted range 1–60). This applies to the current Orders, IdentityAccess and Tenancy runtime commands; it is an individual command limit, not an end-to-end request deadline or proof that a timed-out mutation did not commit. Create, revise and abandon retain durable idempotency receipts so a caller can safely retry an uncertain response. Different per-operation budgets require measured workload evidence before being introduced.
 
 ## Retry and concurrency contract
 
@@ -73,9 +83,9 @@ The idempotency scope is:
 tenant ID + account ID + operation + Idempotency-Key
 ```
 
-The create receipt stores the normalized intent fingerprint and the original successful response snapshot in the same PostgreSQL transaction as the order and lines. The abandon receipt uses a distinct operation name, fingerprints order identity plus expected revision, and commits atomically with the lifecycle transition.
+The create receipt stores the normalized intent fingerprint and the original successful response snapshot in the same PostgreSQL transaction as the order and lines. Each revision receipt uses a distinct operation name, fingerprints order identity, expected revision and normalized replacement intent, and commits atomically with the header/line replacement. The abandon receipt uses a third operation name, fingerprints order identity plus expected revision, and commits atomically with the lifecycle transition.
 
-New `response_json` values use a version-1 envelope containing `schemaVersion`, the create or abandon `operation`, its `resultType`, and the original order snapshot as `payload`. Replay also reads pre-envelope direct snapshot receipts, including creation receipts written before lifecycle fields existed. An unsupported version, incomplete envelope, mismatched operation/result type, or payload with a different tenant or order ID fails closed rather than treating envelope data as a legacy snapshot.
+New `response_json` values use a version-1 envelope containing `schemaVersion`, the create, revise or abandon `operation`, its `resultType`, and the committed order snapshot as `payload`. Replay also reads pre-envelope direct snapshot receipts, including creation receipts written before lifecycle fields existed. An unsupported version, incomplete envelope, mismatched operation/result type, or payload with a different tenant or order ID fails closed rather than treating envelope data as a legacy snapshot.
 
 This is forward replay compatibility for the current reader. A binary that only understands direct snapshots cannot read newly written envelopes; a mixed-version deployment or rollback to that binary after the first envelope write is not qualified. The first deployment of this format must use a drained maintenance/roll-forward path, or earn a separate dual-reader rollout before it claims mixed-version operation. No production deployment profile is currently qualified.
 
@@ -84,19 +94,21 @@ This is forward replay compatibility for the current reader. A binary that only 
 - simultaneous commands sharing a scope/key commit one order and one receipt;
 - the same key may represent separate operations for another current account or tenant;
 - a client retry after losing the successful response receives the stored outcome.
+- the same revision key and intent replays its original revised snapshot, even after a later revision or abandonment; the same key with changed order/revision/content conflicts;
+- a different revision key with a stale expected revision conflicts, and editing an abandoned draft fails without changing its rows or receipts;
 - the same abandon key and intent replays the committed abandoned response; the same key with a different order/revision conflicts;
 - a different abandon key cannot close an already abandoned draft; a stale expected revision conflicts;
 - a create-key replay after abandonment still returns the original creation response, while a current read reports abandonment.
 
-Receipts are retained indefinitely in this initial slice, alongside the order they protect. No cleanup or order deletion behavior is introduced. Any future retention, archival, deletion, draft-edit or correction policy must preserve the declared duplicate-suppression window or introduce an explicit compatible replacement and requalify response-loss behavior before removing receipts.
+Receipts are retained indefinitely in this initial slice, alongside the order they protect. No cleanup or order deletion behavior is introduced. Any future retention, archival, deletion or correction policy must preserve the declared duplicate-suppression window or introduce an explicit compatible replacement and requalify response-loss behavior before removing receipts.
 
-Revision `1` identifies a newly created draft; successful abandonment advances it to `2`. Expected-revision comparison exists only for this one-way transition. Draft content editing remains absent.
+Revision `1` identifies a newly created draft. Each successful edit advances it by one; successful abandonment advances the current revision by one more. Both mutations require an expected-revision comparison. The original create and earlier edit receipts remain snapshots of their own committed results, while read/browse report the current draft.
 
 ## Tenant isolation and database role contract
 
 All three Orders tables carry `tenant_id`. Every runtime query includes an explicit tenant predicate, and every insert supplies the tenant from `TenantContext`. Each operation opens a transaction and sets `app.current_tenant` with transaction-local `set_config`; PostgreSQL RLS uses the same value for `USING` and `WITH CHECK`, is enabled and forced, and returns no tenant rows when context is absent.
 
-The CoreApi runtime database identity requires schema usage plus the exact `SELECT`/`INSERT` rights and narrowly scoped lifecycle-column `UPDATE` rights used by this slice. It must not own the schema, be superuser, have `BYPASSRLS`, or receive DDL/delete/priced-column update rights. Migration credentials remain separate and the one-shot DatabaseMigrator applies IdentityAccess, Tenancy, Customers and Orders migrations under one bounded advisory lock.
+The CoreApi runtime database identity requires schema usage plus the exact `SELECT`/`INSERT` rights, scoped `UPDATE` rights for editable draft header fields and abandonment metadata, and `DELETE` only on draft lines for full replacement. It must not own the schema, be superuser, have `BYPASSRLS`, or receive DDL or order-header deletion rights. The application guard permits line replacement only after a conditional tenant/state/revision header update in one transaction; forced RLS and explicit tenant predicates still apply. Migration credentials remain separate and the one-shot DatabaseMigrator applies IdentityAccess, Tenancy, Customers and Orders migrations under one bounded advisory lock.
 
 ## Stable failure behavior
 
@@ -115,6 +127,9 @@ The CoreApi runtime database identity requires schema usage plus the exact `SELE
 | repeated, malformed or unsupported browse cursor | `400 cursor_invalid` |
 | malformed JSON abandon request | `400 request_invalid` |
 | missing, non-integer or nonpositive expected revision | `400 expected_revision_invalid` |
+| edited draft missing from current tenant | `404 order_not_found` |
+| edit of an already abandoned draft | `409 order_already_abandoned` |
+| same edit key with changed order/revision/content | `409 idempotency_key_conflict` |
 | abandoned draft missing from current tenant | `404 order_not_found` |
 | stale expected revision | `409 revision_conflict` |
 | draft already abandoned under another operation | `409 order_already_abandoned` |
@@ -124,24 +139,24 @@ Successful Order representations and browse pages are `no-store`. Provider excep
 
 ## Source admission
 
-No new framework was needed. The slice uses the already admitted Npgsql/EF Core provider boundary and one shared process-wide bounded data source. Browse uses ordinary parameterized PostgreSQL keyset pagination and an index matching tenant plus descending creation/identity order; no search engine, pagination framework or count projection is introduced. Abandonment is a conditional tenant-scoped PostgreSQL transition with the existing durable receipt pattern, not a generic workflow engine. FullStackHero's pinned tenant-isolation tests remain a test donor for explicit tenant keys and hostile cross-tenant cases; its generic repository/UoW conventions and request-selected tenant authority remain rejected. Finbuckle continues to resolve only the untrusted route candidate. OpenFGA remains the permission decision provider and does not own tenant context, draft state, idempotency or database reachability.
+No new framework was needed. The slice uses the already admitted Npgsql/EF Core provider boundary and one shared process-wide bounded data source. Browse uses ordinary parameterized PostgreSQL keyset pagination and an index matching tenant plus descending creation/identity order; no search engine, pagination framework or count projection is introduced. Revision is a conditional tenant-scoped header update followed by line replacement and receipt insertion in one transaction. Abandonment is a conditional tenant-scoped PostgreSQL transition with the existing durable receipt pattern, not a generic workflow engine. FullStackHero's pinned tenant-isolation tests remain a test donor for explicit tenant keys and hostile cross-tenant cases; its generic repository/UoW conventions and request-selected tenant authority remain rejected. Finbuckle continues to resolve only the untrusted route candidate. OpenFGA remains the permission decision provider and does not own tenant context, draft state, idempotency or database reachability.
 
 ## Evidence and regression guards
 
 | Claim | Falsifiable evidence / permanent guard |
 |---|---|
-| host-neutral business meaning and calculation | `Application.Orders.Tests` normalization, precision, rounding, range, create/abandon fingerprint, old-receipt compatibility and forbidden-dependency tests |
-| authenticated tenant/API behavior | `Application.CoreApi.Tests` real pipeline tests for membership ordering, allow/deny/outage, payload/header/query bounds, create/abandon replay and conflicts, browse continuation, cross-account and cross-tenant behavior |
+| host-neutral business meaning and calculation | `Application.Orders.Tests` normalization, precision, rounding, range, create/revise/abandon fingerprint and lifecycle guards, customer-context validation and forbidden-dependency tests |
+| authenticated tenant/API behavior | `Application.CoreApi.Tests` real pipeline tests for membership ordering, allow/deny/outage, payload/header/query bounds, create/revise/abandon replay and conflicts, browse continuation, cross-account and cross-tenant behavior |
 | pinned provider authorization | real OpenFGA 1.21.0 container test for workspace/order permission tuples, contextual membership and explicit model ID |
 | migration/model agreement | real PostgreSQL model-change and migration lifecycle tests, plus historical target-model shape assertions for each Orders migration |
-| atomic caller-scoped idempotency | real PostgreSQL create/abandon replay, mismatch, concurrent duplicate, response-loss replay, old-create-receipt replay and independent-account tests |
-| receipt response compatibility | real PostgreSQL assertions on newly persisted versioned create/abandon envelopes, independently inserted legacy direct-snapshot fixtures, and fail-closed unknown/mismatched envelopes and tenant/order payloads |
+| atomic caller-scoped idempotency | real PostgreSQL create/revise/abandon replay, mismatch, concurrent duplicate, response-loss replay, old-create-receipt replay and independent-account tests |
+| receipt response compatibility | real PostgreSQL assertions on newly persisted versioned create/revise/abandon envelopes, independently inserted legacy direct-snapshot fixtures, and fail-closed unknown/mismatched envelopes and tenant/order payloads |
 | tenant isolation and bounded browse | real PostgreSQL explicit-scope, forced-RLS, no-context, wrong-tenant, pooled-reset, hostile-write, stable keyset-order and no-duplicate/gap tests |
-| least privilege | real PostgreSQL runtime-role tests deny DDL/delete and priced-column updates while permitting only the lifecycle transition |
+| least privilege | real PostgreSQL runtime-role tests allow draft-line replacement and permitted header updates while denying DDL, order-header deletion and protected-column updates |
 | bounded runtime SQL commands | CoreApi startup validation and data-source connection-string tests reject absent, zero or excessive command timeout values |
 
-Requalification triggers include schema/RLS policy, browse index, cursor format or ordering changes; pooling/pooler mode changes; receipt scope/retention or response format/version changes; draft mutation or deletion; pricing precision/rounding changes; OpenFGA relation/model changes; a new host calling the capability; or a new retry/execution path.
+Requalification triggers include schema/RLS policy, browse index, cursor format or ordering changes; pooling/pooler mode changes; receipt scope/retention or response format/version changes; draft edit/abandon/delete semantics; pricing precision/rounding changes; OpenFGA relation/model changes; a new host calling the capability; or a new retry/execution path.
 
 ## Explicit non-claims
 
-The slice does not implement legal customer/account identity beyond the narrow organization/program attribution, document numbers, tax, discount, quotations, submission/acceptance, draft content editing, approval, fulfillment, inventory, invoicing, payment, refunds, printing, attachments, audit ledger, local-first Workstation state, synchronization, outbox, Worker execution, reporting, text/full-text search, filters, selectable ordering, total counts, profile-driven implementation variants or tenant role administration. These remain `NOT_INTRODUCED`, not deferred hardening of an active path.
+The slice does not implement legal customer/account identity beyond the narrow organization/program attribution, document numbers, tax, discount, quotations, submission/acceptance, approval, fulfillment, inventory, invoicing, payment, refunds, printing, attachments, audit ledger, local-first Workstation state, synchronization, outbox, Worker execution, reporting, text/full-text search, filters, selectable ordering, total counts, profile-driven implementation variants or tenant role administration. These remain `NOT_INTRODUCED`, not deferred hardening of an active path.

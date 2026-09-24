@@ -15,6 +15,7 @@ namespace Application.CoreApi;
 internal static class TenantOrderEndpoint
 {
     internal const long MaximumCreateRequestBodyBytes = 64 * 1024;
+    internal const long MaximumReviseRequestBodyBytes = MaximumCreateRequestBodyBytes;
     internal const long MaximumAbandonRequestBodyBytes = 1024;
     private const int DefaultPageSize = 25;
     private const int MaximumPageSize = 50;
@@ -193,6 +194,120 @@ internal static class TenantOrderEndpoint
         }
 
         httpContext.Response.Headers.CacheControl = "no-store";
+        return TypedResults.Ok(ToResponse(order));
+    }
+
+    internal static async Task<IResult> ReviseAsync(
+        Guid tenantId,
+        Guid orderId,
+        HttpContext httpContext,
+        ClaimsPrincipal principal,
+        ResolveAccountBinding resolveAccount,
+        ResolveTenantContext resolveTenantContext,
+        IAuthorizationService authorization,
+        ReviseOrderDraft reviseOrderDraft,
+        CancellationToken cancellationToken)
+    {
+        var access = await TenantRequestAccess.ResolveAsync(
+            tenantId, httpContext, principal, resolveAccount, resolveTenantContext, cancellationToken);
+        if (access.Failure is not null)
+        {
+            return access.Failure;
+        }
+
+        var authorizationFailure = await AuthorizeAsync(
+            principal, access.TenantContext!, authorization, EditOrderRequirement.Instance,
+            "The account is not permitted to edit orders in this tenant.", cancellationToken);
+        if (authorizationFailure is not null)
+        {
+            return authorizationFailure;
+        }
+
+        if (httpContext.Request.ContentLength is > MaximumReviseRequestBodyBytes)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status413PayloadTooLarge,
+                title: "Order request is too large.",
+                detail: "The order request exceeds the supported request size.",
+                extensions: new Dictionary<string, object?> { ["code"] = "request_too_large" });
+        }
+
+        if (!TryGetIdempotencyKey(httpContext.Request.Headers, out var idempotencyKey))
+        {
+            return InvalidRequest("idempotency_key_invalid", "Idempotency-Key is required and must contain one header value.");
+        }
+
+        var payloadResult = await ReadRevisePayloadAsync(httpContext.Request, cancellationToken);
+        if (payloadResult.Failure is not null)
+        {
+            return payloadResult.Failure;
+        }
+
+        ReviseOrderDraftResult result;
+        try
+        {
+            var payload = payloadResult.Request!;
+            result = await reviseOrderDraft.ExecuteAsync(
+                access.TenantContext!,
+                new ReviseOrderDraftRequest(
+                    orderId, payload.ExpectedRevision, payload.Summary,
+                    payload.CurrencyCode, payload.Lines, payload.CustomerContext),
+                idempotencyKey!, cancellationToken);
+        }
+        catch (OrderDraftValidationException exception)
+        {
+            return InvalidRequest(exception.Code, exception.Message);
+        }
+        catch (CustomerOrderContextNotFoundException)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status404NotFound,
+                title: "Customer context not found.",
+                detail: "The requested customer context was not found in this tenant.",
+                extensions: new Dictionary<string, object?> { ["code"] = "customer_context_not_found" });
+        }
+
+        if (result.Status == ReviseOrderDraftStatus.NotFound)
+        {
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status404NotFound,
+                title: "Order not found.",
+                detail: "The requested order was not found in this tenant.",
+                extensions: new Dictionary<string, object?> { ["code"] = "order_not_found" });
+        }
+
+        if (result.Status is ReviseOrderDraftStatus.RevisionConflict or
+            ReviseOrderDraftStatus.AlreadyAbandoned or
+            ReviseOrderDraftStatus.IdempotencyKeyConflict)
+        {
+            var (code, detail) = result.Status switch
+            {
+                ReviseOrderDraftStatus.RevisionConflict =>
+                    ("revision_conflict", "The order revision does not match the expected revision."),
+                ReviseOrderDraftStatus.AlreadyAbandoned =>
+                    ("order_already_abandoned", "The order draft has already been abandoned."),
+                _ => ("idempotency_key_conflict", "The Idempotency-Key has already been used for a different revision request."),
+            };
+            return TypedResults.Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Order conflict.",
+                detail: detail,
+                extensions: new Dictionary<string, object?> { ["code"] = code });
+        }
+
+        if (result.Status is not (ReviseOrderDraftStatus.Revised or ReviseOrderDraftStatus.Replayed))
+        {
+            throw new InvalidOperationException("The revision command returned an unsupported status.");
+        }
+
+        var order = result.Order
+            ?? throw new InvalidOperationException("A successful revision command did not return an order draft.");
+        httpContext.Response.Headers.CacheControl = "no-store";
+        if (result.Status == ReviseOrderDraftStatus.Replayed)
+        {
+            httpContext.Response.Headers.Append("Idempotency-Replayed", "true");
+        }
+
         return TypedResults.Ok(ToResponse(order));
     }
 
@@ -580,6 +695,37 @@ internal static class TenantOrderEndpoint
                 payload.CustomerContext.ProgramId)));
     }
 
+    private static async Task<RevisePayloadResult> ReadRevisePayloadAsync(
+        HttpRequest request,
+        CancellationToken cancellationToken)
+    {
+        ReviseOrderDraftPayload? payload;
+        try
+        {
+            payload = await request.ReadFromJsonAsync<ReviseOrderDraftPayload>(cancellationToken);
+        }
+        catch (Exception exception) when (exception is BadHttpRequestException or NotSupportedException or JsonException)
+        {
+            return RevisePayloadResult.Invalid(InvalidRequest(
+                "request_invalid", "The request body must be a valid JSON order draft revision."));
+        }
+
+        if (payload is null || payload.Lines is null || payload.Lines.Any(line => line is null))
+        {
+            return RevisePayloadResult.Invalid(InvalidRequest(
+                "request_invalid", "The request body must contain an order draft and non-null lines."));
+        }
+
+        var lines = payload.Lines.Select(line => new OrderDraftLineInput(
+            line!.Description ?? string.Empty, line.Quantity,
+            line.UnitCode ?? string.Empty, line.UnitPrice)).ToArray();
+        return RevisePayloadResult.Valid(new ReviseOrderDraftRequest(
+            Guid.Empty, payload.ExpectedRevision, payload.Summary ?? string.Empty,
+            payload.CurrencyCode ?? string.Empty, lines,
+            payload.CustomerContext is null ? null : new CustomerOrderContext(
+                payload.CustomerContext.OrganizationId, payload.CustomerContext.ProgramId)));
+    }
+
     private static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult InvalidRequest(
         string code,
         string detail) =>
@@ -626,9 +772,23 @@ internal static class TenantOrderEndpoint
 
         internal static CreatePayloadResult Invalid(IResult failure) => new(null, failure);
     }
+
+    private sealed record RevisePayloadResult(ReviseOrderDraftRequest? Request, IResult? Failure)
+    {
+        internal static RevisePayloadResult Valid(ReviseOrderDraftRequest request) => new(request, null);
+
+        internal static RevisePayloadResult Invalid(IResult failure) => new(null, failure);
+    }
 }
 
 internal sealed record CreateOrderDraftPayload(
+    string? Summary,
+    string? CurrencyCode,
+    IReadOnlyList<CreateOrderDraftLinePayload?>? Lines,
+    CustomerOrderContext? CustomerContext = null);
+
+internal sealed record ReviseOrderDraftPayload(
+    long ExpectedRevision,
     string? Summary,
     string? CurrencyCode,
     IReadOnlyList<CreateOrderDraftLinePayload?>? Lines,

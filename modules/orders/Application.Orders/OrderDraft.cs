@@ -99,8 +99,43 @@ public sealed record AbandonOrderDraftResult(
     AbandonOrderDraftStatus Status,
     OrderDraftSnapshot? Order);
 
+public sealed record ReviseOrderDraftRequest(
+    Guid OrderId,
+    long ExpectedRevision,
+    string Summary,
+    string CurrencyCode,
+    IReadOnlyList<OrderDraftLineInput> Lines,
+    CustomerOrderContext? CustomerContext = null);
+
+public enum ReviseOrderDraftStatus
+{
+    Revised = 1,
+    Replayed = 2,
+    NotFound = 3,
+    RevisionConflict = 4,
+    AlreadyAbandoned = 5,
+    IdempotencyKeyConflict = 6,
+}
+
+public sealed record ReviseOrderDraftResult(
+    ReviseOrderDraftStatus Status,
+    OrderDraftSnapshot? Order);
+
 public static class OrderDraftLifecycle
 {
+    public static ReviseOrderDraftStatus AssessRevise(
+        OrderDraftState state,
+        long currentRevision,
+        long expectedRevision) =>
+        state switch
+        {
+            OrderDraftState.Abandoned => ReviseOrderDraftStatus.AlreadyAbandoned,
+            OrderDraftState.Draft when currentRevision != expectedRevision =>
+                ReviseOrderDraftStatus.RevisionConflict,
+            OrderDraftState.Draft => ReviseOrderDraftStatus.Revised,
+            _ => throw new InvalidOperationException("The order draft has an unsupported state."),
+        };
+
     public static AbandonOrderDraftStatus AssessAbandon(
         OrderDraftState state,
         long currentRevision,
@@ -151,6 +186,14 @@ public interface IOrderDraftStore
     Task<AbandonOrderDraftResult> AbandonAsync(
         TenantContext tenantContext,
         AbandonOrderDraftRequest request,
+        string idempotencyKey,
+        string fingerprint,
+        CancellationToken cancellationToken);
+
+    Task<ReviseOrderDraftResult> ReviseAsync(
+        TenantContext tenantContext,
+        ReviseOrderDraftRequest request,
+        OrderDraftIntent intent,
         string idempotencyKey,
         string fingerprint,
         CancellationToken cancellationToken);
@@ -273,6 +316,63 @@ public sealed class AbandonOrderDraft(IOrderDraftStore store)
             normalizedKey,
             fingerprint,
             cancellationToken);
+    }
+}
+
+public sealed class ReviseOrderDraft(
+    IOrderDraftStore store,
+    ResolveCustomerOrderContext customerContextResolver)
+{
+    public async Task<ReviseOrderDraftResult> ExecuteAsync(
+        TenantContext tenantContext,
+        ReviseOrderDraftRequest request,
+        string idempotencyKey,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(tenantContext);
+        ArgumentNullException.ThrowIfNull(request);
+        if (request.OrderId == Guid.Empty)
+        {
+            throw new OrderDraftValidationException(
+                "order_id_invalid",
+                "Order identity cannot be empty.");
+        }
+
+        if (request.ExpectedRevision < 1)
+        {
+            throw new OrderDraftValidationException(
+                "expected_revision_invalid",
+                "Expected revision must be a positive integer.");
+        }
+
+        var normalizedKey = OrderDraftRules.NormalizeIdempotencyKey(idempotencyKey);
+        var intent = OrderDraftIntent.Create(new CreateOrderDraftRequest(
+            request.Summary,
+            request.CurrencyCode,
+            request.Lines,
+            request.CustomerContext));
+        if (intent.CustomerContext is { } customerContext &&
+            await customerContextResolver.ExecuteAsync(
+                tenantContext,
+                customerContext.OrganizationId,
+                customerContext.ProgramId,
+                cancellationToken).ConfigureAwait(false) is null)
+        {
+            throw new CustomerOrderContextNotFoundException();
+        }
+
+        var canonical = string.Create(
+            CultureInfo.InvariantCulture,
+            $"v1:revise-order-draft:{request.OrderId:N}:{request.ExpectedRevision}:{intent.Fingerprint}");
+        var fingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)))
+            .ToLowerInvariant();
+        return await store.ReviseAsync(
+            tenantContext,
+            request,
+            intent,
+            normalizedKey,
+            fingerprint,
+            cancellationToken).ConfigureAwait(false);
     }
 }
 

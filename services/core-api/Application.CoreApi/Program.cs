@@ -185,6 +185,24 @@ app.MapGet("/api/v1/tenants/{tenantId:guid}/orders/{orderId:guid}", TenantOrderE
     .ProducesProblem(StatusCodes.Status404NotFound)
     .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
+app.MapPut("/api/v1/tenants/{tenantId:guid}/orders/{orderId:guid}/draft", TenantOrderEndpoint.ReviseAsync)
+    .WithName("ReviseTenantOrderDraft")
+    .WithTags("Orders")
+    .WithSummary("Replaces a tenant order draft using an expected revision and Idempotency-Key.")
+    .WithDescription("Requires current tenant membership and the pinned OpenFGA can_edit_order permission. Supply the complete priced draft with expectedRevision; an exact retry returns the committed result.")
+    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthorizedTenantOrderRevision))
+    .WithMetadata(new RequestSizeLimitAttribute(TenantOrderEndpoint.MaximumReviseRequestBodyBytes))
+    .RequireAuthorization()
+    .Accepts<ReviseOrderDraftPayload>("application/json")
+    .Produces<OrderDraftResponse>(StatusCodes.Status200OK)
+    .ProducesProblem(StatusCodes.Status400BadRequest)
+    .ProducesProblem(StatusCodes.Status401Unauthorized)
+    .ProducesProblem(StatusCodes.Status403Forbidden)
+    .ProducesProblem(StatusCodes.Status404NotFound)
+    .ProducesProblem(StatusCodes.Status409Conflict)
+    .ProducesProblem(StatusCodes.Status413PayloadTooLarge)
+    .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+
 app.MapPost("/api/v1/tenants/{tenantId:guid}/orders/{orderId:guid}/abandon", TenantOrderEndpoint.AbandonAsync)
     .WithName("AbandonTenantOrderDraft")
     .WithTags("Orders")

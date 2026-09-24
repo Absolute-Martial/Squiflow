@@ -20,6 +20,7 @@ internal static class CoreApiOpenApi
             options.AddOperationTransformer<OrderCreateOperationTransformer>();
             options.AddOperationTransformer<OrderBrowseOperationTransformer>();
             options.AddOperationTransformer<OrderAbandonOperationTransformer>();
+            options.AddOperationTransformer<OrderRevisionOperationTransformer>();
             options.AddOperationTransformer<CustomerCreateOperationTransformer>();
             options.AddOperationTransformer<CustomerBrowseOperationTransformer>();
         });
@@ -255,6 +256,26 @@ internal sealed class OrderAbandonOperationTransformer : IOpenApiOperationTransf
                     },
                 },
             };
+        }
+
+        return Task.CompletedTask;
+    }
+}
+
+internal sealed class OrderRevisionOperationTransformer : IOpenApiOperationTransformer
+{
+    public Task TransformAsync(
+        OpenApiOperation operation,
+        OpenApiOperationTransformerContext context,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (context.Description.ActionDescriptor.EndpointMetadata
+            .OfType<EndpointAccessMetadata>()
+            .Any(value => value.Access == EndpointAccess.AuthorizedTenantOrderRevision))
+        {
+            OrderCreateOperationTransformer.AddRequiredIdempotencyKeyHeader(operation);
+            OrderCreateOperationTransformer.AddReplayHeader(operation);
         }
 
         return Task.CompletedTask;

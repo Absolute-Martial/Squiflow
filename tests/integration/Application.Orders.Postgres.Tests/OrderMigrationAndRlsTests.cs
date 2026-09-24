@@ -21,11 +21,13 @@ public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
         var browse = new OrderDraftBrowseIndex().TargetModel.FindEntityType(draftEntity);
         var abandonment = new OrderDraftAbandonment().TargetModel.FindEntityType(draftEntity);
         var attribution = new OrderDraftCustomerAttribution().TargetModel.FindEntityType(draftEntity);
+        var revision = new OrderDraftRevision().TargetModel.FindEntityType(draftEntity);
 
         Assert.NotNull(initial);
         Assert.NotNull(browse);
         Assert.NotNull(abandonment);
         Assert.NotNull(attribution);
+        Assert.NotNull(revision);
         Assert.Null(initial.FindProperty("State"));
         Assert.Null(browse.FindProperty("State"));
         Assert.Null(initial.FindProperty("AbandonedAt"));
@@ -37,6 +39,8 @@ public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
         Assert.Null(abandonment.FindProperty("CustomerProgramId"));
         Assert.NotNull(attribution.FindProperty("CustomerOrganizationId"));
         Assert.NotNull(attribution.FindProperty("CustomerProgramId"));
+        Assert.Contains("revision >= 1", revision.GetCheckConstraints()
+            .Single(constraint => constraint.Name == "ck_order_drafts_lifecycle").Sql, StringComparison.Ordinal);
 
         static bool HasBrowseIndex(Microsoft.EntityFrameworkCore.Metadata.IEntityType entity) =>
             entity.GetIndexes().Any(index =>
@@ -47,6 +51,7 @@ public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
         Assert.True(HasBrowseIndex(browse));
         Assert.True(HasBrowseIndex(abandonment));
         Assert.True(HasBrowseIndex(attribution));
+        Assert.True(HasBrowseIndex(revision));
     }
 
     [Fact]
@@ -101,6 +106,138 @@ public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
         receipt.Parameters.AddWithValue("tenant_id", tenantId);
         using var envelope = JsonDocument.Parse((string)(await receipt.ExecuteScalarAsync(CancellationToken.None))!);
         Assert.Equal(2, envelope.RootElement.GetProperty("schemaVersion").GetInt32());
+    }
+
+    [Fact]
+    public async Task RevisionReplacesPricedContentAndReplaysItsCommittedSnapshot()
+    {
+        await ApplyOrderSchemaAsync();
+        var accountId = Guid.CreateVersion7();
+        var tenantA = Guid.CreateVersion7();
+        var tenantB = Guid.CreateVersion7();
+        await SeedAuthorityRowsAsync(accountId, tenantA, tenantB);
+        var runtimeConnectionString = await CreateRuntimeRoleAsync();
+        await using var dataSource = new NpgsqlDataSourceBuilder(runtimeConnectionString).Build();
+        var store = new PostgresOrderDraftStore(dataSource, new FixedTimeProvider());
+        var contextA = await ResolveContextAsync(tenantA, accountId);
+        var contextB = await ResolveContextAsync(tenantB, accountId);
+        var created = await store.CreateAsync(
+            contextA, CreateIntent("Original"), "create-key", CancellationToken.None);
+        var original = Assert.IsType<OrderDraftSnapshot>(created.Order);
+        var request = new ReviseOrderDraftRequest(
+            original.OrderId, 1, "Revised", "USD",
+            [new OrderDraftLineInput("Replacement", 3m, "EA", 7m)]);
+        var intent = OrderDraftIntent.Create(new CreateOrderDraftRequest(
+            request.Summary, request.CurrencyCode, request.Lines, request.CustomerContext));
+        var fingerprint = new string('a', 64);
+
+        Assert.Equal(ReviseOrderDraftStatus.NotFound, (await store.ReviseAsync(
+            contextB, request, intent, "foreign-key", fingerprint, CancellationToken.None)).Status);
+        var revised = await store.ReviseAsync(
+            contextA, request, intent, "revise-key", fingerprint, CancellationToken.None);
+        var replayed = await store.ReviseAsync(
+            contextA, request, intent, "revise-key", fingerprint, CancellationToken.None);
+        Assert.Equal(ReviseOrderDraftStatus.Revised, revised.Status);
+        Assert.Equal(ReviseOrderDraftStatus.Replayed, replayed.Status);
+        Assert.Equal(2, revised.Order?.Revision);
+        Assert.Equal(21m, revised.Order?.Total);
+        Assert.Equal("Replacement", Assert.Single(revised.Order!.Lines).Description);
+        Assert.Equivalent(revised.Order, replayed.Order);
+        Assert.Equal(ReviseOrderDraftStatus.IdempotencyKeyConflict, (await store.ReviseAsync(
+            contextA, request, intent, "revise-key", new string('b', 64), CancellationToken.None)).Status);
+        Assert.Equal(ReviseOrderDraftStatus.RevisionConflict, (await store.ReviseAsync(
+            contextA, request, intent, "stale-key", fingerprint, CancellationToken.None)).Status);
+        Assert.Equal(CreateOrderDraftStatus.Replayed, (await store.CreateAsync(
+            contextA, CreateIntent("Original"), "create-key", CancellationToken.None)).Status);
+        Assert.Equivalent(original, (await store.CreateAsync(
+            contextA, CreateIntent("Original"), "create-key", CancellationToken.None)).Order);
+        Assert.Equal(2, await CountReceiptsAsync(tenantA));
+        Assert.Equal(0, await CountReceiptsAsync(tenantB));
+        Assert.Equal(1, await CountRowsAsync(
+            "SELECT count(*) FROM orders.order_draft_lines WHERE tenant_id = @tenant_id", tenantA));
+
+        var abandoned = await store.AbandonAsync(
+            contextA, new AbandonOrderDraftRequest(original.OrderId, 2),
+            "abandon-key", fingerprint, CancellationToken.None);
+        Assert.Equal(AbandonOrderDraftStatus.Abandoned, abandoned.Status);
+        Assert.Equal(3, abandoned.Order?.Revision);
+        Assert.Equal(ReviseOrderDraftStatus.AlreadyAbandoned, (await store.ReviseAsync(
+            contextA, new ReviseOrderDraftRequest(original.OrderId, 3, request.Summary,
+                request.CurrencyCode, request.Lines), intent, "later-key", fingerprint,
+            CancellationToken.None)).Status);
+        await using var runtimeConnection = new NpgsqlConnection(runtimeConnectionString);
+        await runtimeConnection.OpenAsync(CancellationToken.None);
+        await SetTenantContextAsync(runtimeConnection, tenantA);
+        await using var forbiddenDelete = runtimeConnection.CreateCommand();
+        forbiddenDelete.CommandText = """
+            DELETE FROM orders.order_draft_lines
+            WHERE tenant_id = @tenant_id AND order_id = @order_id
+            """;
+        forbiddenDelete.Parameters.AddWithValue("tenant_id", tenantA);
+        forbiddenDelete.Parameters.AddWithValue("order_id", original.OrderId);
+        Assert.Equal(0, await forbiddenDelete.ExecuteNonQueryAsync(CancellationToken.None));
+        Assert.Equal(1, await CountRowsAsync(
+            "SELECT count(*) FROM orders.order_draft_lines WHERE tenant_id = @tenant_id", tenantA));
+    }
+
+    [Fact]
+    public async Task RejectedRevisionDoesNotPartiallyReplaceOrderOrReceipt()
+    {
+        await ApplyOrderSchemaAsync();
+        var accountId = Guid.CreateVersion7();
+        var tenantId = Guid.CreateVersion7();
+        var firstOrganization = Guid.CreateVersion7();
+        var secondOrganization = Guid.CreateVersion7();
+        var programId = Guid.CreateVersion7();
+        await SeedAuthorityRowsAsync(accountId, tenantId);
+        await SeedCustomerContextAsync(tenantId, accountId, firstOrganization, programId);
+        await SeedCustomerContextAsync(tenantId, accountId, secondOrganization, null);
+        await using var dataSource = new NpgsqlDataSourceBuilder(await CreateRuntimeRoleAsync()).Build();
+        var store = new PostgresOrderDraftStore(dataSource, new FixedTimeProvider());
+        var context = await ResolveContextAsync(tenantId, accountId);
+        var original = (await store.CreateAsync(
+            context, CreateIntent("Original"), "create-key", CancellationToken.None)).Order!;
+        var badContext = new CustomerOrderContext(secondOrganization, programId);
+        var request = new ReviseOrderDraftRequest(
+            original.OrderId, 1, "Bad revision", "USD",
+            [new OrderDraftLineInput("Bad line", 1m, "EA", 7m)], badContext);
+        var intent = OrderDraftIntent.Create(new CreateOrderDraftRequest(
+            request.Summary, request.CurrencyCode, request.Lines, request.CustomerContext));
+        var error = await Assert.ThrowsAsync<PostgresException>(() => store.ReviseAsync(
+            context, request, intent, "bad-key", new string('a', 64), CancellationToken.None));
+        Assert.Equal(PostgresErrorCodes.ForeignKeyViolation, error.SqlState);
+        Assert.Equal("fk_order_drafts_customer_program", error.ConstraintName);
+        Assert.Equivalent(original, await store.FindAsync(context, original.OrderId, CancellationToken.None));
+        Assert.Equal(1, await CountReceiptsAsync(tenantId));
+        Assert.Equal(1, await CountRowsAsync(
+            "SELECT count(*) FROM orders.order_draft_lines WHERE tenant_id = @tenant_id", tenantId));
+    }
+
+    [Fact]
+    public async Task ConcurrentRevisionWithOneKeyCommitsOneReplacement()
+    {
+        await ApplyOrderSchemaAsync();
+        var accountId = Guid.CreateVersion7();
+        var tenantId = Guid.CreateVersion7();
+        await SeedAuthorityRowsAsync(accountId, tenantId);
+        await using var dataSource = new NpgsqlDataSourceBuilder(await CreateRuntimeRoleAsync()).Build();
+        var store = new PostgresOrderDraftStore(dataSource, new FixedTimeProvider());
+        var context = await ResolveContextAsync(tenantId, accountId);
+        var created = await store.CreateAsync(context, CreateIntent("Original"), "create-key", CancellationToken.None);
+        var request = new ReviseOrderDraftRequest(created.Order!.OrderId, 1, "Revision", "USD",
+            [new OrderDraftLineInput("New line", 2m, "EA", 9m)]);
+        var intent = OrderDraftIntent.Create(new CreateOrderDraftRequest(
+            request.Summary, request.CurrencyCode, request.Lines));
+        var fingerprint = new string('a', 64);
+        var results = await Task.WhenAll(
+            store.ReviseAsync(context, request, intent, "same-key", fingerprint, CancellationToken.None),
+            store.ReviseAsync(context, request, intent, "same-key", fingerprint, CancellationToken.None));
+        Assert.Single(results, result => result.Status == ReviseOrderDraftStatus.Revised);
+        Assert.Single(results, result => result.Status == ReviseOrderDraftStatus.Replayed);
+        Assert.Equivalent(results[0].Order, results[1].Order);
+        Assert.Equal(2, await CountReceiptsAsync(tenantId));
+        Assert.Equal(1, await CountRowsAsync(
+            "SELECT count(*) FROM orders.order_draft_lines WHERE tenant_id = @tenant_id", tenantId));
     }
 
     [Fact]
@@ -756,7 +893,7 @@ public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
     }
 
     [Fact]
-    public async Task RuntimeRoleCannotAbandonWithoutTenantContextOrChangePriceAndDatabaseRejectsIncompleteState()
+    public async Task RuntimeRoleCannotAbandonWithoutTenantContextOrChangeCreationIdentityAndDatabaseRejectsIncompleteState()
     {
         await ApplyOrderSchemaAsync();
         var accountId = Guid.CreateVersion7();
@@ -782,12 +919,12 @@ public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
         }
 
         await SetTenantContextAsync(connection, tenantId);
-        await using (var priceUpdate = connection.CreateCommand())
+        await using (var creationUpdate = connection.CreateCommand())
         {
-            priceUpdate.CommandText = "UPDATE orders.order_drafts SET total = 100 WHERE tenant_id = @tenant_id";
-            priceUpdate.Parameters.AddWithValue("tenant_id", tenantId);
+            creationUpdate.CommandText = "UPDATE orders.order_drafts SET created_at = now() WHERE tenant_id = @tenant_id";
+            creationUpdate.Parameters.AddWithValue("tenant_id", tenantId);
             var denied = await Assert.ThrowsAsync<PostgresException>(() =>
-                priceUpdate.ExecuteNonQueryAsync(CancellationToken.None));
+                creationUpdate.ExecuteNonQueryAsync(CancellationToken.None));
             Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, denied.SqlState);
         }
 
@@ -960,7 +1097,7 @@ public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
         await runtimeConnection.OpenAsync(CancellationToken.None);
         await SetTenantContextAsync(runtimeConnection, tenantId);
         await using var forbiddenUpdate = runtimeConnection.CreateCommand();
-        forbiddenUpdate.CommandText = "UPDATE orders.order_drafts SET total = 999 WHERE tenant_id = @tenant_id";
+        forbiddenUpdate.CommandText = "UPDATE orders.order_drafts SET created_at = now() WHERE tenant_id = @tenant_id";
         forbiddenUpdate.Parameters.AddWithValue("tenant_id", tenantId);
         var exception = await Assert.ThrowsAsync<PostgresException>(() =>
             forbiddenUpdate.ExecuteNonQueryAsync(CancellationToken.None));
@@ -1249,7 +1386,7 @@ public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
         policyCommand.CommandText = """
             SELECT tablename, policyname, qual, with_check
             FROM pg_policies
-            WHERE schemaname = 'orders'
+            WHERE schemaname = 'orders' AND policyname LIKE '%_tenant_isolation'
             ORDER BY tablename
             """;
         await using var policyReader = await policyCommand.ExecuteReaderAsync(CancellationToken.None);
@@ -1269,6 +1406,19 @@ public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
             Assert.Contains("app.current_tenant", policy.WithCheck, StringComparison.Ordinal);
         }
         await policyReader.DisposeAsync();
+
+        await using var deletePolicyCommand = connection.CreateCommand();
+        deletePolicyCommand.CommandText = """
+            SELECT permissive, cmd, qual FROM pg_policies
+            WHERE schemaname = 'orders' AND tablename = 'order_draft_lines'
+              AND policyname = 'order_draft_lines_draft_delete'
+            """;
+        await using var deletePolicy = await deletePolicyCommand.ExecuteReaderAsync(CancellationToken.None);
+        Assert.True(await deletePolicy.ReadAsync(CancellationToken.None));
+        Assert.Equal("RESTRICTIVE", deletePolicy.GetString(0));
+        Assert.Equal("DELETE", deletePolicy.GetString(1));
+        Assert.Contains("FOR UPDATE", deletePolicy.GetString(2), StringComparison.OrdinalIgnoreCase);
+        await deletePolicy.DisposeAsync();
 
         await using var indexCommand = connection.CreateCommand();
         indexCommand.CommandText = """
@@ -1446,9 +1596,10 @@ public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
             GRANT CONNECT ON DATABASE application_tests TO application_orders_runtime;
             GRANT USAGE ON SCHEMA orders TO application_orders_runtime;
             GRANT SELECT, INSERT ON orders.order_drafts TO application_orders_runtime;
-            GRANT UPDATE (state, revision, abandoned_at, abandoned_by_account_id)
+            GRANT UPDATE (summary, currency_code, total, customer_organization_id,
+                          customer_program_id, state, revision, abandoned_at, abandoned_by_account_id)
                 ON orders.order_drafts TO application_orders_runtime;
-            GRANT SELECT, INSERT ON orders.order_draft_lines TO application_orders_runtime;
+            GRANT SELECT, INSERT, DELETE ON orders.order_draft_lines TO application_orders_runtime;
             GRANT SELECT, INSERT ON orders.command_receipts TO application_orders_runtime;
             """;
         await command.ExecuteNonQueryAsync(CancellationToken.None);

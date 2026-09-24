@@ -52,15 +52,25 @@ public sealed class CoreApiRuntimeRoleProvisioningTests : PostgresTestDatabase
             forbiddenCustomerDelete.ExecuteNonQueryAsync(CancellationToken.None));
         Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, customerDeleteFailure.SqlState);
 
-        await using var forbiddenPriceUpdate = runtime.CreateCommand();
-        forbiddenPriceUpdate.CommandText = "UPDATE orders.order_drafts SET total = 0";
+        await using var forbiddenCreationUpdate = runtime.CreateCommand();
+        forbiddenCreationUpdate.CommandText = "UPDATE orders.order_drafts SET created_at = now()";
         var updateFailure = await Assert.ThrowsAsync<PostgresException>(() =>
-            forbiddenPriceUpdate.ExecuteNonQueryAsync(CancellationToken.None));
+            forbiddenCreationUpdate.ExecuteNonQueryAsync(CancellationToken.None));
         Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, updateFailure.SqlState);
 
-        await using var allowedLifecycleUpdate = runtime.CreateCommand();
-        allowedLifecycleUpdate.CommandText = "UPDATE orders.order_drafts SET state = state WHERE false";
-        Assert.Equal(0, await allowedLifecycleUpdate.ExecuteNonQueryAsync(CancellationToken.None));
+        await using var allowedDraftUpdate = runtime.CreateCommand();
+        allowedDraftUpdate.CommandText = """
+            UPDATE orders.order_drafts
+            SET summary = summary, currency_code = currency_code, total = total,
+                customer_organization_id = customer_organization_id,
+                customer_program_id = customer_program_id, state = state, revision = revision
+            WHERE false
+            """;
+        Assert.Equal(0, await allowedDraftUpdate.ExecuteNonQueryAsync(CancellationToken.None));
+
+        await using var allowedLineDelete = runtime.CreateCommand();
+        allowedLineDelete.CommandText = "DELETE FROM orders.order_draft_lines WHERE false";
+        Assert.Equal(0, await allowedLineDelete.ExecuteNonQueryAsync(CancellationToken.None));
 
         await using var forbiddenDdl = runtime.CreateCommand();
         forbiddenDdl.CommandText = "CREATE TABLE orders.forbidden_runtime_ddl (id integer)";

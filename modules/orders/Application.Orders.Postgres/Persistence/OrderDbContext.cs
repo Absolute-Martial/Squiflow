@@ -40,8 +40,8 @@ public sealed class OrderDbContext(DbContextOptions<OrderDbContext> options)
                 table.HasCheckConstraint("ck_order_drafts_revision", "revision > 0");
                 table.HasCheckConstraint(
                     "ck_order_drafts_lifecycle",
-                    "(state = 'draft' AND revision = 1 AND abandoned_at IS NULL AND abandoned_by_account_id IS NULL) OR " +
-                    "(state = 'abandoned' AND revision = 2 AND abandoned_at IS NOT NULL AND abandoned_by_account_id IS NOT NULL)");
+                    "(state = 'draft' AND revision >= 1 AND abandoned_at IS NULL AND abandoned_by_account_id IS NULL) OR " +
+                    "(state = 'abandoned' AND revision >= 2 AND abandoned_at IS NOT NULL AND abandoned_by_account_id IS NOT NULL)");
                 table.HasCheckConstraint(
                     "ck_order_drafts_customer_context",
                     "customer_program_id IS NULL OR customer_organization_id IS NOT NULL");

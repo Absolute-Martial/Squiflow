@@ -21,6 +21,8 @@ internal interface ITenantOrderAuthorization
     Task<bool> CanViewAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
 
     Task<bool> CanAbandonAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
+
+    Task<bool> CanEditAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
 }
 
 internal interface ITenantCustomerAuthorization
@@ -44,6 +46,7 @@ internal sealed class OpenFgaTenantAuthorization(
     private const string CreateOrderRelation = "can_create_order";
     private const string ViewOrdersRelation = "can_view_orders";
     private const string AbandonOrderRelation = "can_abandon_order";
+    private const string EditOrderRelation = "can_edit_order";
     private const string CreateOrganizationRelation = "can_create_organization";
     private const string ViewOrganizationsRelation = "can_view_organizations";
     private const string CreateProgramRelation = "can_create_program";
@@ -97,6 +100,12 @@ internal sealed class OpenFgaTenantAuthorization(
         Guid tenantId,
         CancellationToken cancellationToken) =>
         CheckAsync(accountId, tenantId, AbandonOrderRelation, cancellationToken);
+
+    Task<bool> ITenantOrderAuthorization.CanEditAsync(
+        Guid accountId,
+        Guid tenantId,
+        CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, EditOrderRelation, cancellationToken);
 
     Task<bool> ITenantCustomerAuthorization.CanCreateOrganizationAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken) =>
         CheckAsync(accountId, tenantId, CreateOrganizationRelation, cancellationToken);

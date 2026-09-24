@@ -8,6 +8,7 @@ public sealed partial class PostgresOrderDraftStore
     private const int CustomerAttributionReceiptSchemaVersion = 2;
     private const string CreateResultType = "order-draft-created";
     private const string AbandonResultType = "order-draft-abandoned";
+    private const string ReviseResultType = "order-draft-revised";
     private static readonly JsonSerializerOptions SnapshotJsonOptions = new(JsonSerializerDefaults.Web);
 
     private static async Task<bool> TryInsertReceiptAsync(
@@ -90,6 +91,20 @@ public sealed partial class PostgresOrderDraftStore
 
         var order = ReadReceiptSnapshot(receipt, AbandonOperation);
         return new AbandonOrderDraftResult(AbandonOrderDraftStatus.Replayed, order);
+    }
+
+    private static ReviseOrderDraftResult ToExistingReviseResult(
+        OrderCommandReceipt receipt,
+        string requestedFingerprint)
+    {
+        if (!string.Equals(receipt.Fingerprint, requestedFingerprint, StringComparison.Ordinal))
+        {
+            return new ReviseOrderDraftResult(ReviseOrderDraftStatus.IdempotencyKeyConflict, null);
+        }
+
+        return new ReviseOrderDraftResult(
+            ReviseOrderDraftStatus.Replayed,
+            ReadReceiptSnapshot(receipt, ReviseOperation));
     }
 
     private static OrderDraftSnapshot ReadReceiptSnapshot(
@@ -184,6 +199,7 @@ public sealed partial class PostgresOrderDraftStore
         var expectedState = expectedOperation switch
         {
             CreateOperation => OrderDraftState.Draft,
+            ReviseOperation => OrderDraftState.Draft,
             AbandonOperation => OrderDraftState.Abandoned,
             _ => throw InvalidReceipt(),
         };
@@ -213,6 +229,7 @@ public sealed partial class PostgresOrderDraftStore
     private static string ResultTypeForOperation(string operation) => operation switch
     {
         CreateOperation => CreateResultType,
+        ReviseOperation => ReviseResultType,
         AbandonOperation => AbandonResultType,
         _ => throw InvalidReceipt(),
     };

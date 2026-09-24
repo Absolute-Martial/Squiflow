@@ -3,6 +3,8 @@ namespace Application.Orders.Postgres;
 internal static class OrderSql
 {
     internal static readonly string TryAbandonOrder = Load(nameof(TryAbandonOrder));
+    internal static readonly string TryReviseOrder = Load(nameof(TryReviseOrder));
+    internal static readonly string DeleteLines = Load(nameof(DeleteLines));
     internal static readonly string FindOrderState = Load(nameof(FindOrderState));
     internal static readonly string SetTenant = Load(nameof(SetTenant));
     internal static readonly string InsertOrder = Load(nameof(InsertOrder));

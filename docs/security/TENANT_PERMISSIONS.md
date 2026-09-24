@@ -2,7 +2,7 @@
 
 **Version:** v0.1.0
 
-**Current implementation:** SquiFlow owns a global tenant registry, current active account memberships and an immutable membership-derived `TenantContext`. The Core API checks `tenant#can_view_workspace`, `tenant#can_create_order`, `tenant#can_view_orders`, `tenant#can_abandon_order`, `tenant#can_create_organization`, `tenant#can_view_organizations`, `tenant#can_create_program`, and `tenant#can_view_programs` under one explicitly configured model ID. Each computed relation requires verified current membership supplied as a contextual tuple plus its separate persisted permission relation. Role/custom-role administration, application tuple writes/reconciliation, authorization revision, device authority and resource-specific order relationships remain `NOT_INTRODUCED`.
+**Current implementation:** SquiFlow owns a global tenant registry, current active account memberships and an immutable membership-derived `TenantContext`. The Core API checks `tenant#can_view_workspace`, `tenant#can_create_order`, `tenant#can_edit_order`, `tenant#can_view_orders`, `tenant#can_abandon_order`, `tenant#can_create_organization`, `tenant#can_view_organizations`, `tenant#can_create_program`, and `tenant#can_view_programs` under one explicitly configured model ID. Each computed relation requires verified current membership supplied as a contextual tuple plus its separate persisted permission relation. Role/custom-role administration, application tuple writes/reconciliation, authorization revision, device authority and resource-specific order relationships remain `NOT_INTRODUCED`.
 
 SquiFlow is small-team-first. `Owner` and `Staff` are default templates, not fixed product roles.
 
@@ -112,6 +112,8 @@ type tenant
   can_view_workspace = member AND workspace_viewer
   order_creator     [user]  persisted OpenFGA permission relation
   can_create_order  = member AND order_creator
+  order_editor      [user]  persisted OpenFGA permission relation
+  can_edit_order    = member AND order_editor
   order_viewer      [user]  persisted OpenFGA permission relation
   can_view_orders   = member AND order_viewer
   order_abandoner   [user]  persisted OpenFGA permission relation
@@ -126,7 +128,7 @@ type tenant
   can_view_programs = member AND program_viewer
 ```
 
-These are real authorization decisions, not a second membership store: membership remains SquiFlow authority and cannot be created by an OpenFGA tuple. Conversely, membership alone does not fabricate a permission relation. Creation/view grants are separate for organizations and programs, and do not imply Orders permissions or abandonment. The abandon response exposes only transition metadata; priced content still requires `order_viewer`. The application adapter performs `Check` only and holds no tuple-administration API. The checked-in model contract lives at `infrastructure/authorization/openfga/tenant-authorization-model.json`. A deployment must write the new immutable model, configure its explicit ID, and provision intended permission tuples before the corresponding routes can be used; the application does not mutate models or tuples on startup.
+These are real authorization decisions, not a second membership store: membership remains SquiFlow authority and cannot be created by an OpenFGA tuple. Conversely, membership alone does not fabricate a permission relation. Creation/view grants are separate for organizations and programs, and do not imply Orders permissions. Order creation, editing, viewing and abandonment each require their own relation; none implies the others. A successful edit returns the revised priced draft to its editor, while the abandon response exposes only transition metadata. The application adapter performs `Check` only and holds no tuple-administration API. The checked-in model contract lives at `infrastructure/authorization/openfga/tenant-authorization-model.json`. A deployment must write the new immutable model, configure its explicit ID, and provision intended permission tuples before the corresponding routes can be used; the application does not mutate models or tuples on startup.
 
 The broader role model below remains the selected direction and is still `NOT_INTRODUCED`.
 

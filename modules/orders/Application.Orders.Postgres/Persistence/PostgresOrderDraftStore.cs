@@ -10,6 +10,7 @@ public sealed partial class PostgresOrderDraftStore(
 {
     private const string CreateOperation = "create-order-draft";
     private const string AbandonOperation = "abandon-order-draft";
+    private const string ReviseOperation = "revise-order-draft";
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
 
     public async Task<CreateOrderDraftResult> CreateAsync(
