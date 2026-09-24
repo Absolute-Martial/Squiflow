@@ -13,6 +13,12 @@ internal enum EndpointAccess
     AuthorizedTenantOrderRead,
     AuthorizedTenantOrderBrowse,
     AuthorizedTenantOrderAbandon,
+    AuthorizedCustomerOrganizationCreation,
+    AuthorizedCustomerOrganizationRead,
+    AuthorizedCustomerOrganizationBrowse,
+    AuthorizedCustomerProgramCreation,
+    AuthorizedCustomerProgramRead,
+    AuthorizedCustomerProgramBrowse,
 }
 
 internal sealed record EndpointAccessMetadata(EndpointAccess Access);

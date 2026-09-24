@@ -20,9 +20,56 @@ internal static class CoreApiOpenApi
             options.AddOperationTransformer<OrderCreateOperationTransformer>();
             options.AddOperationTransformer<OrderBrowseOperationTransformer>();
             options.AddOperationTransformer<OrderAbandonOperationTransformer>();
+            options.AddOperationTransformer<CustomerCreateOperationTransformer>();
+            options.AddOperationTransformer<CustomerBrowseOperationTransformer>();
         });
 
         return services;
+    }
+}
+
+internal sealed class CustomerCreateOperationTransformer : IOpenApiOperationTransformer
+{
+    public Task TransformAsync(OpenApiOperation operation, OpenApiOperationTransformerContext context, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (context.Description.ActionDescriptor.EndpointMetadata.OfType<EndpointAccessMetadata>().Any(value =>
+                value.Access is EndpointAccess.AuthorizedCustomerOrganizationCreation or EndpointAccess.AuthorizedCustomerProgramCreation))
+        {
+            OrderCreateOperationTransformer.AddRequiredIdempotencyKeyHeader(operation);
+            OrderCreateOperationTransformer.AddReplayHeader(operation);
+            OrderCreateOperationTransformer.AddCreatedLocationHeader(operation);
+        }
+        return Task.CompletedTask;
+    }
+}
+
+internal sealed class CustomerBrowseOperationTransformer : IOpenApiOperationTransformer
+{
+    public Task TransformAsync(OpenApiOperation operation, OpenApiOperationTransformerContext context, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!context.Description.ActionDescriptor.EndpointMetadata.OfType<EndpointAccessMetadata>().Any(value =>
+                value.Access is EndpointAccess.AuthorizedCustomerOrganizationBrowse or EndpointAccess.AuthorizedCustomerProgramBrowse))
+            return Task.CompletedTask;
+        operation.Parameters ??= [];
+        operation.Parameters.Add(new OpenApiParameter
+        {
+            Name = "limit",
+            In = ParameterLocation.Query,
+            Required = false,
+            Description = "Maximum number of customer records to return. Defaults to 25 and cannot exceed 50.",
+            Schema = new OpenApiSchema { Type = JsonSchemaType.Integer, Minimum = "1", Maximum = "50", Default = JsonValue.Create(25) },
+        });
+        operation.Parameters.Add(new OpenApiParameter
+        {
+            Name = "after",
+            In = ParameterLocation.Query,
+            Required = false,
+            Description = "Opaque tenant and parent-bound cursor returned by the previous page.",
+            Schema = new OpenApiSchema { Type = JsonSchemaType.String, MaxLength = 192 },
+        });
+        return Task.CompletedTask;
     }
 }
 
@@ -139,12 +186,12 @@ internal sealed class OrderCreateOperationTransformer : IOpenApiOperationTransfo
             "Idempotency-Replayed",
             "Present with value true when the committed result is replayed for the supplied Idempotency-Key.");
 
-    private static void AddCreatedLocationHeader(OpenApiOperation operation) =>
+    internal static void AddCreatedLocationHeader(OpenApiOperation operation) =>
         AddResponseHeader(
             operation,
             StatusCodes.Status201Created,
             "Location",
-            "URI of the created order draft.");
+            "URI of the created resource.");
 
     private static void AddResponseHeader(
         OpenApiOperation operation,

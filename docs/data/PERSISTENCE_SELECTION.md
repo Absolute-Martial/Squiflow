@@ -247,7 +247,7 @@ Do not size pools/caches from available RAM alone.
 
 ### Current runtime connection ownership
 
-CoreApi owns one process-wide named `NpgsqlDataSource`. Its IdentityAccess, Tenancy and Orders DbContexts share that data source and its one bounded driver pool. The current checked-in maximum is 20 connections per CoreApi process and remains an adjustable starting bound pending representative rack measurement. Startup rejects disabled direct pooling, disabled pooled-state reset, unqualified Npgsql multiplexing, and every external-pooler connection mode. Orders operations use explicit transactions and a transaction-local tenant setting; real one-connection-pool tests prove the setting is absent after commit and rollback.
+CoreApi owns one process-wide named `NpgsqlDataSource`. Its IdentityAccess, Tenancy, Customers and Orders DbContexts share that data source and its one bounded driver pool. The current checked-in maximum is 20 connections per CoreApi process and remains an adjustable starting bound pending representative rack measurement. Startup rejects disabled direct pooling, disabled pooled-state reset, unqualified Npgsql multiplexing, and every external-pooler connection mode. Orders operations use explicit transactions and a transaction-local tenant setting; real one-connection-pool tests prove the setting is absent after commit and rollback.
 
 DbMigrator remains a separate one-shot process with a separate elevated connection and lifecycle. Runtime pool configuration does not grant migration authority and the migrator must not be sent through a transaction-pooling endpoint.
 

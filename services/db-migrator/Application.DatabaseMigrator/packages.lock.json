@@ -89,6 +89,21 @@
         "resolved": "10.0.8",
         "contentHash": "OBPo4nYhMyIbtueoC10CBm6AGAbo/A9IV8QQ/6ryZS7VvmqpGT7hunazeHLxFawRzn3oLOq4jhqhpBX4tfswWQ=="
       },
+      "application.customers": {
+        "type": "Project",
+        "dependencies": {
+          "Application.Tenancy": "[0.1.0, )"
+        }
+      },
+      "application.customers.postgres": {
+        "type": "Project",
+        "dependencies": {
+          "Application.Customers": "[0.1.0, )",
+          "Microsoft.EntityFrameworkCore": "[10.0.8, )",
+          "Npgsql": "[10.0.2, )",
+          "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.1, )"
+        }
+      },
       "application.identityaccess": {
         "type": "Project"
       },
@@ -103,6 +118,7 @@
       "application.orders": {
         "type": "Project",
         "dependencies": {
+          "Application.Customers": "[0.1.0, )",
           "Application.Tenancy": "[0.1.0, )"
         }
       },

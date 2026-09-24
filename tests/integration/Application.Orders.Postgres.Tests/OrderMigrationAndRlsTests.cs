@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Application.Customers;
 using Application.Orders;
 using Application.Orders.Postgres.Migrations;
 using Application.Tenancy;
@@ -19,10 +20,12 @@ public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
         var initial = new InitialOrderDrafts().TargetModel.FindEntityType(draftEntity);
         var browse = new OrderDraftBrowseIndex().TargetModel.FindEntityType(draftEntity);
         var abandonment = new OrderDraftAbandonment().TargetModel.FindEntityType(draftEntity);
+        var attribution = new OrderDraftCustomerAttribution().TargetModel.FindEntityType(draftEntity);
 
         Assert.NotNull(initial);
         Assert.NotNull(browse);
         Assert.NotNull(abandonment);
+        Assert.NotNull(attribution);
         Assert.Null(initial.FindProperty("State"));
         Assert.Null(browse.FindProperty("State"));
         Assert.Null(initial.FindProperty("AbandonedAt"));
@@ -30,6 +33,10 @@ public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
         Assert.NotNull(abandonment.FindProperty("State"));
         Assert.NotNull(abandonment.FindProperty("AbandonedAt"));
         Assert.NotNull(abandonment.FindProperty("AbandonedByAccountId"));
+        Assert.Null(abandonment.FindProperty("CustomerOrganizationId"));
+        Assert.Null(abandonment.FindProperty("CustomerProgramId"));
+        Assert.NotNull(attribution.FindProperty("CustomerOrganizationId"));
+        Assert.NotNull(attribution.FindProperty("CustomerProgramId"));
 
         static bool HasBrowseIndex(Microsoft.EntityFrameworkCore.Metadata.IEntityType entity) =>
             entity.GetIndexes().Any(index =>
@@ -39,6 +46,7 @@ public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
         Assert.False(HasBrowseIndex(initial));
         Assert.True(HasBrowseIndex(browse));
         Assert.True(HasBrowseIndex(abandonment));
+        Assert.True(HasBrowseIndex(attribution));
     }
 
     [Fact]
@@ -49,6 +57,89 @@ public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
         await using var context = CreateContext();
         Assert.False(context.Database.HasPendingModelChanges());
         await AssertCriticalSchemaGuardsAsync();
+    }
+
+    [Fact]
+    public async Task AttributedDraftPersistsCustomerContextAndReplaysTheVersionedReceipt()
+    {
+        await ApplyOrderSchemaAsync();
+
+        var accountId = Guid.CreateVersion7();
+        var tenantId = Guid.CreateVersion7();
+        var organizationId = Guid.CreateVersion7();
+        var programId = Guid.CreateVersion7();
+        await SeedAuthorityRowsAsync(accountId, tenantId);
+        await SeedCustomerContextAsync(tenantId, accountId, organizationId, programId);
+
+        await using var dataSource = new NpgsqlDataSourceBuilder(await CreateRuntimeRoleAsync()).Build();
+        var store = new PostgresOrderDraftStore(dataSource, new FixedTimeProvider());
+        var tenant = await ResolveContextAsync(tenantId, accountId);
+        var context = new CustomerOrderContext(organizationId, programId);
+        var intent = CreateIntent("Program materials", context);
+
+        var created = await store.CreateAsync(tenant, intent, "attributed-create", CancellationToken.None);
+        var replayed = await store.CreateAsync(tenant, intent, "attributed-create", CancellationToken.None);
+        var found = await store.FindAsync(tenant, created.Order!.OrderId, CancellationToken.None);
+        var page = await store.ListAsync(
+            tenant, new ListOrderDraftsRequest(10, null), CancellationToken.None);
+
+        Assert.Equal(CreateOrderDraftStatus.Created, created.Status);
+        Assert.Equal(CreateOrderDraftStatus.Replayed, replayed.Status);
+        Assert.Equal(context, created.Order.CustomerContext);
+        Assert.Equal(context, replayed.Order?.CustomerContext);
+        Assert.Equal(context, found?.CustomerContext);
+        Assert.Equal(context, Assert.Single(page.Items).CustomerContext);
+        Assert.Equal(1, await CountOrdersAsync(tenantId));
+
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync(CancellationToken.None);
+        await using var receipt = connection.CreateCommand();
+        receipt.CommandText = """
+            SELECT response_json::text FROM orders.command_receipts
+            WHERE tenant_id = @tenant_id AND idempotency_key = 'attributed-create'
+            """;
+        receipt.Parameters.AddWithValue("tenant_id", tenantId);
+        using var envelope = JsonDocument.Parse((string)(await receipt.ExecuteScalarAsync(CancellationToken.None))!);
+        Assert.Equal(2, envelope.RootElement.GetProperty("schemaVersion").GetInt32());
+    }
+
+    [Fact]
+    public async Task DatabaseRejectsForeignTenantAndWrongOrganizationProgramAttribution()
+    {
+        await ApplyOrderSchemaAsync();
+
+        var accountId = Guid.CreateVersion7();
+        var tenantA = Guid.CreateVersion7();
+        var tenantB = Guid.CreateVersion7();
+        var firstOrganization = Guid.CreateVersion7();
+        var secondOrganization = Guid.CreateVersion7();
+        var programId = Guid.CreateVersion7();
+        await SeedAuthorityRowsAsync(accountId, tenantA, tenantB);
+        await SeedCustomerContextAsync(tenantA, accountId, firstOrganization, programId);
+        await SeedCustomerContextAsync(tenantA, accountId, secondOrganization, null);
+
+        await using var dataSource = new NpgsqlDataSourceBuilder(await CreateRuntimeRoleAsync()).Build();
+        var store = new PostgresOrderDraftStore(dataSource, new FixedTimeProvider());
+        var otherTenant = await ResolveContextAsync(tenantB, accountId);
+        var sameTenant = await ResolveContextAsync(tenantA, accountId);
+
+        var foreignTenant = await Assert.ThrowsAsync<PostgresException>(() => store.CreateAsync(
+            otherTenant,
+            CreateIntent("Foreign tenant", new CustomerOrderContext(firstOrganization, programId)),
+            "foreign-tenant-context",
+            CancellationToken.None));
+        Assert.Equal(PostgresErrorCodes.ForeignKeyViolation, foreignTenant.SqlState);
+        Assert.Equal("fk_order_drafts_customer_organization", foreignTenant.ConstraintName);
+
+        var wrongParent = await Assert.ThrowsAsync<PostgresException>(() => store.CreateAsync(
+            sameTenant,
+            CreateIntent("Wrong program parent", new CustomerOrderContext(secondOrganization, programId)),
+            "wrong-parent-context",
+            CancellationToken.None));
+        Assert.Equal(PostgresErrorCodes.ForeignKeyViolation, wrongParent.SqlState);
+        Assert.Equal("fk_order_drafts_customer_program", wrongParent.ConstraintName);
+        Assert.Equal(0, await CountOrdersAsync(tenantA));
+        Assert.Equal(0, await CountOrdersAsync(tenantB));
     }
 
     [Fact]
@@ -1058,11 +1149,50 @@ public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
         }
     }
 
-    private static OrderDraftIntent CreateIntent(string summary) =>
+    private async Task SeedCustomerContextAsync(
+        Guid tenantId,
+        Guid accountId,
+        Guid organizationId,
+        Guid? programId)
+    {
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync(CancellationToken.None);
+        await using var organization = connection.CreateCommand();
+        organization.CommandText = """
+            INSERT INTO customers.organizations
+                (tenant_id, id, created_by_account_id, display_name, created_at)
+            VALUES (@tenant_id, @organization_id, @account_id, 'Customer organization', '2026-09-24T12:00:00Z')
+            """;
+        organization.Parameters.AddWithValue("tenant_id", tenantId);
+        organization.Parameters.AddWithValue("organization_id", organizationId);
+        organization.Parameters.AddWithValue("account_id", accountId);
+        await organization.ExecuteNonQueryAsync(CancellationToken.None);
+
+        if (programId is { } id)
+        {
+            await using var program = connection.CreateCommand();
+            program.CommandText = """
+                INSERT INTO customers.programs
+                    (tenant_id, id, organization_id, created_by_account_id, display_name, created_at)
+                VALUES (@tenant_id, @program_id, @organization_id, @account_id,
+                        'Customer program', '2026-09-24T12:00:00Z')
+                """;
+            program.Parameters.AddWithValue("tenant_id", tenantId);
+            program.Parameters.AddWithValue("program_id", id);
+            program.Parameters.AddWithValue("organization_id", organizationId);
+            program.Parameters.AddWithValue("account_id", accountId);
+            await program.ExecuteNonQueryAsync(CancellationToken.None);
+        }
+    }
+
+    private static OrderDraftIntent CreateIntent(
+        string summary,
+        CustomerOrderContext? customerContext = null) =>
         OrderDraftIntent.Create(new CreateOrderDraftRequest(
             summary,
             "USD",
-            [new OrderDraftLineInput("Printed panel", 2m, "EA", 12.5m)]));
+            [new OrderDraftLineInput("Printed panel", 2m, "EA", 12.5m)],
+            customerContext));
 
     private Task<long> CountOrdersAsync(Guid tenantId) =>
         CountRowsAsync("SELECT count(*) FROM orders.order_drafts WHERE tenant_id = @tenant_id", tenantId);

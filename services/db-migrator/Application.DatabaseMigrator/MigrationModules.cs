@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Application.Customers.Postgres;
 using Application.IdentityAccess.Postgres;
 using Application.Orders.Postgres;
 using Application.Tenancy.Postgres;
@@ -17,6 +18,7 @@ internal static class MigrationModules
     [
         new("identity-access", 100, typeof(IdentityAccessDbContext), IdentityAccessPostgresMigrations.CreateContext),
         new("tenancy", 200, typeof(TenancyDbContext), TenancyPostgresMigrations.CreateContext),
+        new("customers", 250, typeof(CustomerDbContext), CustomersPostgresMigrations.CreateContext),
         new("orders", 300, typeof(OrderDbContext), OrdersPostgresMigrations.CreateContext),
     ]);
 

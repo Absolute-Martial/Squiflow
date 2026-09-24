@@ -295,7 +295,7 @@ Ordinary Owner/Staff operation should expose business/recovery concepts rather t
 
 A small business should not need to understand OpenFGA, OTLP, job leases, DB locks, gateway routing, or protocol negotiation to use normal flows.
 
-Formal accessibility/a11y conformance remains deferred as a dedicated program in v0.0.15; that deferral must not be reinterpreted as a requirement to create inaccessible UX.
+Formal accessibility/a11y conformance remains deferred as a dedicated program in v0.1.0; that deferral must not be reinterpreted as a requirement to create inaccessible UX.
 
 ### NFR-PLAT-021 — Durable consumption accounting and limit enforcement
 **Class:** HardInvariant + DegradedMode + OperationalTarget where a resource is metered/enforced  

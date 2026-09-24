@@ -164,11 +164,12 @@ The planned provider-migration trigger is the **first paying customer**, but mig
 
 ## Domain/commercial decisions
 
+- The identity and lifecycle of an individual billing account; who may assign a program's charges to it; when that assignment becomes effective; and how corrections, credit, consolidated statements and payment allocation work across organization, program and individual debtors. The default/allowed debtor choices are accepted in `docs/domain/BUSINESS_MODEL.md`, but no debtor or ledger contract is implemented yet.
 - Jurisdiction-specific tax/invoice numbering/privacy/retention requirements.
 - Exact money rounding/precision and tax-included/excluded rules before the first affected financial slice is production-qualified.
 - Exact tenant/business timezone/effective-date semantics before quotation expiry, scheduled business-day work, invoice dates or timezone-sensitive reporting depend on them.
 - **Commercial plan/tier names, prices, default allowances, feature packaging and subscription lifecycle are OPEN; none are accepted now.** Application-level limits may still exist independently.
-- Whether v0.0.15 needs SaaS self-service billing/invoicing at all; manual commercial/account handling remains valid initially.
+- Whether v0.1.0 needs SaaS self-service billing/invoicing at all; manual commercial/account handling remains valid initially.
 - If a later commercial plan model is introduced, it maps product/commercial rules onto versioned entitlement/limit policy; plan names must not become scattered enforcement conditions in business code.
 - Whether authoritative consumption records later feed billing is a separate commercial/accounting decision; durable metering itself does not imply automatic tenant invoicing.
 - First client-client portal implementation scope/timing and authentication/account model.
@@ -188,7 +189,7 @@ Open only if a real requirement appears:
 - mixed-currency settlement/allocation;
 - accounting gain/loss behavior.
 
-## Deferred, not active v0.0.15 work
+## Deferred, not active v0.1.0 work
 
 - formal accessibility/a11y conformance program or dedicated accessibility testing/documentation;
 - browser partial-offline/offline business execution;

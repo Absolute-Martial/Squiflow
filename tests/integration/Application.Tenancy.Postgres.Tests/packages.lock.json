@@ -235,9 +235,25 @@
           "xunit.extensibility.core": "[2.9.3]"
         }
       },
+      "application.customers": {
+        "type": "Project",
+        "dependencies": {
+          "Application.Tenancy": "[0.1.0, )"
+        }
+      },
+      "application.customers.postgres": {
+        "type": "Project",
+        "dependencies": {
+          "Application.Customers": "[0.1.0, )",
+          "Microsoft.EntityFrameworkCore": "[10.0.8, )",
+          "Npgsql": "[10.0.2, )",
+          "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.1, )"
+        }
+      },
       "application.databasemigrator": {
         "type": "Project",
         "dependencies": {
+          "Application.Customers.Postgres": "[0.1.0, )",
           "Application.IdentityAccess.Postgres": "[0.1.0, )",
           "Application.Orders.Postgres": "[0.1.0, )",
           "Application.Tenancy.Postgres": "[0.1.0, )",
@@ -258,6 +274,7 @@
       "application.orders": {
         "type": "Project",
         "dependencies": {
+          "Application.Customers": "[0.1.0, )",
           "Application.Tenancy": "[0.1.0, )"
         }
       },

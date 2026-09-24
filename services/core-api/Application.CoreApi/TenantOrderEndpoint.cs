@@ -5,6 +5,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Primitives;
 using Application.CoreApi.Authorization;
+using Application.Customers;
 using Application.IdentityAccess;
 using Application.Orders;
 using Application.Tenancy;
@@ -89,6 +90,13 @@ internal static class TenantOrderEndpoint
         catch (OrderDraftValidationException exception)
         {
             return InvalidRequest(exception.Code, exception.Message);
+        }
+        catch (CustomerOrderContextNotFoundException)
+        {
+            return TypedResults.Problem(statusCode: StatusCodes.Status404NotFound,
+                title: "Customer context not found.",
+                detail: "The requested customer context was not found in this tenant.",
+                extensions: new Dictionary<string, object?> { ["code"] = "customer_context_not_found" });
         }
 
         if (result.Status == CreateOrderDraftStatus.IdempotencyKeyConflict)
@@ -437,7 +445,8 @@ internal static class TenantOrderEndpoint
                 item.Revision,
                 item.CreatedAt,
                 ToWireState(item.State),
-                item.AbandonedAt)).ToArray(),
+                item.AbandonedAt,
+                item.CustomerContext)).ToArray(),
             page.NextCursor is null ? null : OrderDraftPageCursorCodec.Encode(tenantId, page.NextCursor)));
     }
 
@@ -565,7 +574,10 @@ internal static class TenantOrderEndpoint
         return CreatePayloadResult.Valid(new CreateOrderDraftRequest(
             payload.Summary ?? string.Empty,
             payload.CurrencyCode ?? string.Empty,
-            lines));
+            lines,
+            payload.CustomerContext is null ? null : new CustomerOrderContext(
+                payload.CustomerContext.OrganizationId,
+                payload.CustomerContext.ProgramId)));
     }
 
     private static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult InvalidRequest(
@@ -596,7 +608,8 @@ internal static class TenantOrderEndpoint
                 line.UnitPrice,
                 line.LineTotal)).ToArray(),
             ToWireState(order.State),
-            order.AbandonedAt);
+            order.AbandonedAt,
+            order.CustomerContext);
 
     private static string ToWireState(OrderDraftState state) => state switch
     {
@@ -618,7 +631,8 @@ internal static class TenantOrderEndpoint
 internal sealed record CreateOrderDraftPayload(
     string? Summary,
     string? CurrencyCode,
-    IReadOnlyList<CreateOrderDraftLinePayload?>? Lines);
+    IReadOnlyList<CreateOrderDraftLinePayload?>? Lines,
+    CustomerOrderContext? CustomerContext = null);
 
 internal sealed record AbandonOrderDraftResponse(
     Guid OrderId,
@@ -641,7 +655,8 @@ internal sealed record OrderDraftResponse(
     DateTimeOffset CreatedAt,
     IReadOnlyList<OrderDraftLineResponse> Lines,
     string State,
-    DateTimeOffset? AbandonedAt);
+    DateTimeOffset? AbandonedAt,
+    CustomerOrderContext? CustomerContext = null);
 
 internal sealed record OrderDraftLineResponse(
     int Position,
@@ -663,7 +678,8 @@ internal sealed record OrderDraftListItemResponse(
     long Revision,
     DateTimeOffset CreatedAt,
     string State,
-    DateTimeOffset? AbandonedAt);
+    DateTimeOffset? AbandonedAt,
+    CustomerOrderContext? CustomerContext = null);
 
 internal static class OrderDraftPageCursorCodec
 {

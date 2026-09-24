@@ -283,9 +283,16 @@
           "System.Composition.Runtime": "9.0.0"
         }
       },
+      "application.customers": {
+        "type": "Project",
+        "dependencies": {
+          "Application.Tenancy": "[0.1.0, )"
+        }
+      },
       "application.orders": {
         "type": "Project",
         "dependencies": {
+          "Application.Customers": "[0.1.0, )",
           "Application.Tenancy": "[0.1.0, )"
         }
       },

@@ -50,7 +50,8 @@ public sealed partial class PostgresOrderDraftStore(
             intent.Total,
             Revision: 1,
             createdAt,
-            intent.Lines);
+            intent.Lines,
+            CustomerContext: intent.CustomerContext);
 
         await InsertOrderAsync(session, order, cancellationToken).ConfigureAwait(false);
         await InsertLinesAsync(session, order, cancellationToken).ConfigureAwait(false);
@@ -192,6 +193,14 @@ public sealed partial class PostgresOrderDraftStore(
         command.Parameters.AddWithValue("total", order.Total);
         command.Parameters.AddWithValue("revision", order.Revision);
         command.Parameters.AddWithValue("created_at", order.CreatedAt);
+        command.Parameters.Add(new Npgsql.NpgsqlParameter("customer_organization_id", NpgsqlTypes.NpgsqlDbType.Uuid)
+        {
+            Value = (object?)order.CustomerContext?.OrganizationId ?? DBNull.Value,
+        });
+        command.Parameters.Add(new Npgsql.NpgsqlParameter("customer_program_id", NpgsqlTypes.NpgsqlDbType.Uuid)
+        {
+            Value = (object?)order.CustomerContext?.ProgramId ?? DBNull.Value,
+        });
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
 

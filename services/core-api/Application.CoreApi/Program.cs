@@ -101,6 +101,45 @@ app.MapGet("/api/v1/tenants/{tenantId:guid}/workspace", TenantWorkspaceEndpoint.
     .ProducesProblem(StatusCodes.Status403Forbidden)
     .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
+var organizations = "/api/v1/tenants/{tenantId:guid}/customers/organizations";
+app.MapPost(organizations, TenantCustomerEndpoint.CreateOrganizationAsync)
+    .WithName("CreateCustomerOrganization").WithTags("Customers")
+    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthorizedCustomerOrganizationCreation))
+    .WithMetadata(new RequestSizeLimitAttribute(TenantCustomerEndpoint.MaximumCreateRequestBodyBytes))
+    .RequireAuthorization().Accepts<TenantCustomerEndpoint.NamePayload>("application/json")
+    .Produces<Application.Customers.CustomerOrganizationSnapshot>(201)
+    .Produces<Application.Customers.CustomerOrganizationSnapshot>(200)
+    .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(409).ProducesProblem(413).ProducesProblem(503);
+app.MapGet(organizations, TenantCustomerEndpoint.ListOrganizationsAsync)
+    .WithName("ListCustomerOrganizations").WithTags("Customers")
+    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthorizedCustomerOrganizationBrowse))
+    .RequireAuthorization().Produces<CustomerOrganizationPageResponse>()
+    .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(503);
+app.MapGet(organizations + "/{organizationId:guid}", TenantCustomerEndpoint.GetOrganizationAsync)
+    .WithName("GetCustomerOrganization").WithTags("Customers")
+    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthorizedCustomerOrganizationRead))
+    .RequireAuthorization().Produces<Application.Customers.CustomerOrganizationSnapshot>()
+    .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(503);
+var programs = organizations + "/{organizationId:guid}/programs";
+app.MapPost(programs, TenantCustomerEndpoint.CreateProgramAsync)
+    .WithName("CreateCustomerProgram").WithTags("Customers")
+    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthorizedCustomerProgramCreation))
+    .WithMetadata(new RequestSizeLimitAttribute(TenantCustomerEndpoint.MaximumCreateRequestBodyBytes))
+    .RequireAuthorization().Accepts<TenantCustomerEndpoint.NamePayload>("application/json")
+    .Produces<Application.Customers.CustomerProgramSnapshot>(201)
+    .Produces<Application.Customers.CustomerProgramSnapshot>(200)
+    .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409).ProducesProblem(413).ProducesProblem(503);
+app.MapGet(programs, TenantCustomerEndpoint.ListProgramsAsync)
+    .WithName("ListCustomerPrograms").WithTags("Customers")
+    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthorizedCustomerProgramBrowse))
+    .RequireAuthorization().Produces<CustomerProgramPageResponse>()
+    .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(503);
+app.MapGet(programs + "/{programId:guid}", TenantCustomerEndpoint.GetProgramAsync)
+    .WithName("GetCustomerProgram").WithTags("Customers")
+    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthorizedCustomerProgramRead))
+    .RequireAuthorization().Produces<Application.Customers.CustomerProgramSnapshot>()
+    .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(503);
+
 app.MapPost("/api/v1/tenants/{tenantId:guid}/orders", TenantOrderEndpoint.CreateAsync)
     .WithName("CreateTenantOrderDraft")
     .WithTags("Orders")

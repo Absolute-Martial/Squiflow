@@ -28,7 +28,10 @@ public sealed class CoreApiRuntimeRoleProvisioningTests : PostgresTestDatabase
         foreach (var table in new[]
                  {
                      "identity_access.accounts", "identity_access.external_identity_bindings",
-                     "tenancy.tenants", "tenancy.memberships", "orders.order_drafts",
+                     "tenancy.tenants", "tenancy.memberships",
+                     "customers.organizations", "customers.programs",
+                     "customers.organization_receipts", "customers.program_receipts",
+                     "orders.order_drafts",
                      "orders.order_draft_lines", "orders.command_receipts",
                  })
         {
@@ -42,6 +45,12 @@ public sealed class CoreApiRuntimeRoleProvisioningTests : PostgresTestDatabase
         var deleteFailure = await Assert.ThrowsAsync<PostgresException>(() =>
             forbiddenDelete.ExecuteNonQueryAsync(CancellationToken.None));
         Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, deleteFailure.SqlState);
+
+        await using var forbiddenCustomerDelete = runtime.CreateCommand();
+        forbiddenCustomerDelete.CommandText = "DELETE FROM customers.organizations";
+        var customerDeleteFailure = await Assert.ThrowsAsync<PostgresException>(() =>
+            forbiddenCustomerDelete.ExecuteNonQueryAsync(CancellationToken.None));
+        Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, customerDeleteFailure.SqlState);
 
         await using var forbiddenPriceUpdate = runtime.CreateCommand();
         forbiddenPriceUpdate.CommandText = "UPDATE orders.order_drafts SET total = 0";

@@ -4,7 +4,7 @@ These rules apply below `tests/` in addition to the root instructions.
 
 ## Current test model
 
-The current verification contract uses ApplicationProfiles, Branding, IdentityAccess, Tenancy and Orders unit tests, real CoreApi pipeline tests, and real PostgreSQL IdentityAccess/Tenancy/Orders/migrator tests. The former Parties tests and older Phase-0 spec projects remain retired history.
+The current verification contract uses ApplicationProfiles, Branding, IdentityAccess, Tenancy, Customers and Orders unit tests, real CoreApi pipeline tests, and real PostgreSQL IdentityAccess/Tenancy/Customers/Orders/migrator tests. The former Parties tests and older Phase-0 spec projects remain retired history.
 
 Add a test project only when a real implementation claim earns it. Select the smallest layer that can falsify the actual property, and adapt relevant proven upstream tests where the source-admission record identifies them.
 
@@ -65,7 +65,7 @@ Once a serialized/durable contract or schema version is released/supported:
 - test old-reader/new-writer and new-reader/old-writer directions where that contract family requires them;
 - test destructive contraction only after supported old readers/writers/pending work are demonstrably drained.
 
-The first durable contracts are the IdentityAccess, Tenancy and Orders PostgreSQL schemas and their separate migration histories. Preserve migration/model compatibility evidence as they evolve.
+The first durable contracts are the IdentityAccess, Tenancy, Customers and Orders PostgreSQL schemas and their separate migration histories. Preserve migration/model compatibility evidence as they evolve.
 
 ## Test data
 
@@ -78,7 +78,7 @@ The first durable contracts are the IdentityAccess, Tenancy and Orders PostgreSQ
 
 Architecture tests/specs are executable architecture documentation for boundaries that actually exist.
 
-Current unit tests guard the host/provider neutrality of ApplicationProfiles, Branding, IdentityAccess and Tenancy. Add broader project-graph tests only when more dependencies make a separate architecture suite useful.
+Current unit tests guard the host/provider neutrality of ApplicationProfiles, Branding, IdentityAccess, Tenancy, Customers and Orders. Add broader project-graph tests only when more dependencies make a separate architecture suite useful.
 
 ## Current executable commands
 

@@ -1,3 +1,4 @@
+using Application.Customers;
 using Application.Orders;
 using Application.Tenancy;
 using Xunit;
@@ -114,7 +115,7 @@ public sealed class OrderDraftIntentTests
     public async Task ExecuteRejectsMalformedUtf16IdempotencyKeyBeforeCallingTheStore()
     {
         var store = new FailingOrderDraftStore();
-        var operation = new CreateOrderDraft(store);
+        var operation = new CreateOrderDraft(store, new ResolveCustomerOrderContext(new FailingCustomerStore()));
         var context = await new ResolveTenantContext(new ActiveMembershipDirectory())
             .ExecuteAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
 
@@ -148,7 +149,7 @@ public sealed class OrderDraftIntentTests
         Assert.DoesNotContain(references, name => name.StartsWith("Autofac", StringComparison.Ordinal));
         Assert.DoesNotContain(references, name =>
             name.StartsWith("Application.", StringComparison.Ordinal) &&
-            name != "Application.Tenancy");
+            name is not ("Application.Tenancy" or "Application.Customers"));
     }
 
     public static TheoryData<CreateOrderDraftRequest, string> InvalidDrafts => new()
@@ -256,5 +257,36 @@ public sealed class OrderDraftIntentTests
             string fingerprint,
             CancellationToken cancellationToken) =>
             throw new NotSupportedException();
+    }
+
+    private sealed class FailingCustomerStore : ICustomerStore
+    {
+        public Task<CreateCustomerOrganizationResult> CreateOrganizationAsync(
+            TenantContext tenantContext, CustomerOrganizationIntent intent, string idempotencyKey,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<CreateCustomerProgramResult> CreateProgramAsync(
+            TenantContext tenantContext, CustomerProgramIntent intent, string idempotencyKey,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<CustomerOrganizationSnapshot?> FindOrganizationAsync(
+            TenantContext tenantContext, Guid organizationId,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<CustomerProgramSnapshot?> FindProgramAsync(
+            TenantContext tenantContext, Guid programId,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<CustomerOrganizationPage> ListOrganizationsAsync(
+            TenantContext tenantContext, ListCustomerOrganizationsRequest request,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<CustomerProgramPage> ListProgramsAsync(
+            TenantContext tenantContext, ListCustomerProgramsRequest request,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<CustomerOrderContext?> ResolveOrderContextAsync(
+            TenantContext tenantContext, Guid organizationId, Guid? programId,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 }

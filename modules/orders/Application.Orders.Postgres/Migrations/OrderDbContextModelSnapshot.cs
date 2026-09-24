@@ -51,6 +51,12 @@ internal static class OrderModel
             entity.Property<DateTimeOffset?>("AbandonedAt")
                 .HasColumnType("timestamp with time zone")
                 .HasColumnName("abandoned_at");
+            entity.Property<Guid?>("CustomerOrganizationId")
+                .HasColumnType("uuid")
+                .HasColumnName("customer_organization_id");
+            entity.Property<Guid?>("CustomerProgramId")
+                .HasColumnType("uuid")
+                .HasColumnName("customer_program_id");
             entity.Property<string>("CurrencyCode")
                 .IsRequired()
                 .IsFixedLength()
@@ -87,6 +93,7 @@ internal static class OrderModel
                 table.HasCheckConstraint("ck_order_drafts_total", "total >= 0");
                 table.HasCheckConstraint("ck_order_drafts_revision", "revision > 0");
                 table.HasCheckConstraint("ck_order_drafts_lifecycle", "(state = 'draft' AND revision = 1 AND abandoned_at IS NULL AND abandoned_by_account_id IS NULL) OR (state = 'abandoned' AND revision = 2 AND abandoned_at IS NOT NULL AND abandoned_by_account_id IS NOT NULL)");
+                table.HasCheckConstraint("ck_order_drafts_customer_context", "customer_program_id IS NULL OR customer_organization_id IS NOT NULL");
             });
         });
 

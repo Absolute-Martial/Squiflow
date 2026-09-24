@@ -16,10 +16,16 @@ internal static class CoreApiAuthorizationRegistration
             serviceProvider.GetRequiredService<OpenFgaTenantAuthorization>());
         services.AddSingleton<ITenantOrderAuthorization>(serviceProvider =>
             serviceProvider.GetRequiredService<OpenFgaTenantAuthorization>());
+        services.AddSingleton<ITenantCustomerAuthorization>(serviceProvider =>
+            serviceProvider.GetRequiredService<OpenFgaTenantAuthorization>());
         services.AddScoped<IAuthorizationHandler, ViewTenantWorkspaceAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, CreateOrderAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, ViewOrdersAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, AbandonOrderAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, CreateOrganizationAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, ViewOrganizationsAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, CreateProgramAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, ViewProgramsAuthorizationHandler>();
         services.AddAuthorization();
 
         return services;

@@ -1,4 +1,5 @@
 using Application.IdentityAccess.Postgres;
+using Application.Customers.Postgres;
 using Application.Orders.Postgres;
 using Application.Tenancy.Postgres;
 using Npgsql;
@@ -17,6 +18,7 @@ internal static class CoreApiPersistenceRegistration
 
         services.AddIdentityAccessPostgres();
         services.AddTenancyPostgres();
+        services.AddCustomersPostgres();
         services.AddOrdersPostgres();
 
         return services;

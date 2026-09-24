@@ -11,6 +11,7 @@ using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using Application.Branding;
+using Application.Customers;
 using Application.CoreApi;
 using Application.CoreApi.Authorization;
 using Application.IdentityAccess.Postgres;
@@ -169,6 +170,8 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
     private readonly TestTenantMembershipDirectory _memberships = new();
     private readonly TestTenantWorkspaceAuthorization _workspaceAuthorization = new();
     private readonly TestTenantOrderAuthorization _orderAuthorization = new();
+    private readonly TestTenantCustomerAuthorization _customerAuthorization = new();
+    private readonly TestCustomerStore _customers = new();
     private readonly TestOrderDraftStore _orders = new();
 
     public WhiteLabelApiFactory()
@@ -219,6 +222,17 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
         _orderAuthorization.GetAbandonCheckCount(accountId, tenantId);
 
     public int GetOrderCreateCount(Guid tenantId) => _orders.GetCreateCount(tenantId);
+
+    public void SetCustomerDecision(Guid accountId, Guid tenantId, string operation, bool allowed) =>
+        _customerAuthorization.Set(accountId, tenantId, operation, allowed);
+
+    public void SetCustomerUnavailable(Guid accountId, Guid tenantId, string operation) =>
+        _customerAuthorization.SetUnavailable(accountId, tenantId, operation);
+
+    public int GetCustomerCheckCount(Guid accountId, Guid tenantId, string operation) =>
+        _customerAuthorization.CheckCount(accountId, tenantId, operation);
+
+    public int GetCustomerStoreCallCount(Guid tenantId) => _customers.CallCount(tenantId);
 
     public int GetOrderFindCount(Guid tenantId) => _orders.GetFindCount(tenantId);
 
@@ -283,6 +297,10 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
             services.AddSingleton<ITenantWorkspaceAuthorization>(_workspaceAuthorization);
             services.RemoveAll<ITenantOrderAuthorization>();
             services.AddSingleton<ITenantOrderAuthorization>(_orderAuthorization);
+            services.RemoveAll<ITenantCustomerAuthorization>();
+            services.AddSingleton<ITenantCustomerAuthorization>(_customerAuthorization);
+            services.RemoveAll<ICustomerStore>();
+            services.AddSingleton<ICustomerStore>(_customers);
             services.RemoveAll<IOrderDraftStore>();
             services.AddSingleton<IOrderDraftStore>(_orders);
             services.PostConfigure<JwtBearerOptions>(
@@ -668,7 +686,8 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
                     intent.Total,
                     Revision: 1,
                     DateTimeOffset.UtcNow,
-                    intent.Lines);
+                    intent.Lines,
+                    CustomerContext: intent.CustomerContext);
                 _receipts.Add(receiptKey, new Receipt(intent.Fingerprint, order));
                 _orders.Add((tenantContext.TenantId, order.OrderId), order);
                 _createCounts[tenantContext.TenantId] = _createCounts.GetValueOrDefault(tenantContext.TenantId) + 1;
@@ -716,7 +735,8 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
                         order.Revision,
                         order.CreatedAt,
                         order.State,
-                        order.AbandonedAt))
+                        order.AbandonedAt,
+                        order.CustomerContext))
                     .ToArray();
                 var hasNext = items.Length > request.Limit;
                 if (hasNext)

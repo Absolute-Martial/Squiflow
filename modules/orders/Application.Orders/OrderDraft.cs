@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using Application.Customers;
 using Application.Tenancy;
 
 namespace Application.Orders;
@@ -31,7 +32,8 @@ public sealed record OrderDraftSnapshot(
     IReadOnlyList<OrderDraftLine> Lines,
     OrderDraftState State = OrderDraftState.Draft,
     DateTimeOffset? AbandonedAt = null,
-    Guid? AbandonedByAccountId = null);
+    Guid? AbandonedByAccountId = null,
+    CustomerOrderContext? CustomerContext = null);
 
 public sealed record OrderDraftListItem(
     Guid OrderId,
@@ -41,7 +43,8 @@ public sealed record OrderDraftListItem(
     long Revision,
     DateTimeOffset CreatedAt,
     OrderDraftState State = OrderDraftState.Draft,
-    DateTimeOffset? AbandonedAt = null);
+    DateTimeOffset? AbandonedAt = null,
+    CustomerOrderContext? CustomerContext = null);
 
 public sealed record OrderDraftPageCursor(
     DateTimeOffset CreatedAt,
@@ -64,7 +67,8 @@ public sealed record OrderDraftLineInput(
 public sealed record CreateOrderDraftRequest(
     string Summary,
     string CurrencyCode,
-    IReadOnlyList<OrderDraftLineInput> Lines);
+    IReadOnlyList<OrderDraftLineInput> Lines,
+    CustomerOrderContext? CustomerContext = null);
 
 public enum CreateOrderDraftStatus
 {
@@ -117,6 +121,15 @@ public sealed class OrderDraftValidationException(string code, string message)
     public string Code { get; } = code;
 }
 
+public sealed class CustomerOrderContextNotFoundException
+    : Exception
+{
+    public CustomerOrderContextNotFoundException()
+        : base("The customer context is not available in this tenant.")
+    {
+    }
+}
+
 public interface IOrderDraftStore
 {
     Task<CreateOrderDraftResult> CreateAsync(
@@ -143,9 +156,11 @@ public interface IOrderDraftStore
         CancellationToken cancellationToken);
 }
 
-public sealed class CreateOrderDraft(IOrderDraftStore store)
+public sealed class CreateOrderDraft(
+    IOrderDraftStore store,
+    ResolveCustomerOrderContext customerContextResolver)
 {
-    public Task<CreateOrderDraftResult> ExecuteAsync(
+    public async Task<CreateOrderDraftResult> ExecuteAsync(
         TenantContext tenantContext,
         CreateOrderDraftRequest request,
         string idempotencyKey,
@@ -155,7 +170,18 @@ public sealed class CreateOrderDraft(IOrderDraftStore store)
         ArgumentNullException.ThrowIfNull(request);
         var normalizedKey = OrderDraftRules.NormalizeIdempotencyKey(idempotencyKey);
         var intent = OrderDraftIntent.Create(request);
-        return store.CreateAsync(tenantContext, intent, normalizedKey, cancellationToken);
+        if (intent.CustomerContext is { } customerContext &&
+            await customerContextResolver.ExecuteAsync(
+                tenantContext,
+                customerContext.OrganizationId,
+                customerContext.ProgramId,
+                cancellationToken).ConfigureAwait(false) is null)
+        {
+            throw new CustomerOrderContextNotFoundException();
+        }
+
+        return await store.CreateAsync(tenantContext, intent, normalizedKey, cancellationToken)
+            .ConfigureAwait(false);
     }
 }
 
@@ -255,7 +281,8 @@ public sealed record OrderDraftIntent(
     string CurrencyCode,
     IReadOnlyList<OrderDraftLine> Lines,
     decimal Total,
-    string Fingerprint)
+    string Fingerprint,
+    CustomerOrderContext? CustomerContext = null)
 {
     public static OrderDraftIntent Create(CreateOrderDraftRequest request)
     {
@@ -266,6 +293,15 @@ public sealed record OrderDraftIntent(
             "summary_invalid",
             "Summary is required and cannot exceed 200 characters.");
         var currencyCode = OrderDraftRules.NormalizeCurrencyCode(request.CurrencyCode);
+        var customerContext = request.CustomerContext;
+        if (customerContext is not null &&
+            (customerContext.OrganizationId == Guid.Empty ||
+             customerContext.ProgramId == Guid.Empty))
+        {
+            throw new OrderDraftValidationException(
+                "customer_context_invalid",
+                "Customer organization and program identities must be nonempty.");
+        }
 
         if (request.Lines is null || request.Lines.Count is < 1 or > 100)
         {
@@ -326,13 +362,15 @@ public sealed record OrderDraftIntent(
             currencyCode,
             lines,
             total,
-            ComputeFingerprint(summary, currencyCode, lines));
+            ComputeFingerprint(summary, currencyCode, lines, customerContext),
+            customerContext);
     }
 
     private static string ComputeFingerprint(
         string summary,
         string currencyCode,
-        OrderDraftLine[] lines)
+        OrderDraftLine[] lines,
+        CustomerOrderContext? customerContext)
     {
         var canonical = new StringBuilder();
         Append(canonical, summary);
@@ -344,6 +382,15 @@ public sealed record OrderDraftIntent(
             Append(canonical, line.Quantity.ToString("G29", CultureInfo.InvariantCulture));
             Append(canonical, line.UnitCode);
             Append(canonical, line.UnitPrice.ToString("G29", CultureInfo.InvariantCulture));
+        }
+
+        if (customerContext is not null)
+        {
+            // Preserve the original fingerprint for drafts without customer context so
+            // pre-attribution create receipts remain replayable after this upgrade.
+            Append(canonical, "customer-context-v1");
+            Append(canonical, customerContext.OrganizationId.ToString("N"));
+            Append(canonical, customerContext.ProgramId?.ToString("N") ?? string.Empty);
         }
 
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical.ToString())))

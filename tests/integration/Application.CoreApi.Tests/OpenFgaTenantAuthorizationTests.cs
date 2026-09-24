@@ -51,11 +51,31 @@ public sealed class OpenFgaTenantAuthorizationTests : IAsyncLifetime
             configuration,
             NullLogger<OpenFgaTenantAuthorization>.Instance);
         ITenantOrderAuthorization orderAuthorization = authorization;
+        ITenantCustomerAuthorization customerAuthorization = authorization;
         var orderCreatorAccountId = Guid.NewGuid();
         var orderViewerAccountId = Guid.NewGuid();
         var orderAbandonerAccountId = Guid.NewGuid();
         var workspaceViewerAccountId = Guid.NewGuid();
         var tenantId = Guid.NewGuid();
+        var customerAccountId = Guid.NewGuid();
+
+        Assert.False(await customerAuthorization.CanCreateOrganizationAsync(customerAccountId, tenantId, CancellationToken.None));
+        Assert.False(await customerAuthorization.CanViewOrganizationsAsync(customerAccountId, tenantId, CancellationToken.None));
+        Assert.False(await customerAuthorization.CanCreateProgramAsync(customerAccountId, tenantId, CancellationToken.None));
+        Assert.False(await customerAuthorization.CanViewProgramsAsync(customerAccountId, tenantId, CancellationToken.None));
+        await WriteTenantRelationAsync(administrativeClient, storeId, pinnedModelId, customerAccountId, tenantId, "organization_creator");
+        Assert.True(await customerAuthorization.CanCreateOrganizationAsync(customerAccountId, tenantId, CancellationToken.None));
+        Assert.False(await customerAuthorization.CanViewOrganizationsAsync(customerAccountId, tenantId, CancellationToken.None));
+        Assert.False(await customerAuthorization.CanCreateProgramAsync(customerAccountId, tenantId, CancellationToken.None));
+        Assert.False(await customerAuthorization.CanViewProgramsAsync(customerAccountId, tenantId, CancellationToken.None));
+        await WriteTenantRelationAsync(administrativeClient, storeId, pinnedModelId, customerAccountId, tenantId, "organization_viewer");
+        Assert.True(await customerAuthorization.CanViewOrganizationsAsync(customerAccountId, tenantId, CancellationToken.None));
+        Assert.False(await customerAuthorization.CanCreateProgramAsync(customerAccountId, tenantId, CancellationToken.None));
+        await WriteTenantRelationAsync(administrativeClient, storeId, pinnedModelId, customerAccountId, tenantId, "program_creator");
+        Assert.True(await customerAuthorization.CanCreateProgramAsync(customerAccountId, tenantId, CancellationToken.None));
+        Assert.False(await customerAuthorization.CanViewProgramsAsync(customerAccountId, tenantId, CancellationToken.None));
+        await WriteTenantRelationAsync(administrativeClient, storeId, pinnedModelId, customerAccountId, tenantId, "program_viewer");
+        Assert.True(await customerAuthorization.CanViewProgramsAsync(customerAccountId, tenantId, CancellationToken.None));
 
         Assert.False(await authorization.CanViewAsync(
             workspaceViewerAccountId,

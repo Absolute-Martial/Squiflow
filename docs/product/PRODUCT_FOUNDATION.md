@@ -38,6 +38,12 @@ Branding is one visible personalization capability, not the limit or definition 
 
 The repository currently grounds that platform direction in practical shop/print-oriented examples, Owner + Staff authorization defaults, and a broad set of plausible business capabilities and constraints.
 
+**Owner-selected first Web journey direction (2026-09-24):** a complete commercial order flow, developed one business step at a time. The intended coverage includes quotation, order, fulfillment, invoicing, payment, and relevant credit, return and refund paths. A read-only account/tenant shell or a priced-draft-only Orders pilot is not the intended first Web business outcome. This is a product-scope choice, not evidence that a particular customer journey has been observed or that every tenant must follow one fixed sequence. The exact first customer population and actors, starting condition, observable commercial completion, conditional paths, in-product versus manual steps, and recovery/correction cases remain to be established before new long-lived states are hardened into contracts.
+
+The owner selected **an organization with program/account billing** as the first concrete case to develop. This is an implementation and learning anchor, not a rule that every tenant needs a program. For an issued invoice, the organization is the default debtor; a program may owe independently or its charges may be assigned to an individual account. The bill-to choice must be explicit and historically retained when financial effects are introduced. The implemented customer organization and child-program identities mean only tenant-owned attribution on an order draft; they do not yet choose an invoice debtor or establish an account balance. The identity and authority of an individual account, representative, daily operator, initial business trigger and settlement rules remain open before their durable effects are introduced.
+
+The implementation sequence should follow the accepted business dependencies: establish the customer/commercial context needed for the first case; capture and revise uncommitted intent; define quotation where the case needs one; admit an order with explicit effects and historical price; record fulfillment progress; establish invoice/receivable meaning; record and reconcile payment or credit; then handle cancellation, return, refund and correction paths against the effects that actually exist. This is a sequencing guide, not a mandatory transaction workflow. For example, payment may precede fulfillment in one supported case, and a walk-in sale may not need a formal quotation. Each introduced step needs its own authority, revision/idempotency, persistence, failure/recovery and regression evidence before the next step relies on it.
+
 The following are **not yet established as validated product facts merely because they are documented**:
 
 - the exact initial customer population;
@@ -221,12 +227,12 @@ Keep this list short. Expand it only when a new question can materially change n
 What exact business context is first, and who are the buyer, administrator, daily operator, and other materially affected actors?
 
 **What it changes:** positioning, onboarding, defaults, UX priorities, actor/permission research, and the product promise.  
-**Current action:** keep Owner/Staff as authorization templates; do not invent personas.
+**Current action:** use the owner-selected organization-with-program/account-billing case to investigate the first customer ecosystem. Keep Owner/Staff as authorization templates; the buyer, administrator, daily operator and other affected actors remain open, so do not invent personas.
 
 ### PFQ-002 — What is the first end-to-end business outcome SquiFlow promises?
 
 **What it changes:** release completeness, scope, journey priority, and which missing steps are genuine blockers.  
-**Current action:** continue technical slices, but do not equate a collection of implemented capabilities with a complete customer offering.
+**Current action:** develop the owner-selected complete commercial order-flow direction into a concrete promise with a starting condition, observable end result, affected actor, manual/external steps, and recovery path. Continue independently useful technical slices, but do not equate the current Orders draft API or a collection of implemented capabilities with a complete customer offering.
 
 ### PFQ-003 — How is the selected work actually performed today?
 

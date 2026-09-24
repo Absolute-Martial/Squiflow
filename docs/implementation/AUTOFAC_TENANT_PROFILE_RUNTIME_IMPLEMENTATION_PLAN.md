@@ -64,7 +64,7 @@ Both packages declare MIT licensing. The resolved CoreApi package graph was insp
 
 ### 3.2 Host composition
 
-CoreApi now uses `AutofacServiceProviderFactory` while preserving existing `builder.Services` registrations. Autofac-specific registrations remain in the CoreApi composition boundary. ApplicationProfiles, Branding, IdentityAccess, Tenancy and Orders projects do not reference Autofac.
+CoreApi now uses `AutofacServiceProviderFactory` while preserving existing `builder.Services` registrations. Autofac-specific registrations remain in the CoreApi composition boundary. ApplicationProfiles, Branding, IdentityAccess, Tenancy, Customers and Orders projects do not reference Autofac.
 
 Do not convert every service registration to Autofac syntax. Existing framework/provider extension methods continue through `IServiceCollection`; use `ContainerBuilder` only for profile runtime infrastructure and qualified implementation overrides.
 

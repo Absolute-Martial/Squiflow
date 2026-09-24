@@ -89,6 +89,82 @@
               }
             ]
           }
+        },
+        "organization_creator": {
+          "this": {}
+        },
+        "can_create_organization": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "organization_creator"
+                }
+              }
+            ]
+          }
+        },
+        "organization_viewer": {
+          "this": {}
+        },
+        "can_view_organizations": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "organization_viewer"
+                }
+              }
+            ]
+          }
+        },
+        "program_creator": {
+          "this": {}
+        },
+        "can_create_program": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "program_creator"
+                }
+              }
+            ]
+          }
+        },
+        "program_viewer": {
+          "this": {}
+        },
+        "can_view_programs": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "program_viewer"
+                }
+              }
+            ]
+          }
         }
       },
       "metadata": {
@@ -138,6 +214,46 @@
             "directly_related_user_types": []
           },
           "can_abandon_order": {
+            "directly_related_user_types": []
+          },
+          "organization_creator": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
+          },
+          "can_create_organization": {
+            "directly_related_user_types": []
+          },
+          "organization_viewer": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
+          },
+          "can_view_organizations": {
+            "directly_related_user_types": []
+          },
+          "program_creator": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
+          },
+          "can_create_program": {
+            "directly_related_user_types": []
+          },
+          "program_viewer": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
+          },
+          "can_view_programs": {
             "directly_related_user_types": []
           }
         }

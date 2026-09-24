@@ -70,11 +70,12 @@ Do not require a complex account hierarchy for a walk-in sale.
 
 ## 4. Organization/program billing
 
-Organizations may have multiple programs/projects while settling at organization/account level.
+Organizations may have multiple programs/projects. The organization is the default debtor for an issued invoice, but a program may owe independently or its charges may be assigned to an individual account. Program attribution on a draft does not itself select the debtor or post a balance. The invoice must retain the selected bill-to identity and applicable assignment at issue time rather than recomputing it from later settings.
 
 Support where required:
 - transaction linked to program/project;
-- organization-level credit/settlement;
+- organization-level credit/settlement where the organization is the selected debtor;
+- program-level or assigned individual-account billing where explicitly selected;
 - consolidated billing/reporting;
 - representative/contact relationships.
 
@@ -185,7 +186,7 @@ Reversed
 
 Credit operations that depend on current shared exposure may be provisional or server-required offline.
 
-Currency is not hardcoded. v0.0.15 does not add exchange rates or multi-currency accounting unless a real customer requires it.
+Currency is not hardcoded. v0.1.0 does not add exchange rates or multi-currency accounting unless a real customer requires it.
 
 ## 12. Documents/files
 

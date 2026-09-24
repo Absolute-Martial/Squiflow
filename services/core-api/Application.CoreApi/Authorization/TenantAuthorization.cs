@@ -23,18 +23,31 @@ internal interface ITenantOrderAuthorization
     Task<bool> CanAbandonAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
 }
 
+internal interface ITenantCustomerAuthorization
+{
+    Task<bool> CanCreateOrganizationAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
+    Task<bool> CanViewOrganizationsAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
+    Task<bool> CanCreateProgramAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
+    Task<bool> CanViewProgramsAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
+}
+
 internal sealed class OpenFgaTenantAuthorization(
     IOpenFgaClient client,
     OpenFgaAuthorizationConfiguration configuration,
     ILogger<OpenFgaTenantAuthorization> logger) :
     ITenantWorkspaceAuthorization,
-    ITenantOrderAuthorization
+    ITenantOrderAuthorization,
+    ITenantCustomerAuthorization
 {
     private const string MemberRelation = "member";
     private const string ViewWorkspaceRelation = "can_view_workspace";
     private const string CreateOrderRelation = "can_create_order";
     private const string ViewOrdersRelation = "can_view_orders";
     private const string AbandonOrderRelation = "can_abandon_order";
+    private const string CreateOrganizationRelation = "can_create_organization";
+    private const string ViewOrganizationsRelation = "can_view_organizations";
+    private const string CreateProgramRelation = "can_create_program";
+    private const string ViewProgramsRelation = "can_view_programs";
     private static readonly Meter Meter = new("Application.CoreApi.Authorization", "0.1.0");
     private static readonly Counter<long> Decisions = Meter.CreateCounter<long>("application.authorization.decisions");
     private static readonly Histogram<double> Duration = Meter.CreateHistogram<double>(
@@ -84,6 +97,18 @@ internal sealed class OpenFgaTenantAuthorization(
         Guid tenantId,
         CancellationToken cancellationToken) =>
         CheckAsync(accountId, tenantId, AbandonOrderRelation, cancellationToken);
+
+    Task<bool> ITenantCustomerAuthorization.CanCreateOrganizationAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, CreateOrganizationRelation, cancellationToken);
+
+    Task<bool> ITenantCustomerAuthorization.CanViewOrganizationsAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, ViewOrganizationsRelation, cancellationToken);
+
+    Task<bool> ITenantCustomerAuthorization.CanCreateProgramAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, CreateProgramRelation, cancellationToken);
+
+    Task<bool> ITenantCustomerAuthorization.CanViewProgramsAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, ViewProgramsRelation, cancellationToken);
 
     private async Task<bool> CheckAsync(
         Guid accountId,

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Application.DatabaseMigrator;
+using Application.Customers.Postgres;
 using Application.IdentityAccess.Postgres;
 using Application.Orders.Postgres;
 using Application.Tenancy.Postgres;
@@ -27,10 +28,10 @@ public sealed class MigrationRegistryTests
 
         Assert.Equal(migrationProjects, registeredProjects);
         Assert.Equal(
-            [typeof(IdentityAccessDbContext), typeof(TenancyDbContext), typeof(OrderDbContext)],
+            [typeof(IdentityAccessDbContext), typeof(TenancyDbContext), typeof(CustomerDbContext), typeof(OrderDbContext)],
             MigrationModules.All.Select(module => module.DbContextType));
-        Assert.Equal(["identity-access", "tenancy", "orders"], MigrationModules.All.Select(module => module.Name));
-        Assert.Equal([100, 200, 300], MigrationModules.All.Select(module => module.Order));
+        Assert.Equal(["identity-access", "tenancy", "customers", "orders"], MigrationModules.All.Select(module => module.Name));
+        Assert.Equal([100, 200, 250, 300], MigrationModules.All.Select(module => module.Order));
 
         var solution = File.ReadAllText(Path.Combine(root, "Application.slnx"));
         foreach (var project in migrationProjects)

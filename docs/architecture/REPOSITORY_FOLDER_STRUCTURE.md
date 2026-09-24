@@ -3,7 +3,7 @@
 **Version:** v0.1.0
 **Purpose:** directory-only view of the tracked SquiFlow repository structure.
 
-**Current inventory:** the solution contains ten production projects and ten test projects, including Orders and its PostgreSQL adapter. See `README.IMPLEMENTATION.md` for the current responsibility-level implementation truth.
+**Current inventory:** the solution contains twelve production projects and twelve test projects, including Customers and Orders with their PostgreSQL adapters. See `README.IMPLEMENTATION.md` for the current responsibility-level implementation truth.
 
 **Important:** directory presence is not proof that a runtime/project/responsibility is production-qualified.
 

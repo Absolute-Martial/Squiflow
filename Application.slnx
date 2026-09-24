@@ -2,6 +2,8 @@
   <Folder Name="/modules/">
     <Project Path="modules/application-profiles/Application.Profiles/Application.Profiles.csproj" />
     <Project Path="modules/branding/Application.Branding/Application.Branding.csproj" />
+    <Project Path="modules/customers/Application.Customers.Postgres/Application.Customers.Postgres.csproj" />
+    <Project Path="modules/customers/Application.Customers/Application.Customers.csproj" />
     <Project Path="modules/identity-access/Application.IdentityAccess.Postgres/Application.IdentityAccess.Postgres.csproj" />
     <Project Path="modules/identity-access/Application.IdentityAccess/Application.IdentityAccess.csproj" />
     <Project Path="modules/orders/Application.Orders.Postgres/Application.Orders.Postgres.csproj" />
@@ -16,11 +18,13 @@
   <Folder Name="/tests/">
     <Project Path="tests/architecture/Application.Architecture.Tests/Application.Architecture.Tests.csproj" />
     <Project Path="tests/integration/Application.CoreApi.Tests/Application.CoreApi.Tests.csproj" />
+    <Project Path="tests/integration/Application.Customers.Postgres.Tests/Application.Customers.Postgres.Tests.csproj" />
     <Project Path="tests/integration/Application.IdentityAccess.Postgres.Tests/Application.IdentityAccess.Postgres.Tests.csproj" />
     <Project Path="tests/integration/Application.Orders.Postgres.Tests/Application.Orders.Postgres.Tests.csproj" />
     <Project Path="tests/integration/Application.Tenancy.Postgres.Tests/Application.Tenancy.Postgres.Tests.csproj" />
     <Project Path="tests/unit/Application.Profiles.Tests/Application.Profiles.Tests.csproj" />
     <Project Path="tests/unit/Application.Branding.Tests/Application.Branding.Tests.csproj" />
+    <Project Path="tests/unit/Application.Customers.Tests/Application.Customers.Tests.csproj" />
     <Project Path="tests/unit/Application.IdentityAccess.Tests/Application.IdentityAccess.Tests.csproj" />
     <Project Path="tests/unit/Application.Tenancy.Tests/Application.Tenancy.Tests.csproj" />
     <Project Path="tests/unit/Application.Orders.Tests/Application.Orders.Tests.csproj" />

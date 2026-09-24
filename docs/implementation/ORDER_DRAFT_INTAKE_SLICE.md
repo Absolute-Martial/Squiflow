@@ -8,6 +8,8 @@
 
 This slice introduces the first tenant-owned business mutation without claiming the complete Orders capability.
 
+An additive customer-context extension now allows a draft to reference one tenant-owned customer organization and optionally one of its programs. The original no-context request, draft rows and semantic create fingerprint remain supported. The association is validated through the public Customers query and enforced by composite PostgreSQL foreign keys; it is attribution, not billing/receivable authority. `docs/implementation/CUSTOMER_ORGANIZATION_PROGRAM_ATTRIBUTION_SLICE.md` owns this extension, its receipt-version rule and its evidence.
+
 An authenticated current tenant member with the persisted OpenFGA `order_creator` relation can create one priced order draft through:
 
 ```text
@@ -94,7 +96,7 @@ Revision `1` identifies a newly created draft; successful abandonment advances i
 
 All three Orders tables carry `tenant_id`. Every runtime query includes an explicit tenant predicate, and every insert supplies the tenant from `TenantContext`. Each operation opens a transaction and sets `app.current_tenant` with transaction-local `set_config`; PostgreSQL RLS uses the same value for `USING` and `WITH CHECK`, is enabled and forced, and returns no tenant rows when context is absent.
 
-The CoreApi runtime database identity requires schema usage plus the exact `SELECT`/`INSERT` rights and narrowly scoped lifecycle-column `UPDATE` rights used by this slice. It must not own the schema, be superuser, have `BYPASSRLS`, or receive DDL/delete/priced-column update rights. Migration credentials remain separate and the one-shot DatabaseMigrator applies IdentityAccess, Tenancy and Orders migrations under one bounded advisory lock.
+The CoreApi runtime database identity requires schema usage plus the exact `SELECT`/`INSERT` rights and narrowly scoped lifecycle-column `UPDATE` rights used by this slice. It must not own the schema, be superuser, have `BYPASSRLS`, or receive DDL/delete/priced-column update rights. Migration credentials remain separate and the one-shot DatabaseMigrator applies IdentityAccess, Tenancy, Customers and Orders migrations under one bounded advisory lock.
 
 ## Stable failure behavior
 
@@ -142,4 +144,4 @@ Requalification triggers include schema/RLS policy, browse index, cursor format 
 
 ## Explicit non-claims
 
-The slice does not implement customer/party records, document numbers, tax, discount, quotations, submission/acceptance, draft content editing, approval, fulfillment, inventory, invoicing, payment, refunds, printing, attachments, audit ledger, local-first Workstation state, synchronization, outbox, Worker execution, reporting, text/full-text search, filters, selectable ordering, total counts, profile-driven implementation variants or tenant role administration. These remain `NOT_INTRODUCED`, not deferred hardening of an active path.
+The slice does not implement legal customer/account identity beyond the narrow organization/program attribution, document numbers, tax, discount, quotations, submission/acceptance, draft content editing, approval, fulfillment, inventory, invoicing, payment, refunds, printing, attachments, audit ledger, local-first Workstation state, synchronization, outbox, Worker execution, reporting, text/full-text search, filters, selectable ordering, total counts, profile-driven implementation variants or tenant role administration. These remain `NOT_INTRODUCED`, not deferred hardening of an active path.

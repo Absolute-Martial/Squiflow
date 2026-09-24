@@ -35,16 +35,16 @@ Repository state proves what is implemented. Architecture documents can define f
 ## Current implementation boundary
 
 ```text
-production projects: 10
-test projects:       10
+production projects: 12
+test projects:       12
 executable hosts:    2
 solution/build/test contract: present
-active runtime responsibilities: public application bootstrap; classified OpenAPI v1 description; JWT access-token validation; authenticated account and tenant membership resolution; Finbuckle route-candidate resolution; pinned-model OpenFGA workspace/order authorization; account/tenancy/order-draft PostgreSQL persistence with tenant RLS; liveness and bounded dependency readiness; Autofac root composition and dormant tenant-keyed runtime mechanics; ordered one-shot DB migration
-active host-neutral responsibilities: bounded feature graph validation and effective-selection compilation; priced order-draft creation, read, browse and abandonment with caller-scoped semantic idempotency
+active runtime responsibilities: public application bootstrap; classified OpenAPI v1 description; JWT access-token validation; authenticated account and tenant membership resolution; Finbuckle route-candidate resolution; pinned-model OpenFGA workspace/customer/order authorization; account/tenancy/customer/order-draft PostgreSQL persistence with tenant RLS; liveness and bounded dependency readiness; Autofac root composition and dormant tenant-keyed runtime mechanics; ordered one-shot DB migration
+active host-neutral responsibilities: bounded feature graph validation and effective-selection compilation; immutable customer organization/program context; optionally attributed priced order-draft creation, read, browse and abandonment with caller-scoped semantic idempotency
 BLOCKED: none
 ```
 
-The deleted `PartyKind` enum and Parties implementation are not current implementation. The current solution/build/test files belong to independently earned ApplicationProfiles, Branding, IdentityAccess, Tenancy, Orders, CoreApi and DbMigrator slices and do not revive the retired 0B shape. The tenant-keyed Autofac registry is internal mechanics; no production request acquires it, and durable Tenant Application Profile authority remains absent.
+The deleted `PartyKind` enum and Parties implementation are not current implementation. The current solution/build/test files belong to independently earned ApplicationProfiles, Branding, IdentityAccess, Tenancy, Customers, Orders, CoreApi and DbMigrator slices and do not revive the retired 0B shape. Customer organization/program association on a draft is attribution, not account billing or settlement authority. The tenant-keyed Autofac registry is internal mechanics; no production request acquires it, and durable Tenant Application Profile authority remains absent.
 
 ## Architecture direction
 
@@ -54,7 +54,7 @@ The deleted `PartyKind` enum and Parties implementation are not current implemen
 - The product starts as a modular monolith; ordinary capability communication is in-process.
 - One capability owns one source implementation of its business meaning.
 - PostgreSQL remains selected central transactional storage and SQLite/WAL remains selected Workstation local storage when those responsibilities are introduced.
-- ZITADEL remains the selected identity platform; CoreApi enforces its configured OIDC/JWT issuer and audience contract, while live-provider/login/session evidence remains pending. OpenFGA is the active pinned-model tenant workspace/order permission provider. OpenBao/Vault-style key management remains a future direction, not a current runtime.
+- ZITADEL remains the selected identity platform; CoreApi enforces its configured OIDC/JWT issuer and audience contract, while live-provider/login/session evidence remains pending. OpenFGA is the active pinned-model tenant workspace/customer/order permission provider. OpenBao/Vault-style key management remains a future direction, not a current runtime.
 - Guard remains a future supervision/recovery boundary, not business authority.
 - Projects, processes, providers, interfaces, and protocols are earned by a real boundary.
 

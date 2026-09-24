@@ -42,6 +42,9 @@ public sealed class OrderDbContext(DbContextOptions<OrderDbContext> options)
                     "ck_order_drafts_lifecycle",
                     "(state = 'draft' AND revision = 1 AND abandoned_at IS NULL AND abandoned_by_account_id IS NULL) OR " +
                     "(state = 'abandoned' AND revision = 2 AND abandoned_at IS NOT NULL AND abandoned_by_account_id IS NOT NULL)");
+                table.HasCheckConstraint(
+                    "ck_order_drafts_customer_context",
+                    "customer_program_id IS NULL OR customer_organization_id IS NOT NULL");
             });
             entity.HasKey(row => new { row.TenantId, row.Id }).HasName("pk_order_drafts");
             entity.Property(row => row.TenantId).HasColumnName("tenant_id");
@@ -55,6 +58,8 @@ public sealed class OrderDbContext(DbContextOptions<OrderDbContext> options)
             entity.Property(row => row.State).HasMaxLength(16).HasDefaultValue("draft").HasColumnName("state");
             entity.Property(row => row.AbandonedAt).HasColumnName("abandoned_at");
             entity.Property(row => row.AbandonedByAccountId).HasColumnName("abandoned_by_account_id");
+            entity.Property(row => row.CustomerOrganizationId).HasColumnName("customer_organization_id");
+            entity.Property(row => row.CustomerProgramId).HasColumnName("customer_program_id");
             entity.HasIndex(row => new { row.TenantId, row.CreatedAt, row.Id })
                 .IsDescending(false, true, true)
                 .HasDatabaseName("ix_order_drafts_tenant_created_at_id");
@@ -150,6 +155,8 @@ internal sealed class OrderDraftRow
     public string State { get; set; } = "draft";
     public DateTimeOffset? AbandonedAt { get; set; }
     public Guid? AbandonedByAccountId { get; set; }
+    public Guid? CustomerOrganizationId { get; set; }
+    public Guid? CustomerProgramId { get; set; }
 }
 
 internal sealed class OrderDraftLineRow

@@ -4,7 +4,8 @@ namespace Application.Orders.Postgres;
 
 public sealed partial class PostgresOrderDraftStore
 {
-    private const int ReceiptSchemaVersion = 1;
+    private const int LegacyReceiptSchemaVersion = 1;
+    private const int CustomerAttributionReceiptSchemaVersion = 2;
     private const string CreateResultType = "order-draft-created";
     private const string AbandonResultType = "order-draft-abandoned";
     private static readonly JsonSerializerOptions SnapshotJsonOptions = new(JsonSerializerDefaults.Web);
@@ -28,7 +29,12 @@ public sealed partial class PostgresOrderDraftStore
         command.Parameters.AddWithValue("order_id", order.OrderId);
         command.Parameters.AddWithValue("response_json", JsonSerializer.Serialize(
             new OrderReceiptEnvelope(
-                ReceiptSchemaVersion, operation, ResultTypeForOperation(operation), order),
+                order.CustomerContext is null
+                    ? LegacyReceiptSchemaVersion
+                    : CustomerAttributionReceiptSchemaVersion,
+                operation,
+                ResultTypeForOperation(operation),
+                order),
             SnapshotJsonOptions));
         command.Parameters.AddWithValue("created_at", createdAt);
         return await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) is not null;
@@ -110,7 +116,7 @@ public sealed partial class PostgresOrderDraftStore
             {
                 if (version.ValueKind != JsonValueKind.Number
                     || !version.TryGetInt32(out var schemaVersion)
-                    || schemaVersion != ReceiptSchemaVersion
+                    || schemaVersion is not (LegacyReceiptSchemaVersion or CustomerAttributionReceiptSchemaVersion)
                     || operation.ValueKind != JsonValueKind.String
                     || !string.Equals(operation.GetString(), expectedOperation, StringComparison.Ordinal)
                     || resultType.ValueKind != JsonValueKind.String
@@ -121,10 +127,20 @@ public sealed partial class PostgresOrderDraftStore
                     throw InvalidReceipt();
                 }
 
-                return DeserializeSnapshot(payload, receipt, expectedOperation, requireLifecycleFields: true);
+                return DeserializeSnapshot(
+                    payload,
+                    receipt,
+                    expectedOperation,
+                    requireLifecycleFields: true,
+                    requireCustomerContext: schemaVersion == CustomerAttributionReceiptSchemaVersion);
             }
 
-            return DeserializeSnapshot(root, receipt, expectedOperation, requireLifecycleFields: false);
+            return DeserializeSnapshot(
+                root,
+                receipt,
+                expectedOperation,
+                requireLifecycleFields: false,
+                requireCustomerContext: false);
         }
         catch (JsonException)
         {
@@ -136,7 +152,8 @@ public sealed partial class PostgresOrderDraftStore
         JsonElement element,
         OrderCommandReceipt receipt,
         string expectedOperation,
-        bool requireLifecycleFields)
+        bool requireLifecycleFields,
+        bool requireCustomerContext)
     {
         foreach (var property in new[]
                  {
@@ -155,6 +172,13 @@ public sealed partial class PostgresOrderDraftStore
             throw InvalidReceipt();
         }
 
+        var hasCustomerContext = element.TryGetProperty("customerContext", out var customerContextElement)
+            && customerContextElement.ValueKind == JsonValueKind.Object;
+        if (hasCustomerContext != requireCustomerContext)
+        {
+            throw InvalidReceipt();
+        }
+
         var order = element.Deserialize<OrderDraftSnapshot>(SnapshotJsonOptions)
             ?? throw InvalidReceipt();
         var expectedState = expectedOperation switch
@@ -169,6 +193,9 @@ public sealed partial class PostgresOrderDraftStore
             || order.Lines is null
             || order.Revision < 1
             || order.State != expectedState
+            || (order.CustomerContext is { } customerContext
+                && (customerContext.OrganizationId == Guid.Empty
+                    || customerContext.ProgramId == Guid.Empty))
             || (expectedState == OrderDraftState.Draft
                 && (order.AbandonedAt is not null || order.AbandonedByAccountId is not null))
             || (expectedState == OrderDraftState.Abandoned

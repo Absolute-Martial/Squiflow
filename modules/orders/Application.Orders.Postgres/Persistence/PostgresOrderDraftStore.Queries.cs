@@ -1,3 +1,4 @@
+using Application.Customers;
 using Application.Tenancy;
 using Npgsql;
 using NpgsqlTypes;
@@ -129,7 +130,8 @@ public sealed partial class PostgresOrderDraftStore
             lines,
             header.State,
             header.AbandonedAt,
-            header.AbandonedByAccountId);
+            header.AbandonedByAccountId,
+            header.CustomerContext);
     }
 
     private static async Task<List<OrderDraftListItem>> ListOrderHeadersAsync(
@@ -164,6 +166,8 @@ public sealed partial class PostgresOrderDraftStore
     {
         var abandonedAt = reader.GetOrdinal("abandoned_at");
         var abandonedByAccountId = reader.GetOrdinal("abandoned_by_account_id");
+        var organizationId = reader.GetOrdinal("customer_organization_id");
+        var programId = reader.GetOrdinal("customer_program_id");
         return new OrderDraftHeader(
             reader.GetGuid(reader.GetOrdinal("id")),
             reader.GetGuid(reader.GetOrdinal("tenant_id")),
@@ -175,7 +179,12 @@ public sealed partial class PostgresOrderDraftStore
             reader.GetFieldValue<DateTimeOffset>(reader.GetOrdinal("created_at")),
             ReadState(reader.GetString(reader.GetOrdinal("state"))),
             reader.IsDBNull(abandonedAt) ? null : reader.GetFieldValue<DateTimeOffset>(abandonedAt),
-            reader.IsDBNull(abandonedByAccountId) ? null : reader.GetGuid(abandonedByAccountId));
+            reader.IsDBNull(abandonedByAccountId) ? null : reader.GetGuid(abandonedByAccountId),
+            reader.IsDBNull(organizationId)
+                ? null
+                : new CustomerOrderContext(
+                    reader.GetGuid(organizationId),
+                    reader.IsDBNull(programId) ? null : reader.GetGuid(programId)));
     }
 
     private static OrderDraftLine ReadLine(NpgsqlDataReader reader) => new(
@@ -189,6 +198,8 @@ public sealed partial class PostgresOrderDraftStore
     private static OrderDraftListItem ReadListItem(NpgsqlDataReader reader)
     {
         var abandonedAt = reader.GetOrdinal("abandoned_at");
+        var organizationId = reader.GetOrdinal("customer_organization_id");
+        var programId = reader.GetOrdinal("customer_program_id");
         return new OrderDraftListItem(
             reader.GetGuid(reader.GetOrdinal("id")),
             reader.GetString(reader.GetOrdinal("summary")),
@@ -197,7 +208,12 @@ public sealed partial class PostgresOrderDraftStore
             reader.GetInt64(reader.GetOrdinal("revision")),
             reader.GetFieldValue<DateTimeOffset>(reader.GetOrdinal("created_at")),
             ReadState(reader.GetString(reader.GetOrdinal("state"))),
-            reader.IsDBNull(abandonedAt) ? null : reader.GetFieldValue<DateTimeOffset>(abandonedAt));
+            reader.IsDBNull(abandonedAt) ? null : reader.GetFieldValue<DateTimeOffset>(abandonedAt),
+            reader.IsDBNull(organizationId)
+                ? null
+                : new CustomerOrderContext(
+                    reader.GetGuid(organizationId),
+                    reader.IsDBNull(programId) ? null : reader.GetGuid(programId)));
     }
 
     private static OrderDraftState ReadState(string state) => state switch
@@ -218,5 +234,6 @@ public sealed partial class PostgresOrderDraftStore
         DateTimeOffset CreatedAt,
         OrderDraftState State,
         DateTimeOffset? AbandonedAt,
-        Guid? AbandonedByAccountId);
+        Guid? AbandonedByAccountId,
+        CustomerOrderContext? CustomerContext);
 }

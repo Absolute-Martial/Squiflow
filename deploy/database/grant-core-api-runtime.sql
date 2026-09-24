@@ -1,4 +1,4 @@
--- Apply after the IdentityAccess, Tenancy and Orders migrations. This file is
+-- Apply after the IdentityAccess, Tenancy, Customers and Orders migrations. This file is
 -- intentionally usable inside one transaction by both psql and provider tests.
 DO $provision$
 DECLARE
@@ -28,12 +28,13 @@ BEGIN
     IF EXISTS (SELECT 1 FROM pg_database WHERE datname = current_database() AND datdba = role_record.oid)
        OR EXISTS (
            SELECT 1 FROM pg_namespace
-           WHERE nspname IN ('identity_access', 'tenancy', 'orders') AND nspowner = role_record.oid)
+           WHERE nspname IN ('identity_access', 'tenancy', 'customers', 'orders') AND nspowner = role_record.oid)
        OR EXISTS (
            SELECT 1 FROM pg_class AS c
            JOIN pg_namespace AS n ON n.oid = c.relnamespace
-           WHERE n.nspname IN ('identity_access', 'tenancy', 'orders')
+           WHERE n.nspname IN ('identity_access', 'tenancy', 'customers', 'orders')
              AND c.relname IN ('accounts', 'external_identity_bindings', 'tenants', 'memberships',
+                               'organizations', 'programs', 'organization_receipts', 'program_receipts',
                                'order_drafts', 'order_draft_lines', 'command_receipts')
              AND c.relowner = role_record.oid) THEN
         RAISE EXCEPTION 'CoreApi runtime role must not own the database, schemas or application tables';
@@ -41,14 +42,16 @@ BEGIN
     IF EXISTS (
         SELECT 1 FROM pg_class AS c
         JOIN pg_namespace AS n ON n.oid = c.relnamespace
-        WHERE n.nspname = 'orders'
-          AND c.relname IN ('order_drafts', 'order_draft_lines', 'command_receipts')
+        WHERE ((n.nspname = 'orders'
+                AND c.relname IN ('order_drafts', 'order_draft_lines', 'command_receipts'))
+            OR (n.nspname = 'customers'
+                AND c.relname IN ('organizations', 'programs', 'organization_receipts', 'program_receipts')))
           AND (NOT c.relrowsecurity OR NOT c.relforcerowsecurity)) THEN
-        RAISE EXCEPTION 'Orders tenant tables must have forced row level security';
+        RAISE EXCEPTION 'Tenant-owned runtime tables must have forced row level security';
     END IF;
 
     EXECUTE format('GRANT CONNECT ON DATABASE %I TO %I', current_database(), runtime_role);
-    FOREACH target_schema IN ARRAY ARRAY['identity_access', 'tenancy', 'orders'] LOOP
+    FOREACH target_schema IN ARRAY ARRAY['identity_access', 'tenancy', 'customers', 'orders'] LOOP
         EXECUTE format('GRANT USAGE ON SCHEMA %I TO %I', target_schema, runtime_role);
     END LOOP;
     FOREACH target_table IN ARRAY ARRAY[
@@ -57,6 +60,8 @@ BEGIN
         EXECUTE format('GRANT SELECT ON TABLE %s TO %I', target_table, runtime_role);
     END LOOP;
     FOREACH target_table IN ARRAY ARRAY[
+        'customers.organizations', 'customers.programs',
+        'customers.organization_receipts', 'customers.program_receipts',
         'orders.order_drafts', 'orders.order_draft_lines', 'orders.command_receipts'] LOOP
         EXECUTE format('GRANT SELECT, INSERT ON TABLE %s TO %I', target_table, runtime_role);
     END LOOP;
@@ -77,7 +82,7 @@ BEGIN
        OR has_database_privilege(runtime_role, current_database(), 'CREATE') THEN
         RAISE EXCEPTION 'CoreApi runtime database privileges are unsafe';
     END IF;
-    FOREACH target_schema IN ARRAY ARRAY['identity_access', 'tenancy', 'orders'] LOOP
+    FOREACH target_schema IN ARRAY ARRAY['identity_access', 'tenancy', 'customers', 'orders'] LOOP
         IF NOT has_schema_privilege(runtime_role, target_schema, 'USAGE')
            OR has_schema_privilege(runtime_role, target_schema, 'CREATE') THEN
             RAISE EXCEPTION 'CoreApi runtime schema privileges are unsafe';
@@ -91,17 +96,19 @@ BEGIN
         JOIN pg_attribute AS a ON a.attrelid = c.oid
         WHERE ((n.nspname = 'identity_access' AND c.relname IN ('accounts', 'external_identity_bindings'))
             OR (n.nspname = 'tenancy' AND c.relname IN ('tenants', 'memberships'))
+            OR (n.nspname = 'customers' AND c.relname IN (
+                'organizations', 'programs', 'organization_receipts', 'program_receipts'))
             OR (n.nspname = 'orders' AND c.relname IN ('order_drafts', 'order_draft_lines', 'command_receipts')))
           AND a.attnum > 0 AND NOT a.attisdropped
     LOOP
         target_table := format('%I.%I', target_column.schema_name, target_column.table_name);
         IF NOT has_column_privilege(runtime_role, target_table, target_column.column_name, 'SELECT')
-           OR (target_column.schema_name = 'orders'
+           OR (target_column.schema_name IN ('customers', 'orders')
                AND NOT has_column_privilege(runtime_role, target_table, target_column.column_name, 'INSERT'))
-           OR (target_column.schema_name <> 'orders'
+           OR (target_column.schema_name NOT IN ('customers', 'orders')
                AND (has_column_privilege(runtime_role, target_table, target_column.column_name, 'INSERT')
                     OR has_column_privilege(runtime_role, target_table, target_column.column_name, 'UPDATE')))
-           OR (target_column.schema_name = 'orders'
+           OR (target_column.schema_name IN ('customers', 'orders')
                AND has_column_privilege(runtime_role, target_table, target_column.column_name, 'UPDATE')
                    <> (target_column.table_name = 'order_drafts'
                        AND target_column.column_name IN (
@@ -113,6 +120,8 @@ BEGIN
     FOREACH target_table IN ARRAY ARRAY[
         'identity_access.accounts', 'identity_access.external_identity_bindings',
         'tenancy.tenants', 'tenancy.memberships',
+        'customers.organizations', 'customers.programs',
+        'customers.organization_receipts', 'customers.program_receipts',
         'orders.order_drafts', 'orders.order_draft_lines', 'orders.command_receipts'] LOOP
         IF has_table_privilege(runtime_role, target_table, 'DELETE')
            OR has_table_privilege(runtime_role, target_table, 'TRUNCATE')

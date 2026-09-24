@@ -10,7 +10,7 @@ Consequential business-term meaning and disputed vocabulary are owned by `docs/d
 
 Do not hardcode one currency throughout business logic.
 
-The v0.0.15 requirement is simply:
+The v0.1.0 requirement is simply:
 
 ```text
 Tenant.DefaultCurrencyCode
