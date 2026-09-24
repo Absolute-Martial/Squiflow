@@ -1,8 +1,10 @@
-using Application.Branding;
+namespace Application.Branding;
 
-namespace Application.CoreApi;
-
-internal sealed class BrandingConfiguration
+/// <summary>
+/// Deployment-supplied public identity values. Validation is performed by BrandProfile,
+/// which is the presentation-safe contract exposed to clients.
+/// </summary>
+public sealed class BrandingConfiguration
 {
     public const string SectionName = "Branding";
 
@@ -24,8 +26,6 @@ internal sealed class BrandingConfiguration
 
     public string TermsUrl { get; init; } = string.Empty;
 
-    public int? CacheMaxAgeSeconds { get; init; }
-
     public BrandProfile ToProfile() => BrandProfile.Create(
         DisplayName,
         ShortName,
@@ -36,15 +36,4 @@ internal sealed class BrandingConfiguration
         SupportUrl,
         PrivacyUrl,
         TermsUrl);
-
-    public int GetCacheMaxAgeSeconds()
-    {
-        if (CacheMaxAgeSeconds is < 0 or > 86_400 || CacheMaxAgeSeconds is null)
-        {
-            throw new InvalidOperationException(
-                $"{SectionName}:CacheMaxAgeSeconds must be an integer between 0 and 86400 seconds.");
-        }
-
-        return CacheMaxAgeSeconds.Value;
-    }
 }

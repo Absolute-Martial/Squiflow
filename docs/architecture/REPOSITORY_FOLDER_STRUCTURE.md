@@ -74,18 +74,24 @@ SquiFlow/
 │   ├── identity-access/
 │   │   ├── Application.IdentityAccess/
 │   │   └── Application.IdentityAccess.Postgres/
+│   │       ├── Composition/
 │   │       ├── Migrations/
+│   │       ├── Persistence/
 │   │       └── Properties/
 │   ├── orders/
 │   │   ├── Application.Orders/
 │   │   └── Application.Orders.Postgres/
+│   │       ├── Composition/
 │   │       ├── Migrations/
+│   │       ├── Persistence/
 │   │       ├── Properties/
 │   │       └── Sql/
 │   └── tenancy/
 │       ├── Application.Tenancy/
 │       └── Application.Tenancy.Postgres/
+│           ├── Composition/
 │           ├── Migrations/
+│           ├── Persistence/
 │           └── Properties/
 ├── reference-sources/
 ├── services/

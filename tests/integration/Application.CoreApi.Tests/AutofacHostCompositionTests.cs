@@ -6,6 +6,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using Application.IdentityAccess;
 using Application.IdentityAccess.Postgres;
+using Application.Orders;
+using Application.Orders.Postgres;
 using Application.Tenancy;
 using Application.Tenancy.Postgres;
 using Xunit;
@@ -87,6 +89,8 @@ public sealed class AutofacHostCompositionTests : IClassFixture<WhiteLabelApiFac
             .GetRequiredService<IdentityAccessDbContext>();
         var firstTenancy = firstScope.ServiceProvider
             .GetRequiredService<TenancyDbContext>();
+        var firstOrders = firstScope.ServiceProvider
+            .GetRequiredService<OrderDbContext>();
 
         Assert.Same(
             firstIdentity,
@@ -95,11 +99,21 @@ public sealed class AutofacHostCompositionTests : IClassFixture<WhiteLabelApiFac
             firstTenancy,
             firstScope.ServiceProvider.GetRequiredService<TenancyDbContext>());
         Assert.Same(
+            firstOrders,
+            firstScope.ServiceProvider.GetRequiredService<OrderDbContext>());
+        Assert.Same(
             firstScope.ServiceProvider.GetRequiredService<IAccountBindingDirectory>(),
             firstScope.ServiceProvider.GetRequiredService<IAccountBindingDirectory>());
         Assert.Same(
             firstScope.ServiceProvider.GetRequiredService<ITenantMembershipDirectory>(),
             firstScope.ServiceProvider.GetRequiredService<ITenantMembershipDirectory>());
+        Assert.Same(
+            firstScope.ServiceProvider.GetRequiredService<IOrderDraftStore>(),
+            firstScope.ServiceProvider.GetRequiredService<IOrderDraftStore>());
+        Assert.NotNull(firstScope.ServiceProvider.GetRequiredService<CreateOrderDraft>());
+        Assert.NotNull(firstScope.ServiceProvider.GetRequiredService<GetOrderDraft>());
+        Assert.NotNull(firstScope.ServiceProvider.GetRequiredService<ListOrderDrafts>());
+        Assert.NotNull(firstScope.ServiceProvider.GetRequiredService<AbandonOrderDraft>());
 
         using (var secondScope = application.Services.CreateScope())
         {
@@ -109,11 +123,15 @@ public sealed class AutofacHostCompositionTests : IClassFixture<WhiteLabelApiFac
             Assert.NotSame(
                 firstTenancy,
                 secondScope.ServiceProvider.GetRequiredService<TenancyDbContext>());
+            Assert.NotSame(
+                firstOrders,
+                secondScope.ServiceProvider.GetRequiredService<OrderDbContext>());
         }
 
         firstScope.Dispose();
         Assert.Throws<ObjectDisposedException>(() => firstIdentity.SaveChanges());
         Assert.Throws<ObjectDisposedException>(() => firstTenancy.SaveChanges());
+        Assert.Throws<ObjectDisposedException>(() => firstOrders.SaveChanges());
     }
 
     private sealed class ScopedProbe : IDisposable

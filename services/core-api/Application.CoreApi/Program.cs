@@ -15,16 +15,19 @@ using Application.Tenancy;
 var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseServiceProviderFactory(new AutofacServiceProviderFactory());
 
-var brandingConfiguration = builder.Configuration
-    .GetRequiredSection(BrandingConfiguration.SectionName)
+var brandingSection = builder.Configuration.GetRequiredSection(BrandingConfiguration.SectionName);
+var brandingConfiguration = brandingSection
     .Get<BrandingConfiguration>()
     ?? throw new InvalidOperationException("The Branding configuration section is required.");
+var bootstrapCacheConfiguration = brandingSection
+    .Get<BootstrapCacheConfiguration>()
+    ?? throw new InvalidOperationException("The Branding bootstrap cache policy is required.");
 var authenticationConfiguration = OidcAuthenticationConfiguration.From(builder.Configuration);
 var openFgaAuthorizationConfiguration = OpenFgaAuthorizationConfiguration.From(builder.Configuration);
 var databaseConfiguration = RuntimeDatabaseConfiguration.From(builder.Configuration);
 RequestHostConfiguration.Validate(builder.Configuration);
 var brandProfile = brandingConfiguration.ToProfile();
-var bootstrapCacheMaxAgeSeconds = brandingConfiguration.GetCacheMaxAgeSeconds();
+var bootstrapCacheMaxAgeSeconds = bootstrapCacheConfiguration.GetCacheMaxAgeSeconds();
 
 builder.Services.AddSingleton(brandProfile);
 builder.Services.AddCoreApiAuthorization(openFgaAuthorizationConfiguration);

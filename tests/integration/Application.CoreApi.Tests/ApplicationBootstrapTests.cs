@@ -77,7 +77,7 @@ public sealed class ApplicationBootstrapTests : IClassFixture<WhiteLabelApiFacto
     [InlineData(86401)]
     public void InvalidBootstrapCachePolicyFailsConfiguration(int? seconds)
     {
-        var configuration = new BrandingConfiguration { CacheMaxAgeSeconds = seconds };
+        var configuration = new BootstrapCacheConfiguration { CacheMaxAgeSeconds = seconds };
 
         Assert.Throws<InvalidOperationException>(() => configuration.GetCacheMaxAgeSeconds());
     }

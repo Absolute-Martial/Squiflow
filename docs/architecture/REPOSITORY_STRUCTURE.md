@@ -101,6 +101,8 @@ modules/orders/
 `- Application.Orders.Postgres/
 ```
 
+The current PostgreSQL adapters use `Composition/` for their runtime registration and separate migration contribution, `Persistence/` for their DbContext, options and data access, and `Migrations/` for owned EF history. Orders also has `Sql/` for its embedded queries. These folders contain current code. Separate `Commands/`, `Queries/`, `Mapping/` or `DependencyInjection/` folders are not required where the present files do not form those independent groups. Branding's public configuration values and validation live in `Application.Branding`; CoreApi retains its HTTP bootstrap-cache policy and routing.
+
 A Workstation adapter is created when actual Workstation-specific presentation/local execution/platform code exists.
 
 ## 5. Earned Core/Server/Workstation split
@@ -200,7 +202,7 @@ The current enforceable repository conventions are deliberately short:
 | Boundary | Current owner and regression guard |
 |---|---|
 | Host-neutral capabilities cannot depend on hosts or provider packages; PostgreSQL adapters depend toward their owning capability. | `tests/architecture/Application.Architecture.Tests` checks project metadata and solution membership. |
-| Module SQL and migrations stay in their PostgreSQL adapter; the migrator selects known migration modules explicitly. | Adapter integration tests exercise schema and SQL; `MigrationRegistryTests` compares migration-owning projects with the ordered registry. |
+| Module SQL, runtime registration and migrations stay in their PostgreSQL adapter; the migrator selects known migration modules explicitly. | CoreApi composition tests exercise module registrations; adapter integration tests exercise schema and SQL; `MigrationRegistryTests` compares migration-owning projects with the ordered registry. |
 | CoreApi serves requests; DatabaseMigrator runs once with a separate schema credential and advisory lock. | `Program.cs` leaves middleware ordering visible; migrator process tests cover lock contention and documented exit code. Deployment identity separation is described in the operations owner. |
 | Runtime database rights are restricted to current queries and mutations. | `deploy/database/` owns the role-grant artifact; real PostgreSQL tests exercise allowed and forbidden statements. |
 
