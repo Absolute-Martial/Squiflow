@@ -9,9 +9,9 @@
 ## Current inventory
 
 ```text
-production projects: 12
-test projects:       12
-executable hosts:    2
+production projects: 16
+test projects:       15
+executable hosts:    4
 solution files:      1
 repository build/test contract: present
 active runtime responsibilities: public application bootstrap; classified OpenAPI v1 description; JWT access-token validation; authenticated account resolution; tenant membership listing/context resolution; Finbuckle route-candidate resolution; pinned-model OpenFGA tenant-workspace, customer organization/program and distinct order create/view/edit/abandon permissions; account/tenancy/customer/order-draft persistence; liveness and bounded dependency readiness; Autofac root composition; bounded dormant tenant-keyed profile-runtime mechanics; ordered one-shot DB migration

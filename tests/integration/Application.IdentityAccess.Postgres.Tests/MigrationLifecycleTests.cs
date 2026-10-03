@@ -20,6 +20,7 @@ public sealed class MigrationLifecycleTests : PostgresTestDatabase
         var before = await runner.ListPendingAsync(CancellationToken.None);
         Assert.Contains("identity-access/202609170001_InitialAccountBindings", before);
         Assert.Contains("tenancy/202609170002_InitialTenancy", before);
+        Assert.Contains("platform-administration/202610020001_InitialPlatformAdministration", before);
         Assert.Contains("orders/202609220001_InitialOrderDrafts", before);
         Assert.Contains("orders/202609230001_OrderDraftBrowseIndex", before);
         Assert.Contains("orders/202609230002_OrderDraftAbandonment", before);

@@ -8,16 +8,22 @@
     <Project Path="modules/identity-access/Application.IdentityAccess/Application.IdentityAccess.csproj" />
     <Project Path="modules/orders/Application.Orders.Postgres/Application.Orders.Postgres.csproj" />
     <Project Path="modules/orders/Application.Orders/Application.Orders.csproj" />
+    <Project Path="modules/platform-administration/Application.PlatformAdministration.Postgres/Application.PlatformAdministration.Postgres.csproj" />
+    <Project Path="modules/platform-administration/Application.PlatformAdministration/Application.PlatformAdministration.csproj" />
     <Project Path="modules/tenancy/Application.Tenancy.Postgres/Application.Tenancy.Postgres.csproj" />
     <Project Path="modules/tenancy/Application.Tenancy/Application.Tenancy.csproj" />
   </Folder>
   <Folder Name="/services/">
+    <Project Path="services/admin-api/Application.AdminApi/Application.AdminApi.csproj" />
     <Project Path="services/core-api/Application.CoreApi/Application.CoreApi.csproj" />
+    <Project Path="services/admin-bootstrap/Application.AdminBootstrap/Application.AdminBootstrap.csproj" />
     <Project Path="services/db-migrator/Application.DatabaseMigrator/Application.DatabaseMigrator.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/architecture/Application.Architecture.Tests/Application.Architecture.Tests.csproj" />
+    <Project Path="tests/integration/Application.AdminApi.Tests/Application.AdminApi.Tests.csproj" />
     <Project Path="tests/integration/Application.CoreApi.Tests/Application.CoreApi.Tests.csproj" />
+    <Project Path="tests/integration/Application.AdminBootstrap.Tests/Application.AdminBootstrap.Tests.csproj" />
     <Project Path="tests/integration/Application.Customers.Postgres.Tests/Application.Customers.Postgres.Tests.csproj" />
     <Project Path="tests/integration/Application.IdentityAccess.Postgres.Tests/Application.IdentityAccess.Postgres.Tests.csproj" />
     <Project Path="tests/integration/Application.Orders.Postgres.Tests/Application.Orders.Postgres.Tests.csproj" />
@@ -28,5 +34,6 @@
     <Project Path="tests/unit/Application.IdentityAccess.Tests/Application.IdentityAccess.Tests.csproj" />
     <Project Path="tests/unit/Application.Tenancy.Tests/Application.Tenancy.Tests.csproj" />
     <Project Path="tests/unit/Application.Orders.Tests/Application.Orders.Tests.csproj" />
+    <Project Path="tests/unit/Application.PlatformAdministration.Tests/Application.PlatformAdministration.Tests.csproj" />
   </Folder>
 </Solution>

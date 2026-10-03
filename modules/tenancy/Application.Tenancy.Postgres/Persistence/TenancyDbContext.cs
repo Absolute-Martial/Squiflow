@@ -9,6 +9,8 @@ public sealed class TenancyDbContext(DbContextOptions<TenancyDbContext> options)
 
     internal DbSet<TenantMembershipRow> Memberships => Set<TenantMembershipRow>();
 
+    internal DbSet<TenantProvisioningReceiptRow> ProvisioningReceipts => Set<TenantProvisioningReceiptRow>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         ArgumentNullException.ThrowIfNull(modelBuilder);
@@ -54,6 +56,47 @@ public sealed class TenancyDbContext(DbContextOptions<TenancyDbContext> options)
             entity.HasIndex(membership => new { membership.AccountId, membership.Availability })
                 .HasDatabaseName("ix_memberships_account_id_availability");
         });
+
+        modelBuilder.Entity<TenantProvisioningReceiptRow>(entity =>
+        {
+            entity.ToTable("tenant_provisioning_receipts", table =>
+            {
+                table.HasCheckConstraint(
+                    "ck_tenant_provisioning_receipts_idempotency_key_not_blank",
+                    "btrim(idempotency_key) <> ''");
+                table.HasCheckConstraint(
+                    "ck_tenant_provisioning_receipts_request_fingerprint",
+                    "request_fingerprint ~ '^[0-9A-F]{64}$'");
+                table.HasCheckConstraint(
+                    "ck_tenant_provisioning_receipts_display_name_not_blank",
+                    "btrim(display_name) <> ''");
+            });
+            entity.HasKey(receipt => new { receipt.ProvisionedByPrincipalId, receipt.IdempotencyKey })
+                .HasName("pk_tenant_provisioning_receipts");
+            entity.Property(receipt => receipt.ProvisionedByPrincipalId)
+                .HasColumnName("provisioned_by_principal_id");
+            entity.Property(receipt => receipt.IdempotencyKey)
+                .HasMaxLength(TenantProvisioningIntent.IdempotencyKeyLimit)
+                .HasColumnName("idempotency_key");
+            entity.Property(receipt => receipt.RequestFingerprint)
+                .HasMaxLength(64)
+                .HasColumnName("request_fingerprint");
+            entity.Property(receipt => receipt.TenantId).HasColumnName("tenant_id");
+            entity.Property(receipt => receipt.DisplayName)
+                .HasMaxLength(TenantProvisioningIntent.DisplayNameLimit)
+                .HasColumnName("display_name");
+            entity.Property(receipt => receipt.ProvisionedByDeviceId)
+                .HasColumnName("provisioned_by_device_id");
+            entity.Property(receipt => receipt.ActivatedAt).HasColumnName("activated_at");
+            entity.HasIndex(receipt => receipt.TenantId)
+                .IsUnique()
+                .HasDatabaseName("ux_tenant_provisioning_receipts_tenant_id");
+            entity.HasOne<TenantRow>()
+                .WithMany()
+                .HasForeignKey(receipt => receipt.TenantId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("fk_tenant_provisioning_receipts_tenants_tenant_id");
+        });
     }
 }
 
@@ -81,4 +124,21 @@ internal sealed class TenantMembershipRow
     public DateTimeOffset CreatedAt { get; set; }
 
     public DateTimeOffset? SuspendedAt { get; set; }
+}
+
+internal sealed class TenantProvisioningReceiptRow
+{
+    public Guid ProvisionedByPrincipalId { get; set; }
+
+    public string IdempotencyKey { get; set; } = string.Empty;
+
+    public string RequestFingerprint { get; set; } = string.Empty;
+
+    public Guid TenantId { get; set; }
+
+    public string DisplayName { get; set; } = string.Empty;
+
+    public Guid ProvisionedByDeviceId { get; set; }
+
+    public DateTimeOffset ActivatedAt { get; set; }
 }

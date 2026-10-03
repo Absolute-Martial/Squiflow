@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="OpenFga.Sdk" />
+    <PackageReference Include="Testcontainers" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../services/admin-api/Application.AdminApi/Application.AdminApi.csproj" />
+    <ProjectReference Include="../../../modules/identity-access/Application.IdentityAccess.Postgres/Application.IdentityAccess.Postgres.csproj" />
+    <ProjectReference Include="../../../modules/platform-administration/Application.PlatformAdministration.Postgres/Application.PlatformAdministration.Postgres.csproj" />
+    <ProjectReference Include="../../../modules/tenancy/Application.Tenancy.Postgres/Application.Tenancy.Postgres.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="../../../infrastructure/authorization/openfga/platform-authorization-model.json"
+             Link="OpenFga/platform-authorization-model.json"
+             CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

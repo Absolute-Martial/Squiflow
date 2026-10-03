@@ -1,0 +1,11 @@
+\set ON_ERROR_STOP on
+\if :{?runtime_role}
+\else
+\echo 'Pass an existing Admin API role with -v runtime_role=...'
+DO $$ BEGIN RAISE EXCEPTION 'Admin API runtime role was not supplied'; END $$;
+\endif
+
+BEGIN;
+SELECT set_config('app.provision_admin_api_role', :'runtime_role', true);
+\ir grant-admin-api.sql
+COMMIT;

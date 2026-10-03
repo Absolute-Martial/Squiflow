@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../../identity-access/Application.IdentityAccess/Application.IdentityAccess.csproj" />
+  </ItemGroup>
+</Project>

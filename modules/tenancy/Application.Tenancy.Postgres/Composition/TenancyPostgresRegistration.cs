@@ -14,7 +14,9 @@ public static class TenancyPostgresRegistration
                 options,
                 serviceProvider.GetRequiredService<NpgsqlDataSource>()));
         services.AddScoped<ITenantMembershipDirectory, PostgresTenantMembershipDirectory>();
+        services.AddScoped<ITenantProvisioningStore, PostgresTenantProvisioningStore>();
         services.AddScoped<ResolveTenantContext>();
+        services.AddScoped<ProvisionTenant>();
 
         return services;
     }

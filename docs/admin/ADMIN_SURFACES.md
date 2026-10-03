@@ -111,6 +111,47 @@ platform authorization
 Platform Admin Web/API
 ```
 
+### Initial Platform Admin bootstrap and registered-device proof
+
+The initial Platform Admin authority is established by an explicit **one-time private
+infrastructure bootstrap ceremony**. It is not created by the first person who signs in,
+and ordinary tenant/Core API surfaces never expose a `create first admin` compatibility
+route.
+
+The bootstrap inputs are deliberately narrow:
+
+- the exact administrator ZITADEL/OIDC `(issuer, subject)` identity;
+- one generated SquiFlow platform-principal identity used as the opaque OpenFGA subject;
+- the first registered Admin device's X.509 certificate SHA-256 fingerprint and safe
+  operator-facing device name;
+- one caller-supplied idempotency key so an interrupted bootstrap can be resumed safely;
+- the explicitly configured platform OpenFGA store and pinned authorization-model ID.
+
+The one-time bootstrap path is an infrastructure executable/operation, not an HTTP API.
+It durably prepares local bootstrap state before attempting the external OpenFGA write,
+then marks bootstrap complete only after the configured model confirms the required
+platform-administrator relation. A process crash, response loss or provider timeout may
+leave a reconcilable `PendingAuthorization` bootstrap; rerunning the **same** bootstrap
+intent resumes it. A different bootstrap intent after preparation/completion fails closed
+instead of silently replacing the initial authority.
+
+Registered Admin-device proof initially uses **mTLS client certificates**. SquiFlow stores
+only the normalized certificate SHA-256 fingerprint and device lifecycle metadata; the
+private key remains device-held and should be non-exportable/TPM-backed where the supported
+Windows deployment permits it. The certificate proves the registered device only. It does
+not encode user permissions and does not replace ZITADEL identity, platform OpenFGA
+authorization, private-network admission, step-up authentication, JIT elevation,
+independent approval or authoritative audit.
+
+Tailscale/private ingress continues to answer only "may this connection reach the Admin
+plane?" It never answers "is this caller a Platform Administrator?" Normal protected Admin
+access therefore requires all implemented gates independently: approved private ingress,
+an active registered device credential, the authenticated administrator identity and the
+current platform authorization decision.
+
+Loss of the normal Admin path does not reopen bootstrap. Recovery uses the separately
+controlled break-glass/infrastructure recovery procedure described below.
+
 Cryptographically sensitive/high-risk operations additionally require the configured step-up, physical security/recovery factor, JIT/time-bounded elevation and/or independent approval according to risk.
 
 Detailed network owner: `docs/operations/PRIVATE_ADMIN_NETWORK_AND_PODMAN.md`.

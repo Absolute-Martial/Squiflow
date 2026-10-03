@@ -1,0 +1,48 @@
+{
+  "schema_version": "1.1",
+  "type_definitions": [
+    {
+      "type": "user",
+      "relations": {},
+      "metadata": {
+        "relations": {}
+      }
+    },
+    {
+      "type": "platform",
+      "relations": {
+        "administrator": {
+          "this": {}
+        },
+        "can_access_admin": {
+          "computedUserset": {
+            "relation": "administrator"
+          }
+        },
+        "can_provision_tenant": {
+          "computedUserset": {
+            "relation": "administrator"
+          }
+        }
+      },
+      "metadata": {
+        "relations": {
+          "administrator": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
+          },
+          "can_access_admin": {
+            "directly_related_user_types": []
+          },
+          "can_provision_tenant": {
+            "directly_related_user_types": []
+          }
+        }
+      }
+    }
+  ],
+  "conditions": {}
+}

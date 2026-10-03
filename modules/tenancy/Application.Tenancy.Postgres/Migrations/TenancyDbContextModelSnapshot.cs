@@ -11,6 +11,51 @@ partial class TenancyDbContextModelSnapshot : ModelSnapshot
     protected override void BuildModel(ModelBuilder modelBuilder)
     {
         TenancyModel.Build(modelBuilder);
+        TenantProvisioningReceiptModelV202610030002.Build(modelBuilder);
+    }
+}
+
+internal static class TenantProvisioningReceiptModelV202610030002
+{
+    internal static void Build(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity("Application.Tenancy.Postgres.TenantProvisioningReceiptRow", entity =>
+        {
+            entity.Property<Guid>("ProvisionedByPrincipalId")
+                .HasColumnType("uuid").HasColumnName("provisioned_by_principal_id");
+            entity.Property<string>("IdempotencyKey").IsRequired().HasMaxLength(200)
+                .HasColumnType("character varying(200)").HasColumnName("idempotency_key");
+            entity.Property<string>("RequestFingerprint").IsRequired().HasMaxLength(64)
+                .HasColumnType("character varying(64)").HasColumnName("request_fingerprint");
+            entity.Property<Guid>("TenantId").HasColumnType("uuid").HasColumnName("tenant_id");
+            entity.Property<string>("DisplayName").IsRequired().HasMaxLength(200)
+                .HasColumnType("character varying(200)").HasColumnName("display_name");
+            entity.Property<Guid>("ProvisionedByDeviceId")
+                .HasColumnType("uuid").HasColumnName("provisioned_by_device_id");
+            entity.Property<DateTimeOffset>("ActivatedAt")
+                .HasColumnType("timestamp with time zone").HasColumnName("activated_at");
+            entity.HasKey("ProvisionedByPrincipalId", "IdempotencyKey")
+                .HasName("pk_tenant_provisioning_receipts");
+            entity.HasIndex("TenantId").IsUnique()
+                .HasDatabaseName("ux_tenant_provisioning_receipts_tenant_id");
+            entity.ToTable("tenant_provisioning_receipts", "tenancy", table =>
+            {
+                table.HasCheckConstraint("ck_tenant_provisioning_receipts_idempotency_key_not_blank",
+                    "btrim(idempotency_key) <> ''");
+                table.HasCheckConstraint("ck_tenant_provisioning_receipts_request_fingerprint",
+                    "request_fingerprint ~ '^[0-9A-F]{64}$'");
+                table.HasCheckConstraint("ck_tenant_provisioning_receipts_display_name_not_blank",
+                    "btrim(display_name) <> ''");
+            });
+        });
+
+        modelBuilder.Entity("Application.Tenancy.Postgres.TenantProvisioningReceiptRow", entity =>
+        {
+            entity.HasOne("Application.Tenancy.Postgres.TenantRow", null)
+                .WithMany().HasForeignKey("TenantId")
+                .OnDelete(DeleteBehavior.Restrict).IsRequired()
+                .HasConstraintName("fk_tenant_provisioning_receipts_tenants_tenant_id");
+        });
     }
 }
 

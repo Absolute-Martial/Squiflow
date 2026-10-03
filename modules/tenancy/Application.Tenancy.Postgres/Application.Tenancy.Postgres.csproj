@@ -13,4 +13,7 @@
   <ItemGroup>
     <ProjectReference Include="../Application.Tenancy/Application.Tenancy.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Sql/*.sql" LogicalName="Application.Tenancy.Postgres.Sql.%(Filename)%(Extension)" />
+  </ItemGroup>
 </Project>
