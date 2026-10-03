@@ -13,8 +13,7 @@ internal static class CoreApiPersistenceRegistration
         RuntimeDatabaseConfiguration configuration)
     {
         services.AddSingleton(configuration);
-        services.AddSingleton<NpgsqlDataSource>(serviceProvider =>
-            configuration.CreateDataSource(serviceProvider.GetRequiredService<ILoggerFactory>()));
+        services.AddSingleton<NpgsqlDataSource>(_ => configuration.CreateDataSource());
 
         services.AddIdentityAccessPostgres();
         services.AddTenancyPostgres();

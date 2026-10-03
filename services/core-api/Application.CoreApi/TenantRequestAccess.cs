@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Application.CoreApi.Composition;
 using Finbuckle.MultiTenant.Abstractions;
 using Finbuckle.MultiTenant.AspNetCore.Extensions;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -39,11 +40,21 @@ internal static class TenantRequestAccess
             account.Account!.AccountId,
             tenantId,
             cancellationToken);
-        return tenantContext is null
-            ? TenantRequestAccessResult.Denied(Problem(
-                "tenant_access_denied",
-                "The requested tenant is not available to this account."))
-            : TenantRequestAccessResult.Allowed(tenantContext);
+        if (tenantContext is null)
+            return TenantRequestAccessResult.Denied(Problem(
+                "tenant_access_denied", "The requested tenant is not available to this account."));
+
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!httpContext.RequestServices.GetRequiredService<TenantRequestAdmission>().TryEnter(tenantContext.TenantId))
+            return TenantRequestAccessResult.Denied(TypedResults.Problem(
+                statusCode: StatusCodes.Status429TooManyRequests,
+                title: "The tenant is at its concurrent request limit.",
+                extensions: new Dictionary<string, object?>
+                {
+                    ["code"] = "tenant_capacity_exceeded",
+                    ["traceId"] = httpContext.TraceIdentifier,
+                }));
+        return TenantRequestAccessResult.Allowed(tenantContext);
     }
 
     internal static ProblemHttpResult Problem(string code, string detail) =>

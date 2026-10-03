@@ -16,6 +16,24 @@ public sealed class OpenApiContractTests : IClassFixture<WhiteLabelApiFactory>
     }
 
     [Fact]
+    public async Task ProtectedOperationsDescribeUnhandledFailureResponses()
+    {
+        using var response = await _client.GetAsync("/openapi/v1.json");
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var operations = document.RootElement.GetProperty("paths").EnumerateObject()
+            .SelectMany(path => path.Value.EnumerateObject())
+            .Where(operation => operation.Value.TryGetProperty("security", out _))
+            .ToArray();
+        Assert.NotEmpty(operations);
+        foreach (var operation in operations)
+        {
+            var responses = operation.Value.GetProperty("responses");
+            Assert.True(responses.TryGetProperty("500", out _));
+            Assert.True(responses.TryGetProperty("503", out _));
+        }
+    }
+
+    [Fact]
     public async Task DocumentUsesConfiguredPublicIdentityAndOpenIdConnectAuthority()
     {
         using var response = await _client.GetAsync("/openapi/v1.json");

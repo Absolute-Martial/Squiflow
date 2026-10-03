@@ -46,6 +46,8 @@ public sealed class AuthenticatedAccountTests : IClassFixture<WhiteLabelApiFacto
         Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
         Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
         Assert.DoesNotContain("Synthetic account binding failure", await response.Content.ReadAsStringAsync());
+        using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal("internal_error", problem.RootElement.GetProperty("code").GetString());
     }
 
     [Fact]

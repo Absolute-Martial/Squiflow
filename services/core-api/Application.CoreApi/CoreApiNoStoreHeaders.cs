@@ -6,11 +6,7 @@ internal static class CoreApiNoStoreHeaders
     {
         return app.Use(async (context, next) =>
         {
-            if (context.GetEndpoint()?.Metadata.GetMetadata<EndpointAccessMetadata>() is { } metadata
-                && metadata.Access is not EndpointAccess.PublicApplicationBootstrap
-                and not EndpointAccess.PublicApiDescription
-                and not EndpointAccess.PublicLiveness
-                and not EndpointAccess.PublicReadiness)
+            if (context.GetEndpoint()?.Metadata.GetMetadata<EndpointAccessMetadata>() is { IsProtected: true })
             {
                 context.Response.OnStarting(static state =>
                 {

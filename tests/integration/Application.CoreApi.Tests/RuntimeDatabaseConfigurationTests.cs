@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 using Npgsql;
 using Xunit;
 
@@ -25,8 +24,7 @@ public sealed class RuntimeDatabaseConfigurationTests
             });
 
         var validated = RuntimeDatabaseConfiguration.From(configuration);
-        using var loggerFactory = LoggerFactory.Create(_ => { });
-        using var dataSource = validated.CreateDataSource(loggerFactory);
+        using var dataSource = validated.CreateDataSource();
         var effective = new NpgsqlConnectionStringBuilder(dataSource.ConnectionString);
 
         Assert.True(effective.Pooling);

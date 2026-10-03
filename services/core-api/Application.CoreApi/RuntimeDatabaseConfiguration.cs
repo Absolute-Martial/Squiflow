@@ -127,10 +127,8 @@ internal sealed class RuntimeDatabaseConfiguration
             commandTimeout);
     }
 
-    internal NpgsqlDataSource CreateDataSource(ILoggerFactory loggerFactory)
+    internal NpgsqlDataSource CreateDataSource()
     {
-        ArgumentNullException.ThrowIfNull(loggerFactory);
-
         var connection = new NpgsqlConnectionStringBuilder(_connectionString)
         {
             Pooling = true,
@@ -151,7 +149,9 @@ internal sealed class RuntimeDatabaseConfiguration
         {
             Name = PoolName,
         };
-        builder.UseLoggerFactory(loggerFactory);
+        // Native command logs include SQL and provider exception text even without parameters.
+        // Retain native pool metrics; the HTTP host owns safe failure events instead.
+        builder.UseLoggerFactory(Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
         builder.EnableParameterLogging(false);
         return builder.Build();
     }
