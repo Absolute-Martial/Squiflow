@@ -35,6 +35,9 @@ internal interface ITenantCustomerAuthorization
     Task<bool> CanViewOrganizationsAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
     Task<bool> CanCreateProgramAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
     Task<bool> CanViewProgramsAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
+    Task<bool> CanCreateIndividualAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
+    Task<bool> CanViewIndividualsAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
+    Task<bool> CanChangeIndividualAvailabilityAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
 }
 
 internal sealed class OpenFgaTenantAuthorization(
@@ -57,6 +60,9 @@ internal sealed class OpenFgaTenantAuthorization(
     private const string ViewOrganizationsRelation = "can_view_organizations";
     private const string CreateProgramRelation = "can_create_program";
     private const string ViewProgramsRelation = "can_view_programs";
+    private const string CreateIndividualRelation = "can_create_individual";
+    private const string ViewIndividualsRelation = "can_view_individuals";
+    private const string ChangeIndividualAvailabilityRelation = "can_change_individual_availability";
     private static readonly Meter Meter = new("Application.CoreApi.Authorization", "0.1.0");
     private static readonly Counter<long> Decisions = Meter.CreateCounter<long>("application.authorization.decisions");
     private static readonly Histogram<double> Duration = Meter.CreateHistogram<double>(
@@ -136,6 +142,15 @@ internal sealed class OpenFgaTenantAuthorization(
 
     Task<bool> ITenantCustomerAuthorization.CanViewProgramsAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken) =>
         CheckAsync(accountId, tenantId, ViewProgramsRelation, cancellationToken);
+
+    Task<bool> ITenantCustomerAuthorization.CanCreateIndividualAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, CreateIndividualRelation, cancellationToken);
+
+    Task<bool> ITenantCustomerAuthorization.CanViewIndividualsAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, ViewIndividualsRelation, cancellationToken);
+
+    Task<bool> ITenantCustomerAuthorization.CanChangeIndividualAvailabilityAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, ChangeIndividualAvailabilityRelation, cancellationToken);
 
     private async Task<bool> CheckAsync(
         Guid accountId,

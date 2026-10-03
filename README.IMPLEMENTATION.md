@@ -8,26 +8,88 @@
 
 ## Current inventory
 
+The three count lines below are machine-read by `Application.Architecture.Tests` (`ReadCount` matches `^label: N$`). Keep each on its own line in exactly this form.
+
 ```text
 production projects: 16
 test projects:       15
 executable hosts:    4
 solution files:      1
 repository build/test contract: present
-active runtime responsibilities: public application bootstrap; classified OpenAPI v1 description; JWT access-token validation; authenticated account resolution; tenant membership listing/context resolution; Finbuckle route-candidate resolution; pinned-model OpenFGA tenant-workspace, customer organization/program and distinct order create/view/edit/abandon permissions; account/tenancy/customer/order-draft persistence; liveness and bounded dependency readiness; Autofac root composition; bounded dormant tenant-keyed profile-runtime mechanics; ordered one-shot DB migration
-active host-neutral responsibilities: bounded application-feature definition, dependency-graph validation and deterministic effective-selection compilation; immutable tenant-owned customer organization/program creation and queries; optional customer/program attribution on priced order-draft create/read/browse/revise/abandon; caller-scoped semantic idempotency
 BLOCKED: none
 ```
 
-The current solution contains compact host-neutral ApplicationProfiles, Branding, IdentityAccess, Tenancy, Customers and Orders capabilities, capability-owned PostgreSQL adapters, an ASP.NET Core CoreApi host, and a separate one-shot database migrator. ApplicationProfiles validates a bounded shipped feature graph and compiles an explicit request into a deterministic dependency-closed selection with stable catalog/selection fingerprints; it contains no production feature catalog or durable tenant profile authority. CoreApi uses Autofac as its root service provider while retaining standard `IServiceCollection` registrations. Its internal tenant-keyed profile-runtime registry proves bounded single-flight construction, operation-scoped tenant context, idle retirement, draining, disposal and metrics. Identical implementation fingerprints do not share one retained scope across tenants. No production endpoint acquires that registry. `GET /api/v1/application/bootstrap` exposes bounded public white-label identity. `GET /openapi/v1.json` exposes the current executable HTTP contract using the configured public brand rather than the repository codename; its configured OpenID Connect discovery scheme is attached only to operations that require authorization. The IdentityAccess schema durably binds one or more exact OIDC `(issuer, subject)` identities to a stable application account and deliberately stores no password, role or permission authority. `GET /api/v1/account` validates a configured HTTPS issuer, exact audience, signature and lifetime through ASP.NET Core JWT bearer authentication before returning an active bound account. `GET /api/v1/account/tenants` returns only current active tenant memberships for that account; the host-neutral resolver creates `TenantContext` only from the same current membership authority. `GET /api/v1/tenants/{tenantId}/workspace` uses Finbuckle route resolution only to capture the untrusted candidate, establishes the current account and membership-derived `TenantContext`, and then uses ASP.NET Core resource authorization plus OpenFGA to require the pinned model's persisted `workspace_viewer` relation. Customer organization/program create, detail and bounded browse routes are under `/api/v1/tenants/{tenantId}/customers/organizations`, with nested `/programs` routes; distinct pinned OpenFGA create/view permissions protect each resource after current membership. Order creation, detail, browse, revision and abandonment routes are `POST /api/v1/tenants/{tenantId}/orders`, `GET /api/v1/tenants/{tenantId}/orders/{orderId}`, `GET /api/v1/tenants/{tenantId}/orders`, `PUT /api/v1/tenants/{tenantId}/orders/{orderId}/draft`, and `POST /api/v1/tenants/{tenantId}/orders/{orderId}/abandon`. Each establishes the current account and `TenantContext`; OpenFGA checks distinct persisted `order_creator`, `order_viewer` (detail and browse), `order_editor`, or `order_abandoner` relations. Customer organization/program creates and Order create/revise/abandon use caller-scoped semantic idempotency keys. Order create and revise optionally accept a tenant-owned organization and its program, and detail/browse expose that attribution without treating it as legal billing authority. Browse is bounded newest-first keyset pagination with a versioned tenant-bound cursor and no count or text-search claim. Revision replaces the entire priced draft only while it is still a draft and the expected revision matches, increments revision and preserves earlier command receipts. Abandonment uses an expected revision for a one-way `draft` to `abandoned` transition, retains priced content and the original create receipt, records the abandoning account and authoritative timestamp, and increments the current revision; detail and browse expose current lifecycle state. It does not delete the draft or reverse financial, inventory or fulfillment effects. Orders persistence uses explicit tenant SQL predicates plus forced PostgreSQL RLS with transaction-local tenant context. OpenFGA receives verified membership only as a contextual tuple, uses opaque GUID-based tuple identifiers, checks with `HIGHER_CONSISTENCY`, and fails closed with a bounded safe `503` when the provider is unavailable.
+## What exists
 
-Liveness is dependency-free; readiness is a status-only, five-second single-flight cached check of primary PostgreSQL connectivity and read access to the configured OpenFGA model. It does not substitute for migration verification or an authorized business smoke journey.
+| Area | Projects | Current responsibility (declared narrow scope) |
+|---|---|---|
+| ApplicationProfiles | `Application.Profiles` | Bounded feature definition, dependency-graph validation and deterministic, dependency-closed effective-selection compilation with stable catalog/selection fingerprints. No production feature catalog and no durable tenant profile authority. |
+| Branding | `Application.Branding` | Validated, deployment-supplied public identity (name, legal identity, theme, links). No codename fallback. |
+| IdentityAccess | `Application.IdentityAccess`, `.Postgres` | Durable binding of one or more exact OIDC `(issuer, subject)` identities to a stable application account. Stores no password, role or permission authority. |
+| Tenancy | `Application.Tenancy`, `.Postgres` | Tenant registry, current account membership query, and the membership-derived immutable `TenantContext`. Owns no role or permission model. |
+| PlatformAdministration | `Application.PlatformAdministration`, `.Postgres` | One-time initial Platform Admin bootstrap authority: exact external administrator identity, registered Admin-device certificate fingerprint, resumable pending/completed authorization state and authoritative bootstrap audit. Ongoing Admin API/device/role lifecycle remains absent. |
+| Customers | `Application.Customers`, `.Postgres` | Immutable tenant-owned customer organizations and child programs: create, read and bounded browse; separate individual billing records: create/read and revision-checked active/inactive changes. Commands retain caller-scoped semantic idempotency. |
+| Orders | `Application.Orders`, `.Postgres` | Priced order drafts: create, read, bounded browse, full revision, one-way abandonment and direct commitment of immutable priced facts, with optional customer/program attribution and caller-scoped semantic idempotency. |
+| CoreApi | `Application.CoreApi` | ASP.NET Core host: HTTP contract, JWT validation, Finbuckle route-candidate capture, ASP.NET resource authorization with pinned-model OpenFGA checks, Autofac root composition, the shared bounded Npgsql data source, safe unhandled-failure responses, process-local protected-request and verified-tenant concurrency admission, health endpoints, and bounded dormant tenant-keyed profile-runtime mechanics. |
+| AdminBootstrap | `Application.AdminBootstrap` | One-shot private infrastructure executable. It prepares/reuses the durable bootstrap intent, writes the initial administrator relation to the explicitly pinned platform OpenFGA model with duplicate-safe semantics, confirms access at higher consistency, then marks local bootstrap complete. It exposes no HTTP bootstrap endpoint. |
+| DatabaseMigrator | `Application.DatabaseMigrator` | One-shot ordered migration of IdentityAccess, Tenancy, PlatformAdministration, Customers and Orders under an advisory lock. |
 
-The one-shot DatabaseMigrator uses an explicit ordered registry of IdentityAccess, Tenancy, Customers and Orders migration contributions; each PostgreSQL adapter owns its context factory and migration files. The migrator owns the advisory lock, command/exit behavior and ordering, not module schema decisions. Each PostgreSQL adapter also owns its current runtime DI registration, persistence code and migration contribution. CoreApi owns the shared bounded data source, invokes those module registrations and keeps its authentication/authorization middleware sequence visible in `Program.cs`. Branding owns its validated deployment-supplied public identity; CoreApi owns the bootstrap endpoint's HTTP cache policy and centrally applies `no-store` to metadata-classified protected responses, including authentication failures and handled errors. `Application.Architecture.Tests` checks the current dependency graph, provider isolation, solution membership and these inventory counts. Database grants for the existing restricted CoreApi login are a separate provisioner artifact under `deploy/database/`; no production role-creation or credential-rotation automation is claimed.
+Each PostgreSQL adapter owns its context factory, migration files, runtime DI registration and persistence code. The migrator owns only the advisory lock, command/exit behavior and ordering. Capability projects stay host- and provider-neutral.
 
-The organization/program association is an attribution contract, not legal debtor, account billing, credit, invoice or settlement authority. The repository does not yet contain a production feature catalog, durable Tenant Application Profile authority, production profile-specific resolution, real ZITADEL-instance evidence, login/callback/session flows, account/tenant provisioning operations, Owner/Staff or custom-role modeling, application tuple administration/reconciliation, authorization revision, a broader order/business lifecycle, an external PostgreSQL pooler, devices, Worker, Web UI, Workstation or a general ApplicationKernel/module runtime. Those responsibilities remain `NOT_INTRODUCED`. A deployment must provide the public Branding values, Authentication authority/audience, exact `AllowedHosts`, primary database connection, and exact OpenFGA API/store/model/credential configuration; checked-in configuration exposes bounded authentication, authorization, bootstrap cache and database/profile-runtime resource policies for deliberate deployment review and override. Blank, permissive or unsafe configuration fails startup. DbMigrator additionally requires a deployment-specific nonzero advisory-lock key and explicit bounded lock timeout.
+## Implemented HTTP surface (CoreApi)
 
-The ignored `reference-sources/snapshots/` research workspace may contain upstream `.csproj`, source and test files at pinned revisions. Those files are external evidence only: they are not application projects, are not referenced by product code, and are excluded from this implementation inventory.
+All protected responses are `no-store`, including authentication failures and handled errors. `GET /openapi/v1.json` describes the executable contract using the configured public brand; its OpenID Connect scheme is attached only to operations that require authorization.
+
+Unhandled transient PostgreSQL failures return safe `503` / `database_unavailable`; non-transient provider and other unexpected faults return safe `500` / `internal_error`. A process-local, queue-free protected-request concurrency cap returns `503` / `api_capacity_exceeded` before authentication/authorization/handler work when full. The checked-in cap is 32, deployment-configurable from 1–256; it is not a throughput target, tenant quota or cross-replica fairness guarantee. After current membership, a separate queue-free per-tenant cap (default 8, configurable 1–256) returns no-store `429` / `tenant_capacity_exceeded` before OpenFGA/business work; bounded partitions retain only active leases. Native provider logs are disabled to avoid SQL/exception disclosure. Focused owners: `docs/implementation/CORE_API_FAILURE_CONTRACT.md` and `docs/implementation/CORE_API_ADMISSION_CONTRACT.md`.
+
+| Route | Authority |
+|---|---|
+| `GET /health/live` | None. Dependency-free liveness. |
+| `GET /health/ready` | None. Status-only, five-second single-flight cached check of primary PostgreSQL connectivity and read access to the configured OpenFGA model. Does not replace migration verification or an authorized business smoke journey. |
+| `GET /openapi/v1.json` | None. Classified contract description. |
+| `GET /api/v1/application/bootstrap` | None. Bounded public white-label identity with its own bounded cache/ETag policy. |
+| `GET /api/v1/account` | JWT (configured HTTPS issuer, exact audience, signature, lifetime) and an active bound account. |
+| `GET /api/v1/account/tenants` | JWT; returns only the account's current active memberships. |
+| `GET /api/v1/tenants/{tenantId}/workspace` | Current membership plus persisted `workspace_viewer`. |
+| `POST`, `GET /api/v1/tenants/{tenantId}/customers/organizations`; `GET .../organizations/{organizationId}` | Current membership plus distinct customer create/view permissions. Create is idempotent. |
+| `POST`, `GET .../organizations/{organizationId}/programs`; `GET .../programs/{programId}` | As above. Create is idempotent. |
+| `POST`, `GET /api/v1/tenants/{tenantId}/orders`; `GET .../orders/{orderId}` | Current membership plus `order_creator` plus `manual_pricer` (create) or `order_viewer` (detail and browse). Create is idempotent. |
+| `POST /api/v1/tenants/{tenantId}/orders/price-preview` | Current membership plus `order_creator` and `manual_pricer`; bounded non-persisting calculation of supplied draft prices. No Idempotency-Key required. |
+| `GET /api/v1/tenants/{tenantId}/orders/{orderId}/history` | Current membership plus `order_viewer`; bounded retained snapshots and actors from committed draft receipts. |
+| `GET /api/v1/tenants/{tenantId}/orders/{orderId}/actions` | Current membership plus `order_viewer`; explains observed lifecycle and independently checked edit-plus-pricing/abandon/commit permissions without granting command authority. |
+| `PUT /api/v1/tenants/{tenantId}/orders/{orderId}/draft` | Current membership plus `order_editor` and `manual_pricer`; requires `expectedRevision`; idempotent. |
+| `POST /api/v1/tenants/{tenantId}/orders/{orderId}/abandon` | Current membership plus `order_abandoner`; requires `expectedRevision`; idempotent. |
+
+| `POST /api/v1/tenants/{tenantId}/orders/{orderId}/commit` | Current membership plus `order_committer`; expectedRevision and caller-scoped idempotency; freezes priced facts without billing or fulfillment effects. |
+| `POST /api/v1/tenants/{tenantId}/customers/individuals`; `GET .../individuals/{individualId}` | Current membership plus independent `individual_creator` or `individual_viewer`; no login binding or debtor assignment. |
+| `POST .../individuals/{individualId}/availability` | Current membership plus `individual_availability_editor`; expectedRevision and idempotency; contact-free transition response. |
+
+Every tenant route captures the route tenant only as an untrusted candidate (Finbuckle), establishes the current account, derives `TenantContext` from current membership, and only then checks OpenFGA. OpenFGA receives verified membership only as a contextual tuple, uses opaque GUID-based tuple identifiers, checks with `HIGHER_CONSISTENCY`, and fails closed with a bounded safe `503` when the provider is unavailable.
+
+## Behavior that is guaranteed
+
+- **Tenant isolation:** explicit tenant SQL predicates plus forced PostgreSQL RLS with transaction-local tenant context. Orders and Customers data is tenant-owned.
+- **Idempotency:** Customer organization/program creates and Order create/revise/abandon use caller-scoped semantic idempotency keys with durable receipts.
+- **Order draft contract:** browse is bounded newest-first keyset pagination with a versioned tenant-bound cursor and no count or text-search claim. Revision replaces the entire priced draft only while it is a draft and the expected revision matches, increments revision and preserves earlier receipts. Abandonment is a one-way `draft` to `abandoned` transition that retains priced content and the original create receipt, records the abandoning account and authoritative timestamp, and increments revision. Detail and browse expose current lifecycle state. Abandonment does not delete the draft or reverse financial, inventory or fulfillment effects.
+- **Detail consistency:** draft detail reads its header and lines from one `RepeatableRead` snapshot, so a concurrent revision is never observed as a mixed header and lines (regression guard: `DraftDetailReadsHeaderAndLinesFromOneSnapshotDuringConcurrentRevision`).
+- **Attribution, not billing:** the organization/program association on a draft is an attribution contract, not legal debtor, account billing, credit, invoice or settlement authority.
+- **Order-entry price preview:** a protected, bounded preview returns normalized supplied lines and totals through the same calculator as creation, without saving or reading an order. It does not select/approve prices or introduce customer policy, tax, stock or financial effects. Its focused owner is `docs/implementation/PRICING_COMPONENT_BOUNDARY.md`.
+- **Retained draft history:** current viewers can browse the priced snapshots, actors and recorded times of successful draft commands. The read reuses immutable durable receipts, uses one database statement snapshot and performs no mutation. Its focused owner is `docs/implementation/ORDER_DRAFT_HISTORY.md`; general audit and override reasons remain absent.
+- **Draft action guidance:** a current viewer can discover whether revision/abandonment is available and why, using the existing lifecycle and distinct current write permissions. The response is an observation; commands recheck authority and expected revision. Its focused owner is `docs/implementation/ORDER_DRAFT_ACTION_GUIDANCE.md`; broader customer-specific workflow remains absent.
+- **Verification:** `Application.Architecture.Tests` checks the dependency graph, provider isolation, solution membership and the inventory counts above.
+- **Database grants:** grants for the restricted CoreApi login are a separate provisioner artifact under `deploy/database/`. No production role-creation or credential-rotation automation is claimed.
+
+## Required deployment configuration
+
+A deployment must provide the public Branding values, Authentication authority/audience, exact `AllowedHosts`, the primary database connection, and exact OpenFGA API/store/model/credential configuration. Checked-in configuration exposes bounded authentication, authorization, bootstrap-cache and database/profile-runtime resource policies for deliberate deployment review and override. Blank, permissive or unsafe configuration fails startup. DbMigrator additionally requires a deployment-specific nonzero advisory-lock key and an explicit bounded lock timeout.
+
+## Explicitly `NOT_INTRODUCED`
+
+No production feature catalog; durable Tenant Application Profile authority; production profile-specific resolution (no production endpoint acquires the internal tenant-keyed profile-runtime registry); real ZITADEL-instance evidence; login/callback/session flows; account/tenant provisioning operations; Owner/Staff or custom-role modeling; ongoing platform/tenant role administration and tuple reconciliation; authorization revision; AdminApi and normal registered-Admin-device request validation/lifecycle; tenant/Workstation device lifecycle; a broader order/business lifecycle (quotation, admission, fulfillment, invoice, payment, credit, return, refund); an external PostgreSQL pooler; Worker; Web UI; Workstation; a general ApplicationKernel/module runtime.
+
+## Excluded from the inventory
+
+The ignored `reference-sources/snapshots/` research workspace may contain upstream `.csproj`, source and test files at pinned revisions. They are external evidence only: not application projects, not referenced by product code, and not counted above.
 
 The deleted `PartyKind` slice and its executable scaffolding were purged on 2026-09-17. The decision and exact removed inventory are recorded in `docs/decisions/CURRENT_IMPLEMENTATION_PURGE_2026-09-17.md`.
 
@@ -40,6 +102,118 @@ The former Phase 0B Parties qualification is retired historical evidence. It doe
 The bounded ApplicationProfiles feature compiler, deployment-wide public Branding contract, CoreApi bootstrap/liveness paths, classified OpenAPI v1 document, configured JWT validation, active-account resolution, current active-membership listing, exact account/membership queries, immutable membership-derived `TenantContext`, Finbuckle route-candidate plumbing, pinned-model OpenFGA workspace, Orders and Customers permissions, immutable tenant-owned customer organization/program create/read/browse, optional customer/program-attributed priced order-draft create/read/browse/revise/abandon, caller-scoped semantic idempotency, explicit tenant SQL plus forced PostgreSQL RLS, shared bounded/resetting CoreApi Npgsql data source, and the ordered one-shot PostgreSQL migrator are `PRODUCTION_HONEST` for their declared narrow scopes. The Customer organization/program and Orders attribution evidence and regression guards are owned by `docs/implementation/CUSTOMER_ORGANIZATION_PROGRAM_ATTRIBUTION_SLICE.md`; the Orders draft/lifecycle contract remains owned by `docs/implementation/ORDER_DRAFT_INTAKE_SLICE.md`, including the separate `order_editor` and `order_abandoner` permissions, revision-checked changes, lifecycle metadata and scoped persistence rights. That owner defines host-neutral, ASP.NET pipeline, OpenFGA and PostgreSQL evidence for create, read, browse, revise and abandon. The local `COLLECT_COVERAGE=1 ./eng/verify.sh` run on 2026-09-24 passed locked restore, formatting, Release build, all 307 tests and coverage report generation. Remote CI and a production deployment are separate claims. Tenant-specific branding, real ZITADEL topology/flows, broader OpenFGA roles/administration and the broader business lifecycle remain `NOT_INTRODUCED`. `BLOCKED = none`.
 
 ## Active implementation rule
+
+The 2026-10-01 local full parallel `./eng/verify.sh` run passed locked restore,
+format verification, Release build and all **330 tests**, with zero failures or
+skips. This qualifies the narrow failure/admission contracts above and the root
+version-marker guard. It also reverified the existing Orders snapshot-read
+regression under actual PostgreSQL. Successful customer organization/program
+creates and Orders draft create/revise/abandon now emit safe structured outcome
+logs and bounded-label counters, distinguishing commits from replays. Optional
+diagnostic sink failures cannot invalidate those completed outcomes. Scope,
+regression evidence and non-claims are owned by
+`docs/implementation/CORE_API_MUTATION_DIAGNOSTICS.md`; this is best-effort
+diagnostics, not durable audit. Coverage was not collected in this run;
+the earlier coverage result above remains historical. No remote CI, production
+deployment or complete commercial-backend qualification is inferred from this run.
+
+The subsequent 2026-10-02 local full parallel `./eng/verify.sh` run passed all
+**334 tests**, with zero failures or skips, after locked restore, formatting and
+Release build. It qualifies canonical, culture-independent customer pagination
+validation under the existing v1 cursor format; the focused Customers owner
+records compatibility and regression evidence. Existing PostgreSQL guarantees
+were reverified. This run did not collect coverage or qualify a deployment.
+
+A later 2026-10-02 local full parallel `./eng/verify.sh` run passed all **339
+tests**, with zero failures or skips and zero Release build warnings/errors.
+Customers runtime SQL is now adapter-owned embedded resources, matching Orders;
+an architecture guard prevents inline runtime SQL drift in those adapters.
+Real PostgreSQL tests verify completed/disposed session rejection, rollback on
+disposal, transaction-local tenant cleanup through a one-connection pool and
+direct adapter page-size bounds before connection acquisition. The focused
+Customers owner records those guarantees and requalification triggers. This
+run did not collect coverage or qualify remote CI or production deployment.
+
+The protected CoreApi pipeline now has a configurable cooperative request budget
+(`RequestBudget:ProtectedRequestTimeoutSeconds`, required 1–120; default 30).
+Deadline cancellation before headers start returns safe `504` / `request_timeout`
+when it escapes as cancellation, preserves protected no-store and releases
+admission capacity as the pipeline unwinds. Public routes retain their existing
+policies. The focused owner `docs/implementation/CORE_API_REQUEST_BUDGETS.md`
+records limits, retry semantics and guards; this does not guarantee forced
+termination or rollback. Its 2026-10-02 local full parallel gate passed all **348
+tests**, zero failures/skips and zero build warnings/errors. Coverage, remote CI
+and deployment remain separate claims.
+
+CoreApi now validates every mapped route's access classification against explicit
+authentication metadata before serving requests. Invalid or anonymous-overridden
+protected declarations fail startup. Real-host tests also verify anonymous denial
+and no-store across every current protected route/method with forged admin headers.
+The focused owner is `docs/implementation/CORE_API_ENDPOINT_ACCESS_GUARD.md`.
+The 2026-10-02 full parallel gate passed **351 tests**, zero failures/skips and
+zero Release warnings/errors. This is an existing-host safeguard; Admin API and
+its platform/device authorization remain `NOT_INTRODUCED`. The expanded delivery
+sequence is recorded in `docs/implementation/DELIVERY_PLAN.md`.
+
+The end-to-end business scope is now mapped in
+`docs/implementation/BUSINESS_OPERATION_END_TO_END.md`, including conditional
+pricing, quotation/approval, fulfillment/outsourcing, purchasing/stock,
+receivable/payable, settlement and correction responsibilities. Current supplied
+draft selling-price calculations are separated from order-intent assembly in
+`Application.Orders/Pricing/OrderDraftPriceCalculator.cs`; the focused boundary
+is `docs/implementation/PRICING_COMPONENT_BOUNDARY.md`. No new lifecycle state,
+price-selection authority or customer-specific workflow is introduced. The
+2026-10-02 full parallel gate passed all **353 tests**, zero failures/skips and
+zero Release warnings/errors. `BLOCKED = none`; the business map is scope guidance,
+not a completed commercial backend. Coverage, remote CI and deployment were not
+qualified by this run.
+
+CoreApi now exposes a protected, non-persisting order-entry price preview using
+the same calculator as draft creation. The focused pricing owner above records
+authorization, resource bounds, parity and no-mutation guards. The 2026-10-02
+normal parallel `./eng/verify.sh` run passed all **373 tests**, zero failures/skips
+and zero Release warnings/errors. The owner selected operator-entered prices
+first with controlled overrides; separate manual pricing authority is now implemented as described below; richer
+reason/approval/ceiling policy remains unintroduced. Product
+version remains **v0.1.0**; remote CI, coverage and deployment remain separate.
+
+### Retained draft history and order-entry boundaries, 2026-10-02
+
+Protected order history is `PRODUCTION_HONEST` within
+`docs/implementation/ORDER_DRAFT_HISTORY.md`: bounded revision pages reuse
+successful immutable receipts, retain historical prices/actors and enforce current
+viewer authority. Create/revise now also bound the actual request stream,
+preserve native supported charsets, and return safe 413/400 responses for
+oversized bodies/unsupported charset names. Their owner and recurring HTTP
+regression evidence remain in `ORDER_DRAFT_INTAKE_SLICE.md`.
+
+The final normal parallel `./eng/verify.sh` passed all **413 tests** in twelve test
+projects, with zero failures/skips and zero Release warnings/errors. A preceding
+attempt exposed Testcontainers image-parser startup timeouts; fixed-image fixtures
+now use the supported structured-image API, with unchanged provider versions and
+no test retries or serialization. See `docs/testing/VERIFICATION_STRATEGY.md`.
+`BLOCKED = none` for these declared scopes. Acceptance, adaptive price-source/approval policy,
+fulfillment, billing/invoices and settlement remain `NOT_INTRODUCED`; this does not
+qualify the complete commercial backend, remote CI or a production deployment.
+
+### Draft action guidance and separate manual price authority, 2026-10-02
+
+The protected draft action guide explains the observed revision and current
+revision/abandonment availability without granting execution authority; its owner
+is `docs/implementation/ORDER_DRAFT_ACTION_GUIDANCE.md`. Manual price entry now
+requires its own `manual_pricer` grant alongside create for initial entry/preview,
+or edit for full priced replacement, including unchanged submitted prices and
+idempotent retries. Read and abandonment remain independent. The pricing owner
+above records authority, historical facts, failure/recovery and model rollout.
+
+Both declared scopes are `PRODUCTION_HONEST`, `BLOCKED = none`. The final normal
+parallel `./eng/verify.sh` passed all **450 tests**, locked restore, formatting
+and Release build with zero failures/skips and zero warnings/errors, including
+actual PostgreSQL and OpenFGA regressions. Deployments must publish/pin the updated
+model and explicitly grant intended pricing tuples. Acceptance, adaptive pricing
+policy/reasons/approvals, fulfillment, debtor/invoices and settlement remain
+`NOT_INTRODUCED`; this does not qualify the whole backend or production deployment.
+Product version remains **v0.1.0**.
 
 The next slice starts from a useful application responsibility, not a phase label or deleted project shape. Before custom infrastructure is written, use `docs/review/APPLICATION_BASELINE_IMPLEMENTATION_SOURCE_REVIEW.md` to decide whether to:
 

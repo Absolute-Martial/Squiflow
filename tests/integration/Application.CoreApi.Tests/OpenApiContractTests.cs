@@ -191,11 +191,30 @@ public sealed class OpenApiContractTests : IClassFixture<WhiteLabelApiFactory>
             .GetProperty("schemas").GetProperty(successName).GetProperty("properties");
         Assert.Equal(4, successProperties.EnumerateObject().Count());
         Assert.False(successProperties.TryGetProperty("summary", out _));
-        Assert.Equal("date-time", successProperties.GetProperty("abandonedAt")
+        Assert.Equal("date-time", successProperties.GetProperty(timestamp)
             .GetProperty("format").GetString());
         Assert.True(abandon.GetProperty("responses").GetProperty("200")
             .GetProperty("headers").TryGetProperty("Idempotency-Replayed", out _));
         Assert.True(abandon.GetProperty("responses").TryGetProperty("409", out _));
+    }
+
+    [Theory]
+    [InlineData("/api/v1/tenants/{tenantId}/customers/individuals", "displayName")]
+    [InlineData("/api/v1/tenants/{tenantId}/customers/individuals/{individualId}/availability", "expectedRevision")]
+    public async Task IndividualMutationsDescribeStrictBodyAndDurableRetryContract(string path, string requiredField)
+    {
+        using var response = await _client.GetAsync("/openapi/v1.json");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var operation = document.RootElement.GetProperty("paths").GetProperty(path).GetProperty("post");
+        Assert.True(HasOidcRequirement(operation));
+        var key = operation.GetProperty("parameters").EnumerateArray().Single(p => p.GetProperty("name").GetString() == "Idempotency-Key");
+        Assert.True(key.GetProperty("required").GetBoolean());
+        var schema = operation.GetProperty("requestBody").GetProperty("content").GetProperty("application/json").GetProperty("schema");
+        Assert.False(schema.GetProperty("additionalProperties").GetBoolean());
+        Assert.Contains(schema.GetProperty("required").EnumerateArray(), field => field.GetString() == requiredField);
+        Assert.True(operation.GetProperty("responses").GetProperty("200").GetProperty("headers").TryGetProperty("Idempotency-Replayed", out _));
+        Assert.True(operation.GetProperty("responses").TryGetProperty("429", out _));
     }
 
     private static bool HasOidcRequirement(JsonElement operation) =>

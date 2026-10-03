@@ -8,6 +8,7 @@ public sealed class CustomerDbContext(DbContextOptions<CustomerDbContext> option
     {
         ArgumentNullException.ThrowIfNull(modelBuilder);
         CustomerModelV202609240001.Build(modelBuilder);
+        CustomerIndividualModel.Build(modelBuilder);
     }
 }
 
@@ -58,4 +59,38 @@ internal sealed class CustomerTenantReferenceRow
 internal sealed class CustomerAccountReferenceRow
 {
     public Guid Id { get; set; }
+}
+
+internal sealed class CustomerIndividualRow
+{
+    public Guid TenantId { get; set; }
+    public Guid Id { get; set; }
+    public string DisplayName { get; set; } = string.Empty;
+    public string? Email { get; set; }
+    public string? Phone { get; set; }
+    public int Availability { get; set; }
+    public long Revision { get; set; }
+    public Guid CreatedByAccountId { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public Guid? AvailabilityChangedByAccountId { get; set; }
+    public DateTimeOffset? AvailabilityChangedAt { get; set; }
+}
+
+internal sealed class CustomerIndividualCommandReceiptRow
+{
+    public Guid TenantId { get; set; }
+    public Guid AccountId { get; set; }
+    public string Operation { get; set; } = string.Empty;
+    public string IdempotencyKey { get; set; } = string.Empty;
+    public string Fingerprint { get; set; } = string.Empty;
+    public Guid IndividualId { get; set; }
+    public string DisplayName { get; set; } = string.Empty;
+    public string? Email { get; set; }
+    public string? Phone { get; set; }
+    public int Availability { get; set; }
+    public long Revision { get; set; }
+    public Guid CreatedByAccountId { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public Guid? AvailabilityChangedByAccountId { get; set; }
+    public DateTimeOffset? AvailabilityChangedAt { get; set; }
 }

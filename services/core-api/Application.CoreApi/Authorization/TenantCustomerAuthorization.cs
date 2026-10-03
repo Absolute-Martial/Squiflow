@@ -25,6 +25,21 @@ internal sealed class ViewProgramsRequirement : IAuthorizationRequirement
     internal static ViewProgramsRequirement Instance { get; } = new();
 }
 
+internal sealed class CreateIndividualRequirement : IAuthorizationRequirement
+{
+    internal static CreateIndividualRequirement Instance { get; } = new();
+}
+
+internal sealed class ViewIndividualsRequirement : IAuthorizationRequirement
+{
+    internal static ViewIndividualsRequirement Instance { get; } = new();
+}
+
+internal sealed class ChangeIndividualAvailabilityRequirement : IAuthorizationRequirement
+{
+    internal static ChangeIndividualAvailabilityRequirement Instance { get; } = new();
+}
+
 internal sealed class CreateOrganizationAuthorizationHandler(ITenantCustomerAuthorization authorization)
     : AuthorizationHandler<CreateOrganizationRequirement, TenantCustomerResource>
 {
@@ -65,6 +80,39 @@ internal sealed class ViewProgramsAuthorizationHandler(ITenantCustomerAuthorizat
     {
         if (context.User.Identity?.IsAuthenticated is true &&
             await authorization.CanViewProgramsAsync(resource.TenantContext.AccountId, resource.TenantContext.TenantId, resource.CancellationToken))
+            context.Succeed(requirement);
+    }
+}
+
+internal sealed class CreateIndividualAuthorizationHandler(ITenantCustomerAuthorization authorization)
+    : AuthorizationHandler<CreateIndividualRequirement, TenantCustomerResource>
+{
+    protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, CreateIndividualRequirement requirement, TenantCustomerResource resource)
+    {
+        if (context.User.Identity?.IsAuthenticated is true &&
+            await authorization.CanCreateIndividualAsync(resource.TenantContext.AccountId, resource.TenantContext.TenantId, resource.CancellationToken))
+            context.Succeed(requirement);
+    }
+}
+
+internal sealed class ViewIndividualsAuthorizationHandler(ITenantCustomerAuthorization authorization)
+    : AuthorizationHandler<ViewIndividualsRequirement, TenantCustomerResource>
+{
+    protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, ViewIndividualsRequirement requirement, TenantCustomerResource resource)
+    {
+        if (context.User.Identity?.IsAuthenticated is true &&
+            await authorization.CanViewIndividualsAsync(resource.TenantContext.AccountId, resource.TenantContext.TenantId, resource.CancellationToken))
+            context.Succeed(requirement);
+    }
+}
+
+internal sealed class ChangeIndividualAvailabilityAuthorizationHandler(ITenantCustomerAuthorization authorization)
+    : AuthorizationHandler<ChangeIndividualAvailabilityRequirement, TenantCustomerResource>
+{
+    protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, ChangeIndividualAvailabilityRequirement requirement, TenantCustomerResource resource)
+    {
+        if (context.User.Identity?.IsAuthenticated is true &&
+            await authorization.CanChangeIndividualAvailabilityAsync(resource.TenantContext.AccountId, resource.TenantContext.TenantId, resource.CancellationToken))
             context.Succeed(requirement);
     }
 }

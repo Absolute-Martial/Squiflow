@@ -334,6 +334,8 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
             services.AddSingleton<ITenantCustomerAuthorization>(_customerAuthorization);
             services.RemoveAll<ICustomerStore>();
             services.AddSingleton<ICustomerStore>(_customers);
+            services.RemoveAll<ICustomerIndividualStore>();
+            services.AddSingleton<ICustomerIndividualStore>(_customers);
             services.RemoveAll<IOrderDraftStore>();
             services.AddSingleton<IOrderDraftStore>(_orders);
             services.PostConfigure<JwtBearerOptions>(

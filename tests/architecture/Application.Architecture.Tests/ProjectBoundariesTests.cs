@@ -42,6 +42,23 @@ public sealed class ProjectBoundariesTests
     }
 
     [Fact]
+    public void ProductVersionMarkersMatchTheLockedProductVersion()
+    {
+        var root = FindRepositoryRoot();
+        var buildProperties = XDocument.Load(Path.Combine(root, "Directory.Build.props"));
+        var lockedVersion = buildProperties.Root?
+            .Element("PropertyGroup")?
+            .Element("LockedProductVersion")?
+            .Value;
+
+        Assert.False(string.IsNullOrWhiteSpace(lockedVersion));
+
+        var expected = $"v{lockedVersion}";
+        Assert.Equal(expected, File.ReadAllText(Path.Combine(root, "VERSION")).Trim());
+        Assert.Equal(expected, File.ReadAllText(Path.Combine(root, "CURRENT_VERSION.txt")).Trim());
+    }
+
+    [Fact]
     public void CoreApiCannotDirectlyApplySchemaMigrations()
     {
         var root = FindRepositoryRoot();
@@ -90,6 +107,29 @@ public sealed class ProjectBoundariesTests
         Assert.Contains(violations, violation => violation.Contains("cannot reference adapter", StringComparison.Ordinal));
         Assert.Contains(violations, violation => violation.Contains("cannot reference executable", StringComparison.Ordinal));
         Assert.Contains(violations, violation => violation.Contains("provider package Npgsql", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void CustomerAndOrderRuntimeSqlRemainsInEmbeddedAdapterResources()
+    {
+        var root = FindRepositoryRoot();
+        foreach (var capability in new[] { "Customers", "Orders" })
+        {
+            var adapter = Path.Combine(root, "modules", capability.ToLowerInvariant(), $"Application.{capability}.Postgres");
+            var project = XDocument.Load(Path.Combine(adapter, $"Application.{capability}.Postgres.csproj"));
+            Assert.Contains(project.Descendants("EmbeddedResource"), resource =>
+                (string?)resource.Attribute("Include") == "Sql/*.sql" &&
+                (string?)resource.Attribute("LogicalName") == $"Application.{capability}.Postgres.Sql.%(Filename)%(Extension)");
+            Assert.NotEmpty(Directory.EnumerateFiles(Path.Combine(adapter, "Sql"), "*.sql"));
+            // This guards literal placement, not SQL correctness. Real PostgreSQL tests own that proof.
+            foreach (var source in Directory.EnumerateFiles(Path.Combine(adapter, "Persistence"), "*.cs"))
+            {
+                Assert.False(Regex.IsMatch(File.ReadAllText(source),
+                    "\"(?:\"\")?\\s*(?:SELECT|INSERT|UPDATE|DELETE|WITH)\\s+",
+                    RegexOptions.CultureInvariant | RegexOptions.IgnoreCase),
+                    $"Runtime SQL must remain in adapter-owned embedded resources: {source}");
+            }
+        }
     }
 
     private static string FindRepositoryRoot()

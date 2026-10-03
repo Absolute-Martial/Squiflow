@@ -5,8 +5,8 @@ using NpgsqlTypes;
 
 namespace Application.Customers.Postgres;
 
-public sealed class PostgresCustomerStore(NpgsqlDataSource dataSource, TimeProvider? timeProvider = null)
-    : ICustomerStore
+public sealed partial class PostgresCustomerStore(NpgsqlDataSource dataSource, TimeProvider? timeProvider = null)
+    : ICustomerStore, ICustomerIndividualStore
 {
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
 
@@ -29,11 +29,7 @@ public sealed class PostgresCustomerStore(NpgsqlDataSource dataSource, TimeProvi
 
         var organization = new CustomerOrganizationSnapshot(
             Guid.CreateVersion7(), tenantContext.TenantId, intent.DisplayName, _timeProvider.GetUtcNow());
-        await using (var insert = session.CreateCommand("""
-            INSERT INTO customers.organizations
-                (tenant_id, id, created_by_account_id, display_name, created_at)
-            VALUES (@tenant_id, @id, @account_id, @display_name, @created_at)
-            """))
+        await using (var insert = session.CreateCommand(CustomerSql.InsertOrganization))
         {
             insert.Parameters.AddWithValue("tenant_id", tenantContext.TenantId);
             insert.Parameters.AddWithValue("id", organization.OrganizationId);
@@ -43,13 +39,7 @@ public sealed class PostgresCustomerStore(NpgsqlDataSource dataSource, TimeProvi
             await insert.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
 
-        await using (var insertReceipt = session.CreateCommand("""
-            INSERT INTO customers.organization_receipts
-                (tenant_id, account_id, idempotency_key, fingerprint, organization_id, created_at)
-            VALUES (@tenant_id, @account_id, @key, @fingerprint, @organization_id, @created_at)
-            ON CONFLICT (tenant_id, account_id, idempotency_key) DO NOTHING
-            RETURNING 1
-            """))
+        await using (var insertReceipt = session.CreateCommand(CustomerSql.InsertOrganizationReceipt))
         {
             insertReceipt.Parameters.AddWithValue("tenant_id", tenantContext.TenantId);
             insertReceipt.Parameters.AddWithValue("account_id", tenantContext.AccountId);
@@ -97,11 +87,7 @@ public sealed class PostgresCustomerStore(NpgsqlDataSource dataSource, TimeProvi
         var program = new CustomerProgramSnapshot(
             Guid.CreateVersion7(), tenantContext.TenantId, intent.OrganizationId,
             intent.DisplayName, _timeProvider.GetUtcNow());
-        await using (var insert = session.CreateCommand("""
-            INSERT INTO customers.programs
-                (tenant_id, id, organization_id, created_by_account_id, display_name, created_at)
-            VALUES (@tenant_id, @id, @organization_id, @account_id, @display_name, @created_at)
-            """))
+        await using (var insert = session.CreateCommand(CustomerSql.InsertProgram))
         {
             insert.Parameters.AddWithValue("tenant_id", tenantContext.TenantId);
             insert.Parameters.AddWithValue("id", program.ProgramId);
@@ -112,13 +98,7 @@ public sealed class PostgresCustomerStore(NpgsqlDataSource dataSource, TimeProvi
             await insert.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
 
-        await using (var insertReceipt = session.CreateCommand("""
-            INSERT INTO customers.program_receipts
-                (tenant_id, account_id, idempotency_key, fingerprint, program_id, created_at)
-            VALUES (@tenant_id, @account_id, @key, @fingerprint, @program_id, @created_at)
-            ON CONFLICT (tenant_id, account_id, idempotency_key) DO NOTHING
-            RETURNING 1
-            """))
+        await using (var insertReceipt = session.CreateCommand(CustomerSql.InsertProgramReceipt))
         {
             insertReceipt.Parameters.AddWithValue("tenant_id", tenantContext.TenantId);
             insertReceipt.Parameters.AddWithValue("account_id", tenantContext.AccountId);
@@ -188,10 +168,7 @@ public sealed class PostgresCustomerStore(NpgsqlDataSource dataSource, TimeProvi
     private static async Task<CustomerOrganizationSnapshot?> FindOrganizationAsync(
         CustomerTenantDbSession session, Guid tenantId, Guid organizationId, CancellationToken cancellationToken)
     {
-        await using var command = session.CreateCommand("""
-            SELECT id, display_name, created_at FROM customers.organizations
-            WHERE tenant_id = @tenant_id AND id = @organization_id
-            """);
+        await using var command = session.CreateCommand(CustomerSql.FindOrganization);
         command.Parameters.AddWithValue("tenant_id", tenantId);
         command.Parameters.AddWithValue("organization_id", organizationId);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
@@ -203,10 +180,7 @@ public sealed class PostgresCustomerStore(NpgsqlDataSource dataSource, TimeProvi
     private static async Task<CustomerProgramSnapshot?> FindProgramAsync(
         CustomerTenantDbSession session, Guid tenantId, Guid programId, CancellationToken cancellationToken)
     {
-        await using var command = session.CreateCommand("""
-            SELECT id, organization_id, display_name, created_at FROM customers.programs
-            WHERE tenant_id = @tenant_id AND id = @program_id
-            """);
+        await using var command = session.CreateCommand(CustomerSql.FindProgram);
         command.Parameters.AddWithValue("tenant_id", tenantId);
         command.Parameters.AddWithValue("program_id", programId);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
@@ -218,12 +192,7 @@ public sealed class PostgresCustomerStore(NpgsqlDataSource dataSource, TimeProvi
     private static async Task<(string Fingerprint, CustomerOrganizationSnapshot Snapshot)?> FindOrganizationReceiptAsync(
         CustomerTenantDbSession session, TenantContext context, string key, CancellationToken cancellationToken)
     {
-        await using var command = session.CreateCommand("""
-            SELECT r.fingerprint, o.id, o.display_name, o.created_at
-            FROM customers.organization_receipts r
-            JOIN customers.organizations o ON o.tenant_id = r.tenant_id AND o.id = r.organization_id
-            WHERE r.tenant_id = @tenant_id AND r.account_id = @account_id AND r.idempotency_key = @key
-            """);
+        await using var command = session.CreateCommand(CustomerSql.FindOrganizationReceipt);
         command.Parameters.AddWithValue("tenant_id", context.TenantId);
         command.Parameters.AddWithValue("account_id", context.AccountId);
         command.Parameters.AddWithValue("key", key);
@@ -237,12 +206,7 @@ public sealed class PostgresCustomerStore(NpgsqlDataSource dataSource, TimeProvi
     private static async Task<(string Fingerprint, CustomerProgramSnapshot Snapshot)?> FindProgramReceiptAsync(
         CustomerTenantDbSession session, TenantContext context, string key, CancellationToken cancellationToken)
     {
-        await using var command = session.CreateCommand("""
-            SELECT r.fingerprint, p.id, p.organization_id, p.display_name, p.created_at
-            FROM customers.program_receipts r
-            JOIN customers.programs p ON p.tenant_id = r.tenant_id AND p.id = r.program_id
-            WHERE r.tenant_id = @tenant_id AND r.account_id = @account_id AND r.idempotency_key = @key
-            """);
+        await using var command = session.CreateCommand(CustomerSql.FindProgramReceipt);
         command.Parameters.AddWithValue("tenant_id", context.TenantId);
         command.Parameters.AddWithValue("account_id", context.AccountId);
         command.Parameters.AddWithValue("key", key);
@@ -271,15 +235,10 @@ public sealed class PostgresCustomerStore(NpgsqlDataSource dataSource, TimeProvi
     {
         ArgumentNullException.ThrowIfNull(tenantContext);
         ArgumentNullException.ThrowIfNull(request);
+        RequireBoundedPageSize(request.Limit);
         await using var session = await CustomerTenantDbSession.OpenAsync(
             dataSource, tenantContext.TenantId, cancellationToken).ConfigureAwait(false);
-        await using var command = session.CreateCommand("""
-            SELECT id, display_name, created_at FROM customers.organizations
-            WHERE tenant_id = @tenant_id
-              AND (@after_at IS NULL OR created_at < @after_at
-                   OR (created_at = @after_at AND id < @after_id))
-            ORDER BY created_at DESC, id DESC LIMIT @limit
-            """);
+        await using var command = session.CreateCommand(CustomerSql.ListOrganizations);
         command.Parameters.AddWithValue("tenant_id", tenantContext.TenantId);
         command.Parameters.Add("after_at", NpgsqlDbType.TimestampTz).Value =
             (object?)request.After?.CreatedAt ?? DBNull.Value;
@@ -307,15 +266,10 @@ public sealed class PostgresCustomerStore(NpgsqlDataSource dataSource, TimeProvi
     {
         ArgumentNullException.ThrowIfNull(tenantContext);
         ArgumentNullException.ThrowIfNull(request);
+        RequireBoundedPageSize(request.Limit);
         await using var session = await CustomerTenantDbSession.OpenAsync(
             dataSource, tenantContext.TenantId, cancellationToken).ConfigureAwait(false);
-        await using var command = session.CreateCommand("""
-            SELECT id, display_name, created_at FROM customers.programs
-            WHERE tenant_id = @tenant_id AND organization_id = @organization_id
-              AND (@after_at IS NULL OR created_at < @after_at
-                   OR (created_at = @after_at AND id < @after_id))
-            ORDER BY created_at DESC, id DESC LIMIT @limit
-            """);
+        await using var command = session.CreateCommand(CustomerSql.ListPrograms);
         command.Parameters.AddWithValue("tenant_id", tenantContext.TenantId);
         command.Parameters.AddWithValue("organization_id", request.OrganizationId);
         command.Parameters.Add("after_at", NpgsqlDbType.TimestampTz).Value =
@@ -337,5 +291,13 @@ public sealed class PostgresCustomerStore(NpgsqlDataSource dataSource, TimeProvi
         if (hasMore) rows.RemoveAt(rows.Count - 1);
         var last = hasMore ? rows[^1] : null;
         return new(rows, last is null ? null : new(last.CreatedAt, last.ProgramId));
+    }
+
+    private static void RequireBoundedPageSize(int limit)
+    {
+        if (limit is < 1 or > 50)
+        {
+            throw new ArgumentOutOfRangeException(nameof(limit), "Customer page size must be from 1 to 50.");
+        }
     }
 }

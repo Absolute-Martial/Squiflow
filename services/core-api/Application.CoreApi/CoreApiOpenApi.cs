@@ -24,6 +24,7 @@ internal static class CoreApiOpenApi
             options.AddOperationTransformer<OrderHistoryOperationTransformer>();
             options.AddOperationTransformer<CustomerCreateOperationTransformer>();
             options.AddOperationTransformer<CustomerBrowseOperationTransformer>();
+            options.AddOperationTransformer<CustomerIndividualBodyTransformer>();
         });
 
         return services;
@@ -36,11 +37,14 @@ internal sealed class CustomerCreateOperationTransformer : IOpenApiOperationTran
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (context.Description.ActionDescriptor.EndpointMetadata.OfType<EndpointAccessMetadata>().Any(value =>
-                value.Access is EndpointAccess.AuthorizedCustomerOrganizationCreation or EndpointAccess.AuthorizedCustomerProgramCreation))
+                value.Access is EndpointAccess.AuthorizedCustomerOrganizationCreation or EndpointAccess.AuthorizedCustomerProgramCreation
+                or EndpointAccess.AuthorizedCustomerIndividualCreation or EndpointAccess.AuthorizedCustomerIndividualAvailability))
         {
             OrderCreateOperationTransformer.AddRequiredIdempotencyKeyHeader(operation);
             OrderCreateOperationTransformer.AddReplayHeader(operation);
-            OrderCreateOperationTransformer.AddCreatedLocationHeader(operation);
+            if (!context.Description.ActionDescriptor.EndpointMetadata.OfType<EndpointAccessMetadata>()
+                .Any(value => value.Access == EndpointAccess.AuthorizedCustomerIndividualAvailability))
+                OrderCreateOperationTransformer.AddCreatedLocationHeader(operation);
         }
         return Task.CompletedTask;
     }

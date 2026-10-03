@@ -1,4 +1,5 @@
 using System.Net;
+using System.Globalization;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -146,6 +147,104 @@ public sealed class TenantCustomerEndpointTests : IClassFixture<WhiteLabelApiFac
         Assert.Equal(HttpStatusCode.RequestEntityTooLarge, rejectedStream.StatusCode);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CustomerPaginationRejectsAlternateCursorRepresentations(bool programs)
+    {
+        var (client, account, tenant) = Client();
+        AllowAll(account, tenant);
+        var path = $"/api/v1/tenants/{tenant:D}/customers/organizations";
+        Guid? parent = null;
+        if (programs)
+        {
+            using var request = Post(path, "cursor-parent", "Parent");
+            using var response = await client.SendAsync(request);
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            parent = (await response.Content.ReadFromJsonAsync<CustomerOrganizationSnapshot>())!.OrganizationId;
+            path += $"/{parent:D}/programs";
+        }
+        for (var index = 0; index < 2; index++)
+        {
+            using var request = Post(path, $"cursor-row-{index}", $"Row {index}");
+            using var response = await client.SendAsync(request);
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        }
+        using var first = await client.GetAsync(path + "?limit=1");
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        using var page = JsonDocument.Parse(await first.Content.ReadAsStringAsync());
+        var encoded = page.RootElement.GetProperty("nextCursor").GetString()!;
+        using var next = await client.GetAsync(path + "?limit=1&after=" + encoded);
+        Assert.Equal(HttpStatusCode.OK, next.StatusCode);
+
+        var bytes = Convert.FromBase64String(encoded.Replace('-', '+').Replace('_', '/').PadRight((encoded.Length + 3) / 4 * 4, '='));
+        var values = System.Text.Encoding.UTF8.GetString(bytes).Split(':');
+        var leadingZero = (string[])values.Clone();
+        leadingZero[3] = "0" + leadingZero[3];
+        var upperId = (string[])values.Clone();
+        // Force letters so this case cannot accidentally become canonical for an all-digit ID.
+        upperId[4] = "ABCDEF0123456789ABCDEF0123456789";
+        var wrongTenant = (string[])values.Clone();
+        wrongTenant[1] = Guid.NewGuid().ToString("N");
+        var wrongParent = (string[])values.Clone();
+        wrongParent[2] = programs ? Guid.NewGuid().ToString("N") : "programs";
+        foreach (var variant in new[] { leadingZero, upperId, wrongTenant, wrongParent })
+        {
+            await AssertInvalidCustomerCursorAsync(client, path, EncodeCursorBytes(System.Text.Encoding.UTF8.GetBytes(string.Join(':', variant))));
+        }
+        await AssertInvalidCustomerCursorAsync(client, path, EncodeCursorBytes(new byte[] { 0xff }));
+
+        // Equivalent decoded bytes with nonzero unused Base64 bits must not be accepted.
+        var bitVariant = (string[])values.Clone();
+        bitVariant[3] = "1";
+        var canonical = EncodeCursorBytes(System.Text.Encoding.UTF8.GetBytes(string.Join(':', bitVariant)));
+        if (canonical.Length % 4 == 0)
+        {
+            bitVariant[3] = "12";
+            canonical = EncodeCursorBytes(System.Text.Encoding.UTF8.GetBytes(string.Join(':', bitVariant)));
+        }
+        using var accepted = await client.GetAsync(path + "?after=" + canonical);
+        Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
+        const string alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+        var last = alphabet.IndexOf(canonical[^1], StringComparison.Ordinal);
+        var alternate = canonical[..^1] + alphabet[last + 1];
+        await AssertInvalidCustomerCursorAsync(client, path, alternate);
+    }
+
+    [Theory]
+    [InlineData("ar-SA")]
+    [InlineData("tr-TR")]
+    public async Task CustomerCursorGeneratedUnderAnotherCultureCanBeReadWithInvariantCulture(string culture)
+    {
+        var original = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(culture);
+            var method = typeof(TenantCustomerEndpoint).GetMethod("EncodeCursor",
+                System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+            var tenant = Guid.NewGuid();
+            var encoded = (string)method.Invoke(null, new object?[] { tenant, null, DateTimeOffset.UnixEpoch, Guid.NewGuid() })!;
+            CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+            var account = Guid.NewGuid();
+            var client = AuthorizedClient(account);
+            _factory.AddTenantMembership(account, tenant, "Tenant");
+            AllowAll(account, tenant);
+            using var response = await client.GetAsync($"/api/v1/tenants/{tenant:D}/customers/organizations?after={encoded}");
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+        finally { CultureInfo.CurrentCulture = original; }
+    }
+
+    private static string EncodeCursorBytes(byte[] bytes) =>
+        Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
+    private static async Task AssertInvalidCustomerCursorAsync(HttpClient client, string path, string cursor)
+    {
+        using var response = await client.GetAsync(path + "?after=" + cursor);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("cursor_invalid", await response.Content.ReadAsStringAsync());
+    }
+
     [Fact]
     public async Task MalformedRequestBodyReadReturnsStableClientError()
     {
@@ -178,6 +277,7 @@ public sealed class TenantCustomerEndpointTests : IClassFixture<WhiteLabelApiFac
         var (client, account, tenant) = Client();
         AllowAll(account, tenant);
         _factory.SetOrderCreateDecision(account, tenant, true);
+        _factory.SetOrderManualPriceDecision(account, tenant, true);
         _factory.SetOrderViewDecision(account, tenant, true);
         var organizations = $"/api/v1/tenants/{tenant:D}/customers/organizations";
         using var createOrg = Post(organizations, "order-context-org", "Acme");

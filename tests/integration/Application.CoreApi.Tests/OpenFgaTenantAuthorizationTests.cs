@@ -258,8 +258,28 @@ public sealed class OpenFgaTenantAuthorizationTests : IAsyncLifetime
         Assert.False(await orderAuthorization.CanViewAsync(committer, tenantId, CancellationToken.None));
         Assert.False(await orderAuthorization.CanEditAsync(committer, tenantId, CancellationToken.None));
         Assert.False(await orderAuthorization.CanApplyManualPriceAsync(committer, tenantId, CancellationToken.None));
+        foreach (var relation in new[] { "can_commit_order", "can_create_individual", "can_view_individuals", "can_change_individual_availability" })
+        {
+            var user = relation == "can_commit_order" ? committer : customerAccountId;
+            var raw = await client.Check(new ClientCheckRequest { User = $"user:{user:N}", Relation = relation, Object = $"tenant:{tenantId:N}" },
+                new ClientCheckOptions { StoreId = storeId, AuthorizationModelId = pinnedModelId, Consistency = ConsistencyPreference.HIGHERCONSISTENCY }, CancellationToken.None);
+            Assert.False(raw.Allowed is true);
+        }
         await DeleteTenantRelationAsync(administrativeClient, storeId, pinnedModelId, committer, tenantId, "order_committer");
         Assert.False(await orderAuthorization.CanCommitAsync(committer, tenantId, CancellationToken.None));
+        Assert.False(await customerAuthorization.CanCreateIndividualAsync(customerAccountId, tenantId, CancellationToken.None));
+        Assert.False(await customerAuthorization.CanViewIndividualsAsync(customerAccountId, tenantId, CancellationToken.None));
+        Assert.False(await customerAuthorization.CanChangeIndividualAvailabilityAsync(customerAccountId, tenantId, CancellationToken.None));
+        await WriteTenantRelationAsync(administrativeClient, storeId, pinnedModelId, customerAccountId, tenantId, "individual_creator");
+        Assert.True(await customerAuthorization.CanCreateIndividualAsync(customerAccountId, tenantId, CancellationToken.None));
+        Assert.False(await customerAuthorization.CanViewIndividualsAsync(customerAccountId, tenantId, CancellationToken.None));
+        Assert.False(await customerAuthorization.CanChangeIndividualAvailabilityAsync(customerAccountId, tenantId, CancellationToken.None));
+        await WriteTenantRelationAsync(administrativeClient, storeId, pinnedModelId, customerAccountId, tenantId, "individual_viewer");
+        await WriteTenantRelationAsync(administrativeClient, storeId, pinnedModelId, customerAccountId, tenantId, "individual_availability_editor");
+        Assert.True(await customerAuthorization.CanViewIndividualsAsync(customerAccountId, tenantId, CancellationToken.None));
+        Assert.True(await customerAuthorization.CanChangeIndividualAvailabilityAsync(customerAccountId, tenantId, CancellationToken.None));
+        await DeleteTenantRelationAsync(administrativeClient, storeId, pinnedModelId, customerAccountId, tenantId, "individual_availability_editor");
+        Assert.False(await customerAuthorization.CanChangeIndividualAvailabilityAsync(customerAccountId, tenantId, CancellationToken.None));
 
         var newerDenyingModel = modelJson
             .Replace("order_creator", "blocked_order_creator", StringComparison.Ordinal)

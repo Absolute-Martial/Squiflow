@@ -1,3 +1,4 @@
+using DotNet.Testcontainers.Images;
 using Application.Customers;
 using Application.Customers.Postgres;
 using Application.IdentityAccess.Postgres;
@@ -10,9 +11,9 @@ using Xunit;
 
 namespace Application.Customers.Postgres.Tests;
 
-public sealed class CustomerPostgresTests : IAsyncLifetime
+public sealed partial class CustomerPostgresTests : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _database = new PostgreSqlBuilder("postgres:17-alpine")
+    private readonly PostgreSqlContainer _database = new PostgreSqlBuilder(new DockerImage(repository: "postgres", tag: "17-alpine"))
         .WithDatabase("application_tests")
         .WithUsername("postgres")
         .WithPassword("local-integration-test-only")
@@ -31,7 +32,8 @@ public sealed class CustomerPostgresTests : IAsyncLifetime
         var (tenantId, accountId) = await SeedAsync();
         await using var connection = new NpgsqlConnection(ConnectionString);
         await connection.OpenAsync();
-        foreach (var table in new[] { "organizations", "programs", "organization_receipts", "program_receipts" })
+        foreach (var table in new[] { "organizations", "programs", "organization_receipts", "program_receipts",
+            "individuals", "individual_command_receipts" })
         {
             await using var policy = connection.CreateCommand();
             policy.CommandText = """
@@ -275,6 +277,74 @@ public sealed class CustomerPostgresTests : IAsyncLifetime
         Assert.Equal(1L, await CountAsync("pg_catalog.pg_class WHERE oid = 'customers.programs'::regclass"));
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task CompletedTenantSessionCannotBeReusedAndDoesNotLeakContextIntoPool(bool commit)
+    {
+        await MigrateAsync();
+        var (tenant, _) = await SeedAsync();
+        var runtime = await CreateRestrictedRoleAsync();
+        var options = new NpgsqlConnectionStringBuilder(runtime) { MaxPoolSize = 1 };
+        await using var source = NpgsqlDataSource.Create(options.ConnectionString);
+        await using (var session = await CustomerTenantDbSession.OpenAsync(source, tenant, CancellationToken.None))
+        {
+            await using var context = session.CreateCommand("SELECT current_setting('app.current_tenant', true)");
+            Assert.Equal(tenant.ToString("D"), await context.ExecuteScalarAsync());
+            if (commit) await session.CommitAsync(CancellationToken.None);
+            else await session.RollbackAsync(CancellationToken.None);
+            Assert.Throws<InvalidOperationException>(() => session.CreateCommand("SELECT 1"));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => session.CommitAsync(CancellationToken.None));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => session.RollbackAsync(CancellationToken.None));
+        }
+        await using var reused = await source.OpenConnectionAsync();
+        await using var setting = reused.CreateCommand();
+        setting.CommandText = "SELECT NULLIF(current_setting('app.current_tenant', true), '')";
+        Assert.Equal(DBNull.Value, await setting.ExecuteScalarAsync());
+    }
+
+    [Fact]
+    public async Task DirectAdapterBrowseRejectsUnboundedLimitsBeforeOpeningConnection()
+    {
+        await MigrateAsync();
+        var (tenant, account) = await SeedAsync();
+        var context = await ResolveContextAsync(tenant, account);
+        var source = NpgsqlDataSource.Create(ConnectionString);
+        await source.DisposeAsync();
+        var store = new PostgresCustomerStore(source);
+        foreach (var limit in new[] { -1, 0, 51, int.MaxValue })
+        {
+            await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => store.ListOrganizationsAsync(
+                context, new(limit, null), CancellationToken.None));
+            await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => store.ListProgramsAsync(
+                context, new(Guid.NewGuid(), limit, null), CancellationToken.None));
+        }
+    }
+
+    [Fact]
+    public async Task DisposingUncommittedTenantSessionRollsBackItsMutation()
+    {
+        await MigrateAsync();
+        var (tenant, account) = await SeedAsync();
+        var runtime = await CreateRestrictedRoleAsync();
+        await using var source = NpgsqlDataSource.Create(runtime);
+        var session = await CustomerTenantDbSession.OpenAsync(source, tenant, CancellationToken.None);
+        await using (session)
+        {
+            await using var insert = session.CreateCommand(CustomerSql.InsertOrganization);
+            insert.Parameters.AddWithValue("tenant_id", tenant);
+            insert.Parameters.AddWithValue("id", Guid.NewGuid());
+            insert.Parameters.AddWithValue("account_id", account);
+            insert.Parameters.AddWithValue("display_name", "Uncommitted fixture");
+            insert.Parameters.AddWithValue("created_at", DateTimeOffset.UnixEpoch);
+            Assert.Equal(1, await insert.ExecuteNonQueryAsync());
+        }
+        Assert.Throws<InvalidOperationException>(() => session.CreateCommand("SELECT 1"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => session.CommitAsync(CancellationToken.None));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => session.RollbackAsync(CancellationToken.None));
+        Assert.Equal(0L, await CountAsync("customers.organizations"));
+    }
+
     private async Task MigrateAsync()
     {
         await using var identity = IdentityAccessPostgresMigrations.CreateContext(ConnectionString);
@@ -340,7 +410,10 @@ public sealed class CustomerPostgresTests : IAsyncLifetime
             GRANT CONNECT ON DATABASE application_tests TO application_customers_runtime;
             GRANT USAGE ON SCHEMA customers TO application_customers_runtime;
             GRANT SELECT, INSERT ON customers.organizations, customers.programs,
-                customers.organization_receipts, customers.program_receipts TO application_customers_runtime;
+                customers.organization_receipts, customers.program_receipts,
+                customers.individuals, customers.individual_command_receipts TO application_customers_runtime;
+            GRANT UPDATE (availability, revision, availability_changed_by_account_id, availability_changed_at)
+                ON customers.individuals TO application_customers_runtime;
             """;
         await command.ExecuteNonQueryAsync();
         return new NpgsqlConnectionStringBuilder(ConnectionString)

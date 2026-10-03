@@ -30,6 +30,10 @@ internal sealed class TestTenantCustomerAuthorization : ITenantCustomerAuthoriza
     public Task<bool> CanCreateProgramAsync(Guid accountId, Guid tenantId, CancellationToken ct) => Check(accountId, tenantId, "createProgram", ct);
     public Task<bool> CanViewProgramsAsync(Guid accountId, Guid tenantId, CancellationToken ct) => Check(accountId, tenantId, "viewPrograms", ct);
 
+    public Task<bool> CanCreateIndividualAsync(Guid accountId, Guid tenantId, CancellationToken ct) => Check(accountId, tenantId, "createIndividual", ct);
+    public Task<bool> CanViewIndividualsAsync(Guid accountId, Guid tenantId, CancellationToken ct) => Check(accountId, tenantId, "viewIndividuals", ct);
+    public Task<bool> CanChangeIndividualAvailabilityAsync(Guid accountId, Guid tenantId, CancellationToken ct) => Check(accountId, tenantId, "changeIndividualAvailability", ct);
+
     private Task<bool> Check(Guid account, Guid tenant, string operation, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
@@ -45,7 +49,7 @@ internal sealed class TestTenantCustomerAuthorization : ITenantCustomerAuthoriza
     }
 }
 
-internal sealed class TestCustomerStore : ICustomerStore
+internal sealed partial class TestCustomerStore : ICustomerStore, ICustomerIndividualStore
 {
     private readonly Dictionary<(Guid Tenant, Guid Id), CustomerOrganizationSnapshot> _organizations = [];
     private readonly Dictionary<(Guid Tenant, Guid Id), CustomerProgramSnapshot> _programs = [];

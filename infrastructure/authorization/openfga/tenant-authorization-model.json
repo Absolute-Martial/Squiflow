@@ -222,6 +222,39 @@
               }
             ]
           }
+        },
+        "individual_creator": {
+          "this": {}
+        },
+        "can_create_individual": {
+          "intersection": {
+            "child": [
+              { "computedUserset": { "relation": "member" } },
+              { "computedUserset": { "relation": "individual_creator" } }
+            ]
+          }
+        },
+        "individual_viewer": {
+          "this": {}
+        },
+        "can_view_individuals": {
+          "intersection": {
+            "child": [
+              { "computedUserset": { "relation": "member" } },
+              { "computedUserset": { "relation": "individual_viewer" } }
+            ]
+          }
+        },
+        "individual_availability_editor": {
+          "this": {}
+        },
+        "can_change_individual_availability": {
+          "intersection": {
+            "child": [
+              { "computedUserset": { "relation": "member" } },
+              { "computedUserset": { "relation": "individual_availability_editor" } }
+            ]
+          }
         }
       },
       "metadata": {
@@ -341,6 +374,24 @@
             ]
           },
           "can_apply_manual_price": {
+            "directly_related_user_types": []
+          },
+          "individual_creator": {
+            "directly_related_user_types": [{ "type": "user" }]
+          },
+          "can_create_individual": {
+            "directly_related_user_types": []
+          },
+          "individual_viewer": {
+            "directly_related_user_types": [{ "type": "user" }]
+          },
+          "can_view_individuals": {
+            "directly_related_user_types": []
+          },
+          "individual_availability_editor": {
+            "directly_related_user_types": [{ "type": "user" }]
+          },
+          "can_change_individual_availability": {
             "directly_related_user_types": []
           }
         }

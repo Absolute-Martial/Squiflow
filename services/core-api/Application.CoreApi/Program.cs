@@ -318,6 +318,8 @@ app.MapPost("/api/v1/tenants/{tenantId:guid}/orders/{orderId:guid}/commit", Tena
     .ProducesProblem(StatusCodes.Status500InternalServerError)
     .ProducesProblem(StatusCodes.Status504GatewayTimeout);
 
+app.MapCustomerIndividualEndpoints();
+
 app.MapHealthChecks("/health/live", new HealthCheckOptions
 {
     Predicate = static _ => false,

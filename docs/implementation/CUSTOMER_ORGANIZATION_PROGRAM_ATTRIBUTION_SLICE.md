@@ -27,6 +27,15 @@ Create bodies contain a bounded `displayName` and require one caller-owned `Idem
 
 Every route first validates the JWT, resolves the active application account and current tenant membership, then checks one separate persisted OpenFGA relation under the pinned model. The direct relations are `organization_creator`, `organization_viewer`, `program_creator`, and `program_viewer`; each computed permission intersects the direct relation with the verified current membership contextual tuple. Membership or another permission alone is insufficient. Provider outage fails closed. The application performs permission checks only; it does not write model/permission tuples or invent an Owner role.
 
+Customer pagination uses the canonical unpadded Base64url representation of its
+existing v1 payload, with invariant UTC ticks and lowercase N-format IDs.
+Decoding rejects alternate representations (including leading-zero ticks,
+uppercase resource IDs and nonzero unused Base64 bits) as `400 cursor_invalid`.
+Previously emitted canonical cursors retain their format and remain accepted;
+this tightens validation without introducing v2. Cursors are tenant/parent-bound
+positions, not signatures or authorization grants; current membership and
+permissions are checked independently on every request.
+
 The existing order-create route accepts optional `customerContext: { organizationId, programId? }`. Absence preserves the original draft contract. For an attributed draft, the pair is validated and resolved through Customers in the same current `TenantContext` before Orders persistence. A structurally invalid pair returns `400 customer_context_invalid`; an invisible organization or wrong/invisible program returns `404 customer_context_not_found`. Create response, current detail and browse summary include the association. An order creator still needs `order_creator`; customer-context create/view permissions do not grant order creation, and order creation does not grant customer-context administration.
 
 ## Durable and retry behavior
@@ -37,7 +46,15 @@ The additive Orders migration introduces nullable organization and program IDs p
 
 ## Source admission
 
-This slice adds no new framework. Tenant-context resolution, scoped Npgsql transactions, EF migration ownership, and pinned OpenFGA permission checks reuse the already admitted repository patterns. Customer organization/program identity and their business boundaries are application-owned semantics, so importing a generic Party/customer framework or source generator would not settle their meaning. The adapter keeps small parameterized queries next to their operation; Orders' larger queries remain in its embedded SQL resources. Revisit a package or extraction only when a measured workload or a second real consumer earns it.
+This slice adds no new framework. Tenant-context resolution, scoped Npgsql transactions, EF migration ownership, and pinned OpenFGA permission checks reuse the already admitted repository patterns. Customer organization/program identity and their business boundaries are application-owned semantics, so importing a generic Party/customer framework or source generator would not settle their meaning. Customers runtime SQL now lives in adapter-owned embedded `.sql` resources, using the existing Orders resource-loading pattern. C# retains parameter binding, result mapping and transaction coordination; EF owns schema/migrations. This is a code-ownership separation, not a separate SQL service or compile-time query validation. Revisit a package or shared abstraction only when a real workload earns it.
+
+The Customers session refuses commands, commit and rollback after completion or
+disposal. Disposing an uncommitted session rolls back its mutation. Transaction-local
+tenant context is removed before a pooled connection is reused. Real PostgreSQL
+regressions guard completion, rollback-on-disposal and single-connection pool reuse;
+the resource extraction preserves SQL predicates, receipts, grants and query shapes.
+Direct PostgreSQL browse calls also reject limits outside 1–50 before opening a
+connection, independently of the application and HTTP validation paths.
 
 ## Evidence and requalification
 
@@ -49,6 +66,29 @@ This slice adds no new framework. Tenant-context resolution, scoped Npgsql trans
 | Orders additive migration, composite foreign keys, attributed read/list/replay and old receipt compatibility | `Application.Orders.Postgres.Tests` against PostgreSQL 17 |
 | Current membership, separate OpenFGA permissions, safe HTTP failures, bounds and no-store | `Application.CoreApi.Tests` real ASP.NET pipeline and OpenFGA container tests |
 | Exact restricted runtime rights and ordered migration contribution | provisioning and migration-registry PostgreSQL tests |
+
+The 2026-10-02 local full parallel `./eng/verify.sh` run passed locked restore,
+format verification, Release build and all 334 tests, with zero failures or
+skips. `CustomerPaginationRejectsAlternateCursorRepresentations` covers both
+organization and program pages, valid generated continuation, alternate numeric,
+GUID and Base64 encodings, malformed UTF-8 and tenant/parent boundaries.
+`CustomerCursorGeneratedUnderAnotherCultureCanBeReadWithInvariantCulture`
+guards culture-independent encoding. These tests remain in the repository gate;
+the narrow pagination claim is `PRODUCTION_HONEST`, with `BLOCKED = none`.
+Coverage, remote CI and deployment were not qualified by this run.
+
+The subsequent 2026-10-02 local full parallel `./eng/verify.sh` run passed all
+339 tests, with zero failures or skips and zero Release build warnings/errors.
+It qualifies the SQL resource separation and tenant-session/page-bound claims
+above. `CustomerAndOrderRuntimeSqlRemainsInEmbeddedAdapterResources` guards
+runtime literal placement; real PostgreSQL tests own SQL/schema/transaction
+correctness. `CompletedTenantSessionCannotBeReusedAndDoesNotLeakContextIntoPool`,
+`DisposingUncommittedTenantSessionRollsBackItsMutation` and
+`DirectAdapterBrowseRejectsUnboundedLimitsBeforeOpeningConnection` permanently
+guard completion, disposal recovery, pool-context cleanup and adapter resource
+bounds. Requalify these claims on session, command, resource-loading/packaging,
+page-limit, Npgsql or pool configuration changes. No new provider, migration or
+SQL service was introduced; no backup/restore or deployment claim is inferred.
 
 Requalify when organization/program identity or lifecycle becomes mutable; legal/account billing meaning is assigned; a new host creates/reads context; OpenFGA relations, pinned model, tenant membership, RLS, keys, receipt versions, cursor format, or database grants change; or mixed-version deployment is required.
 

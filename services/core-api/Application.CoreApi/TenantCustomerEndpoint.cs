@@ -20,7 +20,8 @@ internal static class TenantCustomerEndpoint
 
     internal static async Task<IResult> CreateOrganizationAsync(Guid tenantId, HttpContext http,
         ClaimsPrincipal principal, ResolveAccountBinding account, ResolveTenantContext tenant,
-        IAuthorizationService authorization, CreateCustomerOrganization command, CancellationToken ct)
+        IAuthorizationService authorization, CreateCustomerOrganization command,
+        CoreApiMutationDiagnostics diagnostics, CancellationToken ct)
     {
         var context = await ResolveAsync(tenantId, http, principal, account, tenant, authorization,
             CreateOrganizationRequirement.Instance, ct);
@@ -33,7 +34,11 @@ internal static class TenantCustomerEndpoint
             var result = await command.ExecuteAsync(context.Context!,
                 new CreateCustomerOrganizationRequest(payload.Value!.DisplayName ?? string.Empty), key!, ct);
             if (result.Status == CreateCustomerOrganizationStatus.IdempotencyKeyConflict) return Conflict();
+            if (result.Status is not (CreateCustomerOrganizationStatus.Created or CreateCustomerOrganizationStatus.Replayed))
+                throw new InvalidOperationException("Customer organization create returned an unsupported status.");
             var value = result.Organization ?? throw new InvalidOperationException("Successful customer create returned no organization.");
+            diagnostics.RecordSuccess(CoreApiMutation.CustomerOrganizationCreated, context.Context!,
+                value.OrganizationId, result.Status == CreateCustomerOrganizationStatus.Replayed, http.TraceIdentifier);
             http.Response.Headers.CacheControl = "no-store";
             if (result.Status == CreateCustomerOrganizationStatus.Replayed)
             {
@@ -83,7 +88,8 @@ internal static class TenantCustomerEndpoint
 
     internal static async Task<IResult> CreateProgramAsync(Guid tenantId, Guid organizationId, HttpContext http,
         ClaimsPrincipal principal, ResolveAccountBinding account, ResolveTenantContext tenant,
-        IAuthorizationService authorization, CreateCustomerProgram command, CancellationToken ct)
+        IAuthorizationService authorization, CreateCustomerProgram command,
+        CoreApiMutationDiagnostics diagnostics, CancellationToken ct)
     {
         var context = await ResolveAsync(tenantId, http, principal, account, tenant, authorization,
             CreateProgramRequirement.Instance, ct);
@@ -97,7 +103,11 @@ internal static class TenantCustomerEndpoint
                 new CreateCustomerProgramRequest(organizationId, payload.Value!.DisplayName ?? string.Empty), key!, ct);
             if (result.Status == CreateCustomerProgramStatus.ParentNotFound) return NotFound("organization_not_found", "Organization not found in this tenant.");
             if (result.Status == CreateCustomerProgramStatus.IdempotencyKeyConflict) return Conflict();
+            if (result.Status is not (CreateCustomerProgramStatus.Created or CreateCustomerProgramStatus.Replayed))
+                throw new InvalidOperationException("Customer program create returned an unsupported status.");
             var value = result.Program ?? throw new InvalidOperationException("Successful customer create returned no program.");
+            diagnostics.RecordSuccess(CoreApiMutation.CustomerProgramCreated, context.Context!,
+                value.ProgramId, result.Status == CreateCustomerProgramStatus.Replayed, http.TraceIdentifier);
             http.Response.Headers.CacheControl = "no-store";
             if (result.Status == CreateCustomerProgramStatus.Replayed)
             {
@@ -149,7 +159,7 @@ internal static class TenantCustomerEndpoint
         catch (CustomerValidationException error) { return Invalid(error.Code, error.Message); }
     }
 
-    private static async Task<(TenantContext? Context, IResult? Failure)> ResolveAsync(
+    internal static async Task<(TenantContext? Context, IResult? Failure)> ResolveAsync(
         Guid tenantId, HttpContext http, ClaimsPrincipal principal, ResolveAccountBinding account,
         ResolveTenantContext tenant, IAuthorizationService authorization,
         IAuthorizationRequirement requirement, CancellationToken ct)
@@ -173,14 +183,14 @@ internal static class TenantCustomerEndpoint
         }
     }
 
-    private static bool TryKey(HttpRequest request, out string? key)
+    internal static bool TryKey(HttpRequest request, out string? key)
     {
         var values = request.Headers["Idempotency-Key"];
         key = values.Count == 1 ? values[0] : null;
         return key is not null;
     }
 
-    private static async Task<(T? Value, IResult? Failure)> ReadPayloadAsync<T>(HttpRequest request, CancellationToken ct)
+    internal static async Task<(T? Value, IResult? Failure)> ReadPayloadAsync<T>(HttpRequest request, CancellationToken ct, bool strict = false)
     {
         if (request.ContentLength is > MaximumCreateRequestBodyBytes)
             return (default, TooLarge());
@@ -196,6 +206,16 @@ internal static class TenantCustomerEndpoint
                 count += read;
             }
             if (count > MaximumCreateRequestBodyBytes) return (default, TooLarge());
+            if (strict)
+            {
+                using var document = JsonDocument.Parse(buffer.AsMemory(0, count), new JsonDocumentOptions { MaxDepth = 2 });
+                if (document.RootElement.ValueKind != JsonValueKind.Object)
+                    return (default, Invalid("request_invalid", "The customer request must be a JSON object."));
+                var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var property in document.RootElement.EnumerateObject())
+                    if (!names.Add(property.Name))
+                        return (default, Invalid("request_invalid", "The customer request must not repeat properties."));
+            }
             var value = JsonSerializer.Deserialize<T>(buffer.AsSpan(0, count), JsonOptions);
             return value is null
                 ? (default, Invalid("request_invalid", "The request body must be a valid JSON customer request."))
@@ -229,7 +249,8 @@ internal static class TenantCustomerEndpoint
 
     private static string EncodeCursor(Guid tenantId, Guid? parentId, DateTimeOffset createdAt, Guid id)
     {
-        var payload = $"v1:{tenantId:N}:{(parentId.HasValue ? parentId.Value.ToString("N") : "organizations")}:{createdAt.ToUniversalTime().Ticks}:{id:N}";
+        var payload = string.Create(CultureInfo.InvariantCulture,
+            $"v1:{tenantId:N}:{(parentId.HasValue ? parentId.Value.ToString("N") : "organizations")}:{createdAt.ToUniversalTime().Ticks}:{id:N}");
         return Convert.ToBase64String(Encoding.UTF8.GetBytes(payload)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
     }
 
@@ -248,21 +269,21 @@ internal static class TenantCustomerEndpoint
                 ticks < DateTime.MinValue.Ticks || ticks > DateTime.MaxValue.Ticks ||
                 !Guid.TryParseExact(values[4], "N", out var id) || id == Guid.Empty) return false;
             cursor = (new DateTimeOffset(ticks, TimeSpan.Zero), id);
-            return true;
+            return string.Equals(EncodeCursor(tenantId, parentId, cursor.Value.CreatedAt, id), encoded, StringComparison.Ordinal);
         }
         catch (Exception error) when (error is FormatException or DecoderFallbackException) { return false; }
     }
 
-    private static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult Invalid(string code, string detail) => TypedResults.Problem(statusCode: 400,
+    internal static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult Invalid(string code, string detail) => TypedResults.Problem(statusCode: 400,
         title: "Invalid customer request.", detail: detail,
         extensions: new Dictionary<string, object?> { ["code"] = code });
     private static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult TooLarge() => TypedResults.Problem(statusCode: 413,
         title: "Customer request is too large.", detail: "The request exceeds the supported size.",
         extensions: new Dictionary<string, object?> { ["code"] = "request_too_large" });
-    private static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult Conflict() => TypedResults.Problem(statusCode: 409,
+    internal static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult Conflict() => TypedResults.Problem(statusCode: 409,
         title: "Idempotency key conflict.", detail: "The Idempotency-Key was used for a different customer request.",
         extensions: new Dictionary<string, object?> { ["code"] = "idempotency_key_conflict" });
-    private static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult NotFound(string code, string detail) => TypedResults.Problem(statusCode: 404,
+    internal static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult NotFound(string code, string detail) => TypedResults.Problem(statusCode: 404,
         title: "Customer resource not found.", detail: detail,
         extensions: new Dictionary<string, object?> { ["code"] = code });
 

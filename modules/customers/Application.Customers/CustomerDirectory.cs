@@ -336,7 +336,7 @@ internal static class CustomerRules
     internal static bool IsUtcTimestamp(DateTimeOffset timestamp) =>
         timestamp != default && timestamp.Offset == TimeSpan.Zero;
 
-    private static bool HasWellFormedUtf16(string value)
+    internal static bool HasWellFormedUtf16(string value)
     {
         for (var index = 0; index < value.Length; index++)
         {

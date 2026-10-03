@@ -35,6 +35,7 @@ BEGIN
            WHERE n.nspname IN ('identity_access', 'tenancy', 'customers', 'orders')
              AND c.relname IN ('accounts', 'external_identity_bindings', 'tenants', 'memberships',
                                'organizations', 'programs', 'organization_receipts', 'program_receipts',
+                               'individuals', 'individual_command_receipts',
                                'order_drafts', 'order_draft_lines', 'command_receipts')
              AND c.relowner = role_record.oid) THEN
         RAISE EXCEPTION 'CoreApi runtime role must not own the database, schemas or application tables';
@@ -45,7 +46,8 @@ BEGIN
         WHERE ((n.nspname = 'orders'
                 AND c.relname IN ('order_drafts', 'order_draft_lines', 'command_receipts'))
             OR (n.nspname = 'customers'
-                AND c.relname IN ('organizations', 'programs', 'organization_receipts', 'program_receipts')))
+                AND c.relname IN ('organizations', 'programs', 'organization_receipts', 'program_receipts',
+                                  'individuals', 'individual_command_receipts')))
           AND (NOT c.relrowsecurity OR NOT c.relforcerowsecurity)) THEN
         RAISE EXCEPTION 'Tenant-owned runtime tables must have forced row level security';
     END IF;
@@ -62,11 +64,15 @@ BEGIN
     FOREACH target_table IN ARRAY ARRAY[
         'customers.organizations', 'customers.programs',
         'customers.organization_receipts', 'customers.program_receipts',
+        'customers.individuals', 'customers.individual_command_receipts',
         'orders.order_drafts', 'orders.order_draft_lines', 'orders.command_receipts'] LOOP
         EXECUTE format('GRANT SELECT, INSERT ON TABLE %s TO %I', target_table, runtime_role);
     END LOOP;
     EXECUTE format(
         'GRANT UPDATE (summary, currency_code, total, customer_organization_id, customer_program_id, state, revision, abandoned_at, abandoned_by_account_id, committed_at, committed_by_account_id) ON TABLE orders.order_drafts TO %I',
+        runtime_role);
+    EXECUTE format(
+        'GRANT UPDATE (availability, revision, availability_changed_at, availability_changed_by_account_id) ON TABLE customers.individuals TO %I',
         runtime_role);
     EXECUTE format('GRANT DELETE ON TABLE orders.order_draft_lines TO %I', runtime_role);
 END
@@ -98,7 +104,8 @@ BEGIN
         WHERE ((n.nspname = 'identity_access' AND c.relname IN ('accounts', 'external_identity_bindings'))
             OR (n.nspname = 'tenancy' AND c.relname IN ('tenants', 'memberships'))
             OR (n.nspname = 'customers' AND c.relname IN (
-                'organizations', 'programs', 'organization_receipts', 'program_receipts'))
+                'organizations', 'programs', 'organization_receipts', 'program_receipts',
+                'individuals', 'individual_command_receipts'))
             OR (n.nspname = 'orders' AND c.relname IN ('order_drafts', 'order_draft_lines', 'command_receipts')))
           AND a.attnum > 0 AND NOT a.attisdropped
     LOOP
@@ -111,12 +118,15 @@ BEGIN
                     OR has_column_privilege(runtime_role, target_table, target_column.column_name, 'UPDATE')))
            OR (target_column.schema_name IN ('customers', 'orders')
                AND has_column_privilege(runtime_role, target_table, target_column.column_name, 'UPDATE')
-                   <> (target_column.table_name = 'order_drafts'
+                   <> ((target_column.schema_name = 'orders' AND target_column.table_name = 'order_drafts'
                        AND target_column.column_name IN (
                            'summary', 'currency_code', 'total',
                            'customer_organization_id', 'customer_program_id',
                            'state', 'revision', 'abandoned_at', 'abandoned_by_account_id',
-                           'committed_at', 'committed_by_account_id'))) THEN
+                           'committed_at', 'committed_by_account_id'))
+                    OR (target_column.schema_name = 'customers' AND target_column.table_name = 'individuals'
+                        AND target_column.column_name IN ('availability', 'revision',
+                            'availability_changed_at', 'availability_changed_by_account_id')))) THEN
             RAISE EXCEPTION 'CoreApi runtime column privileges are unsafe on %', target_table;
         END IF;
     END LOOP;
@@ -126,6 +136,7 @@ BEGIN
         'tenancy.tenants', 'tenancy.memberships',
         'customers.organizations', 'customers.programs',
         'customers.organization_receipts', 'customers.program_receipts',
+        'customers.individuals', 'customers.individual_command_receipts',
         'orders.order_drafts', 'orders.order_draft_lines', 'orders.command_receipts'] LOOP
         IF has_table_privilege(runtime_role, target_table, 'DELETE')
                <> (target_table = 'orders.order_draft_lines')

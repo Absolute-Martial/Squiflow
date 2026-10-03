@@ -17,6 +17,10 @@ public static class CustomersPostgresRegistration
         services.AddScoped<ListCustomerOrganizations>();
         services.AddScoped<ListCustomerPrograms>();
         services.AddScoped<ResolveCustomerOrderContext>();
+        services.AddScoped<ICustomerIndividualStore, PostgresCustomerStore>();
+        services.AddScoped<CreateCustomerIndividual>();
+        services.AddScoped<GetCustomerIndividual>();
+        services.AddScoped<ChangeCustomerIndividualAvailability>();
         return services;
     }
 }

@@ -26,7 +26,7 @@ internal sealed class CustomerTenantDbSession : IAsyncDisposable
             try
             {
                 await using var setTenant = new NpgsqlCommand(
-                    "SELECT set_config('app.current_tenant', @tenant_id, true)", connection, transaction);
+                    CustomerSql.SetTenant, connection, transaction);
                 setTenant.Parameters.AddWithValue("tenant_id", tenantId.ToString("D"));
                 await setTenant.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
                 return new CustomerTenantDbSession(connection, transaction);
@@ -56,12 +56,22 @@ internal sealed class CustomerTenantDbSession : IAsyncDisposable
 
     internal async Task CommitAsync(CancellationToken cancellationToken)
     {
+        if (_completed)
+        {
+            throw new InvalidOperationException("The Customers tenant database session has completed.");
+        }
+
         await _transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
         _completed = true;
     }
 
     internal async Task RollbackAsync(CancellationToken cancellationToken)
     {
+        if (_completed)
+        {
+            throw new InvalidOperationException("The Customers tenant database session has completed.");
+        }
+
         await _transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
         _completed = true;
     }
