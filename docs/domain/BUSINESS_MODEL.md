@@ -274,3 +274,16 @@ current priced content and customer/program attribution. Fulfillment and billing
 are separately recorded later; neither is implied by commitment. The first
 commitment scope introduces no automatic stock, approval, invoice or payment
 effect. Implementation owner: `docs/implementation/ORDER_COMMITMENT_SLICE.md`.
+
+### Accepted first invoice choices, 2026-10-03
+
+The first invoice uses currency code `NPR`; `रु` is its display notation, not an
+alternative persisted currency code. It needs a unique tenant-wide identity and
+an organization-scoped reference or sequence. The exact printable reference
+format and fiscal numbering requirements remain separate decisions.
+
+An actor with separate billing permission chooses the debtor when issuing each
+invoice: the attributed organization by default, its independently owing program,
+or an explicitly selected individual billing record. Issuance freezes that choice
+and the applied prices. It does not change the program's future billing defaults.
+These accepted meanings do not imply that an invoice runtime already exists.

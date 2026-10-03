@@ -308,3 +308,25 @@ editing is not debtor-assignment authority; assignment needs a separate billing
 permission. Focused semantics: `docs/domain/BUSINESS_MODEL.md`. Executable scope
 and evidence owners: `ORDER_COMMITMENT_SLICE.md` and
 `CUSTOMER_INDIVIDUAL_BILLING_RECORD_SLICE.md` under `docs/implementation/`.
+
+### First invoice refinements, 2026-10-03
+
+- Initial currency is `NPR`, displayed as `रु`.
+- Invoice identity is unique across the tenant; an organization-scoped reference
+  or sequence provides a second identifier. Printable syntax and jurisdictional
+  requirements are not resolved by this choice.
+- Separate billing permission selects and freezes the debtor per invoice, with
+  organization as the default and program/individual alternatives. It does not
+  update future program defaults. The focused business owner is
+  `docs/domain/BUSINESS_MODEL.md`; invoice persistence remains absent.
+
+### Initial Owner and tenant suspension, 2026-10-03
+
+- The first Owner is an immutable initial-membership bootstrap designation until
+  baseline role administration introduces an explicit authority handoff.
+  Suspending or removing that membership is rejected in the interim.
+- Tenant suspension makes all tenant memberships ineffective for access while
+  preserving each membership's own state. Reactivation restores only memberships
+  that remained active.
+- These decisions do not define general Owner/Staff permissions. Exact executable
+  scope: `docs/implementation/ADMIN_API_MEMBERSHIP_LIFECYCLE.md`.
