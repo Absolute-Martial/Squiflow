@@ -1,5 +1,6 @@
 using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace Application.Orders.Postgres;
 
@@ -14,6 +15,8 @@ public static class PostgresOrderOptions
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
 
+        builder.ReplaceService<IMigrationsIdGenerator, MigrationIdentifierGenerator>();
+
         return builder.UseNpgsql(connectionString, postgres =>
         {
             postgres.MigrationsHistoryTable(MigrationHistoryTable);
@@ -27,6 +30,8 @@ public static class PostgresOrderOptions
     {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(dataSource);
+
+        builder.ReplaceService<IMigrationsIdGenerator, MigrationIdentifierGenerator>();
 
         return builder.UseNpgsql(dataSource, postgres =>
         {
