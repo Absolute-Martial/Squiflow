@@ -71,6 +71,7 @@ The version change must update the lock in `Directory.Build.props`, both root ve
 ## 5. Permanent guards
 
 - `Directory.Build.props` fixes package, assembly, file and informational versions and fails the build when overridden inconsistently.
+- `ProjectBoundariesTests.ProductVersionMarkersMatchTheLockedProductVersion` requires both root version markers to match that lock.
 - Branding construction rejects missing or unsafe public identity values.
 - CoreApi's checked-in branding values are blank so a deployment cannot accidentally publish the codename.
 - CoreApi tests prove the bootstrap response contains only the configured brand.

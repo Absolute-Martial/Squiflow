@@ -44,6 +44,31 @@ The owner selected **an organization with program/account billing** as the first
 
 The implementation sequence should follow the accepted business dependencies: establish the customer/commercial context needed for the first case; capture and revise uncommitted intent; define quotation where the case needs one; admit an order with explicit effects and historical price; record fulfillment progress; establish invoice/receivable meaning; record and reconcile payment or credit; then handle cancellation, return, refund and correction paths against the effects that actually exist. This is a sequencing guide, not a mandatory transaction workflow. For example, payment may precede fulfillment in one supported case, and a walk-in sale may not need a formal quotation. Each introduced step needs its own authority, revision/idempotency, persistence, failure/recovery and regression evidence before the next step relies on it.
 
+**Further owner refinement (2026-10-02):** first identify the business operation
+end-to-end, including conditional purchasing/outsourcing/stock and corrections;
+separate pricing; support guided operation adaptable to each tenant's customers
+and programs. Do not hardcode one customer workflow or rush isolated lifecycle
+states into contracts. `docs/implementation/BUSINESS_OPERATION_END_TO_END.md`
+maps current behavior and missing outcomes; `PRICING_COMPONENT_BOUNDARY.md`
+distinguishes selling-price selection, override authority, arithmetic, supplier
+cost and retained issued facts. This scope refinement does not close price-policy
+precedence, required approvals, fulfillment meaning or financial correction rules.
+
+**Owner refinement (2026-10-01):** direct orders are supported; quotations are optional. Quotation implementation is not a prerequisite for direct order admission. Tax is outside the first invoice scope. This does not assert tax exemption, a zero tax rate, legal fiscal-invoice compliance or resolved jurisdictional obligations. Invoice/receivable, numbering, rounding, debtor-account identity and settlement remain separately earned responsibilities.
+
+An individual billing account is a separate customer/person billing record,
+independent of an application sign-in account (owner clarification 2026-10-01).
+Login/account membership is operator authority, not the identity of the debtor.
+Billing-record lifecycle, assignment authority and historically retained bill-to
+details still require their own implementation scope; no receivable is introduced
+by this decision.
+
+**Owner refinement (2026-10-02):** the first invoice retains existing priced-draft
+arithmetic: decimal precision 19,4, each line rounded to four decimals using
+`ToEven`, then summed. Applied prices and the selected debtor are frozen on
+issuance. This closes first-invoice arithmetic and historical fact retention;
+it does not introduce invoice runtime, numbering, settlement or correction rules.
+
 The following are **not yet established as validated product facts merely because they are documented**:
 
 - the exact initial customer population;

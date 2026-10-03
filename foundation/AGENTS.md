@@ -6,7 +6,9 @@ These rules apply below `foundation/` in addition to the repository-root `AGENTS
 
 Foundation contains narrow product-wide primitives and infrastructure-neutral implementation that multiple capabilities/hosts genuinely share. It is not a generic `Common`/`Shared`/`Utils` dumping ground.
 
-The current v0.0.20 baseline has **no Foundation project yet**. A folder/instruction file reserves ownership; it does not require a project to exist.
+The repository currently has **no Foundation project**; the product version is `v0.1.0`. A folder/instruction file reserves ownership; it does not require a project to exist.
+
+Two current consumers (Customers and Orders) already duplicate some semantics, for example idempotency-key normalization, length-prefixed fingerprints and tenant-scoped PostgreSQL session handling. That is the kind of shared knowledge this folder is for, but a Foundation project is introduced only by a deliberate, reviewed slice that names the shared semantics and its consumers, not by drift.
 
 ## Architecture rules
 

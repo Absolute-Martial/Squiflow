@@ -4,7 +4,7 @@ These rules apply below `apps/desktop/guard/` in addition to the root instructio
 
 ## Role
 
-`SquiFlow.Guard` is a small independent Workstation supervision/recovery coordinator. Its process boundary exists because it must be able to observe/recover Workstation failure from outside the Workstation process.
+Guard is `NOT_INTRODUCED`: no Guard project exists. When introduced, it is a small independent Workstation supervision/recovery coordinator whose process boundary is earned because it must observe/recover Workstation failure from outside the Workstation process. Its compiled identity uses the neutral `Application.*` family (for example `Application.Guard`), not the development codename.
 
 ## Guard may own
 

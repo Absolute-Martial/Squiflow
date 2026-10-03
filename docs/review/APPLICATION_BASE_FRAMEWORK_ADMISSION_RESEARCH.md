@@ -8,7 +8,7 @@
 
 **Focused owner:** `docs/architecture/APPLICATION_KERNEL_AND_MODULES.md`
 
-**Catalog input:** `# Application Baseline, Reference Projec.md`
+**Catalog input:** `docs/review/APPLICATION_BASELINE_REFERENCE_CATALOG.md`
 **Local evidence:** `reference-sources/` contains source-only snapshots at the revisions listed below; it contains no upstream Git histories and is not product code
 
 ## 1. Decision

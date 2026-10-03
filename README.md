@@ -48,7 +48,7 @@ The deleted `PartyKind` enum and Parties implementation are not current implemen
 
 ## Architecture direction
 
-- C# and modern .NET remain the application direction; .NET 10 is the current toolchain baseline when code is reintroduced.
+- C# and modern .NET are the application direction; .NET 10 is the current toolchain baseline (pinned by `global.json`).
 - Avalonia Workstation and Blazor tenant Web remain accepted presentation directions when those surfaces are implemented.
 - ASP.NET Core remains the server-host foundation when server hosts are implemented.
 - The product starts as a modular monolith; ordinary capability communication is in-process.

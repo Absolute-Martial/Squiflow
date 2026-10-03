@@ -42,6 +42,15 @@ Current minimal rules are in `docs/domain/CROSS_CUTTING_BUSINESS_PRIMITIVES.md`:
 Do not turn these into generic frameworks before two real modules need shared implementation.
 
 Jurisdiction-specific tax/invoice numbering/privacy requirements remain OPEN.
+The owner excluded tax from the first invoice implementation scope on 2026-10-01;
+that exclusion is not tax exemption or a legal invoice-compliance claim. Direct
+orders are allowed and quotations are optional for the first commercial journey.
+
+For the first invoice, retain the current priced-draft arithmetic: decimal
+precision 19,4, round each line to four decimals using `ToEven`, then sum the
+rounded lines (owner decision 2026-10-02). Applied prices and the selected debtor
+are frozen at issuance; later settings cannot recompute issued facts. This does
+not implement invoicing or settle later correction, payment or tax rules.
 
 ## 3. Customer scenarios
 
@@ -71,6 +80,11 @@ Do not require a complex account hierarchy for a walk-in sale.
 ## 4. Organization/program billing
 
 Organizations may have multiple programs/projects. The organization is the default debtor for an issued invoice, but a program may owe independently or its charges may be assigned to an individual account. Program attribution on a draft does not itself select the debtor or post a balance. The invoice must retain the selected bill-to identity and applicable assignment at issue time rather than recomputing it from later settings.
+
+The individual account is a separate customer/person billing record, not an
+IdentityAccess sign-in account (owner decision 2026-10-01). Creating or selecting
+that record never grants application permissions; authenticating an operator
+never establishes that operator as the debtor.
 
 Support where required:
 - transaction linked to program/project;
@@ -246,3 +260,17 @@ The discovery diagnostic for locating interaction-, journey-, structural-, integ
 `Owner` and `Staff` in this rule are small-team authorization/default-operating templates, not research personas. Discovery must separately establish who buys, administers, performs daily work, bears operational burden, and receives the business outcome before those distinctions are treated as product segmentation or new role types.
 
 Generic architecture, DDD, database, and design-pattern sources may improve how these journeys are implemented; they do not replace these business decisions with a generic catalog, manufacturing, procurement, or ERP taxonomy.
+
+### Accepted first record and direct commitment, 2026-10-03
+
+The first individual billing record has its own customer identity, display name,
+optional email/phone and active/inactive state. It is not a login account. Creating
+or changing that record does not select a debtor; assignment requires separate
+billing permission and its own effective-time/financial contract. Implementation
+owner: `docs/implementation/CUSTOMER_INDIVIDUAL_BILLING_RECORD_SLICE.md`.
+
+A direct order may be committed without a quotation. Commitment freezes its
+current priced content and customer/program attribution. Fulfillment and billing
+are separately recorded later; neither is implied by commitment. The first
+commitment scope introduces no automatic stock, approval, invoice or payment
+effect. Implementation owner: `docs/implementation/ORDER_COMMITMENT_SLICE.md`.

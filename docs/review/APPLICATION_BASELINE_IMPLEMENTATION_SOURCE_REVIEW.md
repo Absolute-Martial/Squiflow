@@ -6,7 +6,7 @@
 
 **Input catalog:** `/home/lets-smile/Downloads/application_baseline_reference_catalog.md`
 
-**Repository catalog copy:** `# Application Baseline, Reference Projec.md` — living user-supplied input; current focused owners and accepted decisions still take precedence
+**Repository catalog copy:** `docs/review/APPLICATION_BASELINE_REFERENCE_CATALOG.md` (moved from the repository root; formerly the truncated filename `# Application Baseline, Reference Projec.md`) — living user-supplied input; current focused owners and accepted decisions still take precedence
 
 **Curated local source workspace:** `reference-sources/` — tracked manifest/materializer plus ignored source-only snapshots; no upstream Git histories and no product project references
 
@@ -273,3 +273,24 @@ Odoo Enterprise and other proprietary sources are behavior/reference evidence on
 8. Add notices/attribution in the same change that first copies or redistributes licensed source.
 
 No row authorizes a dependency, project, host, database, or runtime by itself. It removes blank-page design from the active-slice process while preserving the production-honest gate.
+
+## Verified-tenant request admission — source admission, 2026-10-03
+
+Inspected the native runtime
+[`ConcurrencyLimiter` at `dotnet/runtime` tag `v10.0.0`](https://github.com/dotnet/runtime/blob/v10.0.0/src/libraries/System.Threading.RateLimiting/src/System/Threading/RateLimiting/ConcurrencyLimiter.cs),
+specifically `AttemptAcquireCore`, `TryLeaseUnsynchronized`, `Release`,
+`Dispose(bool)` and `ConcurrencyLease.Dispose(bool)`. MIT-licensed API use only;
+no copied framework code, source generator, fork or new package. It owns permit
+acquisition/release and safe late release after limiter disposal. Existing ASP.NET
+rate-limit middleware remains the outer process cap.
+
+Repository ownership is limited to verified-tenant partition allocation, an
+explicit active-partition ceiling, synchronized final removal, and request-scope
+lease disposal. Built-in partition caching alone does not express the chosen
+retain-only-active policy. `TenantAdmissionTests` is the repository regression
+for concurrency, unauthorized candidate exclusion, failure/cancellation,
+cardinality and shutdown. No hard resource isolation, distributed quota or
+fairness guarantee is imported from this source. Exit path is removal/replacement
+of this composition policy while retaining current authority checks and the
+protected response contract. Requalify on native limiter major/API lifecycle
+change and on repository retention or pipeline-order change.

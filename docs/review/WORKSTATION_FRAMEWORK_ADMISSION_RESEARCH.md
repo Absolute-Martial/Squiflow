@@ -3,7 +3,7 @@
 **Reviewed:** 2026-09-17
 **Status:** source-study and admission decision; no Workstation project or runtime is currently implemented
 **Input catalog:** `/home/lets-smile/Downloads/application_baseline_reference_catalog.md`
-**Repository catalog copy:** `# Application Baseline, Reference Projec.md`
+**Repository catalog copy:** `docs/review/APPLICATION_BASELINE_REFERENCE_CATALOG.md`
 **Focused owner:** `docs/workstation/PRESENTATION_ARCHITECTURE.md`
 **Current implementation truth:** `README.IMPLEMENTATION.md`
 **Curated local sources:** `reference-sources/SOURCES.md`; source-only payloads under ignored `reference-sources/snapshots/`

@@ -2,7 +2,7 @@
 
 **Version:** v0.1.0
 
-**Status:** Accepted convention for preserving the history of material SquiFlow decisions.  
+**Status:** Accepted convention for preserving the history of material SquiFlow decisions.
 **Authority boundary:** Current authoritative semantics remain in focused owner documents and `docs/decisions/CURRENT_DECISIONS.md`; unresolved choices remain in `docs/decisions/OPEN_DECISIONS.md`. This document owns how material decision rationale is preserved when accepted direction changes. It does not replace owner documents, the decision audit, Git history, or ordinary review records.
 
 ## 1. Why this document exists
@@ -187,6 +187,46 @@ SquiFlow therefore adopts the principle:
 > modular ownership is mandatory; physical project decomposition is earned.
 
 Reference rationale/current owner: `docs/architecture/MODULE_OWNERSHIP_PERSISTENCE_AND_PROJECT_BOUNDARIES.md`.
+
+### 6.10 First-login/public bootstrap -> one-time private bootstrap + independent Admin-device proof
+
+**Decision identity:** Platform Admin bootstrap and registered-device proof
+**Status:** Accepted
+**Date:** 2026-10-02
+
+**Problem:** The private Platform Admin plane needs an initial human authority and a
+registered-device gate without creating a remotely exploitable `first admin` endpoint,
+equating Tailscale reachability with authorization, or coupling administrator authority to
+an ordinary tenant account/session.
+
+**Accepted decision:** Initial Platform Admin authority is established through a one-time
+private infrastructure bootstrap operation. The administrator is bound to the exact
+ZITADEL/OIDC `(issuer, subject)` identity, receives a separate opaque SquiFlow platform
+principal for OpenFGA, and registers the first Admin device by X.509 certificate SHA-256
+fingerprint. The device private key stays on the device and should be non-exportable /
+TPM-backed where supported. Bootstrap is caller-idempotent and reconciliation-aware across
+PostgreSQL and OpenFGA; it completes only when the pinned platform model confirms the
+administrator relation.
+
+The device certificate proves device registration only. Tailscale/private-network
+admission, ZITADEL identity, device registration and platform OpenFGA permission are
+independent gates. Later step-up/JIT/four-eyes controls remain operation-specific.
+
+**Rejected shortcuts:** first successful login becomes SuperAdmin; public/tenant API
+`create-first-admin`; private/RFC1918/Tailscale location as authority; storing a reusable
+device private key in server/application configuration; encoding mutable Admin permissions
+inside the client certificate.
+
+**Consequences:** bootstrap needs durable pending/completed state and authoritative audit;
+the first OpenFGA write cannot be pretended atomic with PostgreSQL and must be safely
+resumable/reconcilable. Normal loss of Admin access does not reopen first-admin bootstrap;
+break-glass/infrastructure recovery remains separate.
+
+**Current owner:** `docs/admin/ADMIN_SURFACES.md`.
+
+**Revisit trigger:** the supported deployment cannot reliably use mutually authenticated
+client certificates, or a stronger hardware/device-attestation mechanism is adopted with
+equal or better independent device lifecycle/revocation properties.
 
 ## 7. Decision changes must name what changed
 

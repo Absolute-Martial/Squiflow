@@ -17,6 +17,7 @@ Current governing owners are:
 - `docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md` — scope/quality contract;
 - `docs/implementation/PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md` — evidence permanence, regression, transition, and requalification contract;
 - `docs/implementation/PHASES_AND_GATES.md` — high-level maturity direction;
+- `docs/implementation/DELIVERY_PLAN.md` — living, non-authoritative queue of hardening items and candidate slices with their blocking decisions;
 - `docs/implementation/phases/phase-0/` — current detailed rebuild work;
 - `docs/implementation/phases/phase-1/` — currently earned detailed trust/security direction;
 - `docs/implementation/FUTURE_PHASE_CARRY_FORWARD.md` — non-authoritative future anticipation;
@@ -26,7 +27,7 @@ If this file ever conflicts with a focused canonical owner or the global phase-g
 
 ## 2. Current implementation truth
 
-The current post-purge implementation contains independently earned Branding, IdentityAccess and Tenancy capabilities, capability-owned PostgreSQL adapters/migrations, CoreApi, the one-shot DbMigrator, unit/integration tests, `.slnx`, SDK pin and central build/package contract. CoreApi has narrow configured JWT validation plus active-account and active-membership queries; Tenancy can resolve immutable context from current membership. It contains no real ZITADEL login/session topology evidence, account/tenant provisioning, OpenFGA authorization, tenant-owned business data/RLS, business capability, Worker, Web UI, Workstation or general Foundation/ApplicationKernel project.
+The current implementation inventory, implemented routes and `NOT_INTRODUCED` list are owned by `README.IMPLEMENTATION.md`; this file deliberately does not restate them, because restated inventories drift. In summary: the post-purge tree contains independently earned ApplicationProfiles, Branding, IdentityAccess, Tenancy, Customers and Orders capabilities with PostgreSQL adapters (tenant RLS), pinned-model OpenFGA authorization, CoreApi, the one-shot DbMigrator and the `./eng/verify.sh` contract. Real ZITADEL login/session evidence, provisioning, Worker, Web UI, Workstation and a general Foundation/ApplicationKernel project remain `NOT_INTRODUCED`.
 
 Phase 0A remains the qualified reset baseline. The former Phase 0B Parties implementation and its verification are retired historical evidence after the 2026-09-17 purge. The narrow current responsibilities listed in `README.IMPLEMENTATION.md` are `PRODUCTION_HONEST`; all broader runtime responsibilities remain `NOT_INTRODUCED`; `BLOCKED = none`.
 

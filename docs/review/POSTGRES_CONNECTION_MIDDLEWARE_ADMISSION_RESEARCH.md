@@ -18,7 +18,7 @@ ConnectionPruningIntervalSeconds 10
 ConnectionLifetimeSeconds        3600
 ```
 
-The host rejects disabled pooling, `No Reset On Close=true`, Npgsql multiplexing, and every connection mode other than `Direct`. It names the data source `Application.CoreApi.PrimaryDatabase` so Npgsql's built-in `System.Diagnostics.Metrics` instruments have a stable non-secret pool identifier. Query parameter logging remains disabled.
+The host rejects disabled pooling, `No Reset On Close=true`, Npgsql multiplexing, and every connection mode other than `Direct`. It names the data source `Application.CoreApi.PrimaryDatabase` so Npgsql's built-in `System.Diagnostics.Metrics` instruments have a stable non-secret pool identifier. Query parameter logging remains disabled. The 2026-10-01 failure-contract work also explicitly disables native provider logs because command logs can contain SQL even without parameters; the host owns safe failure events. See `docs/implementation/CORE_API_FAILURE_CONTRACT.md`.
 
 No PgBouncer, PgDoorman, Odyssey, PgCat, PgDog, or Pgpool-II process is part of the current deployment. Adding one now would create another network, authentication, TLS, upgrade, health, saturation, failover, diagnostics, and recovery boundary without evidence that direct bounded pools exceed PostgreSQL's connection envelope.
 

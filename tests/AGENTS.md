@@ -82,7 +82,7 @@ Current unit tests guard the host/provider neutrality of ApplicationProfiles, Br
 
 ## Current executable commands
 
-Use `dotnet restore Application.slnx`, `dotnet build Application.slnx --no-restore`, and `dotnet test Application.slnx --no-build --no-restore`. Provider tests require Docker because they run PostgreSQL 17 through Testcontainers.
+Run `./eng/verify.sh`: locked restore, `dotnet format --verify-no-changes`, Release build, then the full test suite (`COLLECT_COVERAGE=1` also produces a local coverage report under `artifacts/coverage/report/`). Provider tests require Docker because they run PostgreSQL 17 through Testcontainers. Report only a run whose output you inspected.
 
 ## DO NOT
 

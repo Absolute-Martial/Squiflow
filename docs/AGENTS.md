@@ -51,4 +51,4 @@ Before accepting a new mechanism/technology in docs, answer as applicable:
 
 ## Validation
 
-For documentation changes that affect architecture/project paths/commands, run the root build/spec commands when a current executable contract exists and inspect referenced paths. The post-purge tree currently has no such contract. A documentation-only MR can still create harmful architecture drift, so verify that examples and current-state claims match the repository.
+For documentation changes that affect architecture/project paths/commands/inventory, run `./eng/verify.sh` (it includes `Application.Architecture.Tests`, which parses the count lines in `README.IMPLEMENTATION.md`) and inspect every referenced path. A documentation-only change can still create harmful architecture drift, so verify that examples and current-state claims match the repository. State the current inventory only in `README.IMPLEMENTATION.md`; other documents link to it instead of restating it.
