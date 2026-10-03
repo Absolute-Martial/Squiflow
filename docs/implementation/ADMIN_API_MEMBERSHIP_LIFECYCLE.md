@@ -1,6 +1,6 @@
 # AdminApi membership lifecycle
 
-**Status:** implemented narrow slice; container-backed qualification pending, 2026-10-03  
+**Status:** qualified narrow slice, 2026-10-03
 **Product version:** remains v0.1.0
 
 ## Declared scope
@@ -66,6 +66,14 @@ the normal AdminApi no-store response boundary.
 - `MembershipLifecycleBoundaryTests` exercises the real AdminApi, PostgreSQL and
   platform OpenFGA request boundary.
 - `grant-admin-api.sql` is the deployment-owned least-privilege contract.
+
+The normal parallel `./eng/verify.sh` on 2026-10-03 passed locked restore,
+formatting, Release build and all **640 tests across 15 suites**, zero
+failures/skips and zero warnings/errors. It includes real PostgreSQL/OpenFGA
+membership lifecycle qualification. The declared narrow scope is
+`PRODUCTION_HONEST`; `BLOCKED = none`. The subsequent JSON-kind correction and
+its additional boundary guards are owned by `ADMIN_API_JSON_BOUNDARY_CONTRACT.md`.
+This evidence does not qualify a production deployment or later AdminApi slices.
 
 ## Explicit non-claims
 

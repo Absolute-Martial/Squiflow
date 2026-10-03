@@ -36,7 +36,7 @@ drift reconciliation, memberships and roles are not part of this slice. The
 authoritative contract and evidence are in
 `docs/implementation/ADMIN_API_IDENTITY_IMPORT_AND_LINKING.md`.
 
-### 2. Membership lifecycle — implemented; container qualification pending
+### 2. Membership lifecycle — qualified narrow slice
 
 Introduce invitation/addition of an existing onboarded account, activation,
 suspension and removal; first-Owner onboarding; tenant suspension/reactivation;
@@ -49,7 +49,11 @@ suspension blocks all tenant access by making membership-derived `TenantContext`
 unavailable while preserving membership states. Exact behavior and evidence are
 owned by `docs/implementation/ADMIN_API_MEMBERSHIP_LIFECYCLE.md`.
 
-### 3. Baseline permission administration — next only after slice 2 qualifies
+The 2026-10-03 normal repository gate qualified this declared scope with real
+PostgreSQL/OpenFGA evidence. Later slices remain deferred; qualification is not
+authorization to begin another responsibility.
+
+### 3. Baseline permission administration — deferred
 
 Introduce the accepted Owner/Staff meanings, assignment/revocation, delegation
 ceilings, authorization revision, OpenFGA tuple reconciliation and replay/recovery

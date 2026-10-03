@@ -89,7 +89,8 @@ Host exposure, external identity verification/recovery, invitation delivery,
 account suspension administration, permissions/delegation, general audit,
 production identity topology and deployment recovery remain separate claims.
 
-Current checkout state: `BLOCKED` for integration qualification. Concurrent
+Historical incoming-work snapshot, superseded by the qualification below:
+integration qualification was `BLOCKED`. Concurrent
 provider-provisioning edits introduced `TenantIdentityOrganizationRow` and
 `ProviderAccountProvisioningRow` without matching migrations/snapshots. The
 IdentityAccess provider run returned 5 passed / 9 failed; the subsequent Tenancy
@@ -97,11 +98,22 @@ provider run returned 1 passed / 17 failed because the shared migrator refuses
 that model drift. An earlier Tenancy run passed 17 tests before those changes;
 that earlier result does not qualify the current checkout.
 
-Current independent evidence: all 23 Tenancy unit tests pass, and CoreApi locked
-restore/build/publish succeeds with zero warnings/errors. Architecture testing
-returns 8 passed / 1 failed: the incoming `PostgresTenantDirectory` query remains
-inline rather than an embedded SQL resource. The normal full repository gate has
-not been rerun against this unstable checkout. Do not suppress model-drift checks
-or weaken SQL placement guards. Resolve shared-file ownership, finish the missing
-models/migrations and query placement, then rerun the normal gate. No remote or
-production deployment check is claimed.
+At that historical snapshot, independent evidence included 23 passing Tenancy
+unit tests, and CoreApi locked restore/build/publish succeeded with zero
+warnings/errors. Architecture testing returned 8 passed / 1 failed: the incoming
+`PostgresTenantDirectory` query remained inline rather than an embedded SQL
+resource. The normal full repository gate had not been rerun against that
+unstable checkout. Required resolution was to finish the missing models/migrations
+and query placement without suppressing model-drift checks or weakening SQL
+placement guards, then rerun the normal gate. No remote or
+production deployment check was claimed for that historical snapshot.
+
+Current qualification, 2026-10-03: the normal parallel `./eng/verify.sh` passed
+locked restore, formatting, Release build and **640 tests across 15 suites**,
+zero failures/skips and zero warnings/errors. This includes all 15 IdentityAccess
+PostgreSQL tests, 19 Tenancy PostgreSQL tests, 29 Tenancy unit tests and 9
+architecture tests. The earlier model-drift/query-placement failures no longer
+describe this checkout; their guards remain enabled. The declared persistence
+integration is `PRODUCTION_HONEST`; `BLOCKED = none`. Remote CI and a production
+deployment remain separate, unqualified claims. The AdminApi JSON correction
+included in this gate is owned by `ADMIN_API_JSON_BOUNDARY_CONTRACT.md`.

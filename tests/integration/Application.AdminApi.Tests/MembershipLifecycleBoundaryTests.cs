@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Npgsql;
 using Xunit;
 
 namespace Application.AdminApi.Tests;
@@ -89,6 +90,116 @@ public sealed class MembershipLifecycleBoundaryTests(AdminApiTestEnvironment env
             Guid.NewGuid().ToString("N"),
             """{"expectedRevision":1,"extra":true}"""));
         Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+    }
+
+    [Fact]
+    public async Task InvalidRevisionShapesHaveNoDurableEffectsAndDoNotConsumeIdempotencyKeys()
+    {
+        using var factory = environment.CreateFactory(environment.DeviceCertificate);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            BaseAddress = new Uri("https://localhost"),
+            AllowAutoRedirect = false,
+        });
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", environment.CreateToken());
+        var accountId = await CreateAccountAsync(client);
+        var tenantId = await CreateTenantAsync(client);
+        using var invitation = await client.SendAsync(Request(
+            $"/api/v1/platform/tenants/{tenantId}/memberships",
+            Guid.NewGuid().ToString("N"),
+            $$"""{"accountId":"{{accountId}}"}"""));
+        Assert.Equal(HttpStatusCode.Created, invitation.StatusCode);
+        await using var connection = new NpgsqlConnection(environment.OwnerConnectionString);
+        await connection.OpenAsync();
+
+        foreach (var (path, code, sql, availability) in new[]
+        {
+            ($"/api/v1/platform/tenants/{tenantId}/memberships/{accountId}/activate",
+                "invalid_membership_request",
+                """
+                SELECT availability, revision,
+                    (SELECT count(*) FROM tenancy.membership_lifecycle_receipts
+                     WHERE changed_by_principal_id = @principal AND idempotency_key = @key)
+                FROM tenancy.memberships WHERE tenant_id = @tenant AND account_id = @account
+                """, (short)3),
+            ($"/api/v1/platform/tenants/{tenantId}/lifecycle/suspend",
+                "invalid_tenant_lifecycle_request",
+                """
+                SELECT availability, revision,
+                    (SELECT count(*) FROM tenancy.tenant_lifecycle_receipts
+                     WHERE changed_by_principal_id = @principal AND idempotency_key = @key)
+                FROM tenancy.tenants WHERE id = @tenant
+                """, (short)1),
+        })
+        {
+            var key = Guid.NewGuid().ToString("N");
+            foreach (var payload in new[]
+            {
+                """{"expectedRevision":"1"}""", """{"expectedRevision":null}""",
+                """{"expectedRevision":true}""", """{"expectedRevision":[]}""",
+                """{"expectedRevision":{}}""", """{"expectedRevision":0}""",
+                """{"expectedRevision":-1}""", """{"expectedRevision":2147483648}""",
+                """{"expectedRevision":1.5}""", """{"expectedRevision":1,"expectedRevision":1}""",
+                """{"expectedRevision":1,"extra":true}""", "{}",
+            })
+            {
+                using var response = await client.SendAsync(Request(path, key, payload));
+                Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+                Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+                using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+                Assert.Equal(code, problem.RootElement.GetProperty("code").GetString());
+                await using var command = new NpgsqlCommand(sql, connection);
+                command.Parameters.AddWithValue("principal", environment.PrincipalId);
+                command.Parameters.AddWithValue("key", key);
+                command.Parameters.AddWithValue("tenant", tenantId);
+                command.Parameters.AddWithValue("account", accountId);
+                await using var reader = await command.ExecuteReaderAsync();
+                Assert.True(await reader.ReadAsync());
+                Assert.Equal(availability, reader.GetInt16(0));
+                Assert.Equal(1, reader.GetInt32(1));
+                Assert.Equal(0L, reader.GetInt64(2));
+            }
+
+            using var corrected = await client.SendAsync(Request(path, key, """{"expectedRevision":1}"""));
+            Assert.Equal(HttpStatusCode.OK, corrected.StatusCode);
+            using var correctedBody = JsonDocument.Parse(await corrected.Content.ReadAsStringAsync());
+            Assert.Equal(2, correctedBody.RootElement.GetProperty("revision").GetInt32());
+            using var replayed = await client.SendAsync(Request(path, key, """{"expectedRevision":1}"""));
+            Assert.Equal(HttpStatusCode.OK, replayed.StatusCode);
+            using var replayedBody = JsonDocument.Parse(await replayed.Content.ReadAsStringAsync());
+            Assert.Equal(2, replayedBody.RootElement.GetProperty("revision").GetInt32());
+        }
+    }
+
+    [Fact]
+    public async Task RegisteredDeviceAuthorityPrecedesLifecycleBodyParsing()
+    {
+        using var factory = environment.CreateFactory(certificate: null);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            BaseAddress = new Uri("https://localhost"),
+            AllowAutoRedirect = false,
+        });
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", environment.CreateToken());
+        var tenantId = Guid.NewGuid();
+        var accountId = Guid.NewGuid();
+        foreach (var path in new[]
+        {
+            $"/api/v1/platform/tenants/{tenantId}/memberships/{accountId}/activate",
+            $"/api/v1/platform/tenants/{tenantId}/lifecycle/suspend",
+        })
+        {
+            foreach (var payload in new[] { "{", """{"expectedRevision":"1"}""" })
+            {
+                using var response = await client.SendAsync(Request(path, Guid.NewGuid().ToString("N"), payload));
+                Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+                using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+                Assert.Equal("admin_device_required", problem.RootElement.GetProperty("code").GetString());
+                Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+            }
+        }
     }
 
     private static async Task<Guid> CreateAccountAsync(HttpClient client)

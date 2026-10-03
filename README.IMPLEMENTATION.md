@@ -16,7 +16,7 @@ test projects:       15
 executable hosts:    4
 solution files:      1
 repository build/test contract: present
-BLOCKED: AdminApi membership lifecycle container-backed qualification
+BLOCKED: none
 ```
 
 ## What exists
@@ -85,6 +85,13 @@ Every protected AdminApi route requires the configured OIDC identity, HTTPS, an 
 
 The exact identity-import/linking scope, provider boundary, failure contract, evidence and non-claims are owned by `docs/implementation/ADMIN_API_IDENTITY_IMPORT_AND_LINKING.md`.
 
+The JSON-kind validation and safe malformed-input/provider-response behavior are
+owned by `docs/implementation/ADMIN_API_JSON_BOUNDARY_CONTRACT.md`. Its normal
+parallel `./eng/verify.sh` qualification on 2026-10-03 passed all **640 tests**
+across 15 suites with zero failures/skips and zero Release warnings/errors,
+including real PostgreSQL/OpenFGA membership lifecycle qualification. This is
+local evidence for the declared scopes, not deployment or whole-backend readiness.
+
 ## Behavior that is guaranteed
 
 - **Tenant isolation:** explicit tenant SQL predicates plus forced PostgreSQL RLS with transaction-local tenant context. Orders and Customers data is tenant-owned.
@@ -120,7 +127,7 @@ The former Phase 0B Parties qualification is retired historical evidence. It doe
 
 The bounded ApplicationProfiles feature compiler, deployment-wide public Branding contract, CoreApi bootstrap/liveness paths, classified OpenAPI v1 document, configured JWT validation, active-account resolution, current active-membership listing, exact account/membership queries, immutable membership-derived `TenantContext`, Finbuckle route-candidate plumbing, pinned-model OpenFGA workspace, Orders and Customers permissions, immutable tenant-owned customer organization/program create/read/browse, optional customer/program-attributed priced order-draft create/read/browse/revise/abandon, caller-scoped semantic idempotency, explicit tenant SQL plus forced PostgreSQL RLS, shared bounded/resetting CoreApi Npgsql data source, and the ordered one-shot PostgreSQL migrator are `PRODUCTION_HONEST` for their declared narrow scopes. The Customer organization/program and Orders attribution evidence and regression guards are owned by `docs/implementation/CUSTOMER_ORGANIZATION_PROGRAM_ATTRIBUTION_SLICE.md`; the Orders draft/lifecycle contract remains owned by `docs/implementation/ORDER_DRAFT_INTAKE_SLICE.md`, including the separate `order_editor` and `order_abandoner` permissions, revision-checked changes, lifecycle metadata and scoped persistence rights. That owner defines host-neutral, ASP.NET pipeline, OpenFGA and PostgreSQL evidence for create, read, browse, revise and abandon. The local `COLLECT_COVERAGE=1 ./eng/verify.sh` run on 2026-09-24 passed locked restore, formatting, Release build, all 307 tests and coverage report generation. Remote CI and a production deployment are separate claims. Tenant-specific branding, real ZITADEL topology/flows, broader OpenFGA roles/administration and the broader business lifecycle remain `NOT_INTRODUCED`. `BLOCKED = none`.
 
-The private AdminApi request boundary, tenant provisioning command, and the exact existing-ZITADEL-human identity import/link slice are `PRODUCTION_HONEST` for their declared narrow scopes. The account operation atomically owns local account/binding/receipt effects; the link operation serializes against account availability and atomically owns binding/receipt effects. Both recheck request-time principal, registered device and pinned OpenFGA authority, preserve caller-scoped semantic idempotency, and return safe provider failures. Revision-checked AdminApi membership and tenant suspension/reactivation operations, including one protected initial-Owner bootstrap designation, are implemented for the scope in `docs/implementation/ADMIN_API_MEMBERSHIP_LIFECYCLE.md`; container-backed PostgreSQL/OpenFGA qualification must pass before this new scope is classified `PRODUCTION_HONEST`. Provider-side creation/reconciliation, live ZITADEL deployment qualification, general roles and ongoing operator/Admin-device lifecycle remain `NOT_INTRODUCED`. Identity evidence and requalification triggers remain owned by `docs/implementation/ADMIN_API_IDENTITY_IMPORT_AND_LINKING.md`. `BLOCKED = none`.
+The private AdminApi request boundary, tenant provisioning command, and the exact existing-ZITADEL-human identity import/link slice are `PRODUCTION_HONEST` for their declared narrow scopes. The account operation atomically owns local account/binding/receipt effects; the link operation serializes against account availability and atomically owns binding/receipt effects. Both recheck request-time principal, registered device and pinned OpenFGA authority, preserve caller-scoped semantic idempotency, and return safe provider failures. Revision-checked AdminApi membership and tenant suspension/reactivation operations, including one protected initial-Owner bootstrap designation, are `PRODUCTION_HONEST` for the narrow scope in `docs/implementation/ADMIN_API_MEMBERSHIP_LIFECYCLE.md`, qualified by the 2026-10-03 normal repository gate with real PostgreSQL/OpenFGA evidence. Provider-side creation/reconciliation, live ZITADEL deployment qualification, general roles and ongoing operator/Admin-device lifecycle remain `NOT_INTRODUCED`. Identity evidence and requalification triggers remain owned by `docs/implementation/ADMIN_API_IDENTITY_IMPORT_AND_LINKING.md`. `BLOCKED = none`.
 
 ## Active implementation rule
 

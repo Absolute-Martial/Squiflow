@@ -58,6 +58,7 @@ internal static class BoundedAdminJson
         using var properties = value.EnumerateObject();
         return properties.MoveNext() &&
                properties.Current.NameEquals(name) &&
+               properties.Current.Value.ValueKind == JsonValueKind.Number &&
                properties.Current.Value.TryGetInt32(out result) &&
                result > 0 &&
                !properties.MoveNext();

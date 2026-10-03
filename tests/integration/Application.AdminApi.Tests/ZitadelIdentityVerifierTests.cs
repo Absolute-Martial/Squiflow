@@ -104,15 +104,23 @@ public sealed class ZitadelIdentityVerifierTests
                 ExternalIdentity.Create(Authority, subject),
                 CancellationToken.None));
 
-        using var malformedClient = new HttpClient(new DelegateHandler((_, _) =>
-            Task.FromResult(JsonResponse("""{"user":"""))))
+        foreach (var body in new[]
         {
-            Timeout = Timeout.InfiniteTimeSpan,
-        };
-        await Assert.ThrowsAsync<AdminIdentityProviderUnavailableException>(() =>
-            CreateVerifier(malformedClient).VerifyAsync(
-                ExternalIdentity.Create(Authority, subject),
-                CancellationToken.None));
+            """{"user":""", "[]", "null", "true", "42", "\"provider-sensitive-detail\"",
+            "{}", """{"user":null}""", """{"user":[]}""", """{"user":"invalid"}""",
+            """{"user":{"userId":42,"human":{}}}""",
+        })
+        {
+            using var malformedClient = new HttpClient(new DelegateHandler((_, _) =>
+                Task.FromResult(JsonResponse(body))))
+            {
+                Timeout = Timeout.InfiniteTimeSpan,
+            };
+            await Assert.ThrowsAsync<AdminIdentityProviderUnavailableException>(() =>
+                CreateVerifier(malformedClient).VerifyAsync(
+                    ExternalIdentity.Create(Authority, subject),
+                    CancellationToken.None));
+        }
     }
 
     [Fact]

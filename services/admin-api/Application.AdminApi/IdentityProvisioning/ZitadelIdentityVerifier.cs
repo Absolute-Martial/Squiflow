@@ -97,7 +97,8 @@ internal sealed class ZitadelIdentityVerifier(
             using var document = JsonDocument.Parse(
                 body.AsMemory(0, received),
                 new JsonDocumentOptions { MaxDepth = 12 });
-            if (!document.RootElement.TryGetProperty("user", out var user) ||
+            if (document.RootElement.ValueKind != JsonValueKind.Object ||
+                !document.RootElement.TryGetProperty("user", out var user) ||
                 user.ValueKind != JsonValueKind.Object ||
                 !user.TryGetProperty("userId", out var userId) ||
                 userId.ValueKind != JsonValueKind.String ||

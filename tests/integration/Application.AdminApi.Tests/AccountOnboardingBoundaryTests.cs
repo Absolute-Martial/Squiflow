@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using Application.AdminApi.Authentication;
 using Application.AdminApi.IdentityProvisioning;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Npgsql;
@@ -270,6 +271,107 @@ public sealed class AccountOnboardingBoundaryTests(AdminApiTestEnvironment envir
             ("subject", subject)));
     }
 
+    [Fact]
+    public async Task MalformedProviderJsonThroughActualVerifierHasNoIdentityEffectsAndCanBeRetried()
+    {
+        Guid accountId;
+        using (var setupFactory = environment.CreateFactory(environment.DeviceCertificate))
+        using (var setupClient = CreateClient(setupFactory))
+        using (var created = await setupClient.SendAsync(AccountRequest(
+                   environment.CreateToken(), Guid.NewGuid().ToString("N"), $"primary-{Guid.NewGuid():N}")))
+        {
+            Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+            using var body = JsonDocument.Parse(await created.Content.ReadAsStringAsync());
+            accountId = body.RootElement.GetProperty("accountId").GetGuid();
+        }
+
+        const string providerDetail = "provider-sensitive-detail";
+        const string apiToken = "controlled-provider-test-token";
+        string? providerBody = null;
+        var providerCalls = 0;
+        using var providerClient = new HttpClient(new ControlledProviderHandler(request =>
+        {
+            providerCalls++;
+            Assert.Equal(new AuthenticationHeaderValue("Bearer", apiToken), request.Headers.Authorization);
+            var subject = Uri.UnescapeDataString(request.RequestUri!.Segments[^1]);
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    providerBody ?? JsonSerializer.Serialize(new { user = new { userId = subject, human = new { } } }),
+                    Encoding.UTF8,
+                    "application/json"),
+            };
+        }))
+        {
+            Timeout = Timeout.InfiniteTimeSpan,
+        };
+        var verifier = new ZitadelIdentityVerifier(
+            providerClient,
+            new ZitadelIdentityProvisioningConfiguration(
+                new Uri($"{AdminApiTestEnvironment.Authority}/"), apiToken, TimeSpan.FromSeconds(1)),
+            new AdminOidcAuthenticationConfiguration(
+                AdminApiTestEnvironment.Authority, AdminApiTestEnvironment.Audience,
+                TimeSpan.FromSeconds(1), TimeSpan.Zero));
+        using var factory = environment.CreateFactory(environment.DeviceCertificate, identityVerifier: verifier);
+        using var client = CreateClient(factory);
+        var onboardSubject = $"malformed-onboard-{Guid.NewGuid():N}";
+        var linkSubject = $"malformed-link-{Guid.NewGuid():N}";
+        var onboardKey = Guid.NewGuid().ToString("N");
+        var linkKey = Guid.NewGuid().ToString("N");
+        await using var connection = new NpgsqlConnection(environment.OwnerConnectionString);
+        await connection.OpenAsync();
+        var accountsBefore = await CountAsync(connection, "SELECT count(*) FROM identity_access.accounts");
+
+        foreach (var malformedBody in new[]
+        {
+            "[]", "null", "true", "42", $"\"{providerDetail}\"", "{}",
+            """{"user":null}""", """{"user":[]}""", """{"user":"invalid"}""",
+            """{"user":{"userId":42,"human":{}}}""",
+        })
+        {
+            providerBody = malformedBody;
+            foreach (var link in new[] { false, true })
+            {
+                using var request = link
+                    ? LinkRequest(environment.CreateToken(), accountId, linkKey, linkSubject)
+                    : AccountRequest(environment.CreateToken(), onboardKey, onboardSubject);
+                using var response = await client.SendAsync(request);
+                var body = await response.Content.ReadAsStringAsync();
+                Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+                Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+                using var problem = JsonDocument.Parse(body);
+                Assert.Equal("identity_provider_unavailable", problem.RootElement.GetProperty("code").GetString());
+                Assert.DoesNotContain(providerDetail, body, StringComparison.Ordinal);
+                Assert.DoesNotContain(apiToken, body, StringComparison.Ordinal);
+            }
+
+            Assert.Equal(accountsBefore, await CountAsync(connection, "SELECT count(*) FROM identity_access.accounts"));
+            Assert.Equal(0L, await CountAsync(
+                connection,
+                "SELECT count(*) FROM identity_access.external_identity_bindings WHERE issuer = @issuer AND subject IN (@onboard, @link)",
+                ("issuer", AdminApiTestEnvironment.Authority), ("onboard", onboardSubject), ("link", linkSubject)));
+            Assert.Equal(0L, await CountAsync(
+                connection,
+                "SELECT count(*) FROM identity_access.account_onboarding_receipts WHERE provisioned_by_principal_id = @principal AND idempotency_key = @key",
+                ("principal", environment.PrincipalId), ("key", onboardKey)));
+            Assert.Equal(0L, await CountAsync(
+                connection,
+                "SELECT count(*) FROM identity_access.identity_link_receipts WHERE linked_by_principal_id = @principal AND idempotency_key = @key",
+                ("principal", environment.PrincipalId), ("key", linkKey)));
+        }
+
+        Assert.Equal(20, providerCalls);
+        providerBody = null;
+        using var correctedOnboarding = await client.SendAsync(AccountRequest(
+            environment.CreateToken(), onboardKey, onboardSubject));
+        Assert.Equal(HttpStatusCode.Created, correctedOnboarding.StatusCode);
+        using var correctedLink = await client.SendAsync(LinkRequest(
+            environment.CreateToken(), accountId, linkKey, linkSubject));
+        Assert.Equal(HttpStatusCode.Created, correctedLink.StatusCode);
+        Assert.Equal(accountsBefore + 1, await CountAsync(connection, "SELECT count(*) FROM identity_access.accounts"));
+        Assert.Equal(22, providerCalls);
+    }
+
     [Theory]
     [InlineData("{}")]
     [InlineData("[]")]
@@ -316,6 +418,15 @@ public sealed class AccountOnboardingBoundaryTests(AdminApiTestEnvironment envir
             var denied = await Assert.ThrowsAsync<PostgresException>(() => command.ExecuteNonQueryAsync());
             Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, denied.SqlState);
         }
+    }
+
+    private sealed class ControlledProviderHandler(Func<HttpRequestMessage, HttpResponseMessage> response)
+        : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(response(request));
     }
 
     private static HttpRequestMessage AccountRequest(string token, string key, string subject) =>
