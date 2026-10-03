@@ -28,6 +28,7 @@ public sealed record ExternalIdentity
 
         if (!string.Equals(exactIssuer, exactIssuer.Trim(), StringComparison.Ordinal) ||
             exactIssuer.Length > ComponentLimit ||
+            !HasWellFormedUtf16(exactIssuer) ||
             !Uri.TryCreate(exactIssuer, UriKind.Absolute, out var issuerUri) ||
             !string.Equals(issuerUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ||
             string.IsNullOrWhiteSpace(issuerUri.Host) ||
@@ -40,7 +41,7 @@ public sealed record ExternalIdentity
                 nameof(issuer));
         }
 
-        if (exactSubject.Length > ComponentLimit || exactSubject.Any(char.IsControl))
+        if (exactSubject.Length > ComponentLimit || exactSubject.Any(char.IsControl) || !HasWellFormedUtf16(exactSubject))
         {
             throw new ArgumentException(
                 $"Subject must be no longer than {ComponentLimit} characters and contain no control characters.",
@@ -48,5 +49,18 @@ public sealed record ExternalIdentity
         }
 
         return new ExternalIdentity(exactIssuer, exactSubject);
+    }
+
+    internal static bool HasWellFormedUtf16(string value)
+    {
+        for (var index = 0; index < value.Length; index++)
+        {
+            if (char.IsHighSurrogate(value[index]))
+            {
+                if (++index == value.Length || !char.IsLowSurrogate(value[index])) return false;
+            }
+            else if (char.IsLowSurrogate(value[index])) return false;
+        }
+        return true;
     }
 }

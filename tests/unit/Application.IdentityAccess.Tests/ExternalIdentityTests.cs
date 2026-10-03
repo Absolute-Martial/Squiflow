@@ -25,6 +25,13 @@ public sealed class ExternalIdentityTests
         Assert.Equal(" subject-with-significant-spaces ", identity.Subject);
     }
 
+    [Fact]
+    public void CreateRejectsMalformedSubjectEncoding()
+    {
+        Assert.Throws<ArgumentException>(() =>
+            ExternalIdentity.Create("https://identity.example.test", "bad\uD800"));
+    }
+
     [Theory]
     [InlineData("http://identity.example.test")]
     [InlineData("https://user:secret@identity.example.test")]
