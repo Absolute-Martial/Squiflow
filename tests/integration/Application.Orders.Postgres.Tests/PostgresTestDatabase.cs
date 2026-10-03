@@ -1,3 +1,4 @@
+using DotNet.Testcontainers.Images;
 using Application.DatabaseMigrator;
 using Application.Orders.Postgres;
 using Microsoft.EntityFrameworkCore;
@@ -9,7 +10,7 @@ namespace Application.Orders.Postgres.Tests;
 public abstract class PostgresTestDatabase : IAsyncLifetime
 {
     private const long MigrationAdvisoryLockKey = 0x1A2B3C4D5E6F708;
-    private readonly PostgreSqlContainer _database = new PostgreSqlBuilder("postgres:17-alpine")
+    private readonly PostgreSqlContainer _database = new PostgreSqlBuilder(new DockerImage(repository: "postgres", tag: "17-alpine"))
         .WithDatabase("application_tests")
         .WithUsername("postgres")
         .WithPassword("local-integration-test-only")

@@ -1,3 +1,4 @@
+using DotNet.Testcontainers.Images;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
@@ -14,7 +15,7 @@ namespace Application.CoreApi.Tests;
 public sealed class OpenFgaTenantAuthorizationTests : IAsyncLifetime
 {
     private const ushort OpenFgaPort = 8080;
-    private readonly IContainer _server = new ContainerBuilder("openfga/openfga:v1.21.0")
+    private readonly IContainer _server = new ContainerBuilder(new DockerImage(repository: "openfga/openfga", tag: "v1.21.0"))
         .WithCommand("run", "--playground-enabled=false")
         .WithPortBinding(OpenFgaPort, assignRandomHostPort: true)
         .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(

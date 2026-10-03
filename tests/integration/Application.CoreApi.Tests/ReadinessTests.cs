@@ -1,3 +1,4 @@
+using DotNet.Testcontainers.Images;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -37,7 +38,7 @@ public sealed class ReadinessTests
     [Fact]
     public async Task DatabaseReadinessExecutesAgainstRealPostgres()
     {
-        await using var database = new PostgreSqlBuilder("postgres:17-alpine")
+        await using var database = new PostgreSqlBuilder(new DockerImage(repository: "postgres", tag: "17-alpine"))
             .WithDatabase("readiness_tests")
             .WithUsername("postgres")
             .WithPassword("local-integration-test-only")

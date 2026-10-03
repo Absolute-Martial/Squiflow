@@ -6,11 +6,24 @@ SquiFlow uses the smallest test layer that can prove a real invariant. Lean arch
 
 ## Current executable tooling
 
-`./eng/verify.sh` is the repository-owned verification contract: locked NuGet restore with transitive vulnerability auditing, `dotnet format --verify-no-changes`, Release build and all ten xUnit test projects. The integration projects use Testcontainers with real PostgreSQL; Docker is required. `COLLECT_COVERAGE=1 ./eng/verify.sh` also collects Coverlet Cobertura reports and merges them with the pinned local ReportGenerator tool under ignored `artifacts/coverage/report/`. The GitHub verification workflow invokes this mode and retains the merged report as a CI artifact. The GitLab verification job invokes the same script and retains the report; its Docker-in-Docker service requires a runner that permits it. A local pass does not establish that either remote runner has passed.
+`./eng/verify.sh` is the repository-owned verification contract: locked NuGet restore with transitive vulnerability auditing, `dotnet format --verify-no-changes`, Release build and every xUnit test project in `Application.slnx` (the count is owned by `README.IMPLEMENTATION.md`). The integration projects use Testcontainers with real PostgreSQL; Docker is required. `COLLECT_COVERAGE=1 ./eng/verify.sh` also collects Coverlet Cobertura reports and merges them with the pinned local ReportGenerator tool under ignored `artifacts/coverage/report/`. The GitHub verification workflow invokes this mode and retains the merged report as a CI artifact. The GitLab verification job invokes the same script and retains the report; its Docker-in-Docker service requires a runner that permits it. A local pass does not establish that either remote runner has passed.
 
 SDK Roslyn analyzers and the root `.editorconfig` run through the build/format contract. Current host-neutral dependency tests enforce the active compile-time boundaries. NuGet lockfiles are committed for every active project; the verification script restores in locked mode so package changes must deliberately regenerate and review those files. The GitLab SAST and SBOM dependency-scanning templates are configured, and a GitHub Gitleaks history-scan workflow is configured. Gitleaks 8.30.1 passed a local scan of the existing history after exact fingerprints for ten reviewed false positives were recorded in `.gitleaksignore`; new findings remain failures. These are configuration and local-scan claims, not claims of inspected remote security results.
 
 `./eng/mutate-orders.sh` is an **exploratory**, locally run Stryker.NET check for `OrderDraft.cs`. Its first run killed 82 of 120 tested mutants and left 38 surviving (58.57% score). This is a diagnostic baseline, not a CI gate or a claim that surviving cases are harmless. A mutation threshold should follow review of the surviving behavior and tests, not an arbitrary number.
+
+Fixed PostgreSQL/OpenFGA fixture images use Testcontainers' supported structured
+`DockerImage(repository: ..., tag: ...)` and `IImage` builder constructors.
+The image versions remain `postgres:17-alpine` and `openfga/openfga:v1.21.0`.
+A 2026-10-02 normal parallel run exposed a one-second image-name regex timeout
+before two Orders database tests initialized. The
+[pinned Testcontainers 4.11.0 parser](https://github.com/testcontainers/testcontainers-dotnet/blob/4.11.0/src/Testcontainers/Images/MatchImage.cs)
+and its public structured-image constructors were inspected before changing the
+fixed fixtures. This avoids parsing already separate trusted constants; it does
+not disable validation of caller-supplied images, change images, add test retries,
+serialize the suite, or mock PostgreSQL/OpenFGA. The normal parallel verification
+contract remains the regression guard; retain failed-run evidence alongside a
+subsequent qualification result. Requalify on image, builder or dependency changes.
 
 | Requested tool | Current decision |
 | --- | --- |
