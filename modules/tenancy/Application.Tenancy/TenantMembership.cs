@@ -10,6 +10,8 @@ public enum MembershipAvailability
 {
     Active = 1,
     Suspended = 2,
+    Invited = 3,
+    Removed = 4,
 }
 
 public sealed record TenantMembership(Guid TenantId, string DisplayName);

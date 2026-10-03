@@ -27,10 +27,10 @@ public sealed class TenantMembershipDirectoryTests : PostgresTestDatabase
                 new TenantRow { Id = suspendedMembershipTenantId, DisplayName = "Suspended Membership", Availability = TenantAvailability.Active, CreatedAt = createdAt },
                 new TenantRow { Id = suspendedTenantId, DisplayName = "Suspended Tenant", Availability = TenantAvailability.Suspended, CreatedAt = createdAt, SuspendedAt = createdAt });
             setup.Memberships.AddRange(
-                new TenantMembershipRow { TenantId = activeTenantId, AccountId = accountId, Availability = MembershipAvailability.Active, CreatedAt = createdAt },
-                new TenantMembershipRow { TenantId = activeTenantId, AccountId = otherAccountId, Availability = MembershipAvailability.Active, CreatedAt = createdAt },
-                new TenantMembershipRow { TenantId = suspendedMembershipTenantId, AccountId = accountId, Availability = MembershipAvailability.Suspended, CreatedAt = createdAt, SuspendedAt = createdAt },
-                new TenantMembershipRow { TenantId = suspendedTenantId, AccountId = accountId, Availability = MembershipAvailability.Active, CreatedAt = createdAt });
+                new TenantMembershipRow { TenantId = activeTenantId, AccountId = accountId, Availability = MembershipAvailability.Active, Revision = 1, ActivatedAt = createdAt, CreatedAt = createdAt },
+                new TenantMembershipRow { TenantId = activeTenantId, AccountId = otherAccountId, Availability = MembershipAvailability.Active, Revision = 1, ActivatedAt = createdAt, CreatedAt = createdAt },
+                new TenantMembershipRow { TenantId = suspendedMembershipTenantId, AccountId = accountId, Availability = MembershipAvailability.Suspended, Revision = 1, ActivatedAt = createdAt, CreatedAt = createdAt, SuspendedAt = createdAt },
+                new TenantMembershipRow { TenantId = suspendedTenantId, AccountId = accountId, Availability = MembershipAvailability.Active, Revision = 1, ActivatedAt = createdAt, CreatedAt = createdAt });
             await setup.SaveChangesAsync(CancellationToken.None);
         }
 
@@ -81,6 +81,8 @@ public sealed class TenantMembershipDirectoryTests : PostgresTestDatabase
             TenantId = tenantId,
             AccountId = Guid.NewGuid(),
             Availability = MembershipAvailability.Active,
+            Revision = 1,
+            ActivatedAt = createdAt,
             CreatedAt = createdAt,
         });
 

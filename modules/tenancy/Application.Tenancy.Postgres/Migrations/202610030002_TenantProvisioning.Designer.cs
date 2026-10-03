@@ -12,7 +12,7 @@ public partial class TenantProvisioning
 {
     protected override void BuildTargetModel(ModelBuilder modelBuilder)
     {
-        TenancyModel.Build(modelBuilder);
+        TenancyModelV202609170002.Build(modelBuilder);
         TenantProvisioningReceiptModelV202610030002.Build(modelBuilder);
     }
 }

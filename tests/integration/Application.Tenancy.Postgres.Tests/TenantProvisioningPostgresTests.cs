@@ -99,6 +99,10 @@ public sealed class TenantProvisioningPostgresTests : PostgresTestDatabase
         Assert.Contains("receipts exist", error.MessageText, StringComparison.Ordinal);
         Assert.Equal(1L, await CountAsync("tenancy.tenants"));
         Assert.Equal(1L, await CountAsync("tenancy.tenant_provisioning_receipts"));
+        // EF rolls back each migration separately: a later empty lifecycle migration
+        // may be removed before the provisioning migration refuses data loss.
+        Assert.Contains("202610030002_TenantProvisioning", await db.Database.GetAppliedMigrationsAsync());
+        await db.Database.MigrateAsync();
         Assert.Empty(await db.Database.GetPendingMigrationsAsync());
         var replay = await store.ProvisionAsync(
             TenantProvisioningActor.Create(result.Tenant!.ProvisionedByPrincipalId,

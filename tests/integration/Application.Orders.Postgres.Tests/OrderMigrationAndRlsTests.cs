@@ -1337,8 +1337,8 @@ public sealed partial class OrderMigrationAndRlsTests : PostgresTestDatabase
 
             await using var membershipCommand = connection.CreateCommand();
             membershipCommand.CommandText = """
-                INSERT INTO tenancy.memberships (tenant_id, account_id, availability, created_at)
-                VALUES (@tenant_id, @account_id, 1, '2026-09-22T12:00:00Z')
+                INSERT INTO tenancy.memberships (tenant_id, account_id, availability, created_at, revision, activated_at)
+                VALUES (@tenant_id, @account_id, 1, '2026-09-22T12:00:00Z', 1, '2026-09-22T12:00:00Z')
                 """;
             membershipCommand.Parameters.AddWithValue("tenant_id", tenantId);
             membershipCommand.Parameters.AddWithValue("account_id", accountId);
@@ -1687,8 +1687,8 @@ public sealed partial class OrderMigrationAndRlsTests : PostgresTestDatabase
 
         await using var membershipCommand = connection.CreateCommand();
         membershipCommand.CommandText = """
-            INSERT INTO tenancy.memberships (tenant_id, account_id, availability, created_at)
-            VALUES (@tenant_id, @account_id, 1, '2026-09-22T12:00:00Z')
+            INSERT INTO tenancy.memberships (tenant_id, account_id, availability, created_at, revision, activated_at)
+            VALUES (@tenant_id, @account_id, 1, '2026-09-22T12:00:00Z', 1, '2026-09-22T12:00:00Z')
             """;
         membershipCommand.Parameters.AddWithValue("tenant_id", tenantId);
         membershipCommand.Parameters.AddWithValue("account_id", accountId);

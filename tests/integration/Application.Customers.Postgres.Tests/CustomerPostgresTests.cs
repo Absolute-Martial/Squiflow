@@ -366,8 +366,8 @@ public sealed partial class CustomerPostgresTests : IAsyncLifetime
             INSERT INTO identity_access.accounts(id, availability, created_at) VALUES (@account_id, 1, now());
             INSERT INTO tenancy.tenants(id, display_name, availability, created_at)
                 VALUES (@tenant_id, 'Fixture tenant', 1, now());
-            INSERT INTO tenancy.memberships(tenant_id, account_id, availability, created_at)
-                VALUES (@tenant_id, @account_id, 1, now());
+            INSERT INTO tenancy.memberships(tenant_id, account_id, availability, created_at, revision, activated_at)
+                VALUES (@tenant_id, @account_id, 1, now(), 1, now());
             """;
         command.Parameters.AddWithValue("tenant_id", tenantId);
         command.Parameters.AddWithValue("account_id", accountId);
@@ -392,8 +392,8 @@ public sealed partial class CustomerPostgresTests : IAsyncLifetime
         await using var command = connection.CreateCommand();
         command.CommandText = """
             INSERT INTO identity_access.accounts(id, availability, created_at) VALUES (@account_id, 1, now());
-            INSERT INTO tenancy.memberships(tenant_id, account_id, availability, created_at)
-                VALUES (@tenant_id, @account_id, 1, now());
+            INSERT INTO tenancy.memberships(tenant_id, account_id, availability, created_at, revision, activated_at)
+                VALUES (@tenant_id, @account_id, 1, now(), 1, now());
             """;
         command.Parameters.AddWithValue("tenant_id", tenantId);
         command.Parameters.AddWithValue("account_id", accountId);

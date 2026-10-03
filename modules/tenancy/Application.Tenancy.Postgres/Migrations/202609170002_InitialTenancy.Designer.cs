@@ -12,6 +12,6 @@ partial class InitialTenancy
 {
     protected override void BuildTargetModel(ModelBuilder modelBuilder)
     {
-        TenancyModel.Build(modelBuilder);
+        TenancyModelV202609170002.Build(modelBuilder);
     }
 }
