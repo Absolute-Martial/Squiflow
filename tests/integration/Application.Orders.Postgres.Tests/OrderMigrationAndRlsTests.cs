@@ -11,7 +11,7 @@ using Xunit;
 
 namespace Application.Orders.Postgres.Tests;
 
-public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
+public sealed partial class OrderMigrationAndRlsTests : PostgresTestDatabase
 {
     [Fact]
     public void MigrationTargetModelsKeepTheirHistoricalShape()
@@ -181,6 +181,58 @@ public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
     }
 
     [Fact]
+    public async Task DraftDetailReadsHeaderAndLinesFromOneSnapshotDuringConcurrentRevision()
+    {
+        await ApplyOrderSchemaAsync();
+        var accountId = Guid.CreateVersion7();
+        var tenantId = Guid.CreateVersion7();
+        await SeedAuthorityRowsAsync(accountId, tenantId);
+        await using var dataSource = new NpgsqlDataSourceBuilder(await CreateRuntimeRoleAsync()).Build();
+        var store = new PostgresOrderDraftStore(dataSource, new FixedTimeProvider());
+        var context = await ResolveContextAsync(tenantId, accountId);
+        var created = await store.CreateAsync(
+            context, CreateIntent("Original"), "create-key", CancellationToken.None);
+        var original = Assert.IsType<OrderDraftSnapshot>(created.Order);
+
+        // The revision below commits exactly between the reader's header statement and its line
+        // statement: the table lock makes the reader's second statement wait deterministically.
+        await using var admin = new NpgsqlConnection(ConnectionString);
+        await admin.OpenAsync(CancellationToken.None);
+        await using var revision = await admin.BeginTransactionAsync(CancellationToken.None);
+        await using (var hold = new NpgsqlCommand(
+            "LOCK TABLE orders.order_draft_lines IN ACCESS EXCLUSIVE MODE", admin, revision))
+        {
+            await hold.ExecuteNonQueryAsync(CancellationToken.None);
+        }
+
+        var read = store.FindAsync(context, original.OrderId, CancellationToken.None);
+        await WaitUntilRuntimeRoleIsBlockedOnOrderLinesAsync();
+
+        await using (var replace = new NpgsqlCommand("""
+            UPDATE orders.order_drafts
+            SET summary = 'Revised', total = 21, revision = 2
+            WHERE tenant_id = @tenant_id AND id = @order_id;
+            DELETE FROM orders.order_draft_lines
+            WHERE tenant_id = @tenant_id AND order_id = @order_id;
+            INSERT INTO orders.order_draft_lines
+                (tenant_id, order_id, position, description, quantity, unit_code, unit_price, line_total)
+            VALUES (@tenant_id, @order_id, 1, 'Replacement', 3, 'EA', 7, 21);
+            """, admin, revision))
+        {
+            replace.Parameters.AddWithValue("tenant_id", tenantId);
+            replace.Parameters.AddWithValue("order_id", original.OrderId);
+            await replace.ExecuteNonQueryAsync(CancellationToken.None);
+        }
+
+        await revision.CommitAsync(CancellationToken.None);
+        var snapshot = await read.WaitAsync(TimeSpan.FromSeconds(30));
+
+        // A reader must never combine the pre-revision header with post-revision lines.
+        Assert.Equivalent(original, snapshot);
+        Assert.Equal(2, (await store.FindAsync(context, original.OrderId, CancellationToken.None))?.Revision);
+    }
+
+    [Fact]
     public async Task RejectedRevisionDoesNotPartiallyReplaceOrderOrReceipt()
     {
         await ApplyOrderSchemaAsync();
@@ -235,6 +287,10 @@ public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
         Assert.Single(results, result => result.Status == ReviseOrderDraftStatus.Revised);
         Assert.Single(results, result => result.Status == ReviseOrderDraftStatus.Replayed);
         Assert.Equivalent(results[0].Order, results[1].Order);
+        var history = await store.ListHistoryAsync(context,
+            new GetOrderDraftHistoryRequest(created.Order.OrderId), CancellationToken.None);
+        Assert.NotNull(history);
+        Assert.Equal(new long[] { 2, 1 }, history.Items.Select(entry => entry.Order.Revision));
         Assert.Equal(2, await CountReceiptsAsync(tenantId));
         Assert.Equal(1, await CountRowsAsync(
             "SELECT count(*) FROM orders.order_draft_lines WHERE tenant_id = @tenant_id", tenantId));
@@ -964,6 +1020,10 @@ public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
         Assert.Contains(results, result => result.Status == CreateOrderDraftStatus.Created);
         Assert.Contains(results, result => result.Status == CreateOrderDraftStatus.Replayed);
         Assert.Single(results.Select(result => result.Order?.OrderId).Distinct());
+        var history = await store.ListHistoryAsync(context,
+            new GetOrderDraftHistoryRequest(results[0].Order!.OrderId), CancellationToken.None);
+        Assert.NotNull(history);
+        Assert.Single(history.Items);
         Assert.Equal(1, await CountOrdersAsync(tenantId));
         Assert.Equal(1, await CountReceiptsAsync(tenantId));
     }
@@ -1597,7 +1657,8 @@ public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
             GRANT USAGE ON SCHEMA orders TO application_orders_runtime;
             GRANT SELECT, INSERT ON orders.order_drafts TO application_orders_runtime;
             GRANT UPDATE (summary, currency_code, total, customer_organization_id,
-                          customer_program_id, state, revision, abandoned_at, abandoned_by_account_id)
+                          customer_program_id, state, revision, abandoned_at, abandoned_by_account_id,
+                          committed_at, committed_by_account_id)
                 ON orders.order_drafts TO application_orders_runtime;
             GRANT SELECT, INSERT, DELETE ON orders.order_draft_lines TO application_orders_runtime;
             GRANT SELECT, INSERT ON orders.command_receipts TO application_orders_runtime;
@@ -1672,6 +1733,32 @@ public sealed class OrderMigrationAndRlsTests : PostgresTestDatabase
         var resolver = new ResolveTenantContext(new PostgresTenantMembershipDirectory(database));
         return await resolver.ExecuteAsync(accountId, tenantId, CancellationToken.None)
             ?? throw new InvalidOperationException("The seeded active membership was not resolved.");
+    }
+
+    private async Task WaitUntilRuntimeRoleIsBlockedOnOrderLinesAsync()
+    {
+        await using var monitor = new NpgsqlConnection(ConnectionString);
+        await monitor.OpenAsync(CancellationToken.None);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(15);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            await using var command = monitor.CreateCommand();
+            command.CommandText = """
+                SELECT count(*)
+                FROM pg_stat_activity
+                WHERE usename = 'application_orders_runtime'
+                  AND wait_event_type = 'Lock'
+                  AND query LIKE '%orders.order_draft_lines%'
+                """;
+            if ((long)(await command.ExecuteScalarAsync(CancellationToken.None) ?? 0L) > 0)
+            {
+                return;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(25));
+        }
+
+        throw new TimeoutException("The reader never blocked on the order line table.");
     }
 
     private sealed class FixedTimeProvider : TimeProvider

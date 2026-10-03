@@ -22,6 +22,7 @@ public sealed class OrderRevisionEndpointTests : IClassFixture<WhiteLabelApiFact
     {
         var (accountId, tenantId, token, orderId) = await CreateDraftAsync();
         _factory.SetOrderEditDecision(accountId, tenantId, true);
+        _factory.SetOrderManualPriceDecision(accountId, tenantId, true);
         _factory.SetCustomerDecision(accountId, tenantId, "createOrganization", true);
         _factory.SetCustomerDecision(accountId, tenantId, "createProgram", true);
         var organizations = $"/api/v1/tenants/{tenantId:D}/customers/organizations";
@@ -83,6 +84,7 @@ public sealed class OrderRevisionEndpointTests : IClassFixture<WhiteLabelApiFact
         var outsiderSubject = $"edit-outsider-{Guid.NewGuid():N}";
         _factory.Bind(outsiderSubject, outsider);
         _factory.SetOrderEditDecision(outsider, tenantId, true);
+        _factory.SetOrderManualPriceDecision(outsider, tenantId, true);
         using var noMembership = await _client.SendAsync(Request(
             tenantId, orderId, _factory.CreateToken(outsiderSubject), "outsider", Payload(1)));
         Assert.Equal(HttpStatusCode.Forbidden, noMembership.StatusCode);
@@ -99,6 +101,7 @@ public sealed class OrderRevisionEndpointTests : IClassFixture<WhiteLabelApiFact
     {
         var (accountId, tenantId, token, orderId) = await CreateDraftAsync();
         _factory.SetOrderEditDecision(accountId, tenantId, true);
+        _factory.SetOrderManualPriceDecision(accountId, tenantId, true);
         using var response = await _client.SendAsync(Request(tenantId, orderId, token, key, body));
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal(code, await CodeAsync(response));
@@ -110,6 +113,7 @@ public sealed class OrderRevisionEndpointTests : IClassFixture<WhiteLabelApiFact
     {
         var (accountId, tenantId, token, orderId) = await CreateDraftAsync();
         _factory.SetOrderEditDecision(accountId, tenantId, true);
+        _factory.SetOrderManualPriceDecision(accountId, tenantId, true);
         using var huge = await _client.SendAsync(Request(
             tenantId, orderId, token, "huge", Payload(1, new string('a', 65536))));
         Assert.Equal(HttpStatusCode.RequestEntityTooLarge, huge.StatusCode);
@@ -128,6 +132,7 @@ public sealed class OrderRevisionEndpointTests : IClassFixture<WhiteLabelApiFact
         _factory.Bind(subject, accountId);
         _factory.AddTenantMembership(accountId, tenantId, "Order Edit Tenant");
         _factory.SetOrderCreateDecision(accountId, tenantId, true);
+        _factory.SetOrderManualPriceDecision(accountId, tenantId, true);
         using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/tenants/{tenantId:D}/orders")
         {
             Content = JsonContent.Create(new

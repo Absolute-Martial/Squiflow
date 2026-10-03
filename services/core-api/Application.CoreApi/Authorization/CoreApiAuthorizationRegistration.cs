@@ -23,6 +23,8 @@ internal static class CoreApiAuthorizationRegistration
         services.AddScoped<IAuthorizationHandler, ViewOrdersAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, AbandonOrderAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, EditOrderAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, ApplyManualPriceAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, CommitOrderAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, CreateOrganizationAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, ViewOrganizationsAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, CreateProgramAuthorizationHandler>();

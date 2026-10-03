@@ -1,5 +1,5 @@
 SELECT id, summary, currency_code, total, revision, created_at, state, abandoned_at,
-       customer_organization_id, customer_program_id
+       customer_organization_id, customer_program_id, committed_at, committed_by_account_id
 FROM orders.order_drafts
 WHERE tenant_id = @tenant_id
   AND (

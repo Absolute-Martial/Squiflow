@@ -156,13 +156,15 @@ public sealed class OpenApiContractTests : IClassFixture<WhiteLabelApiFactory>
         Assert.True(responseSchema.TryGetProperty("$ref", out _));
     }
 
-    [Fact]
-    public async Task AbandonOrderDocumentsAuthorizationRevisionBodyAndRetryHeader()
+    [Theory]
+    [InlineData("abandon", "abandonedAt")]
+    [InlineData("commit", "committedAt")]
+    public async Task OrderTransitionDocumentsAuthorizationRevisionBodyAndRetryHeader(string action, string timestamp)
     {
         using var response = await _client.GetAsync("/openapi/v1.json");
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var abandon = document.RootElement.GetProperty("paths")
-            .GetProperty("/api/v1/tenants/{tenantId}/orders/{orderId}/abandon")
+            .GetProperty("/api/v1/tenants/{tenantId}/orders/{orderId}/" + action)
             .GetProperty("post");
 
         Assert.True(HasOidcRequirement(abandon));

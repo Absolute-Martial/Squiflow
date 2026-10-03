@@ -10,14 +10,14 @@ This slice introduces the first tenant-owned business mutation without claiming 
 
 An additive customer-context extension now allows a draft to reference one tenant-owned customer organization and optionally one of its programs. The original no-context request, draft rows and semantic create fingerprint remain supported. The association is validated through the public Customers query and enforced by composite PostgreSQL foreign keys; it is attribution, not billing/receivable authority. `docs/implementation/CUSTOMER_ORGANIZATION_PROGRAM_ATTRIBUTION_SLICE.md` owns this extension, its receipt-version rule and its evidence.
 
-An authenticated current tenant member with the persisted OpenFGA `order_creator` relation can create one priced order draft through:
+An authenticated current tenant member with both persisted OpenFGA `order_creator` and `manual_pricer` relations can create one priced order draft through:
 
 ```text
 POST /api/v1/tenants/{tenantId}/orders
 Idempotency-Key: caller-generated stable operation key
 ```
 
-An authenticated current tenant member with a separate persisted `order_editor` relation can replace the contents of a still-open draft through:
+An authenticated current tenant member with separate persisted `order_editor` and `manual_pricer` relations can replace the contents of a still-open draft through:
 
 ```text
 PUT /api/v1/tenants/{tenantId}/orders/{orderId}/draft
@@ -62,7 +62,7 @@ validated JWT identity
 → active application account
 → current tenant membership
 → immutable TenantContext
-→ pinned OpenFGA create/edit/view/abandon permission check
+→ pinned OpenFGA create/edit/view/abandon permission check, plus manual pricing for create/full priced revision
 → host-neutral Application.Orders validation and intent fingerprint
 → Application.Orders.Postgres transaction
 → transaction-local tenant context + explicit tenant predicates + PostgreSQL RLS
@@ -135,9 +135,36 @@ The CoreApi runtime database identity requires schema usage plus the exact `SELE
 | draft already abandoned under another operation | `409 order_already_abandoned` |
 | same abandon key with changed order/revision | `409 idempotency_key_conflict` |
 
+Create and full revision bound the actual decoded request stream to 64 KiB,
+even when Content-Length is absent or the host has no request-size feature.
+Bounded native JSON reading preserves configured serializer options and supported
+charset handling. Unsupported charset names return safe `400 request_invalid`;
+internal serializer/configuration failures are not masked as client errors.
+No command is invoked for malformed or oversized input.
+Kestrel's route-level 64 KiB limit remains an additional transport ceiling:
+HTTP/1.1 chunk framing counts toward it, so a decoded body at exactly 64 KiB can
+be rejected on that transport. Both native transport rejection and the decoded
+stream bound return safe `413 request_too_large`, never a generic JSON 400.
+This framework behavior was checked against the pinned
+[ASP.NET Core 10.0.8 chunked-body source](https://github.com/dotnet/aspnetcore/blob/v10.0.8/src/Servers/Kestrel/Core/src/Internal/Http/Http1ChunkedEncodingMessageBody.cs).
+`OrderDraftBodyBoundsTests` permanently exercises actual Kestrel HTTP/1.1
+chunked input, UTF-8/UTF-16 compatibility, unsupported charset rejection,
+non-Kestrel decoded bounds, protected
+no-store failures and absence of rejected command effects. Requalify this boundary
+on transport/framework, request-size, serializer/charset, proxy or body-reading
+changes. These tests do not qualify an external proxy deployment.
+
 Successful Order representations and browse pages are `no-store`. Provider exception details and SQL values are not exposed to clients.
 
 ## Source admission
+
+The retained priced draft history read is now described by
+`ORDER_DRAFT_HISTORY.md`. It reuses the successful immutable command receipts;
+it does not add a general audit ledger, override reasons or later lifecycle states.
+
+Current revision/abandonment guidance is owned by `ORDER_DRAFT_ACTION_GUIDANCE.md`.
+It reuses this lifecycle and current command permissions; it neither grants
+authority nor bypasses expected revision or idempotency at execution.
 
 No new framework was needed. The slice uses the already admitted Npgsql/EF Core provider boundary and one shared process-wide bounded data source. Browse uses ordinary parameterized PostgreSQL keyset pagination and an index matching tenant plus descending creation/identity order; no search engine, pagination framework or count projection is introduced. Revision is a conditional tenant-scoped header update followed by line replacement and receipt insertion in one transaction. Abandonment is a conditional tenant-scoped PostgreSQL transition with the existing durable receipt pattern, not a generic workflow engine. FullStackHero's pinned tenant-isolation tests remain a test donor for explicit tenant keys and hostile cross-tenant cases; its generic repository/UoW conventions and request-selected tenant authority remain rejected. Finbuckle continues to resolve only the untrusted route candidate. OpenFGA remains the permission decision provider and does not own tenant context, draft state, idempotency or database reachability.
 
@@ -160,3 +187,8 @@ Requalification triggers include schema/RLS policy, browse index, cursor format 
 ## Explicit non-claims
 
 The slice does not implement legal customer/account identity beyond the narrow organization/program attribution, document numbers, tax, discount, quotations, submission/acceptance, approval, fulfillment, inventory, invoicing, payment, refunds, printing, attachments, audit ledger, local-first Workstation state, synchronization, outbox, Worker execution, reporting, text/full-text search, filters, selectable ordering, total counts, profile-driven implementation variants or tenant role administration. These remain `NOT_INTRODUCED`, not deferred hardening of an active path.
+
+Manual pricing authority for initial and later entry, current-authority replay,
+and its permanent regressions are owned by `PRICING_COMPONENT_BOUNDARY.md`.
+The full replacement route resubmits priced lines and requires pricing even
+when prices are numerically unchanged; no unpriced patch is introduced.

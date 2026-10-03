@@ -196,6 +196,15 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
     public int GetWorkspaceCheckCount(Guid accountId, Guid tenantId) =>
         _workspaceAuthorization.GetCheckCount(accountId, tenantId);
 
+    public void SetOrderManualPriceDecision(Guid accountId, Guid tenantId, bool allowed) =>
+        _orderAuthorization.SetManualPriceDecision(accountId, tenantId, allowed);
+
+    public void SetOrderManualPriceUnavailable(Guid accountId, Guid tenantId) =>
+        _orderAuthorization.SetManualPriceUnavailable(accountId, tenantId);
+
+    public int GetOrderManualPriceCheckCount(Guid accountId, Guid tenantId) =>
+        _orderAuthorization.GetManualPriceCheckCount(accountId, tenantId);
+
     public void SetOrderCreateDecision(Guid accountId, Guid tenantId, bool allowed) =>
         _orderAuthorization.SetCreateDecision(accountId, tenantId, allowed);
 
@@ -207,6 +216,14 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
 
     public void SetOrderViewUnavailable(Guid accountId, Guid tenantId) =>
         _orderAuthorization.SetViewUnavailable(accountId, tenantId);
+
+    public void SetOrderCommitDecision(Guid accountId, Guid tenantId, bool allowed) =>
+        _orderAuthorization.SetCommitDecision(accountId, tenantId, allowed);
+
+    public void SetOrderCommitUnavailable(Guid accountId, Guid tenantId) =>
+        _orderAuthorization.SetCommitUnavailable(accountId, tenantId);
+
+    public int GetOrderCommitCount(Guid tenantId) => _orders.GetCommitCount(tenantId);
 
     public void SetOrderAbandonDecision(Guid accountId, Guid tenantId, bool allowed) =>
         _orderAuthorization.SetAbandonDecision(accountId, tenantId, allowed);
@@ -228,6 +245,9 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
 
     public int GetOrderViewCheckCount(Guid accountId, Guid tenantId) =>
         _orderAuthorization.GetViewCheckCount(accountId, tenantId);
+
+    public int GetOrderCommitCheckCount(Guid accountId, Guid tenantId) =>
+        _orderAuthorization.GetCommitCheckCount(accountId, tenantId);
 
     public int GetOrderAbandonCheckCount(Guid accountId, Guid tenantId) =>
         _orderAuthorization.GetAbandonCheckCount(accountId, tenantId);
@@ -484,16 +504,22 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
     {
         private readonly Dictionary<(Guid AccountId, Guid TenantId), bool> _createDecisions = [];
         private readonly Dictionary<(Guid AccountId, Guid TenantId), bool> _viewDecisions = [];
+        private readonly Dictionary<(Guid AccountId, Guid TenantId), bool> _commitDecisions = [];
+        private readonly Dictionary<(Guid AccountId, Guid TenantId), int> _commitChecks = [];
+        private readonly HashSet<(Guid AccountId, Guid TenantId)> _unavailableCommits = [];
         private readonly Dictionary<(Guid AccountId, Guid TenantId), bool> _abandonDecisions = [];
         private readonly Dictionary<(Guid AccountId, Guid TenantId), bool> _editDecisions = [];
+        private readonly Dictionary<(Guid AccountId, Guid TenantId), bool> _manualPriceDecisions = [];
         private readonly Dictionary<(Guid AccountId, Guid TenantId), int> _createChecks = [];
         private readonly Dictionary<(Guid AccountId, Guid TenantId), int> _viewChecks = [];
         private readonly Dictionary<(Guid AccountId, Guid TenantId), int> _abandonChecks = [];
         private readonly Dictionary<(Guid AccountId, Guid TenantId), int> _editChecks = [];
+        private readonly Dictionary<(Guid AccountId, Guid TenantId), int> _manualPriceChecks = [];
         private readonly HashSet<(Guid AccountId, Guid TenantId)> _unavailableCreates = [];
         private readonly HashSet<(Guid AccountId, Guid TenantId)> _unavailableViews = [];
         private readonly HashSet<(Guid AccountId, Guid TenantId)> _unavailableAbandons = [];
         private readonly HashSet<(Guid AccountId, Guid TenantId)> _unavailableEdits = [];
+        private readonly HashSet<(Guid AccountId, Guid TenantId)> _unavailableManualPrices = [];
         private readonly object _gate = new();
 
         public void SetCreateDecision(Guid accountId, Guid tenantId, bool allowed)
@@ -530,6 +556,23 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
             }
         }
 
+        public void SetCommitDecision(Guid accountId, Guid tenantId, bool allowed)
+        {
+            lock (_gate)
+            {
+                _commitDecisions[(accountId, tenantId)] = allowed;
+                _unavailableCommits.Remove((accountId, tenantId));
+            }
+        }
+
+        public void SetCommitUnavailable(Guid accountId, Guid tenantId)
+        {
+            lock (_gate)
+            {
+                _unavailableCommits.Add((accountId, tenantId));
+            }
+        }
+
         public void SetAbandonDecision(Guid accountId, Guid tenantId, bool allowed)
         {
             lock (_gate)
@@ -556,6 +599,15 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
             }
         }
 
+        public void SetManualPriceDecision(Guid accountId, Guid tenantId, bool allowed)
+        {
+            lock (_gate)
+            {
+                _manualPriceDecisions[(accountId, tenantId)] = allowed;
+                _unavailableManualPrices.Remove((accountId, tenantId));
+            }
+        }
+
         public void SetEditUnavailable(Guid accountId, Guid tenantId)
         {
             lock (_gate)
@@ -564,11 +616,27 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
             }
         }
 
+        public void SetManualPriceUnavailable(Guid accountId, Guid tenantId)
+        {
+            lock (_gate)
+            {
+                _unavailableManualPrices.Add((accountId, tenantId));
+            }
+        }
+
         public int GetEditCheckCount(Guid accountId, Guid tenantId)
         {
             lock (_gate)
             {
                 return _editChecks.GetValueOrDefault((accountId, tenantId));
+            }
+        }
+
+        public int GetManualPriceCheckCount(Guid accountId, Guid tenantId)
+        {
+            lock (_gate)
+            {
+                return _manualPriceChecks.GetValueOrDefault((accountId, tenantId));
             }
         }
 
@@ -585,6 +653,14 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
             lock (_gate)
             {
                 return _viewChecks.GetValueOrDefault((accountId, tenantId));
+            }
+        }
+
+        public int GetCommitCheckCount(Guid accountId, Guid tenantId)
+        {
+            lock (_gate)
+            {
+                return _commitChecks.GetValueOrDefault((accountId, tenantId));
             }
         }
 
@@ -638,6 +714,27 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
             }
         }
 
+        public Task<bool> CanCommitAsync(
+            Guid accountId,
+            Guid tenantId,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (_gate)
+            {
+                var key = (accountId, tenantId);
+                _commitChecks[key] = _commitChecks.GetValueOrDefault(key) + 1;
+                if (_unavailableCommits.Contains(key))
+                {
+                    throw new AuthorizationProviderUnavailableException(
+                        "Synthetic order commit authorization provider outage.",
+                        new HttpRequestException("Synthetic order commit authorization provider outage."));
+                }
+
+                return Task.FromResult(_commitDecisions.GetValueOrDefault(key));
+            }
+        }
+
         public Task<bool> CanAbandonAsync(
             Guid accountId,
             Guid tenantId,
@@ -679,11 +776,34 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
                 return Task.FromResult(_editDecisions.GetValueOrDefault(key));
             }
         }
+
+        public Task<bool> CanApplyManualPriceAsync(
+            Guid accountId,
+            Guid tenantId,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (_gate)
+            {
+                var key = (accountId, tenantId);
+                _manualPriceChecks[key] = _manualPriceChecks.GetValueOrDefault(key) + 1;
+                if (_unavailableManualPrices.Contains(key))
+                {
+                    throw new AuthorizationProviderUnavailableException(
+                        "Synthetic order edit authorization provider outage.",
+                        new HttpRequestException("Synthetic order edit authorization provider outage."));
+                }
+
+                return Task.FromResult(_manualPriceDecisions.GetValueOrDefault(key));
+            }
+        }
     }
 
     private sealed class TestOrderDraftStore : IOrderDraftStore
     {
         private readonly Dictionary<(Guid TenantId, Guid AccountId, string Key), Receipt> _receipts = [];
+        private readonly Dictionary<(Guid TenantId, Guid AccountId, string Key), CommitReceipt> _commitReceipts = [];
+        private readonly Dictionary<Guid, int> _commitCounts = [];
         private readonly Dictionary<(Guid TenantId, Guid AccountId, string Key), AbandonReceipt> _abandonReceipts = [];
         private readonly Dictionary<(Guid TenantId, Guid AccountId, string Key), ReviseReceipt> _reviseReceipts = [];
         private readonly Dictionary<(Guid TenantId, Guid OrderId), OrderDraftSnapshot> _orders = [];
@@ -716,6 +836,14 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
             lock (_gate)
             {
                 return _listCounts.GetValueOrDefault(tenantId);
+            }
+        }
+
+        public int GetCommitCount(Guid tenantId)
+        {
+            lock (_gate)
+            {
+                return _commitCounts.GetValueOrDefault(tenantId);
             }
         }
 
@@ -822,7 +950,7 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
                         order.CreatedAt,
                         order.State,
                         order.AbandonedAt,
-                        order.CustomerContext))
+                        order.CustomerContext, order.CommittedAt))
                     .ToArray();
                 var hasNext = items.Length > request.Limit;
                 if (hasNext)
@@ -834,6 +962,53 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
                     ? new OrderDraftPageCursor(items[^1].CreatedAt, items[^1].OrderId)
                     : null;
                 return Task.FromResult(new OrderDraftPage(items, nextCursor));
+            }
+        }
+
+        public Task<CommitOrderDraftResult> CommitAsync(
+            TenantContext tenantContext,
+            CommitOrderDraftRequest request,
+            string idempotencyKey,
+            string fingerprint,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (_gate)
+            {
+                _commitCounts[tenantContext.TenantId] = _commitCounts.GetValueOrDefault(tenantContext.TenantId) + 1;
+                var receiptKey = (tenantContext.TenantId, tenantContext.AccountId, idempotencyKey);
+                if (_commitReceipts.TryGetValue(receiptKey, out var receipt))
+                {
+                    return Task.FromResult(string.Equals(receipt.Fingerprint, fingerprint, StringComparison.Ordinal)
+                        ? new CommitOrderDraftResult(CommitOrderDraftStatus.Replayed, receipt.Order)
+                        : new CommitOrderDraftResult(CommitOrderDraftStatus.IdempotencyKeyConflict, null));
+                }
+
+                if (!_orders.TryGetValue((tenantContext.TenantId, request.OrderId), out var order))
+                {
+                    return Task.FromResult(new CommitOrderDraftResult(CommitOrderDraftStatus.NotFound, null));
+                }
+
+                if (order.State == OrderDraftState.Committed)
+                {
+                    return Task.FromResult(new CommitOrderDraftResult(CommitOrderDraftStatus.AlreadyCommitted, null));
+                }
+
+                if (order.Revision != request.ExpectedRevision)
+                {
+                    return Task.FromResult(new CommitOrderDraftResult(CommitOrderDraftStatus.RevisionConflict, null));
+                }
+
+                var committed = order with
+                {
+                    State = OrderDraftState.Committed,
+                    Revision = order.Revision + 1,
+                    CommittedAt = DateTimeOffset.UtcNow,
+                    CommittedByAccountId = tenantContext.AccountId,
+                };
+                _orders[(tenantContext.TenantId, request.OrderId)] = committed;
+                _commitReceipts.Add(receiptKey, new CommitReceipt(fingerprint, committed));
+                return Task.FromResult(new CommitOrderDraftResult(CommitOrderDraftStatus.Committed, committed));
             }
         }
 
@@ -860,6 +1035,9 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
                 {
                     return Task.FromResult(new AbandonOrderDraftResult(AbandonOrderDraftStatus.NotFound, null));
                 }
+
+                if (order.State == OrderDraftState.Committed)
+                    return Task.FromResult(new AbandonOrderDraftResult(AbandonOrderDraftStatus.AlreadyCommitted, null));
 
                 if (order.State == OrderDraftState.Abandoned)
                 {
@@ -935,6 +1113,8 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
             (order.CreatedAt == after.CreatedAt && order.OrderId.CompareTo(after.OrderId) < 0);
 
         private sealed record Receipt(string Fingerprint, OrderDraftSnapshot Order);
+        private sealed record CommitReceipt(string Fingerprint, OrderDraftSnapshot Order);
+
         private sealed record AbandonReceipt(string Fingerprint, OrderDraftSnapshot Order);
         private sealed record ReviseReceipt(string Fingerprint, OrderDraftSnapshot Order);
     }

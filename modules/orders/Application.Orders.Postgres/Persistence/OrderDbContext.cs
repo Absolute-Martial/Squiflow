@@ -40,8 +40,8 @@ public sealed class OrderDbContext(DbContextOptions<OrderDbContext> options)
                 table.HasCheckConstraint("ck_order_drafts_revision", "revision > 0");
                 table.HasCheckConstraint(
                     "ck_order_drafts_lifecycle",
-                    "(state = 'draft' AND revision >= 1 AND abandoned_at IS NULL AND abandoned_by_account_id IS NULL) OR " +
-                    "(state = 'abandoned' AND revision >= 2 AND abandoned_at IS NOT NULL AND abandoned_by_account_id IS NOT NULL)");
+                    "(state = 'draft' AND revision >= 1 AND abandoned_at IS NULL AND abandoned_by_account_id IS NULL AND committed_at IS NULL AND committed_by_account_id IS NULL) OR " +
+                    "(state = 'abandoned' AND revision >= 2 AND abandoned_at IS NOT NULL AND abandoned_by_account_id IS NOT NULL AND committed_at IS NULL AND committed_by_account_id IS NULL) OR (state = 'committed' AND revision >= 2 AND abandoned_at IS NULL AND abandoned_by_account_id IS NULL AND committed_at IS NOT NULL AND committed_by_account_id IS NOT NULL)");
                 table.HasCheckConstraint(
                     "ck_order_drafts_customer_context",
                     "customer_program_id IS NULL OR customer_organization_id IS NOT NULL");
@@ -56,6 +56,11 @@ public sealed class OrderDbContext(DbContextOptions<OrderDbContext> options)
             entity.Property(row => row.Revision).HasColumnName("revision");
             entity.Property(row => row.CreatedAt).HasColumnName("created_at");
             entity.Property(row => row.State).HasMaxLength(16).HasDefaultValue("draft").HasColumnName("state");
+            entity.Property(row => row.CommittedAt).HasColumnName("committed_at");
+            entity.Property(row => row.CommittedByAccountId).HasColumnName("committed_by_account_id");
+            entity.HasOne<AccountReferenceRow>().WithMany()
+                .HasForeignKey(row => row.CommittedByAccountId).OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("fk_order_drafts_accounts_committed_by_account_id");
             entity.Property(row => row.AbandonedAt).HasColumnName("abandoned_at");
             entity.Property(row => row.AbandonedByAccountId).HasColumnName("abandoned_by_account_id");
             entity.Property(row => row.CustomerOrganizationId).HasColumnName("customer_organization_id");
@@ -153,6 +158,8 @@ internal sealed class OrderDraftRow
     public long Revision { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public string State { get; set; } = "draft";
+    public DateTimeOffset? CommittedAt { get; set; }
+    public Guid? CommittedByAccountId { get; set; }
     public DateTimeOffset? AbandonedAt { get; set; }
     public Guid? AbandonedByAccountId { get; set; }
     public Guid? CustomerOrganizationId { get; set; }

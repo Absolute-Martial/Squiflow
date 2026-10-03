@@ -163,6 +163,10 @@ public sealed class ReviseOrderDraftTests
             TenantContext tenantContext, AbandonOrderDraftRequest request,
             string idempotencyKey, string fingerprint,
             CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<CommitOrderDraftResult> CommitAsync(
+            TenantContext tenantContext, CommitOrderDraftRequest request, string idempotencyKey,
+            string fingerprint, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 
     private sealed class CustomerStore : ICustomerStore

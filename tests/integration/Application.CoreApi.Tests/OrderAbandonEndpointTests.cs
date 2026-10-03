@@ -248,6 +248,7 @@ public sealed class OrderAbandonEndpointTests : IClassFixture<WhiteLabelApiFacto
         _factory.Bind(subject, accountId);
         _factory.AddTenantMembership(accountId, tenantId, "Orders Tenant");
         _factory.SetOrderCreateDecision(accountId, tenantId, allowed: true);
+        _factory.SetOrderManualPriceDecision(accountId, tenantId, true);
         var createKey = $"create-{Guid.NewGuid():N}";
         using var create = CreateRequest(tenantId, token, createKey);
         using var response = await _client.SendAsync(create);

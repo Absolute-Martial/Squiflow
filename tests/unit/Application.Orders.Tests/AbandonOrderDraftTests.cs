@@ -200,5 +200,9 @@ public sealed class AbandonOrderDraftTests
             CancellationToken = cancellationToken;
             return Task.FromResult(new AbandonOrderDraftResult(AbandonOrderDraftStatus.NotFound, null));
         }
+
+        public Task<CommitOrderDraftResult> CommitAsync(
+            TenantContext tenantContext, CommitOrderDraftRequest request, string idempotencyKey,
+            string fingerprint, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 }

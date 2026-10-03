@@ -2,10 +2,13 @@ using DotNet.Testcontainers.Images;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Application.CoreApi.Authorization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using OpenFga.Sdk.Client;
+using OpenFga.Sdk.Client.Model;
+using OpenFga.Sdk.Model;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using Xunit;
@@ -117,6 +120,10 @@ public sealed class OpenFgaTenantAuthorizationTests : IAsyncLifetime
             CancellationToken.None));
         Assert.False(await orderAuthorization.CanEditAsync(
             orderEditorAccountId, tenantId, CancellationToken.None));
+        Assert.False(await orderAuthorization.CanApplyManualPriceAsync(
+            orderCreatorAccountId, tenantId, CancellationToken.None));
+        Assert.False(await orderAuthorization.CanApplyManualPriceAsync(
+            orderEditorAccountId, tenantId, CancellationToken.None));
 
         await WriteTenantRelationAsync(
             administrativeClient,
@@ -191,10 +198,68 @@ public sealed class OpenFgaTenantAuthorizationTests : IAsyncLifetime
             orderEditorAccountId, tenantId, CancellationToken.None));
         Assert.False(await orderAuthorization.CanAbandonAsync(
             orderEditorAccountId, tenantId, CancellationToken.None));
+        Assert.False(await orderAuthorization.CanApplyManualPriceAsync(
+            orderCreatorAccountId, tenantId, CancellationToken.None));
+        Assert.False(await orderAuthorization.CanApplyManualPriceAsync(
+            orderEditorAccountId, tenantId, CancellationToken.None));
+
+        var pricingOnlyAccountId = Guid.NewGuid();
+        var otherTenantId = Guid.NewGuid();
+        Assert.False(await orderAuthorization.CanCreateAsync(
+            pricingOnlyAccountId, tenantId, CancellationToken.None));
+        Assert.False(await orderAuthorization.CanEditAsync(
+            pricingOnlyAccountId, tenantId, CancellationToken.None));
+        await WriteTenantRelationAsync(
+            administrativeClient, storeId, pinnedModelId,
+            pricingOnlyAccountId, tenantId, "manual_pricer");
+        Assert.True(await orderAuthorization.CanApplyManualPriceAsync(
+            pricingOnlyAccountId, tenantId, CancellationToken.None));
+        Assert.False(await orderAuthorization.CanApplyManualPriceAsync(
+            pricingOnlyAccountId, otherTenantId, CancellationToken.None));
+        Assert.False(await orderAuthorization.CanCreateAsync(
+            pricingOnlyAccountId, tenantId, CancellationToken.None));
+        Assert.False(await orderAuthorization.CanEditAsync(
+            pricingOnlyAccountId, tenantId, CancellationToken.None));
+
+        var rawCheckWithoutMembership = await client.Check(
+            new ClientCheckRequest
+            {
+                User = $"user:{pricingOnlyAccountId:N}",
+                Relation = "can_apply_manual_price",
+                Object = $"tenant:{tenantId:N}",
+            },
+            new ClientCheckOptions
+            {
+                StoreId = storeId,
+                AuthorizationModelId = pinnedModelId,
+                Consistency = ConsistencyPreference.HIGHERCONSISTENCY,
+            },
+            CancellationToken.None);
+        Assert.False(rawCheckWithoutMembership.Allowed is true);
+
+        await DeleteTenantRelationAsync(
+            administrativeClient, storeId, pinnedModelId,
+            pricingOnlyAccountId, tenantId, "manual_pricer");
+        Assert.False(await orderAuthorization.CanApplyManualPriceAsync(
+            pricingOnlyAccountId, tenantId, CancellationToken.None));
+        await WriteTenantRelationAsync(
+            administrativeClient, storeId, pinnedModelId,
+            pricingOnlyAccountId, tenantId, "manual_pricer");
+
         Assert.True(await authorization.CanViewAsync(
             workspaceViewerAccountId,
             tenantId,
             CancellationToken.None));
+
+        var committer = Guid.NewGuid();
+        Assert.False(await orderAuthorization.CanCommitAsync(committer, tenantId, CancellationToken.None));
+        await WriteTenantRelationAsync(administrativeClient, storeId, pinnedModelId, committer, tenantId, "order_committer");
+        Assert.True(await orderAuthorization.CanCommitAsync(committer, tenantId, CancellationToken.None));
+        Assert.False(await orderAuthorization.CanViewAsync(committer, tenantId, CancellationToken.None));
+        Assert.False(await orderAuthorization.CanEditAsync(committer, tenantId, CancellationToken.None));
+        Assert.False(await orderAuthorization.CanApplyManualPriceAsync(committer, tenantId, CancellationToken.None));
+        await DeleteTenantRelationAsync(administrativeClient, storeId, pinnedModelId, committer, tenantId, "order_committer");
+        Assert.False(await orderAuthorization.CanCommitAsync(committer, tenantId, CancellationToken.None));
 
         var newerDenyingModel = modelJson
             .Replace("order_creator", "blocked_order_creator", StringComparison.Ordinal)
@@ -203,6 +268,8 @@ public sealed class OpenFgaTenantAuthorizationTests : IAsyncLifetime
             "order_abandoner", "blocked_order_abandoner", StringComparison.Ordinal);
         newerDenyingModel = newerDenyingModel.Replace(
             "order_editor", "blocked_order_editor", StringComparison.Ordinal);
+        newerDenyingModel = newerDenyingModel.Replace(
+            "manual_pricer", "blocked_manual_pricer", StringComparison.Ordinal);
         _ = await WriteModelAsync(administrativeClient, storeId, newerDenyingModel);
 
         Assert.True(await orderAuthorization.CanCreateAsync(
@@ -219,6 +286,36 @@ public sealed class OpenFgaTenantAuthorizationTests : IAsyncLifetime
             CancellationToken.None));
         Assert.True(await orderAuthorization.CanEditAsync(
             orderEditorAccountId, tenantId, CancellationToken.None));
+        Assert.True(await orderAuthorization.CanApplyManualPriceAsync(
+            pricingOnlyAccountId, tenantId, CancellationToken.None));
+
+        var oldModel = JsonNode.Parse(modelJson)!.AsObject();
+        var tenantType = oldModel["type_definitions"]![1]!;
+        tenantType["relations"]!.AsObject().Remove("manual_pricer");
+        tenantType["relations"]!.AsObject().Remove("can_apply_manual_price");
+        tenantType["metadata"]!["relations"]!.AsObject().Remove("manual_pricer");
+        tenantType["metadata"]!["relations"]!.AsObject().Remove("can_apply_manual_price");
+        var olderModelId = await WriteModelAsync(administrativeClient, storeId, oldModel.ToJsonString());
+        var olderModelConfiguration = OpenFgaAuthorizationConfiguration.From(new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Authorization:OpenFga:ApiUrl"] = apiUrl,
+                ["Authorization:OpenFga:StoreId"] = storeId,
+                ["Authorization:OpenFga:AuthorizationModelId"] = olderModelId,
+                ["Authorization:OpenFga:RequestTimeoutSeconds"] = "5",
+                ["Authorization:OpenFga:MaximumRetries"] = "1",
+                ["Authorization:OpenFga:MinimumRetryDelayMilliseconds"] = "100",
+                ["Authorization:OpenFga:CredentialMethod"] = "None",
+            })
+            .Build());
+        using var olderModelClient = new OpenFgaClient(olderModelConfiguration.ToClientConfiguration());
+        var olderModelAuthorization = new OpenFgaTenantAuthorization(
+            olderModelClient,
+            olderModelConfiguration,
+            NullLogger<OpenFgaTenantAuthorization>.Instance);
+        await Assert.ThrowsAsync<AuthorizationProviderUnavailableException>(() =>
+            ((ITenantOrderAuthorization)olderModelAuthorization).CanApplyManualPriceAsync(
+                pricingOnlyAccountId, tenantId, CancellationToken.None));
     }
 
     public Task InitializeAsync() => _server.StartAsync();
@@ -260,6 +357,35 @@ public sealed class OpenFgaTenantAuthorizationTests : IAsyncLifetime
             new
             {
                 writes = new
+                {
+                    tuple_keys = new[]
+                    {
+                        new
+                        {
+                            user = $"user:{accountId:N}",
+                            relation,
+                            @object = $"tenant:{tenantId:N}",
+                        },
+                    },
+                },
+                authorization_model_id = authorizationModelId,
+            });
+        response.EnsureSuccessStatusCode();
+    }
+
+    private static async Task DeleteTenantRelationAsync(
+        HttpClient client,
+        string storeId,
+        string authorizationModelId,
+        Guid accountId,
+        Guid tenantId,
+        string relation)
+    {
+        using var response = await client.PostAsJsonAsync(
+            $"/stores/{storeId}/write",
+            new
+            {
+                deletes = new
                 {
                     tuple_keys = new[]
                     {

@@ -2,6 +2,7 @@ namespace Application.Orders.Postgres;
 
 internal static class OrderSql
 {
+    internal static readonly string TryCommitOrder = Load(nameof(TryCommitOrder));
     internal static readonly string TryAbandonOrder = Load(nameof(TryAbandonOrder));
     internal static readonly string TryReviseOrder = Load(nameof(TryReviseOrder));
     internal static readonly string DeleteLines = Load(nameof(DeleteLines));
@@ -14,6 +15,7 @@ internal static class OrderSql
     internal static readonly string FindOrder = Load(nameof(FindOrder));
     internal static readonly string FindLines = Load(nameof(FindLines));
     internal static readonly string ListOrderHeaders = Load(nameof(ListOrderHeaders));
+    internal static readonly string ListOrderHistory = Load(nameof(ListOrderHistory));
 
     private static string Load(string name)
     {

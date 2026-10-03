@@ -100,6 +100,36 @@ public sealed class OrderDraftIntentTests
         Assert.Equal(1.2344m, intent.Total);
     }
 
+    [Fact]
+    public void CreateRoundsEachLineBeforeSummingRatherThanRoundingTheCombinedUnroundedAmount()
+    {
+        var intent = OrderDraftIntent.Create(new CreateOrderDraftRequest(
+            "Small line amounts",
+            "USD",
+            [
+                new OrderDraftLineInput("First", 0.5m, "EA", 0.0001m),
+                new OrderDraftLineInput("Second", 0.5m, "EA", 0.0001m),
+            ]));
+
+        Assert.All(intent.Lines, line => Assert.Equal(0m, line.LineTotal));
+        Assert.Equal(0m, intent.Total);
+    }
+
+    [Fact]
+    public void CreateRejectsAnAggregateOutsideDecimal19Scale4EvenWhenEachLineIsValid()
+    {
+        var error = Assert.Throws<OrderDraftValidationException>(() => OrderDraftIntent.Create(
+            new CreateOrderDraftRequest(
+                "Aggregate limit",
+                "USD",
+                [
+                    new OrderDraftLineInput("Maximum", 1m, "EA", 999_999_999_999_999.9999m),
+                    new OrderDraftLineInput("Additional", 1m, "EA", 0.0001m),
+                ])));
+
+        Assert.Equal("order_total_invalid", error.Code);
+    }
+
     [Theory]
     [MemberData(nameof(MalformedUtf16Drafts))]
     public void CreateRejectsMalformedUtf16BeforeFingerprinting(
@@ -262,6 +292,10 @@ public sealed class OrderDraftIntentTests
             string fingerprint,
             CancellationToken cancellationToken) =>
             throw new NotSupportedException();
+
+        public Task<CommitOrderDraftResult> CommitAsync(
+            TenantContext tenantContext, CommitOrderDraftRequest request, string idempotencyKey,
+            string fingerprint, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 
     private sealed class FailingCustomerStore : ICustomerStore

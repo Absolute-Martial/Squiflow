@@ -19,13 +19,14 @@ public sealed class TenantOrderEndpointTests : IClassFixture<WhiteLabelApiFactor
     }
 
     [Fact]
-    public async Task CurrentMemberWithCreatePermissionCanCreateAnOrderDraft()
+    public async Task CurrentMemberWithCreateAndPricingPermissionsCanCreateAnOrderDraft()
     {
         var accountId = Guid.NewGuid();
         var tenantId = Guid.NewGuid();
         _factory.Bind("order-create-subject", accountId);
         _factory.AddTenantMembership(accountId, tenantId, "Order Tenant");
         _factory.SetOrderCreateDecision(accountId, tenantId, allowed: true);
+        _factory.SetOrderManualPriceDecision(accountId, tenantId, true);
 
         using var request = CreateRequest(
             tenantId,
@@ -59,6 +60,7 @@ public sealed class TenantOrderEndpointTests : IClassFixture<WhiteLabelApiFactor
         _factory.Bind("order-idempotency-subject", accountId);
         _factory.AddTenantMembership(accountId, tenantId, "Idempotency Tenant");
         _factory.SetOrderCreateDecision(accountId, tenantId, allowed: true);
+        _factory.SetOrderManualPriceDecision(accountId, tenantId, true);
 
         using var first = CreateRequest(
             tenantId,
@@ -88,6 +90,7 @@ public sealed class TenantOrderEndpointTests : IClassFixture<WhiteLabelApiFactor
         _factory.Bind("order-replay-subject", accountId);
         _factory.AddTenantMembership(accountId, tenantId, "Replay Tenant");
         _factory.SetOrderCreateDecision(accountId, tenantId, allowed: true);
+        _factory.SetOrderManualPriceDecision(accountId, tenantId, true);
 
         using var first = CreateRequest(
             tenantId,
@@ -130,7 +133,9 @@ public sealed class TenantOrderEndpointTests : IClassFixture<WhiteLabelApiFactor
         _factory.AddTenantMembership(firstAccountId, tenantId, "Shared Tenant");
         _factory.AddTenantMembership(secondAccountId, tenantId, "Shared Tenant");
         _factory.SetOrderCreateDecision(firstAccountId, tenantId, allowed: true);
+        _factory.SetOrderManualPriceDecision(firstAccountId, tenantId, true);
         _factory.SetOrderCreateDecision(secondAccountId, tenantId, allowed: true);
+        _factory.SetOrderManualPriceDecision(secondAccountId, tenantId, true);
 
         using var firstRequest = CreateRequest(
             tenantId,
@@ -210,6 +215,7 @@ public sealed class TenantOrderEndpointTests : IClassFixture<WhiteLabelApiFactor
         _factory.Bind("order-missing-key-subject", accountId);
         _factory.AddTenantMembership(accountId, tenantId, "Missing Key Tenant");
         _factory.SetOrderCreateDecision(accountId, tenantId, allowed: true);
+        _factory.SetOrderManualPriceDecision(accountId, tenantId, true);
 
         using var request = CreateRequest(
             tenantId,
@@ -231,6 +237,7 @@ public sealed class TenantOrderEndpointTests : IClassFixture<WhiteLabelApiFactor
         _factory.Bind("order-multiple-keys-subject", accountId);
         _factory.AddTenantMembership(accountId, tenantId, "Multiple Key Tenant");
         _factory.SetOrderCreateDecision(accountId, tenantId, allowed: true);
+        _factory.SetOrderManualPriceDecision(accountId, tenantId, true);
 
         using var request = CreateRequest(
             tenantId,
@@ -253,6 +260,7 @@ public sealed class TenantOrderEndpointTests : IClassFixture<WhiteLabelApiFactor
         _factory.Bind("order-overlength-key-subject", accountId);
         _factory.AddTenantMembership(accountId, tenantId, "Overlength Key Tenant");
         _factory.SetOrderCreateDecision(accountId, tenantId, allowed: true);
+        _factory.SetOrderManualPriceDecision(accountId, tenantId, true);
 
         using var request = CreateRequest(
             tenantId,
@@ -274,6 +282,7 @@ public sealed class TenantOrderEndpointTests : IClassFixture<WhiteLabelApiFactor
         _factory.Bind("order-control-key-subject", accountId);
         _factory.AddTenantMembership(accountId, tenantId, "Control Key Tenant");
         _factory.SetOrderCreateDecision(accountId, tenantId, allowed: true);
+        _factory.SetOrderManualPriceDecision(accountId, tenantId, true);
 
         using var request = CreateRequest(
             tenantId,
@@ -296,6 +305,7 @@ public sealed class TenantOrderEndpointTests : IClassFixture<WhiteLabelApiFactor
         _factory.Bind("order-malformed-payload-subject", accountId);
         _factory.AddTenantMembership(accountId, tenantId, "Malformed Payload Tenant");
         _factory.SetOrderCreateDecision(accountId, tenantId, allowed: true);
+        _factory.SetOrderManualPriceDecision(accountId, tenantId, true);
 
         using var request = CreateRequest(
             tenantId,
@@ -317,6 +327,7 @@ public sealed class TenantOrderEndpointTests : IClassFixture<WhiteLabelApiFactor
         _factory.Bind("order-null-payload-subject", accountId);
         _factory.AddTenantMembership(accountId, tenantId, "Null Payload Tenant");
         _factory.SetOrderCreateDecision(accountId, tenantId, allowed: true);
+        _factory.SetOrderManualPriceDecision(accountId, tenantId, true);
 
         using var request = CreateRequest(
             tenantId,
@@ -338,6 +349,7 @@ public sealed class TenantOrderEndpointTests : IClassFixture<WhiteLabelApiFactor
         _factory.Bind("order-too-many-lines-subject", accountId);
         _factory.AddTenantMembership(accountId, tenantId, "Line Limit Tenant");
         _factory.SetOrderCreateDecision(accountId, tenantId, allowed: true);
+        _factory.SetOrderManualPriceDecision(accountId, tenantId, true);
 
         using var request = CreateRequest(
             tenantId,
@@ -369,6 +381,7 @@ public sealed class TenantOrderEndpointTests : IClassFixture<WhiteLabelApiFactor
         var tenantId = Guid.NewGuid();
         _factory.Bind("order-nonmember-subject", accountId);
         _factory.SetOrderCreateDecision(accountId, tenantId, allowed: true);
+        _factory.SetOrderManualPriceDecision(accountId, tenantId, true);
 
         using var request = CreateRequest(
             tenantId,
@@ -393,6 +406,7 @@ public sealed class TenantOrderEndpointTests : IClassFixture<WhiteLabelApiFactor
         _factory.AddTenantMembership(accountId, sourceTenantId, "Source Tenant");
         _factory.AddTenantMembership(accountId, requestingTenantId, "Requesting Tenant");
         _factory.SetOrderCreateDecision(accountId, sourceTenantId, allowed: true);
+        _factory.SetOrderManualPriceDecision(accountId, sourceTenantId, true);
         _factory.SetOrderViewDecision(accountId, requestingTenantId, allowed: true);
 
         using var create = CreateRequest(
@@ -494,6 +508,7 @@ public sealed class TenantOrderEndpointTests : IClassFixture<WhiteLabelApiFactor
         _factory.Bind(subject, accountId);
         _factory.AddTenantMembership(accountId, tenantId, "Paged Browse Tenant");
         _factory.SetOrderCreateDecision(accountId, tenantId, allowed: true);
+        _factory.SetOrderManualPriceDecision(accountId, tenantId, true);
         _factory.SetOrderViewDecision(accountId, tenantId, allowed: true);
 
         foreach (var summary in new[] { "First draft", "Second draft", "Third draft" })
@@ -666,6 +681,7 @@ public sealed class TenantOrderEndpointTests : IClassFixture<WhiteLabelApiFactor
         _factory.AddTenantMembership(accountId, sourceTenantId, "Cursor Source Tenant");
         _factory.AddTenantMembership(accountId, requestingTenantId, "Cursor Request Tenant");
         _factory.SetOrderCreateDecision(accountId, sourceTenantId, allowed: true);
+        _factory.SetOrderManualPriceDecision(accountId, sourceTenantId, true);
         _factory.SetOrderViewDecision(accountId, sourceTenantId, allowed: true);
         _factory.SetOrderViewDecision(accountId, requestingTenantId, allowed: true);
         var token = _factory.CreateToken(subject);
@@ -710,6 +726,7 @@ public sealed class TenantOrderEndpointTests : IClassFixture<WhiteLabelApiFactor
         _factory.AddTenantMembership(accountId, sourceTenantId, "Source Browse Tenant");
         _factory.AddTenantMembership(accountId, requestingTenantId, "Requesting Browse Tenant");
         _factory.SetOrderCreateDecision(accountId, sourceTenantId, allowed: true);
+        _factory.SetOrderManualPriceDecision(accountId, sourceTenantId, true);
         _factory.SetOrderViewDecision(accountId, requestingTenantId, allowed: true);
 
         using var create = CreateRequest(

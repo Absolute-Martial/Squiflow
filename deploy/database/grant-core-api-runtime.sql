@@ -66,7 +66,7 @@ BEGIN
         EXECUTE format('GRANT SELECT, INSERT ON TABLE %s TO %I', target_table, runtime_role);
     END LOOP;
     EXECUTE format(
-        'GRANT UPDATE (summary, currency_code, total, customer_organization_id, customer_program_id, state, revision, abandoned_at, abandoned_by_account_id) ON TABLE orders.order_drafts TO %I',
+        'GRANT UPDATE (summary, currency_code, total, customer_organization_id, customer_program_id, state, revision, abandoned_at, abandoned_by_account_id, committed_at, committed_by_account_id) ON TABLE orders.order_drafts TO %I',
         runtime_role);
     EXECUTE format('GRANT DELETE ON TABLE orders.order_draft_lines TO %I', runtime_role);
 END
@@ -115,7 +115,8 @@ BEGIN
                        AND target_column.column_name IN (
                            'summary', 'currency_code', 'total',
                            'customer_organization_id', 'customer_program_id',
-                           'state', 'revision', 'abandoned_at', 'abandoned_by_account_id'))) THEN
+                           'state', 'revision', 'abandoned_at', 'abandoned_by_account_id',
+                           'committed_at', 'committed_by_account_id'))) THEN
             RAISE EXCEPTION 'CoreApi runtime column privileges are unsafe on %', target_table;
         END IF;
     END LOOP;

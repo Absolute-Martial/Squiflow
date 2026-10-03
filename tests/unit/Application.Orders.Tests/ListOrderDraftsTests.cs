@@ -159,6 +159,10 @@ public sealed class ListOrderDraftsTests
             string fingerprint,
             CancellationToken cancellationToken) =>
             throw new NotSupportedException();
+
+        public Task<CommitOrderDraftResult> CommitAsync(
+            TenantContext tenantContext, CommitOrderDraftRequest request, string idempotencyKey,
+            string fingerprint, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 
     private sealed class CancelledOrderDraftStore(CancellationToken expectedCancellationToken) : IOrderDraftStore
@@ -194,5 +198,9 @@ public sealed class ListOrderDraftsTests
             string fingerprint,
             CancellationToken cancellationToken) =>
             throw new NotSupportedException();
+
+        public Task<CommitOrderDraftResult> CommitAsync(
+            TenantContext tenantContext, CommitOrderDraftRequest request, string idempotencyKey,
+            string fingerprint, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 }

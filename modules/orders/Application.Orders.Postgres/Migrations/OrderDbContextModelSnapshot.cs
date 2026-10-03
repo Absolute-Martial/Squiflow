@@ -45,6 +45,9 @@ internal static class OrderModel
             entity.Property<DateTimeOffset>("CreatedAt")
                 .HasColumnType("timestamp with time zone")
                 .HasColumnName("created_at");
+            entity.Property<Guid?>("CommittedByAccountId").HasColumnType("uuid").HasColumnName("committed_by_account_id");
+            entity.Property<DateTimeOffset?>("CommittedAt").HasColumnType("timestamp with time zone").HasColumnName("committed_at");
+            entity.HasIndex("CommittedByAccountId");
             entity.Property<Guid?>("AbandonedByAccountId")
                 .HasColumnType("uuid")
                 .HasColumnName("abandoned_by_account_id");
@@ -92,7 +95,7 @@ internal static class OrderModel
                 table.HasCheckConstraint("ck_order_drafts_currency_code", "currency_code ~ '^[A-Z]{3}$'");
                 table.HasCheckConstraint("ck_order_drafts_total", "total >= 0");
                 table.HasCheckConstraint("ck_order_drafts_revision", "revision > 0");
-                table.HasCheckConstraint("ck_order_drafts_lifecycle", "(state = 'draft' AND revision >= 1 AND abandoned_at IS NULL AND abandoned_by_account_id IS NULL) OR (state = 'abandoned' AND revision >= 2 AND abandoned_at IS NOT NULL AND abandoned_by_account_id IS NOT NULL)");
+                table.HasCheckConstraint("ck_order_drafts_lifecycle", "(state = 'draft' AND revision >= 1 AND abandoned_at IS NULL AND abandoned_by_account_id IS NULL AND committed_at IS NULL AND committed_by_account_id IS NULL) OR (state = 'abandoned' AND revision >= 2 AND abandoned_at IS NOT NULL AND abandoned_by_account_id IS NOT NULL AND committed_at IS NULL AND committed_by_account_id IS NULL) OR (state = 'committed' AND revision >= 2 AND abandoned_at IS NULL AND abandoned_by_account_id IS NULL AND committed_at IS NOT NULL AND committed_by_account_id IS NOT NULL)");
                 table.HasCheckConstraint("ck_order_drafts_customer_context", "customer_program_id IS NULL OR customer_organization_id IS NOT NULL");
             });
         });
@@ -176,6 +179,9 @@ internal static class OrderModel
 
         modelBuilder.Entity("Application.Orders.Postgres.OrderDraftRow", entity =>
         {
+            entity.HasOne("Application.Orders.Postgres.AccountReferenceRow", null).WithMany()
+                .HasForeignKey("CommittedByAccountId").OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("fk_order_drafts_accounts_committed_by_account_id");
             entity.HasOne("Application.Orders.Postgres.AccountReferenceRow", null)
                 .WithMany()
                 .HasForeignKey("AbandonedByAccountId")

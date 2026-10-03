@@ -23,6 +23,10 @@ internal interface ITenantOrderAuthorization
     Task<bool> CanAbandonAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
 
     Task<bool> CanEditAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
+
+    Task<bool> CanApplyManualPriceAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
+
+    Task<bool> CanCommitAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
 }
 
 internal interface ITenantCustomerAuthorization
@@ -47,6 +51,8 @@ internal sealed class OpenFgaTenantAuthorization(
     private const string ViewOrdersRelation = "can_view_orders";
     private const string AbandonOrderRelation = "can_abandon_order";
     private const string EditOrderRelation = "can_edit_order";
+    private const string ApplyManualPriceRelation = "can_apply_manual_price";
+    private const string CommitOrderRelation = "can_commit_order";
     private const string CreateOrganizationRelation = "can_create_organization";
     private const string ViewOrganizationsRelation = "can_view_organizations";
     private const string CreateProgramRelation = "can_create_program";
@@ -106,6 +112,18 @@ internal sealed class OpenFgaTenantAuthorization(
         Guid tenantId,
         CancellationToken cancellationToken) =>
         CheckAsync(accountId, tenantId, EditOrderRelation, cancellationToken);
+
+    Task<bool> ITenantOrderAuthorization.CanApplyManualPriceAsync(
+        Guid accountId,
+        Guid tenantId,
+        CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, ApplyManualPriceRelation, cancellationToken);
+
+    Task<bool> ITenantOrderAuthorization.CanCommitAsync(
+        Guid accountId,
+        Guid tenantId,
+        CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, CommitOrderRelation, cancellationToken);
 
     Task<bool> ITenantCustomerAuthorization.CanCreateOrganizationAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken) =>
         CheckAsync(accountId, tenantId, CreateOrganizationRelation, cancellationToken);

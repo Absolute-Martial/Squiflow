@@ -28,6 +28,7 @@ internal static class TenantOrderEndpoint
         ResolveTenantContext resolveTenantContext,
         IAuthorizationService authorization,
         CreateOrderDraft createOrderDraft,
+        CoreApiMutationDiagnostics diagnostics,
         CancellationToken cancellationToken)
     {
         if (httpContext.Request.ContentLength is > MaximumCreateRequestBodyBytes)
@@ -61,6 +62,14 @@ internal static class TenantOrderEndpoint
             CreateOrderRequirement.Instance,
             "The account is not permitted to create orders in this tenant.",
             cancellationToken);
+        if (authorizationFailure is not null)
+        {
+            return authorizationFailure;
+        }
+
+        authorizationFailure = await AuthorizeAsync(
+            principal, access.TenantContext!, authorization, ApplyManualPriceRequirement.Instance,
+            "The account is not permitted to enter manual order prices in this tenant.", cancellationToken);
         if (authorizationFailure is not null)
         {
             return authorizationFailure;
@@ -117,15 +126,15 @@ internal static class TenantOrderEndpoint
         httpContext.Response.Headers.CacheControl = "no-store";
         var response = ToResponse(order);
 
+        if (result.Status is not (CreateOrderDraftStatus.Created or CreateOrderDraftStatus.Replayed))
+            throw new InvalidOperationException("The order command returned an unsupported status.");
+        diagnostics.RecordSuccess(CoreApiMutation.OrderDraftCreated, access.TenantContext!, order.OrderId,
+            result.Status == CreateOrderDraftStatus.Replayed, httpContext.TraceIdentifier);
+
         if (result.Status == CreateOrderDraftStatus.Replayed)
         {
             httpContext.Response.Headers.Append("Idempotency-Replayed", "true");
             return TypedResults.Ok(response);
-        }
-
-        if (result.Status != CreateOrderDraftStatus.Created)
-        {
-            throw new InvalidOperationException("The order command returned an unsupported status.");
         }
 
         return TypedResults.Created(
@@ -206,6 +215,7 @@ internal static class TenantOrderEndpoint
         ResolveTenantContext resolveTenantContext,
         IAuthorizationService authorization,
         ReviseOrderDraft reviseOrderDraft,
+        CoreApiMutationDiagnostics diagnostics,
         CancellationToken cancellationToken)
     {
         var access = await TenantRequestAccess.ResolveAsync(
@@ -218,6 +228,14 @@ internal static class TenantOrderEndpoint
         var authorizationFailure = await AuthorizeAsync(
             principal, access.TenantContext!, authorization, EditOrderRequirement.Instance,
             "The account is not permitted to edit orders in this tenant.", cancellationToken);
+        if (authorizationFailure is not null)
+        {
+            return authorizationFailure;
+        }
+
+        authorizationFailure = await AuthorizeAsync(
+            principal, access.TenantContext!, authorization, ApplyManualPriceRequirement.Instance,
+            "The account is not permitted to enter manual order prices in this tenant.", cancellationToken);
         if (authorizationFailure is not null)
         {
             return authorizationFailure;
@@ -278,6 +296,7 @@ internal static class TenantOrderEndpoint
 
         if (result.Status is ReviseOrderDraftStatus.RevisionConflict or
             ReviseOrderDraftStatus.AlreadyAbandoned or
+            ReviseOrderDraftStatus.AlreadyCommitted or
             ReviseOrderDraftStatus.IdempotencyKeyConflict)
         {
             var (code, detail) = result.Status switch
@@ -286,6 +305,8 @@ internal static class TenantOrderEndpoint
                     ("revision_conflict", "The order revision does not match the expected revision."),
                 ReviseOrderDraftStatus.AlreadyAbandoned =>
                     ("order_already_abandoned", "The order draft has already been abandoned."),
+                ReviseOrderDraftStatus.AlreadyCommitted =>
+                    ("order_already_committed", "The order has already been committed."),
                 _ => ("idempotency_key_conflict", "The Idempotency-Key has already been used for a different revision request."),
             };
             return TypedResults.Problem(
@@ -302,6 +323,8 @@ internal static class TenantOrderEndpoint
 
         var order = result.Order
             ?? throw new InvalidOperationException("A successful revision command did not return an order draft.");
+        diagnostics.RecordSuccess(CoreApiMutation.OrderDraftRevised, access.TenantContext!, order.OrderId,
+            result.Status == ReviseOrderDraftStatus.Replayed, httpContext.TraceIdentifier);
         httpContext.Response.Headers.CacheControl = "no-store";
         if (result.Status == ReviseOrderDraftStatus.Replayed)
         {
@@ -320,6 +343,7 @@ internal static class TenantOrderEndpoint
         ResolveTenantContext resolveTenantContext,
         IAuthorizationService authorization,
         AbandonOrderDraft abandonOrderDraft,
+        CoreApiMutationDiagnostics diagnostics,
         CancellationToken cancellationToken)
     {
         var access = await TenantRequestAccess.ResolveAsync(
@@ -346,15 +370,6 @@ internal static class TenantOrderEndpoint
             return authorizationFailure;
         }
 
-        if (httpContext.Request.ContentLength is > MaximumAbandonRequestBodyBytes)
-        {
-            return TypedResults.Problem(
-                statusCode: StatusCodes.Status413PayloadTooLarge,
-                title: "Order request is too large.",
-                detail: "The order request exceeds the supported request size.",
-                extensions: new Dictionary<string, object?> { ["code"] = "request_too_large" });
-        }
-
         if (!TryGetIdempotencyKey(httpContext.Request.Headers, out var idempotencyKey))
         {
             return InvalidRequest(
@@ -362,69 +377,15 @@ internal static class TenantOrderEndpoint
                 "Idempotency-Key is required and must contain one header value.");
         }
 
-        if (!httpContext.Request.HasJsonContentType())
+        var payload = await OrderDraftTransitionPayloadReader.ReadExpectedRevisionAsync(
+            httpContext.Request,
+            MaximumAbandonRequestBodyBytes,
+            cancellationToken);
+        if (payload.Failure is not null)
         {
-            return InvalidRequest("request_invalid", "The request body must use application/json.");
+            return payload.Failure;
         }
-
-        long expectedRevision;
-        try
-        {
-            var body = new byte[checked((int)MaximumAbandonRequestBodyBytes + 1)];
-            var received = 0;
-            while (received < body.Length)
-            {
-                var count = await httpContext.Request.Body.ReadAsync(
-                    body.AsMemory(received),
-                    cancellationToken);
-                if (count == 0)
-                {
-                    break;
-                }
-
-                received += count;
-            }
-
-            if (received > MaximumAbandonRequestBodyBytes)
-            {
-                return TypedResults.Problem(
-                    statusCode: StatusCodes.Status413PayloadTooLarge,
-                    title: "Order request is too large.",
-                    detail: "The order request exceeds the supported request size.",
-                    extensions: new Dictionary<string, object?> { ["code"] = "request_too_large" });
-            }
-
-            using var payload = JsonDocument.Parse(
-                body.AsMemory(0, received),
-                new JsonDocumentOptions { MaxDepth = 2 });
-            if (payload.RootElement.ValueKind != JsonValueKind.Object)
-            {
-                return InvalidRequest("expected_revision_invalid", "Expected revision must be one positive JSON integer.");
-            }
-
-            using var properties = payload.RootElement.EnumerateObject();
-            if (!properties.MoveNext() ||
-                !properties.Current.NameEquals("expectedRevision") ||
-                properties.Current.Value.ValueKind != JsonValueKind.Number ||
-                !properties.Current.Value.TryGetInt64(out expectedRevision) ||
-                expectedRevision < 1 ||
-                properties.MoveNext())
-            {
-                return InvalidRequest("expected_revision_invalid", "Expected revision must be one positive JSON integer.");
-            }
-        }
-        catch (BadHttpRequestException exception) when (exception.StatusCode == StatusCodes.Status413PayloadTooLarge)
-        {
-            return TypedResults.Problem(
-                statusCode: StatusCodes.Status413PayloadTooLarge,
-                title: "Order request is too large.",
-                detail: "The order request exceeds the supported request size.",
-                extensions: new Dictionary<string, object?> { ["code"] = "request_too_large" });
-        }
-        catch (Exception exception) when (exception is BadHttpRequestException or JsonException)
-        {
-            return InvalidRequest("request_invalid", "The request body must be a valid JSON abandon request.");
-        }
+        var expectedRevision = payload.ExpectedRevision!.Value;
 
         AbandonOrderDraftResult result;
         try
@@ -451,6 +412,7 @@ internal static class TenantOrderEndpoint
 
         if (result.Status is AbandonOrderDraftStatus.RevisionConflict or
             AbandonOrderDraftStatus.AlreadyAbandoned or
+            AbandonOrderDraftStatus.AlreadyCommitted or
             AbandonOrderDraftStatus.IdempotencyKeyConflict)
         {
             var (code, detail) = result.Status switch
@@ -459,6 +421,8 @@ internal static class TenantOrderEndpoint
                     ("revision_conflict", "The order revision does not match the expected revision."),
                 AbandonOrderDraftStatus.AlreadyAbandoned =>
                     ("order_already_abandoned", "The order draft has already been abandoned."),
+                AbandonOrderDraftStatus.AlreadyCommitted =>
+                    ("order_already_committed", "The order has already been committed."),
                 _ =>
                     ("idempotency_key_conflict", "The Idempotency-Key has already been used for a different abandon request."),
             };
@@ -480,6 +444,8 @@ internal static class TenantOrderEndpoint
         {
             throw new InvalidOperationException("A successful abandon command returned an invalid abandonment receipt.");
         }
+        diagnostics.RecordSuccess(CoreApiMutation.OrderDraftAbandoned, access.TenantContext!, order.OrderId,
+            result.Status == AbandonOrderDraftStatus.Replayed, httpContext.TraceIdentifier);
         httpContext.Response.Headers.CacheControl = "no-store";
         if (result.Status == AbandonOrderDraftStatus.Replayed)
         {
@@ -561,11 +527,12 @@ internal static class TenantOrderEndpoint
                 item.CreatedAt,
                 ToWireState(item.State),
                 item.AbandonedAt,
-                item.CustomerContext)).ToArray(),
+                item.CustomerContext,
+                item.CommittedAt)).ToArray(),
             page.NextCursor is null ? null : OrderDraftPageCursorCodec.Encode(tenantId, page.NextCursor)));
     }
 
-    private static async Task<IResult?> AuthorizeAsync(
+    internal static async Task<IResult?> AuthorizeAsync(
         ClaimsPrincipal principal,
         TenantContext tenantContext,
         IAuthorizationService authorization,
@@ -598,7 +565,7 @@ internal static class TenantOrderEndpoint
             : TenantRequestAccess.Problem("tenant_permission_denied", deniedDetail);
     }
 
-    private static bool TryGetIdempotencyKey(
+    internal static bool TryGetIdempotencyKey(
         IHeaderDictionary headers,
         out string? idempotencyKey)
     {
@@ -663,7 +630,11 @@ internal static class TenantOrderEndpoint
         CreateOrderDraftPayload? payload;
         try
         {
-            payload = await request.ReadFromJsonAsync<CreateOrderDraftPayload>(cancellationToken);
+            payload = await ReadBoundedDraftPayloadAsync<CreateOrderDraftPayload>(request, cancellationToken);
+        }
+        catch (BadHttpRequestException exception) when (exception.StatusCode == StatusCodes.Status413PayloadTooLarge)
+        {
+            return CreatePayloadResult.Invalid(DraftBodyTooLarge());
         }
         catch (Exception exception) when (exception is BadHttpRequestException or NotSupportedException or System.Text.Json.JsonException)
         {
@@ -702,7 +673,11 @@ internal static class TenantOrderEndpoint
         ReviseOrderDraftPayload? payload;
         try
         {
-            payload = await request.ReadFromJsonAsync<ReviseOrderDraftPayload>(cancellationToken);
+            payload = await ReadBoundedDraftPayloadAsync<ReviseOrderDraftPayload>(request, cancellationToken);
+        }
+        catch (BadHttpRequestException exception) when (exception.StatusCode == StatusCodes.Status413PayloadTooLarge)
+        {
+            return RevisePayloadResult.Invalid(DraftBodyTooLarge());
         }
         catch (Exception exception) when (exception is BadHttpRequestException or NotSupportedException or JsonException)
         {
@@ -726,7 +701,52 @@ internal static class TenantOrderEndpoint
                 payload.CustomerContext.OrganizationId, payload.CustomerContext.ProgramId)));
     }
 
-    private static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult InvalidRequest(
+    private static async Task<T?> ReadBoundedDraftPayloadAsync<T>(HttpRequest request, CancellationToken cancellationToken)
+    {
+        if (!request.HasJsonContentType())
+            throw new NotSupportedException("Order drafts require JSON content.");
+
+        var charset = Microsoft.Net.Http.Headers.MediaTypeHeaderValue.Parse(request.ContentType!).Charset;
+        if (charset.HasValue)
+        {
+            try
+            {
+                _ = Encoding.GetEncoding(charset.Value!);
+            }
+            catch (ArgumentException exception)
+            {
+                // Reject untrusted encoding names without masking serializer/configuration failures.
+                throw new NotSupportedException("The order draft charset is unsupported.", exception);
+            }
+        }
+
+        // Also enforce the decoded stream bound when the host has no request-size feature.
+        var body = new byte[checked((int)MaximumCreateRequestBodyBytes + 1)];
+        var length = await request.Body.ReadAtLeastAsync(body, body.Length, throwOnEndOfStream: false, cancellationToken);
+        if (length > MaximumCreateRequestBodyBytes)
+            throw new BadHttpRequestException("The order draft exceeds the supported body size.", StatusCodes.Status413PayloadTooLarge);
+
+        var originalBody = request.Body;
+        using var boundedBody = new MemoryStream(body, 0, length, writable: false);
+        try
+        {
+            request.Body = boundedBody;
+            // Preserve native JSON options and charset handling after bounding the bytes.
+            return await request.ReadFromJsonAsync<T>(cancellationToken);
+        }
+        finally
+        {
+            request.Body = originalBody;
+        }
+    }
+
+    private static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult DraftBodyTooLarge() => TypedResults.Problem(
+        statusCode: StatusCodes.Status413PayloadTooLarge,
+        title: "Order request is too large.",
+        detail: "The order request exceeds the supported request size.",
+        extensions: new Dictionary<string, object?> { ["code"] = "request_too_large" });
+
+    internal static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult InvalidRequest(
         string code,
         string detail) =>
         TypedResults.Problem(
@@ -738,7 +758,14 @@ internal static class TenantOrderEndpoint
                 ["code"] = code,
             });
 
-    private static OrderDraftResponse ToResponse(OrderDraftSnapshot order) =>
+    internal static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult RequestTooLarge() =>
+        TypedResults.Problem(
+            statusCode: StatusCodes.Status413PayloadTooLarge,
+            title: "Order request is too large.",
+            detail: "The order request exceeds the supported request size.",
+            extensions: new Dictionary<string, object?> { ["code"] = "request_too_large" });
+
+    internal static OrderDraftResponse ToResponse(OrderDraftSnapshot order) =>
         new(
             order.OrderId,
             order.Summary,
@@ -755,12 +782,14 @@ internal static class TenantOrderEndpoint
                 line.LineTotal)).ToArray(),
             ToWireState(order.State),
             order.AbandonedAt,
-            order.CustomerContext);
+            order.CustomerContext,
+            order.CommittedAt);
 
-    private static string ToWireState(OrderDraftState state) => state switch
+    internal static string ToWireState(OrderDraftState state) => state switch
     {
         OrderDraftState.Draft => "draft",
         OrderDraftState.Abandoned => "abandoned",
+        OrderDraftState.Committed => "committed",
         _ => throw new InvalidOperationException("The order returned an unsupported state."),
     };
 
@@ -779,6 +808,87 @@ internal static class TenantOrderEndpoint
 
         internal static RevisePayloadResult Invalid(IResult failure) => new(null, failure);
     }
+}
+
+internal static class OrderDraftTransitionPayloadReader
+{
+    internal static async Task<OrderDraftExpectedRevisionPayloadResult> ReadExpectedRevisionAsync(
+        HttpRequest request,
+        long maximumBodyBytes,
+        CancellationToken cancellationToken)
+    {
+        if (request.ContentLength is long contentLength && contentLength > maximumBodyBytes)
+        {
+            return OrderDraftExpectedRevisionPayloadResult.Invalid(TenantOrderEndpoint.RequestTooLarge());
+        }
+
+        if (!request.HasJsonContentType())
+        {
+            return Invalid("request_invalid", "The request body must use application/json.");
+        }
+
+        try
+        {
+            var body = new byte[checked((int)maximumBodyBytes + 1)];
+            var received = 0;
+            while (received < body.Length)
+            {
+                var count = await request.Body.ReadAsync(body.AsMemory(received), cancellationToken);
+                if (count == 0)
+                {
+                    break;
+                }
+
+                received += count;
+            }
+
+            if (received > maximumBodyBytes)
+            {
+                return OrderDraftExpectedRevisionPayloadResult.Invalid(TenantOrderEndpoint.RequestTooLarge());
+            }
+
+            using var payload = JsonDocument.Parse(body.AsMemory(0, received), new JsonDocumentOptions { MaxDepth = 2 });
+            if (payload.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return Invalid("expected_revision_invalid", "Expected revision must be one positive JSON integer.");
+            }
+
+            using var properties = payload.RootElement.EnumerateObject();
+            if (!properties.MoveNext() ||
+                !properties.Current.NameEquals("expectedRevision") ||
+                properties.Current.Value.ValueKind != JsonValueKind.Number ||
+                !properties.Current.Value.TryGetInt64(out var expectedRevision) ||
+                expectedRevision < 1 ||
+                properties.MoveNext())
+            {
+                return Invalid("expected_revision_invalid", "Expected revision must be one positive JSON integer.");
+            }
+
+            return OrderDraftExpectedRevisionPayloadResult.Valid(expectedRevision);
+        }
+        catch (BadHttpRequestException exception) when (exception.StatusCode == StatusCodes.Status413PayloadTooLarge)
+        {
+            return OrderDraftExpectedRevisionPayloadResult.Invalid(TenantOrderEndpoint.RequestTooLarge());
+        }
+        catch (Exception exception) when (exception is BadHttpRequestException or JsonException)
+        {
+            return Invalid("request_invalid", "The request body must be a valid JSON order transition request.");
+        }
+    }
+
+    private static OrderDraftExpectedRevisionPayloadResult Invalid(string code, string detail) =>
+        OrderDraftExpectedRevisionPayloadResult.Invalid(TypedResults.Problem(
+            statusCode: StatusCodes.Status400BadRequest,
+            title: "Invalid order request.",
+            detail: detail,
+            extensions: new Dictionary<string, object?> { ["code"] = code }));
+}
+
+internal sealed record OrderDraftExpectedRevisionPayloadResult(long? ExpectedRevision, IResult? Failure)
+{
+    internal static OrderDraftExpectedRevisionPayloadResult Valid(long expectedRevision) => new(expectedRevision, null);
+
+    internal static OrderDraftExpectedRevisionPayloadResult Invalid(IResult failure) => new(null, failure);
 }
 
 internal sealed record CreateOrderDraftPayload(
@@ -816,7 +926,8 @@ internal sealed record OrderDraftResponse(
     IReadOnlyList<OrderDraftLineResponse> Lines,
     string State,
     DateTimeOffset? AbandonedAt,
-    CustomerOrderContext? CustomerContext = null);
+    CustomerOrderContext? CustomerContext = null,
+    DateTimeOffset? CommittedAt = null);
 
 internal sealed record OrderDraftLineResponse(
     int Position,
@@ -839,7 +950,8 @@ internal sealed record OrderDraftListItemResponse(
     DateTimeOffset CreatedAt,
     string State,
     DateTimeOffset? AbandonedAt,
-    CustomerOrderContext? CustomerContext = null);
+    CustomerOrderContext? CustomerContext = null,
+    DateTimeOffset? CommittedAt = null);
 
 internal static class OrderDraftPageCursorCodec
 {

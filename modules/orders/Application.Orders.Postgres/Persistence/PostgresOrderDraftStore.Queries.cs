@@ -34,8 +34,10 @@ public sealed partial class PostgresOrderDraftStore
             throw new ArgumentException("Order identity cannot be empty.", nameof(orderId));
         }
 
+        // The header and its lines are separate statements; a snapshot keeps a concurrent revision
+        // from being observed as the old header with the new lines.
         await using var session = await OrderTenantDbSession
-            .OpenAsync(dataSource, tenantContext.TenantId, cancellationToken)
+            .OpenSnapshotAsync(dataSource, tenantContext.TenantId, cancellationToken)
             .ConfigureAwait(false);
 
         var order = await FindOrderAsync(
@@ -131,7 +133,9 @@ public sealed partial class PostgresOrderDraftStore
             header.State,
             header.AbandonedAt,
             header.AbandonedByAccountId,
-            header.CustomerContext);
+            header.CustomerContext,
+            header.CommittedAt,
+            header.CommittedByAccountId);
     }
 
     private static async Task<List<OrderDraftListItem>> ListOrderHeadersAsync(
@@ -164,6 +168,7 @@ public sealed partial class PostgresOrderDraftStore
 
     private static OrderDraftHeader ReadHeader(NpgsqlDataReader reader)
     {
+        var committedAt = reader.GetOrdinal("committed_at");
         var abandonedAt = reader.GetOrdinal("abandoned_at");
         var abandonedByAccountId = reader.GetOrdinal("abandoned_by_account_id");
         var organizationId = reader.GetOrdinal("customer_organization_id");
@@ -184,7 +189,9 @@ public sealed partial class PostgresOrderDraftStore
                 ? null
                 : new CustomerOrderContext(
                     reader.GetGuid(organizationId),
-                    reader.IsDBNull(programId) ? null : reader.GetGuid(programId)));
+                    reader.IsDBNull(programId) ? null : reader.GetGuid(programId)),
+            reader.IsDBNull(committedAt) ? null : reader.GetFieldValue<DateTimeOffset>(committedAt),
+            reader.IsDBNull(reader.GetOrdinal("committed_by_account_id")) ? null : reader.GetGuid(reader.GetOrdinal("committed_by_account_id")));
     }
 
     private static OrderDraftLine ReadLine(NpgsqlDataReader reader) => new(
@@ -197,6 +204,7 @@ public sealed partial class PostgresOrderDraftStore
 
     private static OrderDraftListItem ReadListItem(NpgsqlDataReader reader)
     {
+        var committedAt = reader.GetOrdinal("committed_at");
         var abandonedAt = reader.GetOrdinal("abandoned_at");
         var organizationId = reader.GetOrdinal("customer_organization_id");
         var programId = reader.GetOrdinal("customer_program_id");
@@ -213,13 +221,15 @@ public sealed partial class PostgresOrderDraftStore
                 ? null
                 : new CustomerOrderContext(
                     reader.GetGuid(organizationId),
-                    reader.IsDBNull(programId) ? null : reader.GetGuid(programId)));
+                    reader.IsDBNull(programId) ? null : reader.GetGuid(programId)),
+            reader.IsDBNull(committedAt) ? null : reader.GetFieldValue<DateTimeOffset>(committedAt));
     }
 
     private static OrderDraftState ReadState(string state) => state switch
     {
         "draft" => OrderDraftState.Draft,
         "abandoned" => OrderDraftState.Abandoned,
+        "committed" => OrderDraftState.Committed,
         _ => throw new InvalidOperationException("The order draft has an unsupported stored state."),
     };
 
@@ -235,5 +245,7 @@ public sealed partial class PostgresOrderDraftStore
         OrderDraftState State,
         DateTimeOffset? AbandonedAt,
         Guid? AbandonedByAccountId,
-        CustomerOrderContext? CustomerContext);
+        CustomerOrderContext? CustomerContext,
+        DateTimeOffset? CommittedAt,
+        Guid? CommittedByAccountId);
 }

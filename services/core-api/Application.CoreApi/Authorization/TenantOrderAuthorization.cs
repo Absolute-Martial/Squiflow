@@ -43,6 +43,24 @@ internal sealed class EditOrderRequirement : IAuthorizationRequirement
     }
 }
 
+internal sealed class ApplyManualPriceRequirement : IAuthorizationRequirement
+{
+    internal static ApplyManualPriceRequirement Instance { get; } = new();
+
+    private ApplyManualPriceRequirement()
+    {
+    }
+}
+
+internal sealed class CommitOrderRequirement : IAuthorizationRequirement
+{
+    internal static CommitOrderRequirement Instance { get; } = new();
+
+    private CommitOrderRequirement()
+    {
+    }
+}
+
 internal sealed class CreateOrderAuthorizationHandler(ITenantOrderAuthorization authorization)
     : AuthorizationHandler<CreateOrderRequirement, TenantOrderResource>
 {
@@ -110,6 +128,44 @@ internal sealed class EditOrderAuthorizationHandler(ITenantOrderAuthorization au
     {
         if (context.User.Identity?.IsAuthenticated is true &&
             await authorization.CanEditAsync(
+                resource.TenantContext.AccountId,
+                resource.TenantContext.TenantId,
+                resource.CancellationToken))
+        {
+            context.Succeed(requirement);
+        }
+    }
+}
+
+internal sealed class ApplyManualPriceAuthorizationHandler(ITenantOrderAuthorization authorization)
+    : AuthorizationHandler<ApplyManualPriceRequirement, TenantOrderResource>
+{
+    protected override async Task HandleRequirementAsync(
+        AuthorizationHandlerContext context,
+        ApplyManualPriceRequirement requirement,
+        TenantOrderResource resource)
+    {
+        if (context.User.Identity?.IsAuthenticated is true &&
+            await authorization.CanApplyManualPriceAsync(
+                resource.TenantContext.AccountId,
+                resource.TenantContext.TenantId,
+                resource.CancellationToken))
+        {
+            context.Succeed(requirement);
+        }
+    }
+}
+
+internal sealed class CommitOrderAuthorizationHandler(ITenantOrderAuthorization authorization)
+    : AuthorizationHandler<CommitOrderRequirement, TenantOrderResource>
+{
+    protected override async Task HandleRequirementAsync(
+        AuthorizationHandlerContext context,
+        CommitOrderRequirement requirement,
+        TenantOrderResource resource)
+    {
+        if (context.User.Identity?.IsAuthenticated is true &&
+            await authorization.CanCommitAsync(
                 resource.TenantContext.AccountId,
                 resource.TenantContext.TenantId,
                 resource.CancellationToken))

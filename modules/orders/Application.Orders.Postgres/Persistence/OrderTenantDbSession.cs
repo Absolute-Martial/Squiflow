@@ -16,16 +16,31 @@ internal sealed class OrderTenantDbSession : IAsyncDisposable
         _transaction = transaction;
     }
 
-    internal static async Task<OrderTenantDbSession> OpenAsync(
+    // Commands keep ReadCommitted: they rely on row-level conflict handling and atomic receipts.
+    // A multi-statement read that must see one consistent state opens a snapshot session instead.
+    internal static Task<OrderTenantDbSession> OpenAsync(
         NpgsqlDataSource dataSource,
         Guid tenantId,
+        CancellationToken cancellationToken) =>
+        OpenAsync(dataSource, tenantId, IsolationLevel.ReadCommitted, cancellationToken);
+
+    internal static Task<OrderTenantDbSession> OpenSnapshotAsync(
+        NpgsqlDataSource dataSource,
+        Guid tenantId,
+        CancellationToken cancellationToken) =>
+        OpenAsync(dataSource, tenantId, IsolationLevel.RepeatableRead, cancellationToken);
+
+    private static async Task<OrderTenantDbSession> OpenAsync(
+        NpgsqlDataSource dataSource,
+        Guid tenantId,
+        IsolationLevel isolationLevel,
         CancellationToken cancellationToken)
     {
         var connection = await dataSource.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             var transaction = await connection
-                .BeginTransactionAsync(IsolationLevel.ReadCommitted, cancellationToken)
+                .BeginTransactionAsync(isolationLevel, cancellationToken)
                 .ConfigureAwait(false);
             try
             {

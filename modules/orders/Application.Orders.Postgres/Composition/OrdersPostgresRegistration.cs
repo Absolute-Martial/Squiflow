@@ -14,11 +14,15 @@ public static class OrdersPostgresRegistration
             PostgresOrderOptions.Configure(
                 options,
                 serviceProvider.GetRequiredService<NpgsqlDataSource>()));
-        services.AddScoped<IOrderDraftStore, PostgresOrderDraftStore>();
+        services.AddScoped<PostgresOrderDraftStore>();
+        services.AddScoped<IOrderDraftStore>(provider => provider.GetRequiredService<PostgresOrderDraftStore>());
+        services.AddScoped<IOrderDraftHistoryStore>(provider => provider.GetRequiredService<PostgresOrderDraftStore>());
+        services.AddScoped<GetOrderDraftHistory>();
         services.AddScoped<CreateOrderDraft>();
         services.AddScoped<GetOrderDraft>();
         services.AddScoped<ListOrderDrafts>();
         services.AddScoped<AbandonOrderDraft>();
+        services.AddScoped<CommitOrderDraft>();
         services.AddScoped<ReviseOrderDraft>();
 
         return services;

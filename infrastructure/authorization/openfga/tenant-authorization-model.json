@@ -29,6 +29,9 @@
         "order_editor": {
           "this": {}
         },
+        "order_committer": {
+          "this": {}
+        },
         "can_view_workspace": {
           "intersection": {
             "child": [
@@ -88,6 +91,22 @@
               {
                 "computedUserset": {
                   "relation": "order_editor"
+                }
+              }
+            ]
+          }
+        },
+        "can_commit_order": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "order_committer"
                 }
               }
             ]
@@ -184,6 +203,25 @@
               }
             ]
           }
+        },
+        "manual_pricer": {
+          "this": {}
+        },
+        "can_apply_manual_price": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "manual_pricer"
+                }
+              }
+            ]
+          }
         }
       },
       "metadata": {
@@ -230,6 +268,13 @@
               }
             ]
           },
+          "order_committer": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
+          },
           "can_view_workspace": {
             "directly_related_user_types": []
           },
@@ -243,6 +288,9 @@
             "directly_related_user_types": []
           },
           "can_edit_order": {
+            "directly_related_user_types": []
+          },
+          "can_commit_order": {
             "directly_related_user_types": []
           },
           "organization_creator": {
@@ -283,6 +331,16 @@
             ]
           },
           "can_view_programs": {
+            "directly_related_user_types": []
+          },
+          "manual_pricer": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
+          },
+          "can_apply_manual_price": {
             "directly_related_user_types": []
           }
         }

@@ -19,8 +19,9 @@ internal static class CoreApiOpenApi
             options.AddOperationTransformer<ProtectedOperationSecurityTransformer>();
             options.AddOperationTransformer<OrderCreateOperationTransformer>();
             options.AddOperationTransformer<OrderBrowseOperationTransformer>();
-            options.AddOperationTransformer<OrderAbandonOperationTransformer>();
+            options.AddOperationTransformer<OrderTransitionOperationTransformer>();
             options.AddOperationTransformer<OrderRevisionOperationTransformer>();
+            options.AddOperationTransformer<OrderHistoryOperationTransformer>();
             options.AddOperationTransformer<CustomerCreateOperationTransformer>();
             options.AddOperationTransformer<CustomerBrowseOperationTransformer>();
         });
@@ -217,7 +218,7 @@ internal sealed class OrderCreateOperationTransformer : IOpenApiOperationTransfo
     }
 }
 
-internal sealed class OrderAbandonOperationTransformer : IOpenApiOperationTransformer
+internal sealed class OrderTransitionOperationTransformer : IOpenApiOperationTransformer
 {
     public Task TransformAsync(
         OpenApiOperation operation,
@@ -227,7 +228,7 @@ internal sealed class OrderAbandonOperationTransformer : IOpenApiOperationTransf
         cancellationToken.ThrowIfCancellationRequested();
         if (context.Description.ActionDescriptor.EndpointMetadata
             .OfType<EndpointAccessMetadata>()
-            .Any(value => value.Access == EndpointAccess.AuthorizedTenantOrderAbandon))
+            .Any(value => value.Access is EndpointAccess.AuthorizedTenantOrderAbandon or EndpointAccess.AuthorizedTenantOrderCommit))
         {
             OrderCreateOperationTransformer.AddRequiredIdempotencyKeyHeader(operation);
             OrderCreateOperationTransformer.AddReplayHeader(operation);

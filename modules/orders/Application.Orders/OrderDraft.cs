@@ -18,6 +18,7 @@ public enum OrderDraftState
 {
     Draft = 0,
     Abandoned = 1,
+    Committed = 2,
 }
 
 public sealed record OrderDraftSnapshot(
@@ -33,7 +34,9 @@ public sealed record OrderDraftSnapshot(
     OrderDraftState State = OrderDraftState.Draft,
     DateTimeOffset? AbandonedAt = null,
     Guid? AbandonedByAccountId = null,
-    CustomerOrderContext? CustomerContext = null);
+    CustomerOrderContext? CustomerContext = null,
+    DateTimeOffset? CommittedAt = null,
+    Guid? CommittedByAccountId = null);
 
 public sealed record OrderDraftListItem(
     Guid OrderId,
@@ -44,7 +47,8 @@ public sealed record OrderDraftListItem(
     DateTimeOffset CreatedAt,
     OrderDraftState State = OrderDraftState.Draft,
     DateTimeOffset? AbandonedAt = null,
-    CustomerOrderContext? CustomerContext = null);
+    CustomerOrderContext? CustomerContext = null,
+    DateTimeOffset? CommittedAt = null);
 
 public sealed record OrderDraftPageCursor(
     DateTimeOffset CreatedAt,
@@ -93,6 +97,7 @@ public enum AbandonOrderDraftStatus
     RevisionConflict = 4,
     AlreadyAbandoned = 5,
     IdempotencyKeyConflict = 6,
+    AlreadyCommitted = 7,
 }
 
 public sealed record AbandonOrderDraftResult(
@@ -115,10 +120,28 @@ public enum ReviseOrderDraftStatus
     RevisionConflict = 4,
     AlreadyAbandoned = 5,
     IdempotencyKeyConflict = 6,
+    AlreadyCommitted = 7,
 }
 
 public sealed record ReviseOrderDraftResult(
     ReviseOrderDraftStatus Status,
+    OrderDraftSnapshot? Order);
+
+public sealed record CommitOrderDraftRequest(Guid OrderId, long ExpectedRevision);
+
+public enum CommitOrderDraftStatus
+{
+    Committed = 1,
+    Replayed = 2,
+    NotFound = 3,
+    RevisionConflict = 4,
+    AlreadyCommitted = 5,
+    AlreadyAbandoned = 6,
+    IdempotencyKeyConflict = 7,
+}
+
+public sealed record CommitOrderDraftResult(
+    CommitOrderDraftStatus Status,
     OrderDraftSnapshot? Order);
 
 public static class OrderDraftLifecycle
@@ -130,6 +153,7 @@ public static class OrderDraftLifecycle
         state switch
         {
             OrderDraftState.Abandoned => ReviseOrderDraftStatus.AlreadyAbandoned,
+            OrderDraftState.Committed => ReviseOrderDraftStatus.AlreadyCommitted,
             OrderDraftState.Draft when currentRevision != expectedRevision =>
                 ReviseOrderDraftStatus.RevisionConflict,
             OrderDraftState.Draft => ReviseOrderDraftStatus.Revised,
@@ -143,9 +167,24 @@ public static class OrderDraftLifecycle
         state switch
         {
             OrderDraftState.Abandoned => AbandonOrderDraftStatus.AlreadyAbandoned,
+            OrderDraftState.Committed => AbandonOrderDraftStatus.AlreadyCommitted,
             OrderDraftState.Draft when currentRevision != expectedRevision =>
                 AbandonOrderDraftStatus.RevisionConflict,
             OrderDraftState.Draft => AbandonOrderDraftStatus.Abandoned,
+            _ => throw new InvalidOperationException("The order draft has an unsupported state."),
+        };
+
+    public static CommitOrderDraftStatus AssessCommit(
+        OrderDraftState state,
+        long currentRevision,
+        long expectedRevision) =>
+        state switch
+        {
+            OrderDraftState.Abandoned => CommitOrderDraftStatus.AlreadyAbandoned,
+            OrderDraftState.Committed => CommitOrderDraftStatus.AlreadyCommitted,
+            OrderDraftState.Draft when currentRevision != expectedRevision =>
+                CommitOrderDraftStatus.RevisionConflict,
+            OrderDraftState.Draft => CommitOrderDraftStatus.Committed,
             _ => throw new InvalidOperationException("The order draft has an unsupported state."),
         };
 }
@@ -194,6 +233,13 @@ public interface IOrderDraftStore
         TenantContext tenantContext,
         ReviseOrderDraftRequest request,
         OrderDraftIntent intent,
+        string idempotencyKey,
+        string fingerprint,
+        CancellationToken cancellationToken);
+
+    Task<CommitOrderDraftResult> CommitAsync(
+        TenantContext tenantContext,
+        CommitOrderDraftRequest request,
         string idempotencyKey,
         string fingerprint,
         CancellationToken cancellationToken);
@@ -319,6 +365,45 @@ public sealed class AbandonOrderDraft(IOrderDraftStore store)
     }
 }
 
+public sealed class CommitOrderDraft(IOrderDraftStore store)
+{
+    public Task<CommitOrderDraftResult> ExecuteAsync(
+        TenantContext tenantContext,
+        CommitOrderDraftRequest request,
+        string idempotencyKey,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(tenantContext);
+        ArgumentNullException.ThrowIfNull(request);
+        if (request.OrderId == Guid.Empty)
+        {
+            throw new OrderDraftValidationException(
+                "order_id_invalid",
+                "Order identity cannot be empty.");
+        }
+
+        if (request.ExpectedRevision < 1)
+        {
+            throw new OrderDraftValidationException(
+                "expected_revision_invalid",
+                "Expected revision must be a positive integer.");
+        }
+
+        var normalizedKey = OrderDraftRules.NormalizeIdempotencyKey(idempotencyKey);
+        var canonical = string.Create(
+            CultureInfo.InvariantCulture,
+            $"v1:commit-order-draft:{request.OrderId:N}:{request.ExpectedRevision}");
+        var fingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)))
+            .ToLowerInvariant();
+        return store.CommitAsync(
+            tenantContext,
+            request,
+            normalizedKey,
+            fingerprint,
+            cancellationToken);
+    }
+}
+
 public sealed class ReviseOrderDraft(
     IOrderDraftStore store,
     ResolveCustomerOrderContext customerContextResolver)
@@ -403,59 +488,7 @@ public sealed record OrderDraftIntent(
                 "Customer organization and program identities must be nonempty.");
         }
 
-        if (request.Lines is null || request.Lines.Count is < 1 or > 100)
-        {
-            throw new OrderDraftValidationException(
-                "lines_invalid",
-                "An order draft requires between 1 and 100 lines.");
-        }
-
-        var lines = new OrderDraftLine[request.Lines.Count];
-        decimal total = 0;
-        for (var index = 0; index < request.Lines.Count; index++)
-        {
-            var input = request.Lines[index]
-                ?? throw new OrderDraftValidationException("line_invalid", "Order lines cannot be null.");
-            var description = OrderDraftRules.NormalizeRequiredText(
-                input.Description,
-                300,
-                "line_description_invalid",
-                "Line description is required and cannot exceed 300 characters.");
-            var unitCode = OrderDraftRules.NormalizeCode(
-                input.UnitCode,
-                1,
-                16,
-                "unit_code_invalid",
-                "Unit code must contain between 1 and 16 ASCII letters or digits.");
-            OrderDraftRules.RequirePositiveDecimal(input.Quantity, "quantity_invalid");
-            OrderDraftRules.RequireNonNegativeDecimal(input.UnitPrice, "unit_price_invalid");
-
-            decimal lineTotal;
-            try
-            {
-                lineTotal = decimal.Round(
-                    checked(input.Quantity * input.UnitPrice),
-                    4,
-                    MidpointRounding.ToEven);
-                OrderDraftRules.RequireNonNegativeDecimal(lineTotal, "line_total_invalid");
-                total = checked(total + lineTotal);
-                OrderDraftRules.RequireNonNegativeDecimal(total, "order_total_invalid");
-            }
-            catch (OverflowException)
-            {
-                throw new OrderDraftValidationException(
-                    "amount_out_of_range",
-                    "The order amount exceeds the supported range.");
-            }
-
-            lines[index] = new OrderDraftLine(
-                index + 1,
-                description,
-                input.Quantity,
-                unitCode,
-                input.UnitPrice,
-                lineTotal);
-        }
+        var (lines, total) = Pricing.OrderDraftPriceCalculator.Calculate(request.Lines);
 
         return new OrderDraftIntent(
             summary,

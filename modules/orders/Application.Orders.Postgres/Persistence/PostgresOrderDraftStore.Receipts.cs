@@ -4,6 +4,8 @@ namespace Application.Orders.Postgres;
 
 public sealed partial class PostgresOrderDraftStore
 {
+    private const int CommitmentReceiptSchemaVersion = 3;
+    private const string CommitResultType = "order-committed";
     private const int LegacyReceiptSchemaVersion = 1;
     private const int CustomerAttributionReceiptSchemaVersion = 2;
     private const string CreateResultType = "order-draft-created";
@@ -30,7 +32,7 @@ public sealed partial class PostgresOrderDraftStore
         command.Parameters.AddWithValue("order_id", order.OrderId);
         command.Parameters.AddWithValue("response_json", JsonSerializer.Serialize(
             new OrderReceiptEnvelope(
-                order.CustomerContext is null
+                operation == CommitOperation ? CommitmentReceiptSchemaVersion : order.CustomerContext is null
                     ? LegacyReceiptSchemaVersion
                     : CustomerAttributionReceiptSchemaVersion,
                 operation,
@@ -107,6 +109,11 @@ public sealed partial class PostgresOrderDraftStore
             ReadReceiptSnapshot(receipt, ReviseOperation));
     }
 
+    private static CommitOrderDraftResult ToExistingCommitResult(OrderCommandReceipt receipt, string fingerprint) =>
+        !string.Equals(receipt.Fingerprint, fingerprint, StringComparison.Ordinal)
+            ? new CommitOrderDraftResult(CommitOrderDraftStatus.IdempotencyKeyConflict, null)
+            : new CommitOrderDraftResult(CommitOrderDraftStatus.Replayed, ReadReceiptSnapshot(receipt, CommitOperation));
+
     private static OrderDraftSnapshot ReadReceiptSnapshot(
         OrderCommandReceipt receipt,
         string expectedOperation)
@@ -131,7 +138,8 @@ public sealed partial class PostgresOrderDraftStore
             {
                 if (version.ValueKind != JsonValueKind.Number
                     || !version.TryGetInt32(out var schemaVersion)
-                    || schemaVersion is not (LegacyReceiptSchemaVersion or CustomerAttributionReceiptSchemaVersion)
+                    || schemaVersion is not (LegacyReceiptSchemaVersion or CustomerAttributionReceiptSchemaVersion or CommitmentReceiptSchemaVersion)
+                    || (schemaVersion == CommitmentReceiptSchemaVersion) != (expectedOperation == CommitOperation)
                     || operation.ValueKind != JsonValueKind.String
                     || !string.Equals(operation.GetString(), expectedOperation, StringComparison.Ordinal)
                     || resultType.ValueKind != JsonValueKind.String
@@ -147,9 +155,12 @@ public sealed partial class PostgresOrderDraftStore
                     receipt,
                     expectedOperation,
                     requireLifecycleFields: true,
-                    requireCustomerContext: schemaVersion == CustomerAttributionReceiptSchemaVersion);
+                    requireCustomerContext: schemaVersion == CommitmentReceiptSchemaVersion
+                        ? null : schemaVersion == CustomerAttributionReceiptSchemaVersion);
             }
 
+            if (expectedOperation == CommitOperation)
+                throw InvalidReceipt();
             return DeserializeSnapshot(
                 root,
                 receipt,
@@ -168,7 +179,7 @@ public sealed partial class PostgresOrderDraftStore
         OrderCommandReceipt receipt,
         string expectedOperation,
         bool requireLifecycleFields,
-        bool requireCustomerContext)
+        bool? requireCustomerContext)
     {
         foreach (var property in new[]
                  {
@@ -189,7 +200,7 @@ public sealed partial class PostgresOrderDraftStore
 
         var hasCustomerContext = element.TryGetProperty("customerContext", out var customerContextElement)
             && customerContextElement.ValueKind == JsonValueKind.Object;
-        if (hasCustomerContext != requireCustomerContext)
+        if (requireCustomerContext is { } required && hasCustomerContext != required)
         {
             throw InvalidReceipt();
         }
@@ -201,6 +212,7 @@ public sealed partial class PostgresOrderDraftStore
             CreateOperation => OrderDraftState.Draft,
             ReviseOperation => OrderDraftState.Draft,
             AbandonOperation => OrderDraftState.Abandoned,
+            CommitOperation => OrderDraftState.Committed,
             _ => throw InvalidReceipt(),
         };
         if (order.OrderId != receipt.OrderId
@@ -212,7 +224,12 @@ public sealed partial class PostgresOrderDraftStore
             || (order.CustomerContext is { } customerContext
                 && (customerContext.OrganizationId == Guid.Empty
                     || customerContext.ProgramId == Guid.Empty))
-            || (expectedState == OrderDraftState.Draft
+            || (expectedState != OrderDraftState.Committed
+                && (order.CommittedAt is not null || order.CommittedByAccountId is not null))
+            || (expectedState == OrderDraftState.Committed
+                && (order.Revision < 2 || order.CommittedAt is null || order.CommittedByAccountId is null
+                    || order.CommittedByAccountId == Guid.Empty))
+            || (expectedState != OrderDraftState.Abandoned
                 && (order.AbandonedAt is not null || order.AbandonedByAccountId is not null))
             || (expectedState == OrderDraftState.Abandoned
                 && (order.AbandonedAt is null || order.AbandonedByAccountId is null)))
@@ -231,6 +248,7 @@ public sealed partial class PostgresOrderDraftStore
         CreateOperation => CreateResultType,
         ReviseOperation => ReviseResultType,
         AbandonOperation => AbandonResultType,
+        CommitOperation => CommitResultType,
         _ => throw InvalidReceipt(),
     };
 
