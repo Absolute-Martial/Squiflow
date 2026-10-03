@@ -2,7 +2,7 @@
 
 **Established:** 2026-09-17
 
-**Catalog input:** `# Application Baseline, Reference Projec.md`
+**Catalog input:** `docs/review/APPLICATION_BASELINE_REFERENCE_CATALOG.md`
 
 **Admission owners:**
 

@@ -8,6 +8,13 @@ artifacts/
 TestResults/
 .DS_Store
 
+# Local toolchain payloads and per-developer agent/tool state; never product source.
+# The SDK is pinned by global.json, so a vendored SDK tarball must not be committed.
+/dotnet.tar.gz
+*.tar.gz
+.codex/
+.freebuff/
+
 # Curated upstream source snapshots are retained locally for project research.
 # Track reference-sources/{README.md,SOURCES.md,materialize.sh}; ignore source payloads.
 /reference-sources/snapshots/
