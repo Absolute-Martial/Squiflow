@@ -27,7 +27,6 @@ namespace Application.CoreApi.Tests;
 
 public sealed class ApplicationBootstrapTests : IClassFixture<WhiteLabelApiFactory>
 {
-    private static readonly string[] ActiveSourceRoots = ["modules", "services", "tests"];
     private static readonly string DevelopmentCodename = string.Concat("Squi", "Flow");
 
     private readonly HttpClient _client;
@@ -98,30 +97,8 @@ public sealed class ApplicationBootstrapTests : IClassFixture<WhiteLabelApiFacto
     }
 
     [Fact]
-    public void ActiveBuildAndAssemblyIdentitiesContainNoDevelopmentCodename()
+    public void CoreApiAssemblyIdentitiesContainNoDevelopmentCodename()
     {
-        var repositoryRoot = FindRepositoryRoot();
-        var sourceRoots = ActiveSourceRoots
-            .Select(name => new DirectoryInfo(Path.Combine(repositoryRoot.FullName, name)));
-        var identityPaths = sourceRoots
-            .SelectMany(root => root.EnumerateDirectories("*", SearchOption.AllDirectories)
-                .Select(directory => directory.Name)
-                .Concat(root.EnumerateFiles("*.csproj", SearchOption.AllDirectories)
-                    .Select(project => project.Name)))
-            .Append("Application.slnx");
-
-        Assert.DoesNotContain(identityPaths, identity =>
-            identity.Contains(DevelopmentCodename, StringComparison.OrdinalIgnoreCase));
-
-        var activeIdentityFiles = sourceRoots
-            .SelectMany(root => root.EnumerateFiles("*", SearchOption.AllDirectories))
-            .Where(file => file.Extension is ".cs" or ".csproj" or ".json")
-            .Where(file => !IsGeneratedBuildPath(file.FullName))
-            .Append(new FileInfo(Path.Combine(repositoryRoot.FullName, "Application.slnx")));
-        Assert.DoesNotContain(activeIdentityFiles, file =>
-            File.ReadAllText(file.FullName)
-                .Contains(DevelopmentCodename, StringComparison.OrdinalIgnoreCase));
-
         var assemblyNames = new[]
         {
             typeof(BrandProfile).Assembly.GetName().Name,
@@ -136,10 +113,6 @@ public sealed class ApplicationBootstrapTests : IClassFixture<WhiteLabelApiFacto
         Assert.DoesNotContain(assemblyNames, name =>
             name is null || name.Contains(DevelopmentCodename, StringComparison.OrdinalIgnoreCase));
     }
-
-    private static bool IsGeneratedBuildPath(string path) =>
-        path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal) ||
-        path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal);
 
     private static DirectoryInfo FindRepositoryRoot()
     {

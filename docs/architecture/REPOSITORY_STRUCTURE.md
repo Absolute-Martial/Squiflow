@@ -24,7 +24,7 @@ A capability owns one source implementation of its business meaning. `Core`, `Se
 
 ## 2. Current implementation state
 
-The current tree contains six compact host-neutral capability projects (`Application.Profiles`, `Application.Branding`, `Application.IdentityAccess`, `Application.Tenancy`, `Application.Customers`, and `Application.Orders`), four capability-owned PostgreSQL adapters, CoreApi and DbMigrator executables, twelve test projects, and a repository build/test contract. ApplicationProfiles validates bounded feature graphs and compiles deterministic dependency-closed selections, but has no production catalog or durable profile authority. CoreApi has configured JWT validation, account and active-membership queries, Finbuckle route-candidate plumbing, and pinned-model OpenFGA tenant-workspace plus distinct Order `order_creator`, `order_viewer`, and `order_abandoner` permission checks. Tenancy resolves an immutable context from current membership. Orders owns immutable priced draft create/read/browse and a bounded abandon operation: `order_abandoner` may perform a one-way, expected-revision `draft` to `abandoned` transition, which records the abandoning account and timestamp while preserving priced content and the original create receipt. Its PostgreSQL adapter persists the lifecycle metadata under tenant isolation with explicit tenant predicates and forced RLS. Customers now owns immutable tenant-owned customer organizations/programs and their bounded create/read/browse contracts. Orders may attribute a priced draft to an organization and optional child program, without assigning legal billing or account effects. This does not introduce draft editing, deletion, or a broader order lifecycle. The tree has no general Foundation/ApplicationKernel project or broader role/tuple administration. `README.IMPLEMENTATION.md` owns the precise current routes, evidence and non-claims.
+Current executable/project inventory and qualified behavior are owned by `README.IMPLEMENTATION.md`. Folder diagrams below remain growth guidance; they do not imply an executable or implementation exists.
 
 The former 0B Parties slice was purged on 2026-09-17. Its phase record and earlier Phase-0 code remain historical evidence, not current implementation authority.
 
@@ -207,3 +207,13 @@ The current enforceable repository conventions are deliberately short:
 | Runtime database rights are restricted to current queries and mutations. | `deploy/database/` owns the role-grant artifact; real PostgreSQL tests exercise allowed and forbidden statements. |
 
 The first guard cannot detect arbitrary SQL against another module's tables or transitive assembly behavior. Review those changes at the owning adapter and extend real provider tests when they become a claimed path. Current focused owners and accepted decisions define intended behavior; source, migrations and tests show what is actually implemented. A mismatch is a drift defect to resolve, not permission to silently redefine the decision.
+
+## Independent executable build roots
+
+An executable references reviewed host-neutral capability/contracts and its own
+provider adapters, never another executable or another host's UI/provider code.
+External API/sync communication does not create a compile-time reference between
+Workstation and CoreApi. `Application.slnx` is the aggregate compatibility gate;
+`eng/build-host.sh` and `eng/verify-host.sh` operate on the selected project graph.
+The focused contract and regression guards are in
+`docs/implementation/INDEPENDENT_HOST_BUILDS.md`.

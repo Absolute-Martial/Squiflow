@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   repository:
-    name: Restore, build, and test
+    name: Repository-wide compatibility gate
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -41,3 +41,51 @@ jobs:
           path: artifacts/coverage/report/
           if-no-files-found: error
           retention-days: 14
+
+  hosts:
+    name: Verify ${{ matrix.host }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        host: [core-api, admin-api, admin-bootstrap, db-migrator]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install repository SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Verify host and its own test graph
+        run: ./eng/verify-host.sh "${{ matrix.host }}"
+
+      - name: Publish this host
+        run: ./eng/build-host.sh "${{ matrix.host }}" --publish
+
+      - name: Preserve independently built host
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ matrix.host }}
+          path: artifacts/publish/${{ matrix.host }}/
+          if-no-files-found: error
+          retention-days: 14
+
+  architecture:
+    name: Project boundary checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install repository SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - name: Verify dependency boundaries
+        run: |
+          dotnet restore tests/architecture/Application.Architecture.Tests/Application.Architecture.Tests.csproj --locked-mode
+          dotnet test tests/architecture/Application.Architecture.Tests/Application.Architecture.Tests.csproj --configuration Release --no-restore

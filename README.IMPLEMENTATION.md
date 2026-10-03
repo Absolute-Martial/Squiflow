@@ -236,6 +236,17 @@ Repository verification is:
 ./eng/verify.sh
 ```
 
+A selected executable can be built and verified independently of other hosts:
+
+```bash
+./eng/build-host.sh core-api --publish
+./eng/verify-host.sh core-api
+```
+
+These commands use the host project graph, not the entire solution. Shared
+libraries remain real dependencies. The scope, other implemented targets and
+CI failure boundaries are owned by `docs/implementation/INDEPENDENT_HOST_BUILDS.md`.
+
 The script restores from committed NuGet lockfiles, audits dependencies, verifies formatting, builds the solution in Release configuration and runs the complete test suite. `COLLECT_COVERAGE=1 ./eng/verify.sh` also produces an ignored local Coverlet/ReportGenerator report under `artifacts/coverage/report/`. Provider tests require Docker because they run PostgreSQL 17 through Testcontainers. The current environment may require writable `NUGET_PACKAGES` and `NUGET_HTTP_CACHE_PATH` locations. GitHub and GitLab verification wrappers invoke the same script with coverage and retain its report; their execution is not claimed until a remote run is inspected. The current testing-tool scope and security scan configuration are recorded in `docs/testing/VERIFICATION_STRATEGY.md`.
 
 ## Authority

@@ -6,6 +6,7 @@ namespace Application.Architecture.Tests;
 
 public sealed class ProjectBoundariesTests
 {
+    private static readonly string[] ProjectAreas = ["foundation", "modules", "services", "apps", "tests"];
     [Fact]
     public void CurrentProjectsRespectDependencyAndProviderBoundaries()
     {
@@ -110,6 +111,48 @@ public sealed class ProjectBoundariesTests
     }
 
     [Fact]
+    public void ActiveSourceAndBuildIdentitiesContainNoDevelopmentCodename()
+    {
+        var root = FindRepositoryRoot();
+        var codename = string.Concat("Squi", "Flow");
+        var areas = ProjectAreas
+            .Select(area => Path.Combine(root, area)).Where(Directory.Exists).ToArray();
+        var identities = areas.SelectMany(area => Directory.EnumerateDirectories(area, "*", SearchOption.AllDirectories))
+            .Select(Path.GetFileName)
+            .Concat(areas.SelectMany(area => Directory.EnumerateFiles(area, "*.csproj", SearchOption.AllDirectories))
+                .Select(Path.GetFileName)).Append("Application.slnx");
+        Assert.DoesNotContain(identities, name => name is not null &&
+            name.Contains(codename, StringComparison.OrdinalIgnoreCase));
+
+        var files = areas.SelectMany(area => Directory.EnumerateFiles(area, "*", SearchOption.AllDirectories))
+            .Where(path => Path.GetExtension(path) is ".cs" or ".csproj" or ".json")
+            .Where(path => !path.Split(Path.DirectorySeparatorChar).Any(part => part is "bin" or "obj"))
+            .Append(Path.Combine(root, "Application.slnx"));
+        Assert.DoesNotContain(files, path => File.ReadAllText(path)
+            .Contains(codename, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void ApiCannotDependOnWorkstationOrItsHostComponents()
+    {
+        const string root = "/repository";
+        var desktop = new ProjectNode(
+            Path.Combine(root, "apps/desktop/workstation/Application.Workstation/Application.Workstation.csproj"),
+            ProjectKind.Executable, "apps/desktop/workstation", [], [], "Microsoft.NET.Sdk", "WinExe");
+        var desktopUi = new ProjectNode(
+            Path.Combine(root, "apps/desktop/workstation/Application.Workstation.Ui/Application.Workstation.Ui.csproj"),
+            ProjectKind.HostLibrary, "apps/desktop/workstation", [], [], "Microsoft.NET.Sdk", null);
+        var api = new ProjectNode(
+            Path.Combine(root, "services/core-api/Application.CoreApi/Application.CoreApi.csproj"),
+            ProjectKind.Executable, "core-api", [desktop.Path, desktopUi.Path], [], "Microsoft.NET.Sdk.Web", null);
+
+        var violations = ProjectBoundaries.Check([api, desktop, desktopUi]);
+        Assert.Contains(violations, violation => violation.Contains("cannot reference executable", StringComparison.Ordinal));
+        Assert.Contains(violations, violation => violation.Contains("cannot reference another host's component", StringComparison.Ordinal));
+        Assert.Empty(ProjectBoundaries.Check([api with { References = [] }, desktop, desktopUi]));
+    }
+
+    [Fact]
     public void CustomerAndOrderRuntimeSqlRemainsInEmbeddedAdapterResources()
     {
         var root = FindRepositoryRoot();
@@ -156,21 +199,31 @@ public sealed class ProjectBoundariesTests
 
     private static IEnumerable<ProjectNode> LoadProjects(string root)
     {
-        foreach (var area in new[] { "modules", "services", "tests" })
+        foreach (var area in ProjectAreas)
         {
+            if (!Directory.Exists(Path.Combine(root, area)))
+            {
+                continue;
+            }
+
             foreach (var path in Directory.EnumerateFiles(Path.Combine(root, area), "*.csproj", SearchOption.AllDirectories)
                          .Where(path => !path.Split(Path.DirectorySeparatorChar).Contains("obj", StringComparer.Ordinal)))
             {
                 var relative = Path.GetRelativePath(root, path).Split(Path.DirectorySeparatorChar);
+                var document = XDocument.Load(path);
+                var sdk = (string?)document.Root?.Attribute("Sdk");
+                var outputType = document.Descendants("OutputType").Select(element => element.Value).FirstOrDefault();
                 var kind = area switch
                 {
                     "modules" when Path.GetFileNameWithoutExtension(path).EndsWith(".Postgres", StringComparison.Ordinal)
                         => ProjectKind.PostgresAdapter,
-                    "modules" => ProjectKind.Capability,
+                    "modules" or "foundation" => ProjectKind.Capability,
                     "services" => ProjectKind.Executable,
+                    "apps" when sdk == "Microsoft.NET.Sdk.Web" || outputType is "Exe" or "WinExe"
+                        => ProjectKind.Executable,
+                    "apps" => ProjectKind.HostLibrary,
                     _ => ProjectKind.Test
                 };
-                var document = XDocument.Load(path);
                 var references = document.Descendants("ProjectReference")
                     .Select(element => Path.GetFullPath(Path.Combine(Path.GetDirectoryName(path)!, (string)element.Attribute("Include")!)))
                     .ToArray();
@@ -181,18 +234,17 @@ public sealed class ProjectBoundariesTests
                 yield return new ProjectNode(
                     Path.GetFullPath(path),
                     kind,
-                    relative[1],
+                    area == "apps" ? string.Join("/", relative[..^2]) : relative[1],
                     references,
                     packages,
-                    (string?)document.Root?.Attribute("Sdk"),
-                    document.Descendants("OutputType").Select(element => element.Value).FirstOrDefault());
+                    sdk,
+                    outputType);
             }
         }
     }
 }
 
-internal enum ProjectKind { Capability, PostgresAdapter, Executable, Test }
-
+internal enum ProjectKind { Capability, PostgresAdapter, Executable, HostLibrary, Test }
 internal sealed record ProjectNode(
     string Path,
     ProjectKind Kind,
@@ -231,7 +283,7 @@ internal static class ProjectBoundaries
             }
 
             if (project.Kind == ProjectKind.Executable &&
-                project.Sdk != "Microsoft.NET.Sdk.Web" && project.OutputType != "Exe")
+                project.Sdk != "Microsoft.NET.Sdk.Web" && project.OutputType is not ("Exe" or "WinExe"))
             {
                 violations.Add($"{project.Path}: service project needs an explicit executable classification.");
             }
@@ -273,10 +325,16 @@ internal static class ProjectBoundaries
                 {
                     violations.Add($"{project.Path}: host-neutral capability cannot reference adapter {target.Path}.");
                 }
-                if ((project.Kind is ProjectKind.Capability or ProjectKind.PostgresAdapter or ProjectKind.Executable) &&
+                if ((project.Kind is ProjectKind.Capability or ProjectKind.PostgresAdapter or ProjectKind.Executable or ProjectKind.HostLibrary) &&
                     target.Kind == ProjectKind.Executable)
                 {
                     violations.Add($"{project.Path}: cannot reference executable {target.Path}.");
+                }
+                if (target.Kind == ProjectKind.HostLibrary &&
+                    (project.Kind is ProjectKind.Capability or ProjectKind.PostgresAdapter ||
+                     project.Owner != target.Owner && project.Kind is (ProjectKind.Executable or ProjectKind.HostLibrary)))
+                {
+                    violations.Add($"{project.Path}: cannot reference another host's component {target.Path}.");
                 }
                 if (project.Kind == ProjectKind.PostgresAdapter && target.Kind == ProjectKind.PostgresAdapter)
                 {
