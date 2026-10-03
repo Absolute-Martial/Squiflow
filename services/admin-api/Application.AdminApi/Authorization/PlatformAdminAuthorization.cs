@@ -10,6 +10,10 @@ internal interface IPlatformAdminAuthorization
 {
     Task<bool> CanAccessAsync(Guid platformPrincipalId, CancellationToken cancellationToken);
     Task<bool> CanProvisionTenantAsync(Guid platformPrincipalId, CancellationToken cancellationToken);
+    Task<bool> CanOnboardAccountAsync(Guid platformPrincipalId, CancellationToken cancellationToken);
+    Task<bool> CanLinkIdentityAsync(Guid platformPrincipalId, CancellationToken cancellationToken);
+    Task<bool> CanManageMembershipsAsync(Guid platformPrincipalId, CancellationToken cancellationToken);
+    Task<bool> CanManageTenantLifecycleAsync(Guid platformPrincipalId, CancellationToken cancellationToken);
     Task<bool> IsReadyAsync(CancellationToken cancellationToken);
 }
 
@@ -21,6 +25,10 @@ internal sealed class OpenFgaPlatformAdminAuthorization(
     private const string PlatformObject = "platform:root";
     private const string AccessRelation = "can_access_admin";
     private const string ProvisionTenantRelation = "can_provision_tenant";
+    private const string OnboardAccountRelation = "can_onboard_account";
+    private const string LinkIdentityRelation = "can_link_identity";
+    private const string ManageMembershipsRelation = "can_manage_memberships";
+    private const string ManageTenantLifecycleRelation = "can_manage_tenant_lifecycle";
     private static readonly Action<ILogger, string, Exception?> AuthorizationTimedOut =
         LoggerMessage.Define<string>(
             LogLevel.Warning,
@@ -46,6 +54,38 @@ internal sealed class OpenFgaPlatformAdminAuthorization(
     {
         ArgumentOutOfRangeException.ThrowIfEqual(platformPrincipalId, Guid.Empty);
         return CheckAsync($"user:{platformPrincipalId:N}", ProvisionTenantRelation, cancellationToken);
+    }
+
+    public Task<bool> CanOnboardAccountAsync(
+        Guid platformPrincipalId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfEqual(platformPrincipalId, Guid.Empty);
+        return CheckAsync($"user:{platformPrincipalId:N}", OnboardAccountRelation, cancellationToken);
+    }
+
+    public Task<bool> CanLinkIdentityAsync(
+        Guid platformPrincipalId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfEqual(platformPrincipalId, Guid.Empty);
+        return CheckAsync($"user:{platformPrincipalId:N}", LinkIdentityRelation, cancellationToken);
+    }
+
+    public Task<bool> CanManageMembershipsAsync(
+        Guid platformPrincipalId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfEqual(platformPrincipalId, Guid.Empty);
+        return CheckAsync($"user:{platformPrincipalId:N}", ManageMembershipsRelation, cancellationToken);
+    }
+
+    public Task<bool> CanManageTenantLifecycleAsync(
+        Guid platformPrincipalId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfEqual(platformPrincipalId, Guid.Empty);
+        return CheckAsync($"user:{platformPrincipalId:N}", ManageTenantLifecycleRelation, cancellationToken);
     }
 
     public async Task<bool> IsReadyAsync(CancellationToken cancellationToken)

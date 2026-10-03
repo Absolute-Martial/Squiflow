@@ -2,6 +2,8 @@ using Application.AdminApi;
 using Application.AdminApi.Authentication;
 using Application.AdminApi.Authorization;
 using Application.AdminApi.Composition;
+using Application.AdminApi.IdentityProvisioning;
+using Application.IdentityAccess.Postgres;
 using Application.PlatformAdministration.Postgres;
 using Application.Tenancy.Postgres;
 using Microsoft.AspNetCore.Diagnostics;
@@ -13,6 +15,9 @@ var builder = WebApplication.CreateBuilder(args);
 var apiConfiguration = AdminApiConfiguration.From(builder.Configuration);
 var authenticationConfiguration = AdminOidcAuthenticationConfiguration.From(builder.Configuration);
 var authorizationConfiguration = AdminOpenFgaAuthorizationConfiguration.From(builder.Configuration);
+var identityProvisioningConfiguration = ZitadelIdentityProvisioningConfiguration.From(
+    builder.Configuration,
+    authenticationConfiguration);
 
 builder.WebHost.ConfigureKestrel(options =>
 {
@@ -28,10 +33,14 @@ builder.WebHost.ConfigureKestrel(options =>
 
 builder.Services.AddSingleton<NpgsqlDataSource>(_ =>
     NpgsqlDataSource.Create(apiConfiguration.DatabaseConnectionString));
+builder.Services.AddIdentityAccessPostgres();
 builder.Services.AddPlatformAdministrationPostgres();
 builder.Services.AddTenancyPostgres();
 builder.Services.AddAdminApiAuthentication(authenticationConfiguration);
 builder.Services.AddAdminApiAuthorization(authorizationConfiguration);
+builder.Services.AddAdminIdentityProvisioning(
+    identityProvisioningConfiguration,
+    authenticationConfiguration);
 builder.Services.AddAdminApiAdmission(apiConfiguration.MaximumConcurrentRequests);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IAdminClientCertificateProvider, ConnectionAdminClientCertificateProvider>();
@@ -89,6 +98,40 @@ app.MapGet("/api/v1/platform/access", PlatformAdminAccessEndpoint.GetAsync)
     .RequireRateLimiting(AdminApiAdmission.PolicyName);
 
 app.MapPost("/api/v1/platform/tenants", TenantProvisioningEndpoint.PostAsync)
+    .RequireAuthorization()
+    .RequireRateLimiting(AdminApiAdmission.PolicyName);
+
+app.MapPost("/api/v1/platform/accounts", AccountOnboardingEndpoint.PostAsync)
+    .RequireAuthorization()
+    .RequireRateLimiting(AdminApiAdmission.PolicyName);
+
+app.MapPost(
+        "/api/v1/platform/accounts/{accountId:guid}/identities",
+        AccountOnboardingEndpoint.LinkAsync)
+    .RequireAuthorization()
+    .RequireRateLimiting(AdminApiAdmission.PolicyName);
+
+app.MapPost(
+        "/api/v1/platform/tenants/{tenantId:guid}/memberships",
+        MembershipLifecycleEndpoint.InviteAsync)
+    .RequireAuthorization()
+    .RequireRateLimiting(AdminApiAdmission.PolicyName);
+
+app.MapPost(
+        "/api/v1/platform/tenants/{tenantId:guid}/memberships/initial-owner",
+        MembershipLifecycleEndpoint.BootstrapOwnerAsync)
+    .RequireAuthorization()
+    .RequireRateLimiting(AdminApiAdmission.PolicyName);
+
+app.MapPost(
+        "/api/v1/platform/tenants/{tenantId:guid}/memberships/{accountId:guid}/{operation}",
+        MembershipLifecycleEndpoint.TransitionAsync)
+    .RequireAuthorization()
+    .RequireRateLimiting(AdminApiAdmission.PolicyName);
+
+app.MapPost(
+        "/api/v1/platform/tenants/{tenantId:guid}/lifecycle/{operation}",
+        TenantLifecycleEndpoint.PostAsync)
     .RequireAuthorization()
     .RequireRateLimiting(AdminApiAdmission.PolicyName);
 

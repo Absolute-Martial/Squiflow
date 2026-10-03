@@ -9,6 +9,10 @@ internal enum PlatformAdminPermission
 {
     Access = 1,
     ProvisionTenant = 2,
+    OnboardAccount = 3,
+    LinkIdentity = 4,
+    ManageMemberships = 5,
+    ManageTenantLifecycle = 6,
 }
 
 internal sealed record PlatformAdminRequestAccess(Guid PrincipalId, Guid DeviceId);
@@ -116,6 +120,18 @@ internal sealed class PlatformAdminRequestAuthorizer(
                     .ConfigureAwait(false),
                 PlatformAdminPermission.ProvisionTenant => await authorization
                     .CanProvisionTenantAsync(access.PrincipalId, context.RequestAborted)
+                    .ConfigureAwait(false),
+                PlatformAdminPermission.OnboardAccount => await authorization
+                    .CanOnboardAccountAsync(access.PrincipalId, context.RequestAborted)
+                    .ConfigureAwait(false),
+                PlatformAdminPermission.LinkIdentity => await authorization
+                    .CanLinkIdentityAsync(access.PrincipalId, context.RequestAborted)
+                    .ConfigureAwait(false),
+                PlatformAdminPermission.ManageMemberships => await authorization
+                    .CanManageMembershipsAsync(access.PrincipalId, context.RequestAborted)
+                    .ConfigureAwait(false),
+                PlatformAdminPermission.ManageTenantLifecycle => await authorization
+                    .CanManageTenantLifecycleAsync(access.PrincipalId, context.RequestAborted)
                     .ConfigureAwait(false),
                 _ => throw new InvalidOperationException("Unknown Platform Admin permission."),
             };

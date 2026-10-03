@@ -552,6 +552,7 @@
       "application.adminapi": {
         "type": "Project",
         "dependencies": {
+          "Application.IdentityAccess.Postgres": "[0.1.0, )",
           "Application.PlatformAdministration": "[0.1.0, )",
           "Application.PlatformAdministration.Postgres": "[0.1.0, )",
           "Application.Tenancy.Postgres": "[0.1.0, )",

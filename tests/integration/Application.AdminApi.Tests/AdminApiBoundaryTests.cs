@@ -9,8 +9,8 @@ using Xunit;
 
 namespace Application.AdminApi.Tests;
 
+[Collection(AdminApiIntegrationFixtureGroup.Name)]
 public sealed class AdminApiBoundaryTests(AdminApiTestEnvironment environment)
-    : IClassFixture<AdminApiTestEnvironment>
 {
     [Fact]
     public async Task PlatformAccessRequiresAuthentication()

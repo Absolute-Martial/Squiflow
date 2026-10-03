@@ -6,6 +6,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
 using Application.AdminApi;
+using Application.AdminApi.IdentityProvisioning;
 using Application.IdentityAccess;
 using Application.IdentityAccess.Postgres;
 using Application.PlatformAdministration;
@@ -139,8 +140,13 @@ public sealed class AdminApiTestEnvironment : IAsyncLifetime
 
     internal AdminApiFactory CreateFactory(
         X509Certificate2? certificate,
-        string? openFgaApiUrl = null) =>
-        new(this, certificate, openFgaApiUrl ?? OpenFgaApiUrl);
+        string? openFgaApiUrl = null,
+        IExternalIdentityVerifier? identityVerifier = null) =>
+        new(
+            this,
+            certificate,
+            openFgaApiUrl ?? OpenFgaApiUrl,
+            identityVerifier ?? new FixedExternalIdentityVerifier(ExternalIdentityVerification.Verified));
 
     internal string CreateToken(string subject = Subject)
     {
@@ -293,14 +299,17 @@ internal sealed class AdminApiFactory : WebApplicationFactory<Program>
 {
     private readonly AdminApiTestEnvironment _environment;
     private readonly X509Certificate2? _certificate;
+    private readonly IExternalIdentityVerifier _identityVerifier;
 
     internal AdminApiFactory(
         AdminApiTestEnvironment environment,
         X509Certificate2? certificate,
-        string openFgaApiUrl)
+        string openFgaApiUrl,
+        IExternalIdentityVerifier identityVerifier)
     {
         _environment = environment;
         _certificate = certificate;
+        _identityVerifier = identityVerifier;
         Environment.SetEnvironmentVariable(
             "ConnectionStrings__PlatformAdministration",
             environment.RuntimeConnectionString);
@@ -321,6 +330,15 @@ internal sealed class AdminApiFactory : WebApplicationFactory<Program>
             "Authorization__PlatformOpenFga__MinimumRetryDelayMilliseconds",
             "1");
         Environment.SetEnvironmentVariable("Authorization__PlatformOpenFga__CredentialMethod", "None");
+        Environment.SetEnvironmentVariable(
+            "IdentityProvisioning__Zitadel__ApiUrl",
+            AdminApiTestEnvironment.Authority);
+        Environment.SetEnvironmentVariable(
+            "IdentityProvisioning__Zitadel__ApiToken",
+            "admin-api-test-identity-provider-token");
+        Environment.SetEnvironmentVariable(
+            "IdentityProvisioning__Zitadel__RequestTimeoutSeconds",
+            "1");
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -330,6 +348,8 @@ internal sealed class AdminApiFactory : WebApplicationFactory<Program>
             services.RemoveAll<IAdminClientCertificateProvider>();
             services.AddSingleton<IAdminClientCertificateProvider>(
                 new FixedAdminClientCertificateProvider(_certificate));
+            services.RemoveAll<IExternalIdentityVerifier>();
+            services.AddSingleton(_identityVerifier);
             services.PostConfigure<JwtBearerOptions>(
                 JwtBearerDefaults.AuthenticationScheme,
                 options =>
@@ -353,4 +373,22 @@ internal sealed class FixedAdminClientCertificateProvider(X509Certificate2? cert
         HttpContext context,
         CancellationToken cancellationToken) =>
         Task.FromResult(certificate);
+}
+
+internal sealed class FixedExternalIdentityVerifier(ExternalIdentityVerification result)
+    : IExternalIdentityVerifier
+{
+    public Task<ExternalIdentityVerification> VerifyAsync(
+        ExternalIdentity identity,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(result);
+}
+
+internal sealed class ThrowingExternalIdentityVerifier(Exception exception)
+    : IExternalIdentityVerifier
+{
+    public Task<ExternalIdentityVerification> VerifyAsync(
+        ExternalIdentity identity,
+        CancellationToken cancellationToken) =>
+        Task.FromException<ExternalIdentityVerification>(exception);
 }

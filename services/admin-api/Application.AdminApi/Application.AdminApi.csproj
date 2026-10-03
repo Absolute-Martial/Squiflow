@@ -5,6 +5,7 @@
     <PackageReference Include="OpenFga.Sdk" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="../../../modules/identity-access/Application.IdentityAccess.Postgres/Application.IdentityAccess.Postgres.csproj" />
     <ProjectReference Include="../../../modules/platform-administration/Application.PlatformAdministration/Application.PlatformAdministration.csproj" />
     <ProjectReference Include="../../../modules/platform-administration/Application.PlatformAdministration.Postgres/Application.PlatformAdministration.Postgres.csproj" />
     <ProjectReference Include="../../../modules/tenancy/Application.Tenancy.Postgres/Application.Tenancy.Postgres.csproj" />

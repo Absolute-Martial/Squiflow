@@ -1,4 +1,5 @@
 using Application.AdminApi.Authorization;
+using Application.AdminApi.IdentityProvisioning;
 using Microsoft.AspNetCore.Diagnostics;
 using Npgsql;
 
@@ -27,6 +28,9 @@ internal sealed class AdminApiExceptionHandler(ILogger<AdminApiExceptionHandler>
             AdminAuthorizationProviderUnavailableException =>
                 (StatusCodes.Status503ServiceUnavailable, "authorization_unavailable",
                     "Authorization service unavailable."),
+            AdminIdentityProviderUnavailableException =>
+                (StatusCodes.Status503ServiceUnavailable, "identity_provider_unavailable",
+                    "Identity provider unavailable."),
             NpgsqlException { IsTransient: true } =>
                 (StatusCodes.Status503ServiceUnavailable, "database_unavailable",
                     "Database unavailable."),

@@ -153,12 +153,16 @@ public sealed class ProjectBoundariesTests
     }
 
     [Fact]
-    public void CustomerAndOrderRuntimeSqlRemainsInEmbeddedAdapterResources()
+    public void RuntimeSqlRemainsInEmbeddedAdapterResources()
     {
         var root = FindRepositoryRoot();
-        foreach (var capability in new[] { "Customers", "Orders" })
+        foreach (var (capability, folder) in new[]
+                 {
+                     ("Customers", "customers"), ("Orders", "orders"),
+                     ("IdentityAccess", "identity-access"), ("Tenancy", "tenancy"),
+                 })
         {
-            var adapter = Path.Combine(root, "modules", capability.ToLowerInvariant(), $"Application.{capability}.Postgres");
+            var adapter = Path.Combine(root, "modules", folder, $"Application.{capability}.Postgres");
             var project = XDocument.Load(Path.Combine(adapter, $"Application.{capability}.Postgres.csproj"));
             Assert.Contains(project.Descendants("EmbeddedResource"), resource =>
                 (string?)resource.Attribute("Include") == "Sql/*.sql" &&

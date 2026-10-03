@@ -94,6 +94,14 @@
       "application.identityaccess": {
         "type": "Project"
       },
+      "application.identityaccess.postgres": {
+        "type": "Project",
+        "dependencies": {
+          "Application.IdentityAccess": "[0.1.0, )",
+          "Microsoft.EntityFrameworkCore": "[10.0.8, )",
+          "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.1, )"
+        }
+      },
       "application.platformadministration": {
         "type": "Project",
         "dependencies": {
