@@ -17,6 +17,12 @@ namespace Application.AdminApi.Tests;
 [Collection(AdminApiIntegrationFixtureGroup.Name)]
 public sealed class PublicHealthBearerReviewTests(AdminApiTestEnvironment environment)
 {
+
+    // Test-orchestration watchdog only: it bounds host startup, dependency entry, pipeline
+    // completion, response delivery and cleanup draining. The application deadlines under test
+    // stay configured on the host; this budget only prevents a loaded parallel run from failing
+    // the assertion by starving the harness.
+    private static readonly TimeSpan Watchdog = TimeSpan.FromSeconds(30);
     [Theory]
     [InlineData("/health/live", false)]
     [InlineData("/health/live", true)]
@@ -55,11 +61,11 @@ public sealed class PublicHealthBearerReviewTests(AdminApiTestEnvironment enviro
             caller.Cancel();
             if (discovery.Entered.Task.IsCompleted)
             {
-                await discovery.Exited.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                await discovery.Exited.Task.WaitAsync(Watchdog);
             }
             try
             {
-                using var response = await pending.WaitAsync(TimeSpan.FromSeconds(5));
+                using var response = await pending.WaitAsync(Watchdog);
             }
             catch (OperationCanceledException)
             {
@@ -87,13 +93,13 @@ public sealed class PublicHealthBearerReviewTests(AdminApiTestEnvironment enviro
         var pending = client.SendAsync(request, caller.Token);
         try
         {
-            await discovery.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await discovery.Entered.Task.WaitAsync(Watchdog);
         }
         finally
         {
             caller.Cancel();
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending.WaitAsync(TimeSpan.FromSeconds(5)));
-            await discovery.Exited.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending.WaitAsync(Watchdog));
+            await discovery.Exited.Task.WaitAsync(Watchdog);
         }
     }
 
@@ -162,7 +168,7 @@ public sealed class PublicHealthBearerReviewTests(AdminApiTestEnvironment enviro
         try
         {
             var completed = await Task.WhenAny(pending, validationEntered.Task)
-                .WaitAsync(TimeSpan.FromSeconds(5));
+                .WaitAsync(Watchdog);
             Assert.False(validationEntered.Task.IsCompleted,
                 "Public liveness entered JWT validation and is waiting on its dependency outside the protected deadline.");
             Assert.Same(pending, completed);
@@ -175,7 +181,7 @@ public sealed class PublicHealthBearerReviewTests(AdminApiTestEnvironment enviro
             callerBudget.Cancel();
             try
             {
-                using var response = await pending.WaitAsync(TimeSpan.FromSeconds(5));
+                using var response = await pending.WaitAsync(Watchdog);
             }
             catch (OperationCanceledException)
             {

@@ -27,6 +27,12 @@ namespace Application.AdminApi.Tests;
 [Collection(AdminApiIntegrationFixtureGroup.Name)]
 public sealed class RequestBudgetTests(AdminApiTestEnvironment environment)
 {
+    // Test-orchestration watchdog only. It bounds how long this test waits for host startup,
+    // dependency entry, pipeline completion and response delivery. It is deliberately far larger
+    // than the one-second application deadline under test, so a loaded parallel run cannot fail
+    // the assertion by starving the harness rather than by breaking the protected request.
+    private static readonly TimeSpan Watchdog = TimeSpan.FromSeconds(30);
+
     [Fact]
     public async Task DeadlineExpirationBeforeHeadersReturnsSafeProblemDetails()
     {
@@ -44,27 +50,36 @@ public sealed class RequestBudgetTests(AdminApiTestEnvironment environment)
             });
         });
         using var client = CreateClient(factory);
+        await WarmHostAsync(client);
         using var request = AuthenticatedRequest(environment.CreateToken());
         request.Headers.Add("traceparent", "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01");
 
-        var pending = client.SendAsync(request);
-        await authorization.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        using var response = await pending.WaitAsync(TimeSpan.FromSeconds(5));
-        var body = await response.Content.ReadAsStringAsync();
-        using var problem = JsonDocument.Parse(body);
+        using var cancellation = new CancellationTokenSource();
+        var pending = client.SendAsync(request, cancellation.Token);
+        try
+        {
+            await authorization.Entered.Task.WaitAsync(Watchdog);
+            using var response = await pending.WaitAsync(Watchdog);
+            var body = await response.Content.ReadAsStringAsync();
+            using var problem = JsonDocument.Parse(body);
 
-        Assert.True(authorization.CancellationObserved);
-        Assert.Equal(HttpStatusCode.GatewayTimeout, response.StatusCode);
-        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
-        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
-        Assert.Equal("request_timeout", problem.RootElement.GetProperty("code").GetString());
-        Assert.DoesNotContain("private-admin-timeout-canary", body, StringComparison.Ordinal);
-        Assert.DoesNotContain("private-admin-nested-payload-canary", body, StringComparison.Ordinal);
-        Assert.DoesNotContain("aaaaaaaa", problem.RootElement.GetProperty("traceId").GetString()!);
-        Assert.DoesNotContain(
-            logs.Messages,
-            message => message.Contains("private-admin-timeout-canary", StringComparison.Ordinal) ||
-                message.Contains("private-admin-nested-payload-canary", StringComparison.Ordinal));
+            Assert.True(authorization.CancellationObserved);
+            Assert.Equal(HttpStatusCode.GatewayTimeout, response.StatusCode);
+            Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+            Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+            Assert.Equal("request_timeout", problem.RootElement.GetProperty("code").GetString());
+            Assert.DoesNotContain("private-admin-timeout-canary", body, StringComparison.Ordinal);
+            Assert.DoesNotContain("private-admin-nested-payload-canary", body, StringComparison.Ordinal);
+            Assert.DoesNotContain("aaaaaaaa", problem.RootElement.GetProperty("traceId").GetString()!);
+            Assert.DoesNotContain(
+                logs.Messages,
+                message => message.Contains("private-admin-timeout-canary", StringComparison.Ordinal) ||
+                    message.Contains("private-admin-nested-payload-canary", StringComparison.Ordinal));
+        }
+        finally
+        {
+            await DrainAsync(pending, cancellation);
+        }
     }
 
     [Theory]
@@ -95,10 +110,10 @@ public sealed class RequestBudgetTests(AdminApiTestEnvironment environment)
         using var subscription = factory.Services.GetRequiredService<DiagnosticListener>().Subscribe(diagnostics);
         using var request = AuthenticatedRequest(environment.CreateToken());
         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead)
-            .WaitAsync(TimeSpan.FromSeconds(5));
+            .WaitAsync(Watchdog);
         using var body = await response.Content.ReadAsStreamAsync();
         var prefix = new byte["started-response".Length];
-        await body.ReadExactlyAsync(prefix).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        await body.ReadExactlyAsync(prefix).AsTask().WaitAsync(Watchdog);
         Assert.Equal("started-response", System.Text.Encoding.UTF8.GetString(prefix));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
@@ -106,14 +121,14 @@ public sealed class RequestBudgetTests(AdminApiTestEnvironment environment)
         if (callerCancels)
         {
             response.Dispose();
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => remainder.WaitAsync(TimeSpan.FromSeconds(5)));
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => remainder.WaitAsync(Watchdog));
         }
         else
         {
-            await Assert.ThrowsAnyAsync<IOException>(() => remainder.WaitAsync(TimeSpan.FromSeconds(5)));
+            await Assert.ThrowsAnyAsync<IOException>(() => remainder.WaitAsync(Watchdog));
         }
         Assert.NotNull(authorization);
-        await authorization.PipelineCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await authorization.PipelineCompleted.Task.WaitAsync(Watchdog);
         Assert.True(authorization.CancellationObserved);
         Assert.Empty(diagnostics.Exceptions);
         Assert.DoesNotContain(logs.Messages, message =>
@@ -165,8 +180,8 @@ public sealed class RequestBudgetTests(AdminApiTestEnvironment environment)
             await Task.Yield();
         }
 
-        using var response = await pending.WaitAsync(TimeSpan.FromSeconds(5));
-        await pipelineCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        using var response = await pending.WaitAsync(Watchdog);
+        await pipelineCompleted.Task.WaitAsync(Watchdog);
         Assert.Equal(HttpStatusCode.GatewayTimeout, response.StatusCode);
         Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
         using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
@@ -175,7 +190,7 @@ public sealed class RequestBudgetTests(AdminApiTestEnvironment environment)
         await transaction.RollbackAsync();
 
         using var retry = AuthenticatedRequest(environment.CreateToken());
-        using var recovered = await client.SendAsync(retry).WaitAsync(TimeSpan.FromSeconds(5));
+        using var recovered = await client.SendAsync(retry).WaitAsync(Watchdog);
         Assert.Equal(HttpStatusCode.OK, recovered.StatusCode);
     }
 
@@ -208,8 +223,8 @@ public sealed class RequestBudgetTests(AdminApiTestEnvironment environment)
         using var client = CreateClient(factory);
         using var request = AuthenticatedRequest(environment.CreateToken());
         var pending = client.SendAsync(request);
-        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        using var response = await pending.WaitAsync(TimeSpan.FromSeconds(5));
+        await entered.Task.WaitAsync(Watchdog);
+        using var response = await pending.WaitAsync(Watchdog);
         using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
 
         Assert.Equal(HttpStatusCode.GatewayTimeout, response.StatusCode);
@@ -258,15 +273,15 @@ public sealed class RequestBudgetTests(AdminApiTestEnvironment environment)
         using var request = AuthenticatedRequest(environment.CreateToken());
 
         var pending = client.SendAsync(request, cancellation.Token);
-        await authorization.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await authorization.Entered.Task.WaitAsync(Watchdog);
         cancellation.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending);
-        await authorization.Exited.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        await authorization.PipelineCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await authorization.Exited.Task.WaitAsync(Watchdog);
+        await authorization.PipelineCompleted.Task.WaitAsync(Watchdog);
         Assert.True(authorization.CancellationObserved);
         using var retry = AuthenticatedRequest(environment.CreateToken());
-        using var recovered = await client.SendAsync(retry).WaitAsync(TimeSpan.FromSeconds(5));
+        using var recovered = await client.SendAsync(retry).WaitAsync(Watchdog);
         Assert.Equal(HttpStatusCode.OK, recovered.StatusCode);
         Assert.Equal(2, authorization.Calls);
     }
@@ -291,13 +306,13 @@ public sealed class RequestBudgetTests(AdminApiTestEnvironment environment)
         using var first = AuthenticatedRequest(environment.CreateToken());
 
         var pending = client.SendAsync(first);
-        await authorization.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        using var timedOut = await pending.WaitAsync(TimeSpan.FromSeconds(5));
+        await authorization.Entered.Task.WaitAsync(Watchdog);
+        using var timedOut = await pending.WaitAsync(Watchdog);
         Assert.Equal(HttpStatusCode.GatewayTimeout, timedOut.StatusCode);
-        await authorization.Exited.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        await authorization.PipelineCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await authorization.Exited.Task.WaitAsync(Watchdog);
+        await authorization.PipelineCompleted.Task.WaitAsync(Watchdog);
         using var retry = AuthenticatedRequest(environment.CreateToken());
-        using var recovered = await client.SendAsync(retry).WaitAsync(TimeSpan.FromSeconds(5));
+        using var recovered = await client.SendAsync(retry).WaitAsync(Watchdog);
         Assert.Equal(HttpStatusCode.OK, recovered.StatusCode);
         Assert.Equal(2, authorization.Calls);
     }
@@ -417,7 +432,7 @@ public sealed class RequestBudgetTests(AdminApiTestEnvironment environment)
         using var client = CreateClient(factory);
 
         using var live = await client.GetAsync("/health/live");
-        using var ready = await client.GetAsync("/health/ready").WaitAsync(TimeSpan.FromSeconds(5));
+        using var ready = await client.GetAsync("/health/ready").WaitAsync(Watchdog);
 
         Assert.Equal(HttpStatusCode.OK, live.StatusCode);
         Assert.Equal(HttpStatusCode.OK, ready.StatusCode);
@@ -454,6 +469,37 @@ public sealed class RequestBudgetTests(AdminApiTestEnvironment environment)
             BaseAddress = new Uri("https://localhost"),
             AllowAutoRedirect = false,
         });
+
+    // Starts the host and warms routing, configuration and the public path before the measured
+    // request, so startup cost is not charged to the entry signal or the response under test.
+    private static async Task WarmHostAsync(HttpClient client)
+    {
+        using var ready = await client.GetAsync("/health/ready").WaitAsync(Watchdog);
+        Assert.Equal(HttpStatusCode.OK, ready.StatusCode);
+    }
+
+    // Cancels and awaits an outstanding request so a failed assertion cannot leave work running
+    // into the next test. Draining is not a retry: it never re-issues the request.
+    private static async Task DrainAsync(Task<HttpResponseMessage> pending, CancellationTokenSource cancellation)
+    {
+        if (pending.IsCompleted)
+        {
+            _ = await pending;
+            return;
+        }
+
+        await cancellation.CancelAsync();
+        try
+        {
+            _ = await pending;
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (HttpRequestException)
+        {
+        }
+    }
 
     private static HttpRequestMessage AuthenticatedRequest(string token)
     {

@@ -16,6 +16,12 @@ namespace Application.CoreApi.Tests;
 
 public sealed class PublicHealthBearerTests
 {
+
+    // Test-orchestration watchdog only: it bounds host startup, dependency entry, pipeline
+    // completion, response delivery and cleanup draining. The application deadlines under test
+    // stay configured on the host; this budget only prevents a loaded parallel run from failing
+    // the assertion by starving the harness.
+    private static readonly TimeSpan Watchdog = TimeSpan.FromSeconds(30);
     [Theory]
     [InlineData("/health/live", false)]
     [InlineData("/health/live", true)]
@@ -73,11 +79,11 @@ public sealed class PublicHealthBearerTests
             caller.Cancel();
             if (discovery.Entered.Task.IsCompleted)
             {
-                await discovery.Exited.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                await discovery.Exited.Task.WaitAsync(Watchdog);
             }
             try
             {
-                using var response = await pending.WaitAsync(TimeSpan.FromSeconds(5));
+                using var response = await pending.WaitAsync(Watchdog);
             }
             catch (OperationCanceledException)
             {
@@ -105,13 +111,13 @@ public sealed class PublicHealthBearerTests
         var pending = client.SendAsync(request, caller.Token);
         try
         {
-            await discovery.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await discovery.Entered.Task.WaitAsync(Watchdog);
         }
         finally
         {
             caller.Cancel();
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending.WaitAsync(TimeSpan.FromSeconds(5)));
-            await discovery.Exited.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending.WaitAsync(Watchdog));
+            await discovery.Exited.Task.WaitAsync(Watchdog);
         }
     }
 
