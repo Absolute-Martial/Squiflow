@@ -120,7 +120,7 @@ The real-boundary runs must use PostgreSQL and OpenFGA Testcontainers and skip n
 
 ## Current receiving status
 
-The implementation and regression tests are present in the current working tree. The supplied offline SDK provides .NET SDK 10.0.401, but this sandbox has no locked NuGet package cache/network access and no Docker daemon/socket. Therefore the new code cannot be dynamically production-qualified here. Under the repository gate model this introduced ADM-006 responsibility remains `BLOCKED` on those exact receiving checks; the previously accepted GATE-001 baseline remains accepted and is not regressed by documentation wording.
+The implementation and regression tests are present in the current working tree. The supplied offline SDK provides .NET SDK 10.0.401. A receiving workspace with Docker available has since executed the required checks against this exact source: `./eng/verify.sh` exits 0 with 745 passed / 0 failed / 0 skipped across 16 projects and a zero-warning, zero-error Release build, including `Application.AdminApi.Tests` 91/91 against real PostgreSQL 17 and OpenFGA using the real least-privilege `application_admin_api` role. Under the repository gate model this introduced ADM-006 responsibility therefore remains `BLOCKED` pending accountable gate-owner acceptance and the corrections recorded in its independent review, not pending environment availability; the previously accepted GATE-001 baseline remains accepted and is not regressed.
 
 ## Requalification triggers
 
