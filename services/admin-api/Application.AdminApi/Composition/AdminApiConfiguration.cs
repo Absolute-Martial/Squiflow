@@ -2,7 +2,8 @@ namespace Application.AdminApi.Composition;
 
 internal sealed record AdminApiConfiguration(
     string DatabaseConnectionString,
-    int MaximumConcurrentRequests)
+    int MaximumConcurrentRequests,
+    int ProtectedRequestTimeoutSeconds)
 {
     internal static AdminApiConfiguration From(IConfiguration configuration)
     {
@@ -23,6 +24,15 @@ internal sealed record AdminApiConfiguration(
                 "AdminApi:MaximumConcurrentRequests must be an integer from 1 through 64.");
         }
 
+        if (!int.TryParse(
+                configuration["AdminApi:ProtectedRequestTimeoutSeconds"],
+                out var protectedRequestTimeoutSeconds) ||
+            protectedRequestTimeoutSeconds is < 1 or > 120)
+        {
+            throw new InvalidOperationException(
+                "AdminApi:ProtectedRequestTimeoutSeconds must be an integer from 1 through 120.");
+        }
+
         var allowedHosts = configuration["AllowedHosts"];
         if (string.IsNullOrWhiteSpace(allowedHosts) ||
             allowedHosts.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -32,6 +42,9 @@ internal sealed record AdminApiConfiguration(
                 "AllowedHosts must explicitly name the private Admin API host(s); wildcards are not allowed.");
         }
 
-        return new AdminApiConfiguration(connectionString, maximumConcurrentRequests);
+        return new AdminApiConfiguration(
+            connectionString,
+            maximumConcurrentRequests,
+            protectedRequestTimeoutSeconds);
     }
 }

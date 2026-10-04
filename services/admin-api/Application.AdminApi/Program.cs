@@ -42,6 +42,7 @@ builder.Services.AddAdminIdentityProvisioning(
     identityProvisioningConfiguration,
     authenticationConfiguration);
 builder.Services.AddAdminApiAdmission(apiConfiguration.MaximumConcurrentRequests);
+builder.Services.AddAdminApiRequestBudgets(apiConfiguration.ProtectedRequestTimeoutSeconds);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IAdminClientCertificateProvider, ConnectionAdminClientCertificateProvider>();
 builder.Services.AddScoped<PlatformAdminRequestAuthorizer>();
@@ -50,6 +51,7 @@ builder.Services.AddExceptionHandler<AdminApiExceptionHandler>();
 
 var app = builder.Build();
 app.UseExceptionHandler(new ExceptionHandlerOptions { SuppressDiagnosticsCallback = _ => true });
+app.UseRouting();
 app.Use(async (context, next) =>
 {
     context.Response.OnStarting(() =>
@@ -59,11 +61,13 @@ app.Use(async (context, next) =>
     });
     await next(context);
 });
+app.UseAdminApiRequestBudgets();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapGet("/health/live", () => Results.Ok())
+    .WithMetadata(new AdminEndpointAccessMetadata(AdminEndpointAccess.PublicHealth))
     .AllowAnonymous();
 
 app.MapGet(
@@ -91,47 +95,56 @@ app.MapGet(
                 return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
             }
         })
+    .WithMetadata(new AdminEndpointAccessMetadata(AdminEndpointAccess.PublicHealth))
     .AllowAnonymous();
 
 app.MapGet("/api/v1/platform/access", PlatformAdminAccessEndpoint.GetAsync)
+    .WithMetadata(new AdminEndpointAccessMetadata(AdminEndpointAccess.ProtectedPlatformAdministration))
     .RequireAuthorization()
     .RequireRateLimiting(AdminApiAdmission.PolicyName);
 
 app.MapPost("/api/v1/platform/tenants", TenantProvisioningEndpoint.PostAsync)
+    .WithMetadata(new AdminEndpointAccessMetadata(AdminEndpointAccess.ProtectedPlatformAdministration))
     .RequireAuthorization()
     .RequireRateLimiting(AdminApiAdmission.PolicyName);
 
 app.MapPost("/api/v1/platform/accounts", AccountOnboardingEndpoint.PostAsync)
+    .WithMetadata(new AdminEndpointAccessMetadata(AdminEndpointAccess.ProtectedPlatformAdministration))
     .RequireAuthorization()
     .RequireRateLimiting(AdminApiAdmission.PolicyName);
 
 app.MapPost(
         "/api/v1/platform/accounts/{accountId:guid}/identities",
         AccountOnboardingEndpoint.LinkAsync)
+    .WithMetadata(new AdminEndpointAccessMetadata(AdminEndpointAccess.ProtectedPlatformAdministration))
     .RequireAuthorization()
     .RequireRateLimiting(AdminApiAdmission.PolicyName);
 
 app.MapPost(
         "/api/v1/platform/tenants/{tenantId:guid}/memberships",
         MembershipLifecycleEndpoint.InviteAsync)
+    .WithMetadata(new AdminEndpointAccessMetadata(AdminEndpointAccess.ProtectedPlatformAdministration))
     .RequireAuthorization()
     .RequireRateLimiting(AdminApiAdmission.PolicyName);
 
 app.MapPost(
         "/api/v1/platform/tenants/{tenantId:guid}/memberships/initial-owner",
         MembershipLifecycleEndpoint.BootstrapOwnerAsync)
+    .WithMetadata(new AdminEndpointAccessMetadata(AdminEndpointAccess.ProtectedPlatformAdministration))
     .RequireAuthorization()
     .RequireRateLimiting(AdminApiAdmission.PolicyName);
 
 app.MapPost(
         "/api/v1/platform/tenants/{tenantId:guid}/memberships/{accountId:guid}/{operation}",
         MembershipLifecycleEndpoint.TransitionAsync)
+    .WithMetadata(new AdminEndpointAccessMetadata(AdminEndpointAccess.ProtectedPlatformAdministration))
     .RequireAuthorization()
     .RequireRateLimiting(AdminApiAdmission.PolicyName);
 
 app.MapPost(
         "/api/v1/platform/tenants/{tenantId:guid}/lifecycle/{operation}",
         TenantLifecycleEndpoint.PostAsync)
+    .WithMetadata(new AdminEndpointAccessMetadata(AdminEndpointAccess.ProtectedPlatformAdministration))
     .RequireAuthorization()
     .RequireRateLimiting(AdminApiAdmission.PolicyName);
 

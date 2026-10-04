@@ -315,6 +315,7 @@ internal sealed class AdminApiFactory : WebApplicationFactory<Program>
             environment.RuntimeConnectionString);
         Environment.SetEnvironmentVariable("AllowedHosts", "localhost");
         Environment.SetEnvironmentVariable("AdminApi__MaximumConcurrentRequests", "4");
+        Environment.SetEnvironmentVariable("AdminApi__ProtectedRequestTimeoutSeconds", "30");
         Environment.SetEnvironmentVariable("Authentication__Authority", AdminApiTestEnvironment.Authority);
         Environment.SetEnvironmentVariable("Authentication__Audience", AdminApiTestEnvironment.Audience);
         Environment.SetEnvironmentVariable("Authentication__BackchannelTimeoutSeconds", "2");
