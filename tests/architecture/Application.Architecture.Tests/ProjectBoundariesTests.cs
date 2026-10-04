@@ -84,6 +84,7 @@ public sealed class ProjectBoundariesTests
             "orders",
             [Path.Combine(root, "modules/orders/Application.Orders.Postgres/Application.Orders.Postgres.csproj")],
             ["Npgsql"],
+            [],
             "Microsoft.NET.Sdk",
             null);
         var adapter = new ProjectNode(
@@ -92,12 +93,14 @@ public sealed class ProjectBoundariesTests
             "orders",
             [Path.Combine(root, "services/core-api/Application.CoreApi/Application.CoreApi.csproj")],
             [],
+            [],
             "Microsoft.NET.Sdk",
             null);
         var host = new ProjectNode(
             Path.Combine(root, "services/core-api/Application.CoreApi/Application.CoreApi.csproj"),
             ProjectKind.Executable,
             "core-api",
+            [],
             [],
             [],
             "Microsoft.NET.Sdk.Web",
@@ -108,6 +111,32 @@ public sealed class ProjectBoundariesTests
         Assert.Contains(violations, violation => violation.Contains("cannot reference adapter", StringComparison.Ordinal));
         Assert.Contains(violations, violation => violation.Contains("cannot reference executable", StringComparison.Ordinal));
         Assert.Contains(violations, violation => violation.Contains("provider package Npgsql", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("Microsoft.AspNetCore.App")]
+    [InlineData("Microsoft.WindowsDesktop.App")]
+    [InlineData("Microsoft.WindowsDesktop.App.WPF")]
+    [InlineData("Microsoft.WindowsDesktop.App.WindowsForms")]
+    [InlineData("microsoft.aspnetcore.app")]
+    public void HostNeutralCapabilityCannotReferenceHostFramework(string frameworkReference)
+    {
+        const string root = "/repository";
+        var capability = new ProjectNode(
+            Path.Combine(root, "modules/orders/Application.Orders/Application.Orders.csproj"),
+            ProjectKind.Capability,
+            "orders",
+            [],
+            [],
+            [frameworkReference],
+            "Microsoft.NET.Sdk",
+            null);
+
+        var violations = ProjectBoundaries.Check([capability]);
+
+        Assert.Contains(violations, violation =>
+            violation.Contains($"host-neutral capability cannot use framework reference {frameworkReference}", StringComparison.Ordinal));
+        Assert.Empty(ProjectBoundaries.Check([capability with { FrameworkReferences = [] }]));
     }
 
     [Fact]
@@ -138,13 +167,13 @@ public sealed class ProjectBoundariesTests
         const string root = "/repository";
         var desktop = new ProjectNode(
             Path.Combine(root, "apps/desktop/workstation/Application.Workstation/Application.Workstation.csproj"),
-            ProjectKind.Executable, "apps/desktop/workstation", [], [], "Microsoft.NET.Sdk", "WinExe");
+            ProjectKind.Executable, "apps/desktop/workstation", [], [], [], "Microsoft.NET.Sdk", "WinExe");
         var desktopUi = new ProjectNode(
             Path.Combine(root, "apps/desktop/workstation/Application.Workstation.Ui/Application.Workstation.Ui.csproj"),
-            ProjectKind.HostLibrary, "apps/desktop/workstation", [], [], "Microsoft.NET.Sdk", null);
+            ProjectKind.HostLibrary, "apps/desktop/workstation", [], [], [], "Microsoft.NET.Sdk", null);
         var api = new ProjectNode(
             Path.Combine(root, "services/core-api/Application.CoreApi/Application.CoreApi.csproj"),
-            ProjectKind.Executable, "core-api", [desktop.Path, desktopUi.Path], [], "Microsoft.NET.Sdk.Web", null);
+            ProjectKind.Executable, "core-api", [desktop.Path, desktopUi.Path], [], [], "Microsoft.NET.Sdk.Web", null);
 
         var violations = ProjectBoundaries.Check([api, desktop, desktopUi]);
         Assert.Contains(violations, violation => violation.Contains("cannot reference executable", StringComparison.Ordinal));
@@ -234,6 +263,9 @@ public sealed class ProjectBoundariesTests
                 var packages = document.Descendants("PackageReference")
                     .Select(element => (string)element.Attribute("Include")!)
                     .ToArray();
+                var frameworkReferences = document.Descendants("FrameworkReference")
+                    .Select(element => (string)element.Attribute("Include")!)
+                    .ToArray();
 
                 yield return new ProjectNode(
                     Path.GetFullPath(path),
@@ -241,6 +273,7 @@ public sealed class ProjectBoundariesTests
                     area == "apps" ? string.Join("/", relative[..^2]) : relative[1],
                     references,
                     packages,
+                    frameworkReferences,
                     sdk,
                     outputType);
             }
@@ -255,6 +288,7 @@ internal sealed record ProjectNode(
     string Owner,
     IReadOnlyList<string> References,
     IReadOnlyList<string> Packages,
+    IReadOnlyList<string> FrameworkReferences,
     string? Sdk,
     string? OutputType);
 
@@ -269,6 +303,14 @@ internal static class ProjectBoundaries
         "Finbuckle.MultiTenant.AspNetCore",
         "Autofac",
         "Avalonia"
+    ];
+
+    private static readonly string[] ForbiddenCapabilityFrameworks =
+    [
+        "Microsoft.AspNetCore.App",
+        "Microsoft.WindowsDesktop.App",
+        "Microsoft.WindowsDesktop.App.WPF",
+        "Microsoft.WindowsDesktop.App.WindowsForms"
     ];
 
     internal static IReadOnlyList<string> Check(IReadOnlyCollection<ProjectNode> projects)
@@ -306,6 +348,14 @@ internal static class ProjectBoundaries
                             package.StartsWith(prefix + ".", StringComparison.OrdinalIgnoreCase)))
                     {
                         violations.Add($"{project.Path}: host-neutral capability cannot use provider package {package}.");
+                    }
+                }
+
+                foreach (var framework in project.FrameworkReferences)
+                {
+                    if (ForbiddenCapabilityFrameworks.Contains(framework, StringComparer.OrdinalIgnoreCase))
+                    {
+                        violations.Add($"{project.Path}: host-neutral capability cannot use framework reference {framework}.");
                     }
                 }
             }

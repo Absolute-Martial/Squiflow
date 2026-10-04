@@ -210,6 +210,8 @@ The first guard cannot detect arbitrary SQL against another module's tables or t
 
 ## Independent executable build roots
 
+The repository remains a monorepo: capability ownership and project-reference rules provide compile-time isolation without creating separate repositories or arbitrary folder trees. Provider adapters stay capability-owned, and executable hosts build from their permitted capability and adapter graph. The architecture regression guard rejects explicit ASP.NET Core and Windows desktop framework references from host-neutral capability projects. It reads project XML entries and does not evaluate imported MSBuild properties or targets.
+
 An executable references reviewed host-neutral capability/contracts and its own
 provider adapters, never another executable or another host's UI/provider code.
 External API/sync communication does not create a compile-time reference between
