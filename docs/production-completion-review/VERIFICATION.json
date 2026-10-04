@@ -42,8 +42,16 @@
       "evidence": "current-head Invoices 25/25 and Architecture 14/14"
     },
     "GATE-001": {
-      "state": "BLOCKED",
-      "reason": "Gate-required ADM-001/ADM-002/OPS-022 handoffs are not fully retained in the source archive; independent post-fix ADM-003 acceptance receipt is absent; and the complete normal repository gate cannot execute in the local retry container because locked NuGet packages are unavailable and no Docker/Testcontainers daemon/socket is present"
+      "state": "ACCEPTED_PROVISIONALLY_BY_OWNER",
+      "accepted_by": "repository owner (human gate-owner role); not delegated to an agent",
+      "baseline": "97519c67d328bd2f5936cb6d59932a2fb172851c (source qualified at 7deba82)",
+      "owner_record": "docs/production-completion-review/evidence/GATE-001-OWNER-ACCEPTANCE.md",
+      "technical_decision": "docs/production-completion-review/evidence/GATE-001-DECISION-7deba82.md",
+      "scope": "current backend entry baseline only; not whole-backend, not whole-product",
+      "gate_result": "741 passed / 0 failed / 0 skipped, 16/16 projects, 0 warnings, 0 errors; four independent host checks exit 0",
+      "reviewer_independence": "resolved by explicit owner acceptance despite disclosed same-lineage caveat; not third-party verified",
+      "non_claims": "local Testcontainers only; no remote CI, live provider, deployment, or production claim",
+      "provisional": true
     }
   },
   "current_head_observed_checks": {
@@ -85,7 +93,7 @@
     "catalog_validator": "AVAILABLE"
   },
   "production_qualification": "NOT_GRANTED",
-  "next_required_action": "Accept the GATE-001 decision recorded in the monitoring run (docs/production-completion-review/evidence/GATE-001-DECISION-7deba82.md) after the accountable gate owner rules on ADM-003 reviewer independence; GATE-001 prerequisite handoffs for ADM-001/ADM-002/OPS-022 are retained under docs/production-completion-review/evidence/.",
+  "next_required_action": "Dispatch ADM-006 (bounded platform registry reads; deps ADM-002 + GATE-001 now satisfied). Decision-only units WEB-001, UIA-001, ADM-004 and ADM-008 remain independently dispatchable and unblock ADM-018/ADM-034.",
   "package_review": {
     "reviewers_completed": 9,
     "review_model": "gpt-6-luna",
