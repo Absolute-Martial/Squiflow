@@ -11,10 +11,9 @@ internal static class PlatformRegistryEndpoint
     private const int MaximumLimit = 100;
 
     internal static async Task<IResult> BrowseTenantsAsync(
-        HttpContext context, PlatformAdminRequestAuthorizer authorizer, IPlatformTenantRegistry registry)
+        HttpContext context, IPlatformTenantRegistry registry)
     {
-        var denied = await AuthorizeReadAsync(context, authorizer, PlatformAdminPermission.ReadTenants).ConfigureAwait(false);
-        if (denied is not null) return denied;
+        _ = AdminApiPlatformAuthorization.GetRequiredAccess(context);
         if (!TryPage(context, RegistryCursorKind.Tenant, out var limit, out var after, out var failure)) return failure!;
         var page = await registry.BrowseAsync(after, limit, context.RequestAborted).ConfigureAwait(false);
         return TypedResults.Ok(new RegistryPage<TenantRegistryResponse>(
@@ -23,19 +22,17 @@ internal static class PlatformRegistryEndpoint
     }
 
     internal static async Task<IResult> GetTenantAsync(
-        Guid tenantId, HttpContext context, PlatformAdminRequestAuthorizer authorizer, IPlatformTenantRegistry registry)
+        Guid tenantId, HttpContext context, IPlatformTenantRegistry registry)
     {
-        var denied = await AuthorizeReadAsync(context, authorizer, PlatformAdminPermission.ReadTenants).ConfigureAwait(false);
-        if (denied is not null) return denied;
+        _ = AdminApiPlatformAuthorization.GetRequiredAccess(context);
         var item = await registry.FindAsync(tenantId, context.RequestAborted).ConfigureAwait(false);
         return item is null ? NotFound() : TypedResults.Ok(TenantResponse(item));
     }
 
     internal static async Task<IResult> BrowseAccountsAsync(
-        HttpContext context, PlatformAdminRequestAuthorizer authorizer, IPlatformAccountRegistry registry)
+        HttpContext context, IPlatformAccountRegistry registry)
     {
-        var denied = await AuthorizeReadAsync(context, authorizer, PlatformAdminPermission.ReadAccounts).ConfigureAwait(false);
-        if (denied is not null) return denied;
+        _ = AdminApiPlatformAuthorization.GetRequiredAccess(context);
         if (!TryPage(context, RegistryCursorKind.Account, out var limit, out var after, out var failure)) return failure!;
         var page = await registry.BrowseAsync(after, limit, context.RequestAborted).ConfigureAwait(false);
         return TypedResults.Ok(new RegistryPage<AccountRegistryResponse>(
@@ -44,19 +41,17 @@ internal static class PlatformRegistryEndpoint
     }
 
     internal static async Task<IResult> GetAccountAsync(
-        Guid accountId, HttpContext context, PlatformAdminRequestAuthorizer authorizer, IPlatformAccountRegistry registry)
+        Guid accountId, HttpContext context, IPlatformAccountRegistry registry)
     {
-        var denied = await AuthorizeReadAsync(context, authorizer, PlatformAdminPermission.ReadAccounts).ConfigureAwait(false);
-        if (denied is not null) return denied;
+        _ = AdminApiPlatformAuthorization.GetRequiredAccess(context);
         var item = await registry.FindAsync(accountId, context.RequestAborted).ConfigureAwait(false);
         return item is null ? NotFound() : TypedResults.Ok(AccountResponse(item));
     }
 
     internal static async Task<IResult> BrowseMembershipsAsync(
-        Guid tenantId, HttpContext context, PlatformAdminRequestAuthorizer authorizer, IPlatformMembershipRegistry registry)
+        Guid tenantId, HttpContext context, IPlatformMembershipRegistry registry)
     {
-        var denied = await AuthorizeReadAsync(context, authorizer, PlatformAdminPermission.ReadMemberships).ConfigureAwait(false);
-        if (denied is not null) return denied;
+        _ = AdminApiPlatformAuthorization.GetRequiredAccess(context);
         if (!TryPage(context, RegistryCursorKind.Membership, out var limit, out var after, out var failure)) return failure!;
         var page = await registry.BrowseAsync(tenantId, after, limit, context.RequestAborted).ConfigureAwait(false);
         return TypedResults.Ok(new RegistryPage<MembershipRegistryResponse>(
@@ -65,18 +60,11 @@ internal static class PlatformRegistryEndpoint
     }
 
     internal static async Task<IResult> GetMembershipAsync(
-        Guid tenantId, Guid accountId, HttpContext context, PlatformAdminRequestAuthorizer authorizer, IPlatformMembershipRegistry registry)
+        Guid tenantId, Guid accountId, HttpContext context, IPlatformMembershipRegistry registry)
     {
-        var denied = await AuthorizeReadAsync(context, authorizer, PlatformAdminPermission.ReadMemberships).ConfigureAwait(false);
-        if (denied is not null) return denied;
+        _ = AdminApiPlatformAuthorization.GetRequiredAccess(context);
         var item = await registry.FindAsync(tenantId, accountId, context.RequestAborted).ConfigureAwait(false);
         return item is null ? NotFound() : TypedResults.Ok(MembershipResponse(item));
-    }
-
-    private static async Task<IResult?> AuthorizeReadAsync(HttpContext context, PlatformAdminRequestAuthorizer authorizer, PlatformAdminPermission permission)
-    {
-        var authorization = await authorizer.AuthorizeReadAsync(context, permission).ConfigureAwait(false);
-        return authorization.Access is null ? authorization.Failure : null;
     }
 
     private static bool TryPage(HttpContext context, RegistryCursorKind kind, out int limit, out Guid? after, out IResult? failure)

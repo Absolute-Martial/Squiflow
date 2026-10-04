@@ -25,8 +25,8 @@ internal static class TenantOrderHistoryEndpoint
             tenantId, httpContext, principal, resolveAccount, resolveTenantContext, cancellationToken);
         if (access.Failure is not null)
             return access.Failure;
-        var denied = await TenantOrderEndpoint.AuthorizeAsync(principal, access.TenantContext!, authorization,
-            ViewOrdersRequirement.Instance, "The account is not permitted to view order history in this tenant.", cancellationToken);
+        var denied = await TenantOrderEndpoint.AuthorizeAsync(httpContext, principal, access.TenantContext!, authorization,
+            "The account is not permitted to view order history in this tenant.", cancellationToken);
         if (denied is not null)
             return denied;
 

@@ -30,7 +30,7 @@ Agree minimal fields, distinct read permissions, supported filters and cursor ve
 - Cross-resource cursor reuse and oversized limits fail safely.
 - Browse order is deterministic without count/search claims.
 - Membership detail reflects invited/suspended/removed and protected initial-Owner state.
-- A read performs no durable mutation or tuple write.
+- A read performs no tenant/account/membership mutation, command-receipt write or OpenFGA tuple write. Every registry access attempt must append the existing durable Platform Admin access-audit evidence; audit is the explicit security-side-effect exception to read-only business state.
 - Concurrent changes produce a declared consistent detail snapshot and usable expected revision.
 
 ## Security/static review

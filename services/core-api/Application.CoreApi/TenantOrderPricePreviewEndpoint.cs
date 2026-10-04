@@ -27,29 +27,15 @@ internal static class TenantOrderPricePreviewEndpoint
         if (access.Failure is not null)
             return access.Failure;
 
-        AuthorizationResult decision;
-        try
-        {
-            decision = await authorization.AuthorizeAsync(principal,
-                new TenantOrderResource(access.TenantContext!, cancellationToken), CreateOrderRequirement.Instance);
-        }
-        catch (AuthorizationProviderUnavailableException)
-        {
-            return TypedResults.Problem(statusCode: StatusCodes.Status503ServiceUnavailable,
-                title: "Authorization is temporarily unavailable.",
-                detail: "The request could not be authorized safely.",
-                extensions: new Dictionary<string, object?> { ["code"] = "authorization_unavailable" });
-        }
-
-        if (!decision.Succeeded)
-            return TenantRequestAccess.Problem("tenant_permission_denied",
-                "The account is not permitted to preview order prices in this tenant.");
-
-        var pricingFailure = await TenantOrderEndpoint.AuthorizeAsync(
-            principal, access.TenantContext!, authorization, ApplyManualPriceRequirement.Instance,
-            "The account is not permitted to enter manual order prices in this tenant.", cancellationToken);
-        if (pricingFailure is not null)
-            return pricingFailure;
+        var denied = await TenantOrderEndpoint.AuthorizeAsync(
+            httpContext,
+            principal,
+            access.TenantContext!,
+            authorization,
+            "The account is not permitted to preview and price orders in this tenant.",
+            cancellationToken).ConfigureAwait(false);
+        if (denied is not null)
+            return denied;
 
         if (httpContext.Request.ContentLength is > MaximumRequestBodyBytes)
             return TooLarge();

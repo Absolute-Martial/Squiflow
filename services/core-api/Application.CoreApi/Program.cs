@@ -64,6 +64,7 @@ app.UseRateLimiter();
 app.UseMultiTenant();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseCoreApiApplicationAuthorization();
 
 app.MapOpenApi("/openapi/{documentName}.json")
     .WithCoreApiAccess(EndpointAccess.PublicApiDescription);

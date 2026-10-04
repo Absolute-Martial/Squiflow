@@ -30,31 +30,15 @@ internal static class TenantWorkspaceEndpoint
             return access.Failure;
         }
 
-        AuthorizationResult decision;
-        try
+        var denied = await CoreApiDeclaredAuthorization.AuthorizeAsync(
+            httpContext,
+            principal,
+            new TenantWorkspaceResource(access.TenantContext!, cancellationToken),
+            authorization,
+            "The account is not permitted to enter this tenant.").ConfigureAwait(false);
+        if (denied is not null)
         {
-            decision = await authorization.AuthorizeAsync(
-                principal,
-                new TenantWorkspaceResource(access.TenantContext!, cancellationToken),
-                ViewTenantWorkspaceRequirement.Instance);
-        }
-        catch (AuthorizationProviderUnavailableException)
-        {
-            return TypedResults.Problem(
-                statusCode: StatusCodes.Status503ServiceUnavailable,
-                title: "Authorization is temporarily unavailable.",
-                detail: "The request could not be authorized safely.",
-                extensions: new Dictionary<string, object?>
-                {
-                    ["code"] = "authorization_unavailable",
-                });
-        }
-
-        if (!decision.Succeeded)
-        {
-            return TenantRequestAccess.Problem(
-                "tenant_permission_denied",
-                "The account is not permitted to enter this tenant.");
+            return denied;
         }
 
         var currentMembership = (await memberships.ListActiveAsync(

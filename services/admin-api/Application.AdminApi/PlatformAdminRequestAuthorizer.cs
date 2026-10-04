@@ -33,23 +33,16 @@ internal sealed class PlatformAdminRequestAuthorizer(
 {
     internal Task<PlatformAdminRequestAuthorization> AuthorizeAsync(
         HttpContext context,
-        string auditOperation,
-        PlatformAdminPermission permission) =>
-        AuthorizeCoreAsync(context, auditOperation, permission, recordAudit: true);
-
-    internal Task<PlatformAdminRequestAuthorization> AuthorizeReadAsync(
-        HttpContext context,
-        PlatformAdminPermission permission) =>
-        AuthorizeCoreAsync(context, "registry_read", permission, recordAudit: false);
+        string auditOperation) =>
+        AuthorizeCoreAsync(context, auditOperation);
 
     private async Task<PlatformAdminRequestAuthorization> AuthorizeCoreAsync(
         HttpContext context,
-        string auditOperation,
-        PlatformAdminPermission permission,
-        bool recordAudit)
+        string auditOperation)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentException.ThrowIfNullOrWhiteSpace(auditOperation);
+        var permission = DeclaredPermission(context);
 
         if (!context.Request.IsHttps)
         {
@@ -87,7 +80,7 @@ internal sealed class PlatformAdminRequestAuthorizer(
             .ConfigureAwait(false);
         if (certificate is null)
         {
-            if (recordAudit) await AppendAuditAsync(
+            await AppendAuditAsync(
                 administrator,
                 null,
                 null,
@@ -110,7 +103,7 @@ internal sealed class PlatformAdminRequestAuthorizer(
             context.RequestAborted).ConfigureAwait(false);
         if (access is null)
         {
-            if (recordAudit) await AppendAuditAsync(
+            await AppendAuditAsync(
                 administrator,
                 fingerprint,
                 null,
@@ -162,7 +155,7 @@ internal sealed class PlatformAdminRequestAuthorizer(
         }
         catch (AdminAuthorizationProviderUnavailableException)
         {
-            if (recordAudit) await AppendAuditAsync(
+            await AppendAuditAsync(
                 administrator,
                 fingerprint,
                 access.PrincipalId,
@@ -176,7 +169,7 @@ internal sealed class PlatformAdminRequestAuthorizer(
 
         if (!allowed)
         {
-            if (recordAudit) await AppendAuditAsync(
+            await AppendAuditAsync(
                 administrator,
                 fingerprint,
                 access.PrincipalId,
@@ -191,7 +184,7 @@ internal sealed class PlatformAdminRequestAuthorizer(
                 "Platform Admin access denied.");
         }
 
-        if (recordAudit) await AppendAuditAsync(
+        await AppendAuditAsync(
             administrator,
             fingerprint,
             access.PrincipalId,
@@ -203,6 +196,19 @@ internal sealed class PlatformAdminRequestAuthorizer(
         return new PlatformAdminRequestAuthorization(
             new PlatformAdminRequestAccess(access.PrincipalId, access.DeviceId),
             null);
+    }
+
+    private static PlatformAdminPermission DeclaredPermission(HttpContext context)
+    {
+        var permissions = context.GetEndpoint()?.Metadata
+            .GetOrderedMetadata<AdminEndpointPermissionMetadata>();
+        if (permissions is null || permissions.Count != 1 || !Enum.IsDefined(permissions[0].Permission))
+        {
+            throw new InvalidOperationException(
+                "Protected Admin API authorization requires exactly one validated endpoint permission declaration.");
+        }
+
+        return permissions[0].Permission;
     }
 
     private Task AppendAuditAsync(

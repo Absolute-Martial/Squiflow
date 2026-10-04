@@ -2,7 +2,7 @@
 
 **Scope:** existing CoreApi startup and protected HTTP ingress; no Admin API runtime.
 
-**State:** `PRODUCTION_HONEST` for this scope; `BLOCKED = none`.
+**State:** prior accepted baseline was `PRODUCTION_HONEST`; the current strengthened declaration/execution binding is `BLOCKED` pending its updated CoreApi regression run and one exact post-change repository gate.
 
 ## Claim and owner
 
@@ -14,9 +14,15 @@ routes must not carry contradictory authorization metadata. Invalid declarations
 fail startup with fixed messages that do not expose request or provider data.
 
 This protects the classification used by no-store, admission and request-budget
-policies from accidentally disagreeing with the authentication gate. It does not
-prove that a handler performs the correct resource permission or business checks;
-the existing capability and endpoint tests retain that responsibility.
+policies from accidentally disagreeing with the authentication gate. For every
+`Authorized*` route, the classification also selects one canonical typed
+application-authorization contract. A global post-authentication middleware reads
+that validated endpoint declaration, resolves the current tenant boundary and
+executes the same requirement set before endpoint dispatch; handler execution is
+therefore downstream of the declared OpenFGA-backed admission instead of being
+responsible for remembering it. Resource handlers and provider adapters still own
+the meaning of those typed requirements and the capability/business checks after
+admission.
 
 ## Evidence and regression guard
 
@@ -47,4 +53,8 @@ permissions and a private-network header are never substitutes for those gates.
 
 ## Application-authorization declaration guard, 2026-10-04
 
-Every `Authorized*` CoreApi access classification now requires matching `CoreApiApplicationAuthorizationMetadata` in addition to `IAuthorizeData`. This makes the resource/OpenFGA authorization requirement visible to startup validation instead of allowing JWT authentication metadata alone to satisfy the guard. The actual current resource-specific permission checks remain in the established handlers; the metadata is a startup declaration and does not duplicate the provider call. Missing or mismatched application-authorization metadata fails startup.
+Every `Authorized*` CoreApi access classification requires matching `CoreApiApplicationAuthorizationMetadata` in addition to `IAuthorizeData`. The metadata carries the canonical non-empty typed requirement set selected from the access classification. Startup rejects missing, mismatched or substituted requirement sets and rejects an authorized route without the `tenantId` route boundary required by the admission middleware.
+
+`UseCoreApiApplicationAuthorization` is the mandatory pre-handler admission path. It resolves and caches the current tenant context, calls `CoreApiDeclaredAuthorization` with the exact matched endpoint metadata and passes its requirement set to `IAuthorizationService`, then marks the request admitted before dispatch. Existing handler calls to `CoreApiDeclaredAuthorization` observe that middleware state and cannot introduce a second independent permission constant. The declaration is therefore executable authority, not a parallel comment about authority. Current Order create/price-preview/revision contracts declare both of their required permissions and execute them together. The Order-actions endpoint still performs explicit secondary permission probes only to calculate optional action affordances after its declared `ViewOrders` admission succeeds; those probes are not route-admission authority.
+
+`EndpointAccessValidationTests.RuntimeAuthorizationUsesTheValidatedEndpointDeclaration` is the focused structural guard. The current source must rerun that suite plus `./eng/verify.sh` before the strengthened claim returns to `PRODUCTION_HONEST`.

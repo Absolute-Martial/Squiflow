@@ -23,8 +23,7 @@ internal static class TenantCustomerEndpoint
         IAuthorizationService authorization, CreateCustomerOrganization command,
         CoreApiMutationDiagnostics diagnostics, CancellationToken ct)
     {
-        var context = await ResolveAsync(tenantId, http, principal, account, tenant, authorization,
-            CreateOrganizationRequirement.Instance, ct);
+        var context = await ResolveAsync(tenantId, http, principal, account, tenant, authorization, ct);
         if (context.Failure is not null) return context.Failure;
         if (!TryKey(http.Request, out var key)) return Invalid("idempotency_key_invalid", "One Idempotency-Key header is required.");
         var payload = await ReadPayloadAsync<NamePayload>(http.Request, ct);
@@ -54,8 +53,7 @@ internal static class TenantCustomerEndpoint
         ClaimsPrincipal principal, ResolveAccountBinding account, ResolveTenantContext tenant,
         IAuthorizationService authorization, GetCustomerOrganization query, CancellationToken ct)
     {
-        var context = await ResolveAsync(tenantId, http, principal, account, tenant, authorization,
-            ViewOrganizationsRequirement.Instance, ct);
+        var context = await ResolveAsync(tenantId, http, principal, account, tenant, authorization, ct);
         if (context.Failure is not null) return context.Failure;
         try
         {
@@ -71,8 +69,7 @@ internal static class TenantCustomerEndpoint
         ClaimsPrincipal principal, ResolveAccountBinding account, ResolveTenantContext tenant,
         IAuthorizationService authorization, ListCustomerOrganizations query, CancellationToken ct)
     {
-        var context = await ResolveAsync(tenantId, http, principal, account, tenant, authorization,
-            ViewOrganizationsRequirement.Instance, ct);
+        var context = await ResolveAsync(tenantId, http, principal, account, tenant, authorization, ct);
         if (context.Failure is not null) return context.Failure;
         if (!TryPage(http.Request.Query, tenantId, null, out var limit, out var after, out var failure)) return failure!;
         try
@@ -91,8 +88,7 @@ internal static class TenantCustomerEndpoint
         IAuthorizationService authorization, CreateCustomerProgram command,
         CoreApiMutationDiagnostics diagnostics, CancellationToken ct)
     {
-        var context = await ResolveAsync(tenantId, http, principal, account, tenant, authorization,
-            CreateProgramRequirement.Instance, ct);
+        var context = await ResolveAsync(tenantId, http, principal, account, tenant, authorization, ct);
         if (context.Failure is not null) return context.Failure;
         if (!TryKey(http.Request, out var key)) return Invalid("idempotency_key_invalid", "One Idempotency-Key header is required.");
         var payload = await ReadPayloadAsync<NamePayload>(http.Request, ct);
@@ -123,8 +119,7 @@ internal static class TenantCustomerEndpoint
         ClaimsPrincipal principal, ResolveAccountBinding account, ResolveTenantContext tenant,
         IAuthorizationService authorization, GetCustomerProgram query, CancellationToken ct)
     {
-        var context = await ResolveAsync(tenantId, http, principal, account, tenant, authorization,
-            ViewProgramsRequirement.Instance, ct);
+        var context = await ResolveAsync(tenantId, http, principal, account, tenant, authorization, ct);
         if (context.Failure is not null) return context.Failure;
         try
         {
@@ -142,8 +137,7 @@ internal static class TenantCustomerEndpoint
         IAuthorizationService authorization, GetCustomerOrganization getOrganization,
         ListCustomerPrograms query, CancellationToken ct)
     {
-        var context = await ResolveAsync(tenantId, http, principal, account, tenant, authorization,
-            ViewProgramsRequirement.Instance, ct);
+        var context = await ResolveAsync(tenantId, http, principal, account, tenant, authorization, ct);
         if (context.Failure is not null) return context.Failure;
         if (!TryPage(http.Request.Query, tenantId, organizationId, out var limit, out var after, out var failure)) return failure!;
         try
@@ -161,26 +155,17 @@ internal static class TenantCustomerEndpoint
 
     internal static async Task<(TenantContext? Context, IResult? Failure)> ResolveAsync(
         Guid tenantId, HttpContext http, ClaimsPrincipal principal, ResolveAccountBinding account,
-        ResolveTenantContext tenant, IAuthorizationService authorization,
-        IAuthorizationRequirement requirement, CancellationToken ct)
+        ResolveTenantContext tenant, IAuthorizationService authorization, CancellationToken ct)
     {
         http.Response.Headers.CacheControl = "no-store";
         var access = await TenantRequestAccess.ResolveAsync(tenantId, http, principal, account, tenant, ct);
         if (access.Failure is not null) return (null, access.Failure);
-        try
-        {
-            var decision = await authorization.AuthorizeAsync(principal,
-                new TenantCustomerResource(access.TenantContext!, ct), requirement);
-            return decision.Succeeded
-                ? (access.TenantContext, null)
-                : (null, TenantRequestAccess.Problem("tenant_permission_denied", "The account is not permitted to perform this customer operation in this tenant."));
-        }
-        catch (AuthorizationProviderUnavailableException)
-        {
-            return (null, TypedResults.Problem(statusCode: 503, title: "Authorization is temporarily unavailable.",
-                detail: "The request could not be authorized safely.",
-                extensions: new Dictionary<string, object?> { ["code"] = "authorization_unavailable" }));
-        }
+        var denied = await CoreApiDeclaredAuthorization.AuthorizeAsync(
+            http, principal, new TenantCustomerResource(access.TenantContext!, ct), authorization,
+            "The account is not permitted to perform this customer operation in this tenant.").ConfigureAwait(false);
+        return denied is null
+            ? (access.TenantContext, null)
+            : (null, denied);
     }
 
     internal static bool TryKey(HttpRequest request, out string? key)

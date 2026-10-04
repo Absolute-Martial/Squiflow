@@ -141,12 +141,28 @@ public sealed class AdminApiTestEnvironment : IAsyncLifetime
     internal AdminApiFactory CreateFactory(
         X509Certificate2? certificate,
         string? openFgaApiUrl = null,
-        IExternalIdentityVerifier? identityVerifier = null) =>
+        IExternalIdentityVerifier? identityVerifier = null,
+        string? authorizationModelId = null) =>
         new(
             this,
             certificate,
             openFgaApiUrl ?? OpenFgaApiUrl,
-            identityVerifier ?? new FixedExternalIdentityVerifier(ExternalIdentityVerification.Verified));
+            identityVerifier ?? new FixedExternalIdentityVerifier(ExternalIdentityVerification.Verified),
+            authorizationModelId ?? ModelId);
+
+    internal async Task<string> PublishAuthorizationModelAsync(string modelJson)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelJson);
+        using var administrativeClient = new HttpClient { BaseAddress = new Uri(OpenFgaApiUrl) };
+        using var modelContent = new StringContent(modelJson, Encoding.UTF8, "application/json");
+        using var modelResponse = await administrativeClient.PostAsync(
+            $"/stores/{StoreId}/authorization-models",
+            modelContent);
+        modelResponse.EnsureSuccessStatusCode();
+        using var modelBody = JsonDocument.Parse(await modelResponse.Content.ReadAsStringAsync());
+        return modelBody.RootElement.GetProperty("authorization_model_id").GetString()
+            ?? throw new InvalidOperationException("OpenFGA did not return an authorization model ID.");
+    }
 
     internal string CreateToken(string subject = Subject)
     {
@@ -305,7 +321,8 @@ internal sealed class AdminApiFactory : WebApplicationFactory<Program>
         AdminApiTestEnvironment environment,
         X509Certificate2? certificate,
         string openFgaApiUrl,
-        IExternalIdentityVerifier identityVerifier)
+        IExternalIdentityVerifier identityVerifier,
+        string authorizationModelId)
     {
         _environment = environment;
         _certificate = certificate;
@@ -324,7 +341,7 @@ internal sealed class AdminApiFactory : WebApplicationFactory<Program>
         Environment.SetEnvironmentVariable("Authorization__PlatformOpenFga__StoreId", environment.StoreId);
         Environment.SetEnvironmentVariable(
             "Authorization__PlatformOpenFga__AuthorizationModelId",
-            environment.ModelId);
+            authorizationModelId);
         Environment.SetEnvironmentVariable("Authorization__PlatformOpenFga__RequestTimeoutSeconds", "1");
         Environment.SetEnvironmentVariable("Authorization__PlatformOpenFga__MaximumRetries", "0");
         Environment.SetEnvironmentVariable(

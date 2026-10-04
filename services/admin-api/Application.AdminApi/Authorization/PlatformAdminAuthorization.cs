@@ -35,6 +35,19 @@ internal sealed class OpenFgaPlatformAdminAuthorization(
     private const string ReadTenantsRelation = "can_read_tenants";
     private const string ReadAccountsRelation = "can_read_accounts";
     private const string ReadMembershipsRelation = "can_read_memberships";
+    private static readonly string[] RequiredPlatformRelations =
+    [
+        "administrator",
+        AccessRelation,
+        ProvisionTenantRelation,
+        OnboardAccountRelation,
+        LinkIdentityRelation,
+        ManageMembershipsRelation,
+        ManageTenantLifecycleRelation,
+        ReadTenantsRelation,
+        ReadAccountsRelation,
+        ReadMembershipsRelation,
+    ];
     private static readonly Action<ILogger, string, Exception?> AuthorizationTimedOut =
         LoggerMessage.Define<string>(
             LogLevel.Warning,
@@ -45,6 +58,11 @@ internal sealed class OpenFgaPlatformAdminAuthorization(
             LogLevel.Warning,
             new EventId(2, nameof(AuthorizationUnavailable)),
             "Platform OpenFGA authorization was unavailable using model {ModelId}.");
+    private static readonly Action<ILogger, string, Exception?> AuthorizationModelContractMismatch =
+        LoggerMessage.Define<string>(
+            LogLevel.Error,
+            new EventId(3, nameof(AuthorizationModelContractMismatch)),
+            "Pinned platform OpenFGA model {ModelId} does not satisfy the required platform authorization contract.");
 
     public Task<bool> CanAccessAsync(
         Guid platformPrincipalId,
@@ -114,18 +132,64 @@ internal sealed class OpenFgaPlatformAdminAuthorization(
 
     public async Task<bool> IsReadyAsync(CancellationToken cancellationToken)
     {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(configuration.RequestTimeout);
         try
         {
+            var response = await client.ReadAuthorizationModel(
+                new ClientReadAuthorizationModelOptions
+                {
+                    AuthorizationModelId = configuration.AuthorizationModelId,
+                },
+                timeout.Token).ConfigureAwait(false);
+            if (!HasRequiredPlatformContract(response.AuthorizationModel))
+            {
+                AuthorizationModelContractMismatch(logger, configuration.AuthorizationModelId, null);
+                return false;
+            }
+
             _ = await CheckAsync(
                 "user:readiness-probe",
                 AccessRelation,
                 cancellationToken).ConfigureAwait(false);
             return true;
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OperationCanceledException exception)
+        {
+            AuthorizationTimedOut(logger, configuration.AuthorizationModelId, exception);
+            return false;
+        }
+        catch (Exception exception) when (exception is ApiException or HttpRequestException)
+        {
+            AuthorizationUnavailable(logger, configuration.AuthorizationModelId, exception);
+            return false;
+        }
         catch (AdminAuthorizationProviderUnavailableException)
         {
             return false;
         }
+    }
+
+    private bool HasRequiredPlatformContract(AuthorizationModel? model)
+    {
+        if (model is null || !string.Equals(model.Id, configuration.AuthorizationModelId, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var platform = model.TypeDefinitions?.SingleOrDefault(
+            definition => definition is not null &&
+                string.Equals(definition.Type, "platform", StringComparison.Ordinal));
+        if (platform?.Relations is null)
+        {
+            return false;
+        }
+
+        return RequiredPlatformRelations.All(platform.Relations.ContainsKey);
     }
 
     private async Task<bool> CheckAsync(

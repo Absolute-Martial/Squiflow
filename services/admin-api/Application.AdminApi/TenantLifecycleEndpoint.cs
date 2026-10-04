@@ -8,12 +8,9 @@ internal static class TenantLifecycleEndpoint
         Guid tenantId,
         string operation,
         HttpContext context,
-        PlatformAdminRequestAuthorizer authorizer,
         ManageTenantLifecycle manager)
     {
-        var authorized = await authorizer.AuthorizeAsync(
-            context, $"tenant_{operation}", PlatformAdminPermission.ManageTenantLifecycle).ConfigureAwait(false);
-        if (authorized.Access is null) return authorized.Failure!;
+        var access = AdminApiPlatformAuthorization.GetRequiredAccess(context);
         var keys = context.Request.Headers["Idempotency-Key"];
         if (keys.Count != 1)
             return BoundedAdminJson.Problem(400, "idempotency_key_required", "Exactly one Idempotency-Key header is required.");
@@ -40,7 +37,7 @@ internal static class TenantLifecycleEndpoint
             return BoundedAdminJson.Problem(400, "invalid_tenant_lifecycle_request", "The tenant lifecycle request is invalid.");
         }
         var actor = TenantMembershipAdministrationActor.Create(
-            authorized.Access.PrincipalId, authorized.Access.DeviceId);
+            access.PrincipalId, access.DeviceId);
         var result = await manager.ExecuteAsync(actor, intent, context.RequestAborted).ConfigureAwait(false);
         if (result.Status is TenantLifecycleStatus.Suspended or TenantLifecycleStatus.Reactivated)
         {

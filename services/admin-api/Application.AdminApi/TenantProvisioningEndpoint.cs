@@ -5,24 +5,14 @@ namespace Application.AdminApi;
 
 internal static class TenantProvisioningEndpoint
 {
-    private const string AuditOperation = "tenant_provision";
     private const string IdempotencyHeader = "Idempotency-Key";
     private const int MaximumRequestBodyBytes = 4096;
 
     internal static async Task<IResult> PostAsync(
         HttpContext context,
-        PlatformAdminRequestAuthorizer authorizer,
         ProvisionTenant provisionTenant)
     {
-        var authorization = await authorizer
-            .AuthorizeAsync(context, AuditOperation, PlatformAdminPermission.ProvisionTenant)
-            .ConfigureAwait(false);
-        if (authorization.Access is null)
-        {
-            return authorization.Failure
-                ?? throw new InvalidOperationException(
-                    "Denied Admin access did not provide a failure result.");
-        }
+        var access = AdminApiPlatformAuthorization.GetRequiredAccess(context);
 
         var idempotencyValues = context.Request.Headers[IdempotencyHeader];
         if (idempotencyValues.Count != 1)
@@ -56,8 +46,8 @@ internal static class TenantProvisioningEndpoint
         }
 
         var actor = TenantProvisioningActor.Create(
-            authorization.Access.PrincipalId,
-            authorization.Access.DeviceId);
+            access.PrincipalId,
+            access.DeviceId);
         var result = await provisionTenant
             .ExecuteAsync(actor, intent, context.RequestAborted)
             .ConfigureAwait(false);

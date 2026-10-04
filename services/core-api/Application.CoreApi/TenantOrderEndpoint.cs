@@ -56,20 +56,12 @@ internal static class TenantOrderEndpoint
         }
 
         var authorizationFailure = await AuthorizeAsync(
+            httpContext,
             principal,
             access.TenantContext!,
             authorization,
-            CreateOrderRequirement.Instance,
-            "The account is not permitted to create orders in this tenant.",
+            "The account is not permitted to create and price orders in this tenant.",
             cancellationToken);
-        if (authorizationFailure is not null)
-        {
-            return authorizationFailure;
-        }
-
-        authorizationFailure = await AuthorizeAsync(
-            principal, access.TenantContext!, authorization, ApplyManualPriceRequirement.Instance,
-            "The account is not permitted to enter manual order prices in this tenant.", cancellationToken);
         if (authorizationFailure is not null)
         {
             return authorizationFailure;
@@ -166,10 +158,10 @@ internal static class TenantOrderEndpoint
         }
 
         var authorizationFailure = await AuthorizeAsync(
+            httpContext,
             principal,
             access.TenantContext!,
             authorization,
-            ViewOrdersRequirement.Instance,
             "The account is not permitted to view orders in this tenant.",
             cancellationToken);
         if (authorizationFailure is not null)
@@ -226,16 +218,8 @@ internal static class TenantOrderEndpoint
         }
 
         var authorizationFailure = await AuthorizeAsync(
-            principal, access.TenantContext!, authorization, EditOrderRequirement.Instance,
-            "The account is not permitted to edit orders in this tenant.", cancellationToken);
-        if (authorizationFailure is not null)
-        {
-            return authorizationFailure;
-        }
-
-        authorizationFailure = await AuthorizeAsync(
-            principal, access.TenantContext!, authorization, ApplyManualPriceRequirement.Instance,
-            "The account is not permitted to enter manual order prices in this tenant.", cancellationToken);
+            httpContext, principal, access.TenantContext!, authorization,
+            "The account is not permitted to edit and price orders in this tenant.", cancellationToken);
         if (authorizationFailure is not null)
         {
             return authorizationFailure;
@@ -359,10 +343,10 @@ internal static class TenantOrderEndpoint
         }
 
         var authorizationFailure = await AuthorizeAsync(
+            httpContext,
             principal,
             access.TenantContext!,
             authorization,
-            AbandonOrderRequirement.Instance,
             "The account is not permitted to abandon orders in this tenant.",
             cancellationToken);
         if (authorizationFailure is not null)
@@ -482,10 +466,10 @@ internal static class TenantOrderEndpoint
         }
 
         var authorizationFailure = await AuthorizeAsync(
+            httpContext,
             principal,
             access.TenantContext!,
             authorization,
-            ViewOrdersRequirement.Instance,
             "The account is not permitted to view orders in this tenant.",
             cancellationToken);
         if (authorizationFailure is not null)
@@ -532,38 +516,19 @@ internal static class TenantOrderEndpoint
             page.NextCursor is null ? null : OrderDraftPageCursorCodec.Encode(tenantId, page.NextCursor)));
     }
 
-    internal static async Task<IResult?> AuthorizeAsync(
+    internal static Task<IResult?> AuthorizeAsync(
+        HttpContext httpContext,
         ClaimsPrincipal principal,
         TenantContext tenantContext,
         IAuthorizationService authorization,
-        IAuthorizationRequirement requirement,
         string deniedDetail,
-        CancellationToken cancellationToken)
-    {
-        AuthorizationResult decision;
-        try
-        {
-            decision = await authorization.AuthorizeAsync(
-                principal,
-                new TenantOrderResource(tenantContext, cancellationToken),
-                requirement);
-        }
-        catch (AuthorizationProviderUnavailableException)
-        {
-            return TypedResults.Problem(
-                statusCode: StatusCodes.Status503ServiceUnavailable,
-                title: "Authorization is temporarily unavailable.",
-                detail: "The request could not be authorized safely.",
-                extensions: new Dictionary<string, object?>
-                {
-                    ["code"] = "authorization_unavailable",
-                });
-        }
-
-        return decision.Succeeded
-            ? null
-            : TenantRequestAccess.Problem("tenant_permission_denied", deniedDetail);
-    }
+        CancellationToken cancellationToken) =>
+        CoreApiDeclaredAuthorization.AuthorizeAsync(
+            httpContext,
+            principal,
+            new TenantOrderResource(tenantContext, cancellationToken),
+            authorization,
+            deniedDetail);
 
     internal static bool TryGetIdempotencyKey(
         IHeaderDictionary headers,

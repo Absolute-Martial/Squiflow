@@ -12,40 +12,28 @@ internal static class AccountOnboardingEndpoint
 
     internal static Task<IResult> PostAsync(
         HttpContext context,
-        PlatformAdminRequestAuthorizer authorizer,
         IExternalIdentityVerifier verifier,
         AdminOidcAuthenticationConfiguration authentication,
         AccountOnboarding onboarding) =>
-        ExecuteAsync(context, authorizer, verifier, authentication, onboarding, accountId: null);
+        ExecuteAsync(context, verifier, authentication, onboarding, accountId: null);
 
     internal static Task<IResult> LinkAsync(
         Guid accountId,
         HttpContext context,
-        PlatformAdminRequestAuthorizer authorizer,
         IExternalIdentityVerifier verifier,
         AdminOidcAuthenticationConfiguration authentication,
         AccountOnboarding onboarding) =>
-        ExecuteAsync(context, authorizer, verifier, authentication, onboarding, accountId);
+        ExecuteAsync(context, verifier, authentication, onboarding, accountId);
 
     private static async Task<IResult> ExecuteAsync(
         HttpContext context,
-        PlatformAdminRequestAuthorizer authorizer,
         IExternalIdentityVerifier verifier,
         AdminOidcAuthenticationConfiguration authentication,
         AccountOnboarding onboarding,
         Guid? accountId)
     {
         var isLink = accountId.HasValue;
-        var authorization = await authorizer.AuthorizeAsync(
-            context,
-            isLink ? "identity_link" : "account_onboard",
-            isLink ? PlatformAdminPermission.LinkIdentity : PlatformAdminPermission.OnboardAccount)
-            .ConfigureAwait(false);
-        if (authorization.Access is null)
-        {
-            return authorization.Failure
-                ?? throw new InvalidOperationException("Denied Admin access did not provide a failure result.");
-        }
+        var access = AdminApiPlatformAuthorization.GetRequiredAccess(context);
 
         if (isLink && accountId == Guid.Empty)
         {
@@ -80,8 +68,8 @@ internal static class AccountOnboardingEndpoint
         }
 
         var actor = IdentityAdministrationActor.Create(
-            authorization.Access.PrincipalId,
-            authorization.Access.DeviceId);
+            access.PrincipalId,
+            access.DeviceId);
         if (!isLink)
         {
             AccountOnboardingIntent intent;

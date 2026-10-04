@@ -50,6 +50,12 @@ model readability alone is not qualification. Run an authorized smoke journey
 including allowed/denied price entry and revocation. See
 `docs/implementation/PRICING_COMPONENT_BOUNDARY.md`.
 
+### Platform Admin registry authorization-model rollout
+
+ADM-006 adds `can_read_tenants`, `can_read_accounts`, and `can_read_memberships` to the immutable platform OpenFGA model. OpenFGA model IDs are operator-pinned, not content-derived: changing the checked-in JSON does **not** update a running deployment. Before deploying ADM-006, publish `infrastructure/authorization/openfga/platform-authorization-model.json` to the existing platform store, capture the returned model ID, read that exact model back, and verify the complete platform relation set. Then update `Authorization__PlatformOpenFga__AuthorizationModelId` for AdminApi and for any AdminBootstrap recovery/rerun environment that shares the platform store.
+
+Do not point ADM-006 code at the old model and do not fall back to the latest model implicitly. AdminApi `/health/ready` reads the configured pinned model and fails `503` when the required registry relations are absent. After re-pin, require readiness `200` plus authorized/denied registry smoke checks before admitting protected Admin traffic. Existing `administrator` tuples remain store data and continue to compute into the new read relations; direct read-relation tuples are only for intentionally least-privileged principals. Rollback couples application code and a compatible model pin.
+
 ### Commitment and individual-record upgrade
 
 Apply the module-owned Customers individual-record and Orders commitment

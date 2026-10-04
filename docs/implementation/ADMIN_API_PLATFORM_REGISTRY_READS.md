@@ -83,7 +83,25 @@ The read adapters use parameterized, embedded SQL owned by IdentityAccess/Tenanc
 - `tenancy.tenants(id)` primary key;
 - `tenancy.memberships(tenant_id, account_id)` primary key.
 
-Registry reads do not write tenant/account/membership state, OpenFGA tuples, command receipts or access-audit rows. This is deliberate: ADM-006 explicitly requires a read to perform no durable mutation. Mutation endpoints keep the existing durable admission-audit behavior.
+Registry reads do not write tenant/account/membership state, OpenFGA tuples or command receipts. They **do** synchronously append the existing durable Platform Admin access-audit evidence before the registry operation proceeds. This is an explicit security-side-effect exception to read-only business state: an operator enumerating a platform registry must leave retained actor/device/outcome evidence. If the audit append cannot complete, the protected read does not silently continue.
+
+Audit operations are bounded and non-PII: tenant/account browse records the registry operation; tenant/account detail records the opaque target GUID; membership browse/detail records the opaque tenant/account GUIDs. Every page request in a multi-page traversal is separately audited. The audit records authorization/access, not a claim that the subsequent PostgreSQL read completed successfully.
+
+## Platform OpenFGA model rollout and pinned-ID compatibility
+
+The checked-in platform authorization model is immutable once published. The three ADM-006 relations (`can_read_tenants`, `can_read_accounts`, `can_read_memberships`) therefore require a **new OpenFGA authorization model ID**. A deployment pinned to the previous model ID is incompatible with ADM-006 even though the JSON file in this repository has changed.
+
+Required rollout order:
+
+1. publish `infrastructure/authorization/openfga/platform-authorization-model.json` to the existing platform store and capture the returned immutable model ID;
+2. read that exact returned model back and verify the complete platform contract, including all three registry-read relations;
+3. keep existing `administrator` tuples in the same store; add direct read-relation tuples only for deliberately least-privileged principals;
+4. update the deployed `Authorization__PlatformOpenFga__AuthorizationModelId` used by AdminApi and by any AdminBootstrap recovery/rerun configuration to the returned ID;
+5. roll AdminApi and require `/health/ready` to return `200` before routing protected Admin traffic;
+6. run allowed/denied registry smoke checks, including one least-privilege read relation and one absent relation;
+7. roll back application code and model pin together if rollback is required. Do not repin ADM-006 code to a pre-ADM-006 model.
+
+AdminApi readiness now reads the **configured pinned model**, not the latest model, and verifies the complete platform relation contract. A stale pin therefore fails readiness before registry traffic is considered healthy. No startup fallback to “latest model” or model mutation exists.
 
 ## Startup access guards
 
@@ -93,7 +111,9 @@ AdminApi now validates all mapped routes before serving requests. Every route mu
 - not allow anonymous access;
 - declare exactly one recognized `AdminEndpointPermissionMetadata`.
 
-CoreApi now has a parallel two-part declaration. `RequireAuthorization()` proves authentication, while every `Authorized*` access classification must separately declare matching `CoreApiApplicationAuthorizationMetadata`. The existing resource-specific OpenFGA checks remain in the handlers; the new metadata makes the application-authorization requirement visible to startup validation so JWT authentication alone cannot satisfy the route classifier guard.
+Protected AdminApi permission enforcement no longer depends on endpoint-handler code. `UseAdminApiPlatformAuthorization` runs after ASP.NET authentication/authorization, reads the single validated `AdminEndpointPermissionMetadata` plus the validated bounded audit-operation metadata from the matched trusted endpoint, performs the existing TLS/device/OpenFGA/audit admission, and stores only the resulting principal/device access context for the handler. Handlers cannot select, replace or omit the OpenFGA permission. Declaration and enforcement therefore cannot drift as two independent constants, and a newly mapped protected route cannot reach its handler without the metadata-driven admission middleware succeeding.
+
+CoreApi now uses the same principle for route-admission authorization. Each `Authorized*` access classification maps to a non-empty typed requirement set stored in `CoreApiApplicationAuthorizationMetadata`; startup validates the contract and the required `tenantId` route boundary, then `UseCoreApiApplicationAuthorization` resolves the current tenant context and executes that exact metadata set before endpoint dispatch. Existing endpoint helpers observe the already-admitted middleware state and do not perform an independent permission decision. Order-action capability probes that calculate optional response affordances remain explicit secondary checks and are not route-admission authority.
 
 ## Regression guards
 
@@ -102,11 +122,15 @@ Authored receiving tests cover:
 - real PostgreSQL tenant/account/membership detail and keyset browse;
 - page bounds and resource-specific cursor rejection;
 - membership/tenant lifecycle revision projection;
-- read-only no-access-audit behavior;
+- durable success/denial access-audit behavior while registry/business state remains unchanged;
 - authorization before existence/cursor disclosure;
+- stale pinned platform model missing the ADM-006 relations fails readiness and registry use;
+- absent-relation denial, authorized unknown-ID `404`, malformed cursor `400`, and full multi-page traversal without duplicates;
 - least-privilege tenant-reader denial from account/membership registries;
 - AdminApi startup classification/authentication/platform-permission consistency;
+- AdminApi middleware execution of the permission and audit operation declared by trusted endpoint metadata, with no handler-selected permission;
 - CoreApi startup requirement for matching application-authorization metadata.
+- CoreApi pre-handler middleware execution of the validated typed application-authorization contract.
 
 Required dynamic acceptance commands:
 
@@ -120,7 +144,7 @@ The real-boundary runs must use PostgreSQL and OpenFGA Testcontainers and skip n
 
 ## Current receiving status
 
-The implementation and regression tests are present in the current working tree. The supplied offline SDK provides .NET SDK 10.0.401. A receiving workspace with Docker available has since executed the required checks against this exact source: `./eng/verify.sh` exits 0 with 745 passed / 0 failed / 0 skipped across 16 projects and a zero-warning, zero-error Release build, including `Application.AdminApi.Tests` 91/91 against real PostgreSQL 17 and OpenFGA using the real least-privilege `application_admin_api` role. Under the repository gate model this introduced ADM-006 responsibility therefore remains `BLOCKED` pending accountable gate-owner acceptance and the corrections recorded in its independent review, not pending environment availability; the previously accepted GATE-001 baseline remains accepted and is not regressed.
+The implementation and regression tests are present in the current working tree. The supplied offline SDK provides .NET SDK 10.0.401, but this sandbox has no locked NuGet package cache/network access and no Docker daemon/socket. Therefore the new code cannot be dynamically production-qualified here. Under the repository gate model this introduced ADM-006 responsibility remains `BLOCKED` on those exact receiving checks; the previously accepted GATE-001 baseline remains accepted and is not regressed by documentation wording.
 
 ## Requalification triggers
 

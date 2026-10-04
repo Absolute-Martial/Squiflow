@@ -22,6 +22,7 @@ internal static class AdminApiEndpointAccessValidation
             var requiresAuthentication = endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>().Count > 0;
             var allowsAnonymous = endpoint.Metadata.GetMetadata<IAllowAnonymous>() is not null;
             var permissions = endpoint.Metadata.GetOrderedMetadata<AdminEndpointPermissionMetadata>();
+            var auditOperations = endpoint.Metadata.GetOrderedMetadata<AdminEndpointAuditMetadata>();
             if (classifications[0].IsProtected != requiresAuthentication ||
                 (classifications[0].IsProtected && allowsAnonymous))
                 throw new InvalidOperationException("Admin API route authentication must match its declared access classification.");
@@ -30,10 +31,12 @@ internal static class AdminApiEndpointAccessValidation
             {
                 if (permissions.Count != 1 || !Enum.IsDefined(permissions[0].Permission))
                     throw new InvalidOperationException("Every protected Admin API route must declare exactly one recognized platform permission.");
+                if (auditOperations.Count != 1 || !Enum.IsDefined(auditOperations[0].Operation))
+                    throw new InvalidOperationException("Every protected Admin API route must declare exactly one recognized audit operation.");
             }
-            else if (permissions.Count != 0)
+            else if (permissions.Count != 0 || auditOperations.Count != 0)
             {
-                throw new InvalidOperationException("Public Admin API routes cannot declare platform permissions.");
+                throw new InvalidOperationException("Public Admin API routes cannot declare platform permissions or protected audit operations.");
             }
         }
     }

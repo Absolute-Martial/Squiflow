@@ -9,28 +9,23 @@ internal static class MembershipLifecycleEndpoint
     internal static Task<IResult> InviteAsync(
         Guid tenantId,
         HttpContext context,
-        PlatformAdminRequestAuthorizer authorizer,
         ManageTenantMembership manager) =>
-        CreateAsync(tenantId, false, context, authorizer, manager);
+        CreateAsync(tenantId, false, context, manager);
 
     internal static Task<IResult> BootstrapOwnerAsync(
         Guid tenantId,
         HttpContext context,
-        PlatformAdminRequestAuthorizer authorizer,
         ManageTenantMembership manager) =>
-        CreateAsync(tenantId, true, context, authorizer, manager);
+        CreateAsync(tenantId, true, context, manager);
 
     internal static async Task<IResult> TransitionAsync(
         Guid tenantId,
         Guid accountId,
         string operation,
         HttpContext context,
-        PlatformAdminRequestAuthorizer authorizer,
         ManageTenantMembership manager)
     {
-        var authorized = await authorizer.AuthorizeAsync(
-            context, $"membership_{operation}", PlatformAdminPermission.ManageMemberships).ConfigureAwait(false);
-        if (authorized.Access is null) return authorized.Failure!;
+        var access = AdminApiPlatformAuthorization.GetRequiredAccess(context);
         if (!TryKey(context, out var key, out var keyFailure)) return keyFailure!;
         var parsedOperation = operation switch
         {
@@ -57,21 +52,16 @@ internal static class MembershipLifecycleEndpoint
         {
             return BoundedAdminJson.Problem(400, "invalid_membership_request", "The membership request is invalid.");
         }
-        return Result(await manager.ExecuteAsync(Actor(authorized), intent, context.RequestAborted).ConfigureAwait(false));
+        return Result(await manager.ExecuteAsync(Actor(access), intent, context.RequestAborted).ConfigureAwait(false));
     }
 
     private static async Task<IResult> CreateAsync(
         Guid tenantId,
         bool owner,
         HttpContext context,
-        PlatformAdminRequestAuthorizer authorizer,
         ManageTenantMembership manager)
     {
-        var authorized = await authorizer.AuthorizeAsync(
-            context,
-            owner ? "membership_bootstrap_owner" : "membership_invite",
-            PlatformAdminPermission.ManageMemberships).ConfigureAwait(false);
-        if (authorized.Access is null) return authorized.Failure!;
+        var access = AdminApiPlatformAuthorization.GetRequiredAccess(context);
         if (!TryKey(context, out var key, out var keyFailure)) return keyFailure!;
         var payload = await BoundedAdminJson.ReadObjectAsync(context.Request, context.RequestAborted).ConfigureAwait(false);
         using var document = payload.Document;
@@ -89,11 +79,11 @@ internal static class MembershipLifecycleEndpoint
         {
             return BoundedAdminJson.Problem(400, "invalid_membership_request", "The membership request is invalid.");
         }
-        return Result(await manager.ExecuteAsync(Actor(authorized), intent, context.RequestAborted).ConfigureAwait(false));
+        return Result(await manager.ExecuteAsync(Actor(access), intent, context.RequestAborted).ConfigureAwait(false));
     }
 
-    private static TenantMembershipAdministrationActor Actor(PlatformAdminRequestAuthorization authorization) =>
-        TenantMembershipAdministrationActor.Create(authorization.Access!.PrincipalId, authorization.Access.DeviceId);
+    private static TenantMembershipAdministrationActor Actor(PlatformAdminRequestAccess access) =>
+        TenantMembershipAdministrationActor.Create(access.PrincipalId, access.DeviceId);
 
     private static IResult Result(TenantMembershipLifecycleResult result)
     {

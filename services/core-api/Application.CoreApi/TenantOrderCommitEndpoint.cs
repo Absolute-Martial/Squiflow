@@ -29,10 +29,10 @@ internal static class TenantOrderCommitEndpoint
         }
 
         var authorizationFailure = await TenantOrderEndpoint.AuthorizeAsync(
+            httpContext,
             principal,
             access.TenantContext!,
             authorization,
-            CommitOrderRequirement.Instance,
             "The account is not permitted to commit orders in this tenant.",
             cancellationToken);
         if (authorizationFailure is not null)

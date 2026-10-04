@@ -16,7 +16,7 @@ internal static class TenantCustomerIndividualEndpoint
         CoreApiMutationDiagnostics diagnostics, CancellationToken ct)
     {
         var access = await TenantCustomerEndpoint.ResolveAsync(tenantId, http, principal, account, tenant,
-            authorization, CreateIndividualRequirement.Instance, ct);
+            authorization, ct);
         if (access.Failure is not null) return access.Failure;
         if (!TenantCustomerEndpoint.TryKey(http.Request, out var key)) return TenantCustomerEndpoint.Invalid("idempotency_key_invalid", "One Idempotency-Key header is required.");
         var payload = await TenantCustomerEndpoint.ReadPayloadAsync<CreateIndividualPayload>(http.Request, ct, strict: true);
@@ -48,7 +48,7 @@ internal static class TenantCustomerIndividualEndpoint
         IAuthorizationService authorization, GetCustomerIndividual query, CancellationToken ct)
     {
         var access = await TenantCustomerEndpoint.ResolveAsync(tenantId, http, principal, account, tenant,
-            authorization, ViewIndividualsRequirement.Instance, ct);
+            authorization, ct);
         if (access.Failure is not null) return access.Failure;
         try
         {
@@ -66,7 +66,7 @@ internal static class TenantCustomerIndividualEndpoint
         CoreApiMutationDiagnostics diagnostics, CancellationToken ct)
     {
         var access = await TenantCustomerEndpoint.ResolveAsync(tenantId, http, principal, account, tenant,
-            authorization, ChangeIndividualAvailabilityRequirement.Instance, ct);
+            authorization, ct);
         if (access.Failure is not null) return access.Failure;
         if (!TenantCustomerEndpoint.TryKey(http.Request, out var key)) return TenantCustomerEndpoint.Invalid("idempotency_key_invalid", "One Idempotency-Key header is required.");
         var payload = await TenantCustomerEndpoint.ReadPayloadAsync<IndividualAvailabilityPayload>(http.Request, ct, strict: true);

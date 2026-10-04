@@ -10,6 +10,8 @@ namespace Application.CoreApi;
 
 internal static class TenantRequestAccess
 {
+    private static readonly object ResolvedTenantContextKey = new();
+
     internal static async Task<TenantRequestAccessResult> ResolveAsync(
         Guid tenantId,
         HttpContext httpContext,
@@ -18,6 +20,17 @@ internal static class TenantRequestAccess
         ResolveTenantContext resolveTenantContext,
         CancellationToken cancellationToken)
     {
+        if (httpContext.Items.TryGetValue(ResolvedTenantContextKey, out var cachedValue) &&
+            cachedValue is TenantContext cachedContext)
+        {
+            if (cachedContext.TenantId != tenantId)
+            {
+                throw new InvalidOperationException("A request cannot resolve multiple tenant contexts.");
+            }
+
+            return TenantRequestAccessResult.Allowed(cachedContext);
+        }
+
         var candidate = httpContext.GetTenantInfo<TenantInfo>()?.Identifier;
         if (!Guid.TryParseExact(candidate, "D", out var candidateTenantId) ||
             candidateTenantId != tenantId)
@@ -54,6 +67,7 @@ internal static class TenantRequestAccess
                     ["code"] = "tenant_capacity_exceeded",
                     ["traceId"] = httpContext.TraceIdentifier,
                 }));
+        httpContext.Items[ResolvedTenantContextKey] = tenantContext;
         return TenantRequestAccessResult.Allowed(tenantContext);
     }
 

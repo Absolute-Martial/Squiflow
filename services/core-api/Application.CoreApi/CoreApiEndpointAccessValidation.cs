@@ -32,8 +32,28 @@ internal static class CoreApiEndpointAccessValidation
             var applicationAuthorization = endpoint.Metadata.GetOrderedMetadata<CoreApiApplicationAuthorizationMetadata>();
             if (classifications[0].RequiresApplicationAuthorization)
             {
-                if (applicationAuthorization.Count != 1 || applicationAuthorization[0].Access != classifications[0].Access)
-                    throw new InvalidOperationException("Every authorized Core API route must declare its application authorization requirement.");
+                if (!endpoint.RoutePattern.Parameters.Any(parameter =>
+                        string.Equals(parameter.Name, "tenantId", StringComparison.Ordinal)))
+                {
+                    throw new InvalidOperationException(
+                        "Every authorized Core API route must declare the tenantId route boundary.");
+                }
+
+                if (applicationAuthorization.Count != 1 ||
+                    applicationAuthorization[0].Access != classifications[0].Access ||
+                    applicationAuthorization[0].Requirements.Count == 0)
+                {
+                    throw new InvalidOperationException(
+                        "Every authorized Core API route must declare one non-empty application authorization contract.");
+                }
+
+                var expected = CoreApiApplicationAuthorizationContract.RequirementsFor(classifications[0].Access);
+                if (!applicationAuthorization[0].Requirements.Select(requirement => requirement.GetType())
+                    .SequenceEqual(expected.Select(requirement => requirement.GetType())))
+                {
+                    throw new InvalidOperationException(
+                        "Core API route application authorization must match its declared access contract.");
+                }
             }
             else if (applicationAuthorization.Count != 0)
             {

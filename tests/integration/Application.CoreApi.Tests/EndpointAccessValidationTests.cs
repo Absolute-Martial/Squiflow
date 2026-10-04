@@ -1,4 +1,6 @@
 using System.Net;
+using System.Security.Claims;
+using Application.CoreApi.Authorization;
 using Application.CoreApi;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -38,10 +40,59 @@ public sealed class EndpointAccessValidationTests : IClassFixture<WhiteLabelApiF
 
         var authorizedAccess = new EndpointAccessMetadata(EndpointAccess.AuthorizedTenantWorkspace);
         Assert.Throws<InvalidOperationException>(() => Validate(authorizedAccess, new AuthorizeAttribute()));
-        Assert.Throws<InvalidOperationException>(() => Validate(authorizedAccess, new AuthorizeAttribute(),
-            new CoreApiApplicationAuthorizationMetadata(EndpointAccess.AuthorizedTenantOrderRead)));
-        Validate(authorizedAccess, new AuthorizeAttribute(),
-            new CoreApiApplicationAuthorizationMetadata(EndpointAccess.AuthorizedTenantWorkspace));
+        Assert.Throws<InvalidOperationException>(() => ValidateTenant(authorizedAccess, new AuthorizeAttribute(),
+            new CoreApiApplicationAuthorizationMetadata(
+                EndpointAccess.AuthorizedTenantOrderRead,
+                CoreApiApplicationAuthorizationContract.RequirementsFor(EndpointAccess.AuthorizedTenantOrderRead))));
+        Assert.Throws<InvalidOperationException>(() => ValidateTenant(authorizedAccess, new AuthorizeAttribute(),
+            new CoreApiApplicationAuthorizationMetadata(
+                EndpointAccess.AuthorizedTenantWorkspace,
+                [ViewOrdersRequirement.Instance])));
+        Assert.Throws<InvalidOperationException>(() => Validate(
+            authorizedAccess,
+            new AuthorizeAttribute(),
+            new CoreApiApplicationAuthorizationMetadata(
+                EndpointAccess.AuthorizedTenantWorkspace,
+                CoreApiApplicationAuthorizationContract.RequirementsFor(EndpointAccess.AuthorizedTenantWorkspace))));
+        ValidateTenant(authorizedAccess, new AuthorizeAttribute(),
+            new CoreApiApplicationAuthorizationMetadata(
+                EndpointAccess.AuthorizedTenantWorkspace,
+                CoreApiApplicationAuthorizationContract.RequirementsFor(EndpointAccess.AuthorizedTenantWorkspace)));
+    }
+
+
+    [Fact]
+    public async Task RuntimeAuthorizationUsesTheValidatedEndpointDeclaration()
+    {
+        var access = EndpointAccess.AuthorizedTenantOrderCreation;
+        var declaration = new CoreApiApplicationAuthorizationMetadata(
+            access,
+            CoreApiApplicationAuthorizationContract.RequirementsFor(access));
+        var endpoint = new RouteEndpoint(
+            _ => Task.CompletedTask,
+            RoutePatternFactory.Parse("/test"),
+            0,
+            new EndpointMetadataCollection(
+                new EndpointAccessMetadata(access),
+                declaration,
+                new AuthorizeAttribute()),
+            "test route");
+        var context = new DefaultHttpContext();
+        context.SetEndpoint(endpoint);
+        var authorization = new RecordingAuthorizationService();
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", "test")], "test"));
+
+        var failure = await CoreApiDeclaredAuthorization.AuthorizeAsync(
+            context,
+            principal,
+            new object(),
+            authorization,
+            "denied");
+
+        Assert.Null(failure);
+        Assert.Equal(
+            [typeof(CreateOrderRequirement), typeof(ApplyManualPriceRequirement)],
+            authorization.RequirementTypes);
     }
 
     [Fact]
@@ -76,10 +127,36 @@ public sealed class EndpointAccessValidationTests : IClassFixture<WhiteLabelApiF
     }
 
     private static void Validate(params object[] metadata)
+        => ValidatePattern("/test", metadata);
+
+    private static void ValidateTenant(params object[] metadata)
+        => ValidatePattern("/test/{tenantId:guid}", metadata);
+
+    private static void ValidatePattern(string pattern, params object[] metadata)
     {
         var endpoint = new RouteEndpoint(
-            _ => Task.CompletedTask, RoutePatternFactory.Parse("/test"), 0,
+            _ => Task.CompletedTask, RoutePatternFactory.Parse(pattern), 0,
             new EndpointMetadataCollection(metadata), "test route");
         CoreApiEndpointAccessValidation.Validate([endpoint]);
+    }
+
+    private sealed class RecordingAuthorizationService : IAuthorizationService
+    {
+        internal Type[] RequirementTypes { get; private set; } = [];
+
+        public Task<AuthorizationResult> AuthorizeAsync(
+            ClaimsPrincipal user,
+            object? resource,
+            IEnumerable<IAuthorizationRequirement> requirements)
+        {
+            RequirementTypes = requirements.Select(requirement => requirement.GetType()).ToArray();
+            return Task.FromResult(AuthorizationResult.Success());
+        }
+
+        public Task<AuthorizationResult> AuthorizeAsync(
+            ClaimsPrincipal user,
+            object? resource,
+            string policyName) =>
+            throw new NotSupportedException();
     }
 }
