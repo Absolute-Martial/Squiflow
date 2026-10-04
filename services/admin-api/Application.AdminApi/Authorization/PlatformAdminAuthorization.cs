@@ -14,6 +14,9 @@ internal interface IPlatformAdminAuthorization
     Task<bool> CanLinkIdentityAsync(Guid platformPrincipalId, CancellationToken cancellationToken);
     Task<bool> CanManageMembershipsAsync(Guid platformPrincipalId, CancellationToken cancellationToken);
     Task<bool> CanManageTenantLifecycleAsync(Guid platformPrincipalId, CancellationToken cancellationToken);
+    Task<bool> CanReadTenantsAsync(Guid platformPrincipalId, CancellationToken cancellationToken);
+    Task<bool> CanReadAccountsAsync(Guid platformPrincipalId, CancellationToken cancellationToken);
+    Task<bool> CanReadMembershipsAsync(Guid platformPrincipalId, CancellationToken cancellationToken);
     Task<bool> IsReadyAsync(CancellationToken cancellationToken);
 }
 
@@ -29,6 +32,9 @@ internal sealed class OpenFgaPlatformAdminAuthorization(
     private const string LinkIdentityRelation = "can_link_identity";
     private const string ManageMembershipsRelation = "can_manage_memberships";
     private const string ManageTenantLifecycleRelation = "can_manage_tenant_lifecycle";
+    private const string ReadTenantsRelation = "can_read_tenants";
+    private const string ReadAccountsRelation = "can_read_accounts";
+    private const string ReadMembershipsRelation = "can_read_memberships";
     private static readonly Action<ILogger, string, Exception?> AuthorizationTimedOut =
         LoggerMessage.Define<string>(
             LogLevel.Warning,
@@ -86,6 +92,24 @@ internal sealed class OpenFgaPlatformAdminAuthorization(
     {
         ArgumentOutOfRangeException.ThrowIfEqual(platformPrincipalId, Guid.Empty);
         return CheckAsync($"user:{platformPrincipalId:N}", ManageTenantLifecycleRelation, cancellationToken);
+    }
+
+    public Task<bool> CanReadTenantsAsync(Guid platformPrincipalId, CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfEqual(platformPrincipalId, Guid.Empty);
+        return CheckAsync($"user:{platformPrincipalId:N}", ReadTenantsRelation, cancellationToken);
+    }
+
+    public Task<bool> CanReadAccountsAsync(Guid platformPrincipalId, CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfEqual(platformPrincipalId, Guid.Empty);
+        return CheckAsync($"user:{platformPrincipalId:N}", ReadAccountsRelation, cancellationToken);
+    }
+
+    public Task<bool> CanReadMembershipsAsync(Guid platformPrincipalId, CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfEqual(platformPrincipalId, Guid.Empty);
+        return CheckAsync($"user:{platformPrincipalId:N}", ReadMembershipsRelation, cancellationToken);
     }
 
     public async Task<bool> IsReadyAsync(CancellationToken cancellationToken)

@@ -35,6 +35,13 @@ public sealed class EndpointAccessValidationTests : IClassFixture<WhiteLabelApiF
 
         Validate(protectedAccess, new AuthorizeAttribute());
         Validate(publicAccess);
+
+        var authorizedAccess = new EndpointAccessMetadata(EndpointAccess.AuthorizedTenantWorkspace);
+        Assert.Throws<InvalidOperationException>(() => Validate(authorizedAccess, new AuthorizeAttribute()));
+        Assert.Throws<InvalidOperationException>(() => Validate(authorizedAccess, new AuthorizeAttribute(),
+            new CoreApiApplicationAuthorizationMetadata(EndpointAccess.AuthorizedTenantOrderRead)));
+        Validate(authorizedAccess, new AuthorizeAttribute(),
+            new CoreApiApplicationAuthorizationMetadata(EndpointAccess.AuthorizedTenantWorkspace));
     }
 
     [Fact]

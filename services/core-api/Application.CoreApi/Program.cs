@@ -66,7 +66,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapOpenApi("/openapi/{documentName}.json")
-    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.PublicApiDescription));
+    .WithCoreApiAccess(EndpointAccess.PublicApiDescription);
 
 app.MapGet("/api/v1/application/bootstrap", (BrandProfile brand, HttpResponse response) =>
     {
@@ -77,14 +77,14 @@ app.MapGet("/api/v1/application/bootstrap", (BrandProfile brand, HttpResponse re
     .WithName("GetApplicationBootstrap")
     .WithTags("Application")
     .WithSummary("Returns the public application identity used by presentation clients.")
-    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.PublicApplicationBootstrap))
+    .WithCoreApiAccess(EndpointAccess.PublicApplicationBootstrap)
     .Produces<BrandProfile>();
 
 app.MapGet("/api/v1/account", AuthenticatedAccountEndpoint.GetAsync)
     .WithName("GetAuthenticatedAccount")
     .WithTags("Account")
     .WithSummary("Resolves the validated external identity to its active application account.")
-    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthenticatedAccount))
+    .WithCoreApiAccess(EndpointAccess.AuthenticatedAccount)
     .RequireAuthorization()
     .Produces<AuthenticatedAccountResponse>()
     .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -97,7 +97,7 @@ app.MapGet("/api/v1/account/tenants", TenantMembershipEndpoint.ListAsync)
     .WithName("ListAuthenticatedAccountTenants")
     .WithTags("Account")
     .WithSummary("Lists current active tenant memberships for the active application account.")
-    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthenticatedTenantMemberships))
+    .WithCoreApiAccess(EndpointAccess.AuthenticatedTenantMemberships)
     .RequireAuthorization()
     .Produces<TenantMembershipResponse[]>()
     .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -110,7 +110,8 @@ app.MapGet("/api/v1/tenants/{tenantId:guid}/workspace", TenantWorkspaceEndpoint.
     .WithName("GetTenantWorkspace")
     .WithTags("Tenant")
     .WithSummary("Returns a tenant workspace after current membership and OpenFGA permission checks.")
-    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthorizedTenantWorkspace))
+    .WithCoreApiAccess(EndpointAccess.AuthorizedTenantWorkspace)
+    .WithCoreApiApplicationAuthorization(EndpointAccess.AuthorizedTenantWorkspace)
     .ProducesProblem(StatusCodes.Status429TooManyRequests)
     .RequireAuthorization()
     .Produces<TenantWorkspaceResponse>()
@@ -123,7 +124,8 @@ app.MapGet("/api/v1/tenants/{tenantId:guid}/workspace", TenantWorkspaceEndpoint.
 var organizations = "/api/v1/tenants/{tenantId:guid}/customers/organizations";
 app.MapPost(organizations, TenantCustomerEndpoint.CreateOrganizationAsync)
     .WithName("CreateCustomerOrganization").WithTags("Customers")
-    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthorizedCustomerOrganizationCreation))
+    .WithCoreApiAccess(EndpointAccess.AuthorizedCustomerOrganizationCreation)
+    .WithCoreApiApplicationAuthorization(EndpointAccess.AuthorizedCustomerOrganizationCreation)
     .ProducesProblem(StatusCodes.Status429TooManyRequests)
     .WithMetadata(new RequestSizeLimitAttribute(TenantCustomerEndpoint.MaximumCreateRequestBodyBytes))
     .RequireAuthorization().Accepts<TenantCustomerEndpoint.NamePayload>("application/json")
@@ -132,20 +134,23 @@ app.MapPost(organizations, TenantCustomerEndpoint.CreateOrganizationAsync)
     .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(409).ProducesProblem(413).ProducesProblem(503).ProducesProblem(500).ProducesProblem(504);
 app.MapGet(organizations, TenantCustomerEndpoint.ListOrganizationsAsync)
     .WithName("ListCustomerOrganizations").WithTags("Customers")
-    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthorizedCustomerOrganizationBrowse))
+    .WithCoreApiAccess(EndpointAccess.AuthorizedCustomerOrganizationBrowse)
+    .WithCoreApiApplicationAuthorization(EndpointAccess.AuthorizedCustomerOrganizationBrowse)
     .ProducesProblem(StatusCodes.Status429TooManyRequests)
     .RequireAuthorization().Produces<CustomerOrganizationPageResponse>()
     .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(503).ProducesProblem(500).ProducesProblem(504);
 app.MapGet(organizations + "/{organizationId:guid}", TenantCustomerEndpoint.GetOrganizationAsync)
     .WithName("GetCustomerOrganization").WithTags("Customers")
-    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthorizedCustomerOrganizationRead))
+    .WithCoreApiAccess(EndpointAccess.AuthorizedCustomerOrganizationRead)
+    .WithCoreApiApplicationAuthorization(EndpointAccess.AuthorizedCustomerOrganizationRead)
     .ProducesProblem(StatusCodes.Status429TooManyRequests)
     .RequireAuthorization().Produces<Application.Customers.CustomerOrganizationSnapshot>()
     .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(503).ProducesProblem(500).ProducesProblem(504);
 var programs = organizations + "/{organizationId:guid}/programs";
 app.MapPost(programs, TenantCustomerEndpoint.CreateProgramAsync)
     .WithName("CreateCustomerProgram").WithTags("Customers")
-    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthorizedCustomerProgramCreation))
+    .WithCoreApiAccess(EndpointAccess.AuthorizedCustomerProgramCreation)
+    .WithCoreApiApplicationAuthorization(EndpointAccess.AuthorizedCustomerProgramCreation)
     .ProducesProblem(StatusCodes.Status429TooManyRequests)
     .WithMetadata(new RequestSizeLimitAttribute(TenantCustomerEndpoint.MaximumCreateRequestBodyBytes))
     .RequireAuthorization().Accepts<TenantCustomerEndpoint.NamePayload>("application/json")
@@ -154,13 +159,15 @@ app.MapPost(programs, TenantCustomerEndpoint.CreateProgramAsync)
     .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409).ProducesProblem(413).ProducesProblem(503).ProducesProblem(500).ProducesProblem(504);
 app.MapGet(programs, TenantCustomerEndpoint.ListProgramsAsync)
     .WithName("ListCustomerPrograms").WithTags("Customers")
-    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthorizedCustomerProgramBrowse))
+    .WithCoreApiAccess(EndpointAccess.AuthorizedCustomerProgramBrowse)
+    .WithCoreApiApplicationAuthorization(EndpointAccess.AuthorizedCustomerProgramBrowse)
     .ProducesProblem(StatusCodes.Status429TooManyRequests)
     .RequireAuthorization().Produces<CustomerProgramPageResponse>()
     .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(503).ProducesProblem(500).ProducesProblem(504);
 app.MapGet(programs + "/{programId:guid}", TenantCustomerEndpoint.GetProgramAsync)
     .WithName("GetCustomerProgram").WithTags("Customers")
-    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthorizedCustomerProgramRead))
+    .WithCoreApiAccess(EndpointAccess.AuthorizedCustomerProgramRead)
+    .WithCoreApiApplicationAuthorization(EndpointAccess.AuthorizedCustomerProgramRead)
     .ProducesProblem(StatusCodes.Status429TooManyRequests)
     .RequireAuthorization().Produces<Application.Customers.CustomerProgramSnapshot>()
     .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(503).ProducesProblem(500).ProducesProblem(504);
@@ -170,7 +177,8 @@ app.MapPost("/api/v1/tenants/{tenantId:guid}/orders", TenantOrderEndpoint.Create
     .WithTags("Orders")
     .WithSummary("Creates a tenant order draft using a required Idempotency-Key header.")
     .WithDescription("Requires current tenant membership and both pinned OpenFGA can_create_order and can_apply_manual_price permissions.")
-    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthorizedTenantOrderCreation))
+    .WithCoreApiAccess(EndpointAccess.AuthorizedTenantOrderCreation)
+    .WithCoreApiApplicationAuthorization(EndpointAccess.AuthorizedTenantOrderCreation)
     .ProducesProblem(StatusCodes.Status429TooManyRequests)
     .WithMetadata(new RequestSizeLimitAttribute(TenantOrderEndpoint.MaximumCreateRequestBodyBytes))
     .RequireAuthorization()
@@ -191,7 +199,8 @@ app.MapPost("/api/v1/tenants/{tenantId:guid}/orders/price-preview", TenantOrderP
     .WithTags("Orders")
     .WithSummary("Calculates supplied draft selling prices without saving an order.")
     .WithDescription("Requires current tenant membership and both can_create_order and can_apply_manual_price. Returns line amounts rounded to four decimals using ToEven and their sum. This preview does not select or approve prices, create a quotation, reserve stock or commit a charge. No Idempotency-Key is required. Submit the full draft separately; creation validates it again.")
-    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthorizedTenantOrderPricePreview))
+    .WithCoreApiAccess(EndpointAccess.AuthorizedTenantOrderPricePreview)
+    .WithCoreApiApplicationAuthorization(EndpointAccess.AuthorizedTenantOrderPricePreview)
     .ProducesProblem(StatusCodes.Status429TooManyRequests)
     .WithMetadata(new RequestSizeLimitAttribute(TenantOrderPricePreviewEndpoint.MaximumRequestBodyBytes))
     .RequireAuthorization()
@@ -205,7 +214,8 @@ app.MapGet("/api/v1/tenants/{tenantId:guid}/orders", TenantOrderEndpoint.ListAsy
     .WithTags("Orders")
     .WithSummary("Returns a bounded page of tenant order drafts after current membership and OpenFGA permission checks.")
     .WithDescription("Requires current tenant membership and the pinned OpenFGA can_view_orders permission.")
-    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthorizedTenantOrderBrowse))
+    .WithCoreApiAccess(EndpointAccess.AuthorizedTenantOrderBrowse)
+    .WithCoreApiApplicationAuthorization(EndpointAccess.AuthorizedTenantOrderBrowse)
     .ProducesProblem(StatusCodes.Status429TooManyRequests)
     .RequireAuthorization()
     .Produces<OrderDraftPageResponse>()
@@ -221,7 +231,8 @@ app.MapGet("/api/v1/tenants/{tenantId:guid}/orders/{orderId:guid}", TenantOrderE
     .WithTags("Orders")
     .WithSummary("Returns a tenant order draft after current membership and OpenFGA permission checks.")
     .WithDescription("Requires current tenant membership and the pinned OpenFGA can_view_orders permission.")
-    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthorizedTenantOrderRead))
+    .WithCoreApiAccess(EndpointAccess.AuthorizedTenantOrderRead)
+    .WithCoreApiApplicationAuthorization(EndpointAccess.AuthorizedTenantOrderRead)
     .ProducesProblem(StatusCodes.Status429TooManyRequests)
     .RequireAuthorization()
     .Produces<OrderDraftResponse>()
@@ -238,7 +249,8 @@ app.MapGet("/api/v1/tenants/{tenantId:guid}/orders/{orderId:guid}/actions", Tena
     .WithTags("Orders")
     .WithSummary("Explains current revision, abandonment, and commitment availability for the observed draft.")
     .WithDescription("Requires current membership and can_view_orders. Availability combines the observed lifecycle with current can_edit_order plus can_apply_manual_price for revision, can_abandon_order for abandonment, and can_commit_order for commitment. This read changes nothing and grants no command authority. Commands independently recheck permission, expectedRevision and Idempotency-Key; guidance may become stale.")
-    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthorizedTenantOrderActions))
+    .WithCoreApiAccess(EndpointAccess.AuthorizedTenantOrderActions)
+    .WithCoreApiApplicationAuthorization(EndpointAccess.AuthorizedTenantOrderActions)
     .ProducesProblem(StatusCodes.Status429TooManyRequests)
     .RequireAuthorization()
     .Produces<OrderDraftActionsResponse>()
@@ -250,7 +262,8 @@ app.MapGet("/api/v1/tenants/{tenantId:guid}/orders/{orderId:guid}/history", Tena
     .WithTags("Orders")
     .WithSummary("Returns retained priced snapshots and actors for successful draft commands.")
     .WithDescription("Requires current membership and can_view_orders. Newest revision first; limit defaults to 5 and cannot exceed 10. Use nextBeforeRevision to request older revisions. History reads immutable command receipts and performs no mutation. This is draft history, not invoice or settlement history.")
-    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthorizedTenantOrderHistory))
+    .WithCoreApiAccess(EndpointAccess.AuthorizedTenantOrderHistory)
+    .WithCoreApiApplicationAuthorization(EndpointAccess.AuthorizedTenantOrderHistory)
     .ProducesProblem(StatusCodes.Status429TooManyRequests)
     .RequireAuthorization()
     .Produces<OrderDraftHistoryResponse>()
@@ -262,7 +275,8 @@ app.MapPut("/api/v1/tenants/{tenantId:guid}/orders/{orderId:guid}/draft", Tenant
     .WithTags("Orders")
     .WithSummary("Replaces a tenant order draft using an expected revision and Idempotency-Key.")
     .WithDescription("Requires current tenant membership and both pinned OpenFGA can_edit_order and can_apply_manual_price permissions, including full replacements that retain the same prices. Supply the complete priced draft with expectedRevision; an exact retry returns the committed result.")
-    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthorizedTenantOrderRevision))
+    .WithCoreApiAccess(EndpointAccess.AuthorizedTenantOrderRevision)
+    .WithCoreApiApplicationAuthorization(EndpointAccess.AuthorizedTenantOrderRevision)
     .ProducesProblem(StatusCodes.Status429TooManyRequests)
     .WithMetadata(new RequestSizeLimitAttribute(TenantOrderEndpoint.MaximumReviseRequestBodyBytes))
     .RequireAuthorization()
@@ -283,7 +297,8 @@ app.MapPost("/api/v1/tenants/{tenantId:guid}/orders/{orderId:guid}/abandon", Ten
     .WithTags("Orders")
     .WithSummary("Abandons a tenant order draft using an expected revision and Idempotency-Key.")
     .WithDescription("Requires current tenant membership and the pinned OpenFGA can_abandon_order permission. Supply JSON {\"expectedRevision\":1} and one Idempotency-Key header; an exact retry returns the committed result.")
-    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthorizedTenantOrderAbandon))
+    .WithCoreApiAccess(EndpointAccess.AuthorizedTenantOrderAbandon)
+    .WithCoreApiApplicationAuthorization(EndpointAccess.AuthorizedTenantOrderAbandon)
     .ProducesProblem(StatusCodes.Status429TooManyRequests)
     .WithMetadata(new RequestSizeLimitAttribute(TenantOrderEndpoint.MaximumAbandonRequestBodyBytes))
     .RequireAuthorization()
@@ -303,7 +318,8 @@ app.MapPost("/api/v1/tenants/{tenantId:guid}/orders/{orderId:guid}/commit", Tena
     .WithTags("Orders")
     .WithSummary("Commits the current priced order draft using an expected revision and Idempotency-Key.")
     .WithDescription("Requires current tenant membership and the pinned OpenFGA can_commit_order permission, including for retries. Supply JSON {\"expectedRevision\":1} and one Idempotency-Key header. Returns only commitment metadata; commitment does not bill, reserve stock or trigger fulfillment.")
-    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.AuthorizedTenantOrderCommit))
+    .WithCoreApiAccess(EndpointAccess.AuthorizedTenantOrderCommit)
+    .WithCoreApiApplicationAuthorization(EndpointAccess.AuthorizedTenantOrderCommit)
     .ProducesProblem(StatusCodes.Status429TooManyRequests)
     .WithMetadata(new RequestSizeLimitAttribute(TenantOrderEndpoint.MaximumAbandonRequestBodyBytes))
     .RequireAuthorization()
@@ -324,7 +340,7 @@ app.MapHealthChecks("/health/live", new HealthCheckOptions
 {
     Predicate = static _ => false,
 })
-    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.PublicLiveness));
+    .WithCoreApiAccess(EndpointAccess.PublicLiveness);
 
 app.MapGet("/health/ready", async (ReadinessStatusCache cache, HttpContext context) =>
     {
@@ -333,7 +349,7 @@ app.MapGet("/health/ready", async (ReadinessStatusCache cache, HttpContext conte
             ? Results.StatusCode(StatusCodes.Status200OK)
             : Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
     })
-    .WithMetadata(new EndpointAccessMetadata(EndpointAccess.PublicReadiness))
+    .WithCoreApiAccess(EndpointAccess.PublicReadiness)
     .ExcludeFromDescription();
 
 app.ValidateCoreApiEndpointAccess();

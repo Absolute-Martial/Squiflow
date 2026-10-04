@@ -13,6 +13,9 @@ internal enum PlatformAdminPermission
     LinkIdentity = 4,
     ManageMemberships = 5,
     ManageTenantLifecycle = 6,
+    ReadTenants = 7,
+    ReadAccounts = 8,
+    ReadMemberships = 9,
 }
 
 internal sealed record PlatformAdminRequestAccess(Guid PrincipalId, Guid DeviceId);
@@ -28,10 +31,22 @@ internal sealed class PlatformAdminRequestAuthorizer(
     IPlatformAdminAuthorization authorization,
     TimeProvider timeProvider)
 {
-    internal async Task<PlatformAdminRequestAuthorization> AuthorizeAsync(
+    internal Task<PlatformAdminRequestAuthorization> AuthorizeAsync(
         HttpContext context,
         string auditOperation,
-        PlatformAdminPermission permission)
+        PlatformAdminPermission permission) =>
+        AuthorizeCoreAsync(context, auditOperation, permission, recordAudit: true);
+
+    internal Task<PlatformAdminRequestAuthorization> AuthorizeReadAsync(
+        HttpContext context,
+        PlatformAdminPermission permission) =>
+        AuthorizeCoreAsync(context, "registry_read", permission, recordAudit: false);
+
+    private async Task<PlatformAdminRequestAuthorization> AuthorizeCoreAsync(
+        HttpContext context,
+        string auditOperation,
+        PlatformAdminPermission permission,
+        bool recordAudit)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentException.ThrowIfNullOrWhiteSpace(auditOperation);
@@ -72,7 +87,7 @@ internal sealed class PlatformAdminRequestAuthorizer(
             .ConfigureAwait(false);
         if (certificate is null)
         {
-            await AppendAuditAsync(
+            if (recordAudit) await AppendAuditAsync(
                 administrator,
                 null,
                 null,
@@ -95,7 +110,7 @@ internal sealed class PlatformAdminRequestAuthorizer(
             context.RequestAborted).ConfigureAwait(false);
         if (access is null)
         {
-            await AppendAuditAsync(
+            if (recordAudit) await AppendAuditAsync(
                 administrator,
                 fingerprint,
                 null,
@@ -133,12 +148,21 @@ internal sealed class PlatformAdminRequestAuthorizer(
                 PlatformAdminPermission.ManageTenantLifecycle => await authorization
                     .CanManageTenantLifecycleAsync(access.PrincipalId, context.RequestAborted)
                     .ConfigureAwait(false),
+                PlatformAdminPermission.ReadTenants => await authorization
+                    .CanReadTenantsAsync(access.PrincipalId, context.RequestAborted)
+                    .ConfigureAwait(false),
+                PlatformAdminPermission.ReadAccounts => await authorization
+                    .CanReadAccountsAsync(access.PrincipalId, context.RequestAborted)
+                    .ConfigureAwait(false),
+                PlatformAdminPermission.ReadMemberships => await authorization
+                    .CanReadMembershipsAsync(access.PrincipalId, context.RequestAborted)
+                    .ConfigureAwait(false),
                 _ => throw new InvalidOperationException("Unknown Platform Admin permission."),
             };
         }
         catch (AdminAuthorizationProviderUnavailableException)
         {
-            await AppendAuditAsync(
+            if (recordAudit) await AppendAuditAsync(
                 administrator,
                 fingerprint,
                 access.PrincipalId,
@@ -152,7 +176,7 @@ internal sealed class PlatformAdminRequestAuthorizer(
 
         if (!allowed)
         {
-            await AppendAuditAsync(
+            if (recordAudit) await AppendAuditAsync(
                 administrator,
                 fingerprint,
                 access.PrincipalId,
@@ -167,7 +191,7 @@ internal sealed class PlatformAdminRequestAuthorizer(
                 "Platform Admin access denied.");
         }
 
-        await AppendAuditAsync(
+        if (recordAudit) await AppendAuditAsync(
             administrator,
             fingerprint,
             access.PrincipalId,

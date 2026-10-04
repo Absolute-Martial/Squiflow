@@ -35,4 +35,24 @@ internal sealed record EndpointAccessMetadata(EndpointAccess Access)
         and not EndpointAccess.PublicApiDescription
         and not EndpointAccess.PublicLiveness
         and not EndpointAccess.PublicReadiness;
+
+    internal bool RequiresApplicationAuthorization =>
+        IsProtected && Access is not EndpointAccess.AuthenticatedAccount and not EndpointAccess.AuthenticatedTenantMemberships;
+}
+
+internal sealed record CoreApiApplicationAuthorizationMetadata(EndpointAccess Access);
+
+internal static class CoreApiEndpointAccessExtensions
+{
+    internal static TBuilder WithCoreApiAccess<TBuilder>(this TBuilder builder, EndpointAccess access) where TBuilder : IEndpointConventionBuilder
+    {
+        builder.WithMetadata(new EndpointAccessMetadata(access));
+        return builder;
+    }
+
+    internal static TBuilder WithCoreApiApplicationAuthorization<TBuilder>(this TBuilder builder, EndpointAccess access) where TBuilder : IEndpointConventionBuilder
+    {
+        builder.WithMetadata(new CoreApiApplicationAuthorizationMetadata(access));
+        return builder;
+    }
 }

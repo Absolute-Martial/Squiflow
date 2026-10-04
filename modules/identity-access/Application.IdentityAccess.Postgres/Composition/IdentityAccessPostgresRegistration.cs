@@ -15,6 +15,7 @@ public static class IdentityAccessPostgresRegistration
                 serviceProvider.GetRequiredService<NpgsqlDataSource>()));
         services.AddScoped<IAccountBindingDirectory, PostgresAccountBindingDirectory>();
         services.AddScoped<IAccountDirectory, PostgresAccountDirectory>();
+        services.AddScoped<IPlatformAccountRegistry, PostgresPlatformAccountRegistry>();
         services.AddScoped<IAccountOnboardingStore, PostgresAccountOnboardingStore>();
         services.AddScoped<ResolveAccountBinding>();
         services.AddScoped<AccountOnboarding>();

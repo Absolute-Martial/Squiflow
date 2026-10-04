@@ -26,7 +26,18 @@ internal static class CoreApiEndpointAccessValidation
             if (classifications[0].IsProtected != requiresAuthorization ||
                 (classifications[0].IsProtected && allowsAnonymous))
             {
-                throw new InvalidOperationException("Core API route authorization must match its declared access classification.");
+                throw new InvalidOperationException("Core API route authentication must match its declared access classification.");
+            }
+
+            var applicationAuthorization = endpoint.Metadata.GetOrderedMetadata<CoreApiApplicationAuthorizationMetadata>();
+            if (classifications[0].RequiresApplicationAuthorization)
+            {
+                if (applicationAuthorization.Count != 1 || applicationAuthorization[0].Access != classifications[0].Access)
+                    throw new InvalidOperationException("Every authorized Core API route must declare its application authorization requirement.");
+            }
+            else if (applicationAuthorization.Count != 0)
+            {
+                throw new InvalidOperationException("Core API routes without application authorization cannot declare an application authorization requirement.");
             }
         }
     }

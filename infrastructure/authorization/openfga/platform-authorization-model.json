@@ -43,6 +43,48 @@
           "computedUserset": {
             "relation": "administrator"
           }
+        },
+        "can_read_tenants": {
+          "union": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "administrator"
+                }
+              },
+              {
+                "this": {}
+              }
+            ]
+          }
+        },
+        "can_read_accounts": {
+          "union": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "administrator"
+                }
+              },
+              {
+                "this": {}
+              }
+            ]
+          }
+        },
+        "can_read_memberships": {
+          "union": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "administrator"
+                }
+              },
+              {
+                "this": {}
+              }
+            ]
+          }
         }
       },
       "metadata": {
@@ -71,6 +113,27 @@
           },
           "can_manage_tenant_lifecycle": {
             "directly_related_user_types": []
+          },
+          "can_read_tenants": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
+          },
+          "can_read_accounts": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
+          },
+          "can_read_memberships": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
           }
         }
       }

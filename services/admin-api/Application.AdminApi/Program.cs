@@ -100,16 +100,19 @@ app.MapGet(
 
 app.MapGet("/api/v1/platform/access", PlatformAdminAccessEndpoint.GetAsync)
     .WithMetadata(new AdminEndpointAccessMetadata(AdminEndpointAccess.ProtectedPlatformAdministration))
+    .WithMetadata(new AdminEndpointPermissionMetadata(PlatformAdminPermission.Access))
     .RequireAuthorization()
     .RequireRateLimiting(AdminApiAdmission.PolicyName);
 
 app.MapPost("/api/v1/platform/tenants", TenantProvisioningEndpoint.PostAsync)
     .WithMetadata(new AdminEndpointAccessMetadata(AdminEndpointAccess.ProtectedPlatformAdministration))
+    .WithMetadata(new AdminEndpointPermissionMetadata(PlatformAdminPermission.ProvisionTenant))
     .RequireAuthorization()
     .RequireRateLimiting(AdminApiAdmission.PolicyName);
 
 app.MapPost("/api/v1/platform/accounts", AccountOnboardingEndpoint.PostAsync)
     .WithMetadata(new AdminEndpointAccessMetadata(AdminEndpointAccess.ProtectedPlatformAdministration))
+    .WithMetadata(new AdminEndpointPermissionMetadata(PlatformAdminPermission.OnboardAccount))
     .RequireAuthorization()
     .RequireRateLimiting(AdminApiAdmission.PolicyName);
 
@@ -117,6 +120,7 @@ app.MapPost(
         "/api/v1/platform/accounts/{accountId:guid}/identities",
         AccountOnboardingEndpoint.LinkAsync)
     .WithMetadata(new AdminEndpointAccessMetadata(AdminEndpointAccess.ProtectedPlatformAdministration))
+    .WithMetadata(new AdminEndpointPermissionMetadata(PlatformAdminPermission.LinkIdentity))
     .RequireAuthorization()
     .RequireRateLimiting(AdminApiAdmission.PolicyName);
 
@@ -124,6 +128,7 @@ app.MapPost(
         "/api/v1/platform/tenants/{tenantId:guid}/memberships",
         MembershipLifecycleEndpoint.InviteAsync)
     .WithMetadata(new AdminEndpointAccessMetadata(AdminEndpointAccess.ProtectedPlatformAdministration))
+    .WithMetadata(new AdminEndpointPermissionMetadata(PlatformAdminPermission.ManageMemberships))
     .RequireAuthorization()
     .RequireRateLimiting(AdminApiAdmission.PolicyName);
 
@@ -131,6 +136,7 @@ app.MapPost(
         "/api/v1/platform/tenants/{tenantId:guid}/memberships/initial-owner",
         MembershipLifecycleEndpoint.BootstrapOwnerAsync)
     .WithMetadata(new AdminEndpointAccessMetadata(AdminEndpointAccess.ProtectedPlatformAdministration))
+    .WithMetadata(new AdminEndpointPermissionMetadata(PlatformAdminPermission.ManageMemberships))
     .RequireAuthorization()
     .RequireRateLimiting(AdminApiAdmission.PolicyName);
 
@@ -138,6 +144,7 @@ app.MapPost(
         "/api/v1/platform/tenants/{tenantId:guid}/memberships/{accountId:guid}/{operation}",
         MembershipLifecycleEndpoint.TransitionAsync)
     .WithMetadata(new AdminEndpointAccessMetadata(AdminEndpointAccess.ProtectedPlatformAdministration))
+    .WithMetadata(new AdminEndpointPermissionMetadata(PlatformAdminPermission.ManageMemberships))
     .RequireAuthorization()
     .RequireRateLimiting(AdminApiAdmission.PolicyName);
 
@@ -145,8 +152,48 @@ app.MapPost(
         "/api/v1/platform/tenants/{tenantId:guid}/lifecycle/{operation}",
         TenantLifecycleEndpoint.PostAsync)
     .WithMetadata(new AdminEndpointAccessMetadata(AdminEndpointAccess.ProtectedPlatformAdministration))
+    .WithMetadata(new AdminEndpointPermissionMetadata(PlatformAdminPermission.ManageTenantLifecycle))
     .RequireAuthorization()
     .RequireRateLimiting(AdminApiAdmission.PolicyName);
+
+
+app.MapGet("/api/v1/platform/tenants", PlatformRegistryEndpoint.BrowseTenantsAsync)
+    .WithMetadata(new AdminEndpointAccessMetadata(AdminEndpointAccess.ProtectedPlatformAdministration))
+    .WithMetadata(new AdminEndpointPermissionMetadata(PlatformAdminPermission.ReadTenants))
+    .RequireAuthorization()
+    .RequireRateLimiting(AdminApiAdmission.PolicyName);
+
+app.MapGet("/api/v1/platform/tenants/{tenantId:guid}", PlatformRegistryEndpoint.GetTenantAsync)
+    .WithMetadata(new AdminEndpointAccessMetadata(AdminEndpointAccess.ProtectedPlatformAdministration))
+    .WithMetadata(new AdminEndpointPermissionMetadata(PlatformAdminPermission.ReadTenants))
+    .RequireAuthorization()
+    .RequireRateLimiting(AdminApiAdmission.PolicyName);
+
+app.MapGet("/api/v1/platform/accounts", PlatformRegistryEndpoint.BrowseAccountsAsync)
+    .WithMetadata(new AdminEndpointAccessMetadata(AdminEndpointAccess.ProtectedPlatformAdministration))
+    .WithMetadata(new AdminEndpointPermissionMetadata(PlatformAdminPermission.ReadAccounts))
+    .RequireAuthorization()
+    .RequireRateLimiting(AdminApiAdmission.PolicyName);
+
+app.MapGet("/api/v1/platform/accounts/{accountId:guid}", PlatformRegistryEndpoint.GetAccountAsync)
+    .WithMetadata(new AdminEndpointAccessMetadata(AdminEndpointAccess.ProtectedPlatformAdministration))
+    .WithMetadata(new AdminEndpointPermissionMetadata(PlatformAdminPermission.ReadAccounts))
+    .RequireAuthorization()
+    .RequireRateLimiting(AdminApiAdmission.PolicyName);
+
+app.MapGet("/api/v1/platform/tenants/{tenantId:guid}/memberships", PlatformRegistryEndpoint.BrowseMembershipsAsync)
+    .WithMetadata(new AdminEndpointAccessMetadata(AdminEndpointAccess.ProtectedPlatformAdministration))
+    .WithMetadata(new AdminEndpointPermissionMetadata(PlatformAdminPermission.ReadMemberships))
+    .RequireAuthorization()
+    .RequireRateLimiting(AdminApiAdmission.PolicyName);
+
+app.MapGet("/api/v1/platform/tenants/{tenantId:guid}/memberships/{accountId:guid}", PlatformRegistryEndpoint.GetMembershipAsync)
+    .WithMetadata(new AdminEndpointAccessMetadata(AdminEndpointAccess.ProtectedPlatformAdministration))
+    .WithMetadata(new AdminEndpointPermissionMetadata(PlatformAdminPermission.ReadMemberships))
+    .RequireAuthorization()
+    .RequireRateLimiting(AdminApiAdmission.PolicyName);
+
+app.ValidateAdminApiEndpointAccess();
 
 await app.RunAsync();
 

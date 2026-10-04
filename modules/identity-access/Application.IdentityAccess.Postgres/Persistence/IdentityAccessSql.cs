@@ -7,6 +7,8 @@ internal static class IdentityAccessSql
     internal static readonly string FindLinkReceipt = Load(nameof(FindLinkReceipt));
     internal static readonly string FindBinding = Load(nameof(FindBinding));
     internal static readonly string FindAccountAvailability = Load(nameof(FindAccountAvailability));
+    internal static readonly string FindPlatformAccount = Load(nameof(FindPlatformAccount));
+    internal static readonly string BrowsePlatformAccounts = Load(nameof(BrowsePlatformAccounts));
     internal static readonly string LockAccount = Load(nameof(LockAccount));
     internal static readonly string InsertAccount = Load(nameof(InsertAccount));
     internal static readonly string InsertBinding = Load(nameof(InsertBinding));

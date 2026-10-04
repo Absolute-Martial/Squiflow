@@ -101,10 +101,19 @@
     "catalog_tasks_validated": 119,
     "review_links_checked": 173,
     "head_at_review_start": "18aae19d7441018bc186b902bd5b61beddd5169e",
-    "head_at_packaging": "18aae19d7441018bc186b902bd5b61beddd5169e",
+    "head_at_packaging": "6c494f4aa8e5d004c18810bcc0d38f275c8f6dfb",
     "git_head_change_during_package_validation": "NONE; HEAD matches the current baseline",
     "serial_dependency_order": "PASS including conditional edges",
-    "baseline_selected_files_changed_since_review_start": [],
+    "baseline_selected_files_changed_since_review_start": [
+      "AGENTS.md",
+      "README.IMPLEMENTATION.md",
+      "docs/development-tasks/TASK_HASHES.sha256",
+      "docs/development-tasks/TASK_STATUS.md",
+      "docs/development-tasks/phase-01-admin-platform/ADM-003_review-route-access-readiness-and-admission-gaps.md",
+      "docs/implementation/ADMIN_API_REQUEST_BUDGETS.md",
+      "docs/production-completion-review/evidence/FIRST-SEQUENCE-CURRENT-HEAD.md",
+      "docs/implementation/CORE_API_REQUEST_BUDGETS.md"
+    ],
     "working_tree_reconciliation_is_part_of_baseline": true,
     "dynamic_build_test_security_load_restore_checks": "NOT_RUN"
   },

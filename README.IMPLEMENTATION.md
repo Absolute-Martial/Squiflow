@@ -16,7 +16,7 @@ test projects:       16
 executable hosts:    4
 solution files:      1
 repository build/test contract: present
-BLOCKED: GATE-001 prerequisite handoff retention / independent ADM-003 acceptance / combined normal repository qualification on the exact integrated current source
+BLOCKED: ADM-006 bounded platform registry reads require receiving PostgreSQL/OpenFGA regressions and one normal repository qualification on the exact integrated current source
 ```
 
 ## What exists
@@ -32,7 +32,7 @@ BLOCKED: GATE-001 prerequisite handoff retention / independent ADM-003 acceptanc
 | Orders | `Application.Orders`, `.Postgres` | Priced order drafts: create, read, bounded browse, full revision, one-way abandonment and direct commitment of immutable priced facts, with optional customer/program attribution and caller-scoped semantic idempotency. |
 | Invoices | `Application.Invoices` | Host-neutral invoice-issue orchestration over committed Orders: current billing-authority port, caller-scoped idempotency/replay contract, NPR/revision/arithmetic validation, debtor resolution through Customers public queries, immutable retained issued-fact contracts and explicit safe outcomes. No PostgreSQL adapter, numbering/date policy implementation, HTTP surface or durable invoice runtime is introduced. |
 | CoreApi | `Application.CoreApi` | ASP.NET Core host: HTTP contract, JWT validation, Finbuckle route-candidate capture, ASP.NET resource authorization with pinned-model OpenFGA checks, Autofac root composition, the shared bounded Npgsql data source, safe unhandled-failure responses, process-local protected-request and verified-tenant concurrency admission, health endpoints, and bounded dormant tenant-keyed profile-runtime mechanics. |
-| AdminApi | `Application.AdminApi` | Private ASP.NET Core host with exact ZITADEL identity, active registered Admin-device certificate, pinned-model OpenFGA authorization, retained access audit, tenant provisioning, verified import/link of existing ZITADEL human identities into stable local accounts, and a bounded cooperative deadline on explicitly classified protected routes. |
+| AdminApi | `Application.AdminApi` | Private ASP.NET Core host with exact ZITADEL identity, active registered Admin-device certificate, pinned-model OpenFGA authorization, retained mutation-access audit, tenant provisioning, verified import/link of existing ZITADEL human identities into stable local accounts, bounded tenant/account/membership registry reads, and a bounded cooperative deadline on explicitly classified protected routes. |
 | AdminBootstrap | `Application.AdminBootstrap` | One-shot private infrastructure executable. It prepares/reuses the durable bootstrap intent, writes the initial administrator relation to the explicitly pinned platform OpenFGA model with duplicate-safe semantics, confirms access at higher consistency, then marks local bootstrap complete. It exposes no HTTP bootstrap endpoint. |
 | DatabaseMigrator | `Application.DatabaseMigrator` | One-shot ordered migration of IdentityAccess, Tenancy, PlatformAdministration, Customers and Orders under an advisory lock. |
 
@@ -67,6 +67,12 @@ Unhandled transient PostgreSQL failures return safe `503` / `database_unavailabl
 | `POST .../individuals/{individualId}/availability` | Current membership plus `individual_availability_editor`; expectedRevision and idempotency; contact-free transition response. |
 
 Every tenant route captures the route tenant only as an untrusted candidate (Finbuckle), establishes the current account, derives `TenantContext` from current membership, and only then checks OpenFGA. OpenFGA receives verified membership only as a contextual tuple, uses opaque GUID-based tuple identifiers, checks with `HIGHER_CONSISTENCY`, and fails closed with a bounded safe `503` when the provider is unavailable.
+
+## Current Phase 1 platform-registry slice
+
+GATE-001 is accepted for its declared backend-entry scope on baseline `7deba82d4c1a15dfc63acd660c8d99209b97f9c1`; its retained decision is `docs/production-completion-review/evidence/GATE-001-DECISION-7deba82.md`. ADM-006 is now implemented in the working tree with separate tenant/account/membership read permissions, bounded resource-typed v1 keyset pagination, current tenant/membership lifecycle revisions, no provider identity payloads, and no durable mutation by registry reads. AdminApi now fails startup for access-classification/authentication/platform-permission mismatch, and CoreApi requires an explicit application-authorization declaration for each `Authorized*` route in addition to ASP.NET authentication.
+
+The new ADM-006 source is not yet `PRODUCTION_HONEST` in this local receiving environment because its newly authored real PostgreSQL/OpenFGA tests and the exact post-change `./eng/verify.sh` cannot execute without the locked NuGet cache and Docker. Focused owner: `docs/implementation/ADMIN_API_PLATFORM_REGISTRY_READS.md`.
 
 ## Implemented HTTP surface (AdminApi)
 

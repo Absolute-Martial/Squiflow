@@ -44,3 +44,7 @@ operations. Those remain separate work governed by
 `docs/admin/ADMIN_SURFACES.md` and
 `docs/operations/PRIVATE_ADMIN_NETWORK_AND_PODMAN.md`. Tenant identity, membership,
 permissions and a private-network header are never substitutes for those gates.
+
+## Application-authorization declaration guard, 2026-10-04
+
+Every `Authorized*` CoreApi access classification now requires matching `CoreApiApplicationAuthorizationMetadata` in addition to `IAuthorizeData`. This makes the resource/OpenFGA authorization requirement visible to startup validation instead of allowing JWT authentication metadata alone to satisfy the guard. The actual current resource-specific permission checks remain in the established handlers; the metadata is a startup declaration and does not duplicate the provider call. Missing or mismatched application-authorization metadata fails startup.

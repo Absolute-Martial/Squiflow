@@ -24,7 +24,8 @@ internal static class CustomerIndividualRoutes
 
     private static RouteHandlerBuilder Configure(RouteHandlerBuilder endpoint, string name, EndpointAccess access) =>
         endpoint.WithName(name).WithTags("Customers")
-            .WithMetadata(new EndpointAccessMetadata(access))
+            .WithCoreApiAccess(access)
+            .WithCoreApiApplicationAuthorization(access)
             .WithMetadata(new RequestSizeLimitAttribute(TenantCustomerEndpoint.MaximumCreateRequestBodyBytes))
             .RequireAuthorization()
             .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(413)
