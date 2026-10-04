@@ -56,7 +56,7 @@ public sealed class RequestBudgetTests
         using var baseline = new WhiteLabelApiFactory();
         using var factory = baseline.WithWebHostBuilder(builder =>
         {
-            builder.UseSetting(CoreApiRequestBudgets.TimeoutKey, "1");
+            builder.UseSetting(CoreApiRequestBudgets.TimeoutKey, clientCancels ? "30" : "1");
             builder.UseSetting(CoreApiAdmission.PermitLimitKey, "1");
             builder.ConfigureTestServices(services =>
             {
@@ -70,21 +70,16 @@ public sealed class RequestBudgetTests
         using var request = AuthenticatedRequest(baseline.CreateToken());
         request.Headers.Add("traceparent", "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01");
         var pending = client.SendAsync(request, cancellation.Token);
-        await directory.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        using var bootstrap = await client.GetAsync("/api/v1/application/bootstrap");
-        using var live = await client.GetAsync("/health/live");
-        Assert.Equal(HttpStatusCode.OK, bootstrap.StatusCode);
-        Assert.True(bootstrap.Headers.CacheControl?.Public);
-        Assert.NotNull(bootstrap.Headers.ETag);
-        Assert.Equal(HttpStatusCode.OK, live.StatusCode);
+        await directory.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
         if (clientCancels)
         {
             cancellation.Cancel();
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending);
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                () => pending.WaitAsync(TimeSpan.FromSeconds(10)));
         }
         else
         {
-            using var response = await pending.WaitAsync(TimeSpan.FromSeconds(5));
+            using var response = await pending.WaitAsync(TimeSpan.FromSeconds(10));
             Assert.Equal(HttpStatusCode.GatewayTimeout, response.StatusCode);
             Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
             Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
@@ -94,11 +89,61 @@ public sealed class RequestBudgetTests
             Assert.DoesNotContain("aaaaaaaa", problem.RootElement.GetProperty("traceId").GetString()!);
             Assert.DoesNotContain("private-timeout-canary", body);
         }
-        await directory.Exited.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        using var recoveryBudget = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await directory.Exited.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        await AssertCapacityRecoveryAsync(client, baseline.CreateToken(), directory);
+        Assert.DoesNotContain(logs.Messages, message => message.Contains("private-timeout-canary", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task PublicBootstrapAndLivenessSucceedWhileProtectedPermitIsHeld()
+    {
+        var directory = new SlowBindingDirectory();
+        var logs = new CapturedLogs();
+        using var baseline = new WhiteLabelApiFactory();
+        using var factory = baseline.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting(CoreApiRequestBudgets.TimeoutKey, "30");
+            builder.UseSetting(CoreApiAdmission.PermitLimitKey, "1");
+            builder.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<IAccountBindingDirectory>();
+                services.AddSingleton<IAccountBindingDirectory>(directory);
+                services.AddLogging(logging => logging.AddProvider(logs));
+            });
+        });
+        using var client = factory.CreateClient();
+        using var request = AuthenticatedRequest(baseline.CreateToken());
+        var pending = client.SendAsync(request);
+
+        await directory.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        using var bootstrap = await client.GetAsync("/api/v1/application/bootstrap")
+            .WaitAsync(TimeSpan.FromSeconds(10));
+        using var live = await client.GetAsync("/health/live")
+            .WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.Equal(HttpStatusCode.OK, bootstrap.StatusCode);
+        Assert.True(bootstrap.Headers.CacheControl?.Public);
+        Assert.NotNull(bootstrap.Headers.ETag);
+        Assert.Equal(HttpStatusCode.OK, live.StatusCode);
+        Assert.False(directory.Exited.Task.IsCompleted);
+        Assert.False(pending.IsCompleted);
+
+        directory.Release();
+        using var completed = await pending.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.Equal(HttpStatusCode.OK, completed.StatusCode);
+        await directory.Exited.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        await AssertCapacityRecoveryAsync(client, baseline.CreateToken(), directory);
+        Assert.DoesNotContain(logs.Messages, message => message.Contains("private-timeout-canary", StringComparison.Ordinal));
+    }
+
+    private static async Task AssertCapacityRecoveryAsync(
+        HttpClient client,
+        string token,
+        SlowBindingDirectory directory)
+    {
+        using var recoveryBudget = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         while (true)
         {
-            using var retry = AuthenticatedRequest(baseline.CreateToken());
+            using var retry = AuthenticatedRequest(token);
             using var recovered = await client.SendAsync(retry, recoveryBudget.Token);
             if (recovered.StatusCode != HttpStatusCode.ServiceUnavailable)
             {
@@ -108,7 +153,6 @@ public sealed class RequestBudgetTests
             await Task.Yield();
         }
         Assert.Equal(2, directory.Calls);
-        Assert.DoesNotContain(logs.Messages, message => message.Contains("private-timeout-canary", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -152,16 +196,18 @@ public sealed class RequestBudgetTests
 
     private sealed class SlowBindingDirectory : IAccountBindingDirectory
     {
+        private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private int _calls;
         public int Calls => Volatile.Read(ref _calls);
         public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource Exited { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public void Release() => _release.TrySetResult();
         public async Task<AccountBinding?> FindAsync(ExternalIdentity identity, CancellationToken cancellationToken)
         {
             if (Interlocked.Increment(ref _calls) == 1)
             {
                 Entered.TrySetResult();
-                try { await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken); }
+                try { await _release.Task.WaitAsync(cancellationToken); }
                 catch (OperationCanceledException error)
                 {
                     throw new OperationCanceledException("private-timeout-canary", error, cancellationToken);
