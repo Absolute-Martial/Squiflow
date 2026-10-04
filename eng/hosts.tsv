@@ -1,0 +1,5 @@
+# host<TAB>project<TAB>owned verification projects separated by semicolons
+core-api	services/core-api/Application.CoreApi/Application.CoreApi.csproj	tests/integration/Application.CoreApi.Tests/Application.CoreApi.Tests.csproj
+admin-api	services/admin-api/Application.AdminApi/Application.AdminApi.csproj	tests/integration/Application.AdminApi.Tests/Application.AdminApi.Tests.csproj
+admin-bootstrap	services/admin-bootstrap/Application.AdminBootstrap/Application.AdminBootstrap.csproj	tests/integration/Application.AdminBootstrap.Tests/Application.AdminBootstrap.Tests.csproj
+db-migrator	services/db-migrator/Application.DatabaseMigrator/Application.DatabaseMigrator.csproj	tests/integration/Application.IdentityAccess.Postgres.Tests/Application.IdentityAccess.Postgres.Tests.csproj;tests/integration/Application.Tenancy.Postgres.Tests/Application.Tenancy.Postgres.Tests.csproj;tests/integration/Application.Customers.Postgres.Tests/Application.Customers.Postgres.Tests.csproj;tests/integration/Application.AdminBootstrap.Tests/Application.AdminBootstrap.Tests.csproj;tests/integration/Application.Orders.Postgres.Tests/Application.Orders.Postgres.Tests.csproj

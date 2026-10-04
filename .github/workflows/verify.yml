@@ -29,16 +29,18 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Verify repository
+      - name: Verify repository and material coverage
         env:
           COLLECT_COVERAGE: "1"
         run: ./eng/verify.sh
 
-      - name: Preserve coverage report
+      - name: Preserve coverage review
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: coverage-report
-          path: artifacts/coverage/report/
+          path: |
+            artifacts/coverage/report/
+            artifacts/coverage/material-review.txt
           if-no-files-found: error
           retention-days: 14
 
@@ -60,7 +62,7 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Verify host and its own test graph
+      - name: Verify host and its owned test graph
         run: ./eng/verify-host.sh "${{ matrix.host }}"
 
       - name: Publish this host
@@ -89,3 +91,25 @@ jobs:
         run: |
           dotnet restore tests/architecture/Application.Architecture.Tests/Application.Architecture.Tests.csproj --locked-mode
           dotnet test tests/architecture/Application.Architecture.Tests/Application.Architecture.Tests.csproj --configuration Release --no-restore
+
+  mutation:
+    name: Challenge order commitment invariant
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install repository SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - name: Run scoped mutation gate
+        run: ./eng/mutate-orders.sh
+      - name: Preserve mutation review
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: order-commitment-mutation
+          path: artifacts/mutation-orders/
+          if-no-files-found: error
+          retention-days: 14

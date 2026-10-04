@@ -93,7 +93,7 @@
     "catalog_validator": "AVAILABLE"
   },
   "production_qualification": "NOT_GRANTED",
-  "next_required_action": "Dispatch ADM-006 (bounded platform registry reads; deps ADM-002 + GATE-001 now satisfied). Decision-only units WEB-001, UIA-001, ADM-004 and ADM-008 remain independently dispatchable and unblock ADM-018/ADM-034.",
+  "next_required_action": "Run the OPS-017 exact-current-source dynamic qualification commands and inspect the corresponding GitHub Verify/Security jobs. COM-001 is complete; do not rerun commercial runtime qualification solely for its read-only map.",
   "package_review": {
     "reviewers_completed": 9,
     "review_model": "gpt-6-luna",
@@ -101,7 +101,7 @@
     "catalog_tasks_validated": 119,
     "review_links_checked": 173,
     "head_at_review_start": "18aae19d7441018bc186b902bd5b61beddd5169e",
-    "head_at_packaging": "6c494f4aa8e5d004c18810bcc0d38f275c8f6dfb",
+    "head_at_packaging": "c652db5e4ce722f3289dadddda6c0bcd5e1dcffa",
     "git_head_change_during_package_validation": "NONE; HEAD matches the current baseline",
     "serial_dependency_order": "PASS including conditional edges",
     "baseline_selected_files_changed_since_review_start": [
@@ -144,5 +144,22 @@
     "nuget_manifest": "docs/production-completion-review/evidence/GATE-001-NUGET-MANIFEST.json",
     "docker": "UNAVAILABLE",
     "normal_gate": "NOT_COMPLETED"
+  },
+  "current_work": {
+    "source_baseline": "c652db5e4ce722f3289dadddda6c0bcd5e1dcffa",
+    "OPS-017": {
+      "state": "BLOCKED",
+      "scope": "independent real-host CI and meaningful quality gates",
+      "source_status": "IMPLEMENTED",
+      "static_evidence": "host manifest and scripts; material coverage review; scoped mutation review; locked NuGet audit; pinned workflow actions; architecture drift guards",
+      "dynamic_acceptance": "PENDING: exact-current-source restore/build/test/publish/mutation/audit and corresponding GitHub jobs",
+      "environment_blocker": "dotnet 10.0.401 available; locked restore fails NU1301 because api.nuget.org:443 is unreachable; Docker/Podman unavailable"
+    },
+    "COM-001": {
+      "state": "PRODUCTION_HONEST",
+      "scope": "read-only commercial starting-point preservation map",
+      "runtime_claim": "NONE; no commercial runtime source changed and no new test pass is claimed",
+      "evidence": "docs/production-completion-review/evidence/COM-001.md"
+    }
   }
 }

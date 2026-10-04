@@ -1,0 +1,24 @@
+{
+  "criticalPaths": [
+    {
+      "path": "modules/orders/Application.Orders/OrderDraft.cs",
+      "reason": "Order pricing, revision and commitment state transitions are money-sensitive business invariants."
+    },
+    {
+      "path": "modules/invoices/Application.Invoices/InvoiceIssue.cs",
+      "reason": "Invoice issue freezes debtor and monetary facts and enforces decimal arithmetic bounds."
+    },
+    {
+      "path": "services/core-api/Application.CoreApi/Authorization/TenantAuthorization.cs",
+      "reason": "CoreApi tenant authorization is an authoritative OpenFGA security boundary."
+    },
+    {
+      "path": "services/admin-api/Application.AdminApi/Authorization/PlatformAdminAuthorization.cs",
+      "reason": "AdminApi platform authorization validates the pinned platform model and operator authority."
+    },
+    {
+      "path": "services/admin-api/Application.AdminApi/PlatformAdminRequestAuthorizer.cs",
+      "reason": "AdminApi pre-handler authorization binds declared endpoint permission to the enforced permission."
+    }
+  ]
+}

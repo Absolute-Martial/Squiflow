@@ -208,6 +208,69 @@ public sealed class ProjectBoundariesTests
         }
     }
 
+    [Fact]
+    public void HostManifestCoversEveryCurrentServiceAndTheCiMatrix()
+    {
+        var root = FindRepositoryRoot();
+        var manifest = File.ReadAllLines(Path.Combine(root, "eng", "hosts.tsv"))
+            .Where(line => !string.IsNullOrWhiteSpace(line) && !line.StartsWith('#'))
+            .Select(line => line.Split('\t'))
+            .ToArray();
+
+        Assert.All(manifest, fields => Assert.Equal(3, fields.Length));
+        Assert.Equal(manifest.Length, manifest.Select(fields => fields[0]).Distinct(StringComparer.Ordinal).Count());
+
+        var declaredProjects = manifest
+            .Select(fields => Path.GetFullPath(Path.Combine(root, fields[1])))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        var currentServiceProjects = LoadProjects(root)
+            .Where(project => project.Kind == ProjectKind.Executable &&
+                project.Path.StartsWith(Path.Combine(root, "services") + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+            .Select(project => project.Path)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        Assert.Equal(currentServiceProjects, declaredProjects);
+
+        foreach (var fields in manifest)
+        {
+            Assert.True(File.Exists(Path.Combine(root, fields[1])), $"Missing host project {fields[1]}.");
+            var tests = fields[2].Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            Assert.NotEmpty(tests);
+            Assert.All(tests, test =>
+                Assert.True(File.Exists(Path.Combine(root, test)), $"Missing host verification project {test}."));
+        }
+
+        var workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", "verify.yml"));
+        var matrix = Regex.Match(workflow, @"(?m)^\s*host:\s*\[(?<hosts>[^\]]+)\]", RegexOptions.CultureInvariant);
+        Assert.True(matrix.Success, "Verify workflow is missing the independent host matrix.");
+        var matrixHosts = matrix.Groups["hosts"].Value
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        Assert.Equal(manifest.Select(fields => fields[0]).Order(StringComparer.Ordinal), matrixHosts);
+    }
+
+    [Fact]
+    public void QualityWorkflowsKeepPinnedActionsAndMaterialGates()
+    {
+        var root = FindRepositoryRoot();
+        var verify = File.ReadAllText(Path.Combine(root, ".github", "workflows", "verify.yml"));
+        var security = File.ReadAllText(Path.Combine(root, ".github", "workflows", "security.yml"));
+
+        Assert.Contains("COLLECT_COVERAGE: \"1\"", verify, StringComparison.Ordinal);
+        Assert.Contains("./eng/mutate-orders.sh", verify, StringComparison.Ordinal);
+        Assert.Contains("./eng/audit-dependencies.sh", security, StringComparison.Ordinal);
+
+        foreach (var workflow in new[] { verify, security })
+        {
+            var uses = Regex.Matches(workflow, @"(?m)^\s*uses:\s*[^@\s]+@(?<revision>[^\s#]+)", RegexOptions.CultureInvariant);
+            Assert.NotEmpty(uses);
+            Assert.All(uses.Cast<Match>(), match =>
+                Assert.Matches("^[0-9a-f]{40}$", match.Groups["revision"].Value));
+        }
+    }
+
     private static string FindRepositoryRoot()
     {
         for (var directory = new DirectoryInfo(AppContext.BaseDirectory);

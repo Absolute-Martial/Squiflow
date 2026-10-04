@@ -31,6 +31,8 @@ if [[ "${COLLECT_COVERAGE:-0}" == "1" ]]; then
         "-targetdir:$coverage_root/report" \
         "-filefilters:-*/obj/*" \
         "-reporttypes:HtmlSummary;Cobertura;TextSummary"
+
+    python3 eng/review-coverage.py
 else
     dotnet test Application.slnx --configuration "$configuration" --no-build --no-restore
 fi

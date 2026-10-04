@@ -16,7 +16,7 @@ test projects:       16
 executable hosts:    4
 solution files:      1
 repository build/test contract: present
-BLOCKED: ADM-006 bounded platform registry reads require receiving PostgreSQL/OpenFGA regressions and one normal repository qualification on the exact integrated current source
+BLOCKED: ADM-006 bounded platform registry reads and the OPS-017 quality-gate expansion require exact-current-source dynamic qualification; COM-001 is complete as a read-only preservation map and adds no runtime claim
 ```
 
 ## What exists
