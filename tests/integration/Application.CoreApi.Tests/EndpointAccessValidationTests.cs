@@ -149,7 +149,10 @@ public sealed class EndpointAccessValidationTests : IClassFixture<WhiteLabelApiF
             object? resource,
             IEnumerable<IAuthorizationRequirement> requirements)
         {
-            RequirementTypes = requirements.Select(requirement => requirement.GetType()).ToArray();
+            // Declared requirements are authorized sequentially so evaluation can stop at the first
+            // denial. Accumulate every requirement the runtime actually asked about, in order,
+            // rather than only the most recent call.
+            RequirementTypes = [.. RequirementTypes, .. requirements.Select(requirement => requirement.GetType())];
             return Task.FromResult(AuthorizationResult.Success());
         }
 

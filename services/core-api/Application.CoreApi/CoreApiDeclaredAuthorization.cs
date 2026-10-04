@@ -41,13 +41,22 @@ internal static class CoreApiDeclaredAuthorization
             return null;
         }
 
-        AuthorizationResult decision;
+        AuthorizationResult? denied = null;
         try
         {
-            decision = await authorization.AuthorizeAsync(
-                principal,
-                resource,
-                declarations[0].Requirements).ConfigureAwait(false);
+            // Evaluate declared requirements in order and stop at the first failure. A combined
+            // policy would run every handler, so a caller who lacks the base order permission
+            // would still trigger the manual-pricing provider check. Sequential evaluation keeps
+            // the narrow permission the route actually depends on as the only one consulted.
+            foreach (var requirement in declarations[0].Requirements)
+            {
+                var result = await authorization.AuthorizeAsync(principal, resource, requirement).ConfigureAwait(false);
+                if (!result.Succeeded)
+                {
+                    denied = result;
+                    break;
+                }
+            }
         }
         catch (AuthorizationProviderUnavailableException)
         {
@@ -61,7 +70,7 @@ internal static class CoreApiDeclaredAuthorization
                 });
         }
 
-        return decision.Succeeded
+        return denied is null
             ? null
             : TenantRequestAccess.Problem("tenant_permission_denied", deniedDetail);
     }
