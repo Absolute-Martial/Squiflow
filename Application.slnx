@@ -6,6 +6,7 @@
     <Project Path="modules/customers/Application.Customers/Application.Customers.csproj" />
     <Project Path="modules/identity-access/Application.IdentityAccess.Postgres/Application.IdentityAccess.Postgres.csproj" />
     <Project Path="modules/identity-access/Application.IdentityAccess/Application.IdentityAccess.csproj" />
+    <Project Path="modules/invoices/Application.Invoices/Application.Invoices.csproj" />
     <Project Path="modules/orders/Application.Orders.Postgres/Application.Orders.Postgres.csproj" />
     <Project Path="modules/orders/Application.Orders/Application.Orders.csproj" />
     <Project Path="modules/platform-administration/Application.PlatformAdministration.Postgres/Application.PlatformAdministration.Postgres.csproj" />
@@ -32,6 +33,7 @@
     <Project Path="tests/unit/Application.Branding.Tests/Application.Branding.Tests.csproj" />
     <Project Path="tests/unit/Application.Customers.Tests/Application.Customers.Tests.csproj" />
     <Project Path="tests/unit/Application.IdentityAccess.Tests/Application.IdentityAccess.Tests.csproj" />
+    <Project Path="tests/unit/Application.Invoices.Tests/Application.Invoices.Tests.csproj" />
     <Project Path="tests/unit/Application.Tenancy.Tests/Application.Tenancy.Tests.csproj" />
     <Project Path="tests/unit/Application.Orders.Tests/Application.Orders.Tests.csproj" />
     <Project Path="tests/unit/Application.PlatformAdministration.Tests/Application.PlatformAdministration.Tests.csproj" />
