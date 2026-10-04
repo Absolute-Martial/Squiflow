@@ -1,0 +1,24 @@
+BAS-001 fresh source/assignment manifest — recorded by the monitoring agent, 2026-10-04T11:07:31Z
+
+SOURCE IDENTITY
+  full SHA:      7deba82d4c1a15dfc63acd660c8d99209b97f9c1
+  subject:        Ignore local tool cache directory
+  branch:         main
+  remote main:    7deba82d4c1a15dfc63acd660c8d99209b97f9c1
+  working tree:   clean at HEAD; no tracked file modified (git diff HEAD empty).
+                  Only untracked addition is this manifest/receipt set under
+                  docs/production-completion-review/evidence/. Recovered historical
+                  evidence lives under ignored artifacts/ (not part of the source baseline).
+
+PRODUCT VERSION
+  VERSION:            v0.0.1
+  CURRENT_VERSION.txt: v0.0.1
+
+CATALOG VALIDATION (no --refresh)
+  Validated 119 tasks: metadata, exact IDs, dependency DAG, prompts, scopes, evidence/security sections, local links, coverage routes and SHA-256 manifest.
+
+TOOLCHAIN / CAPABILITY
+  dotnet --version: 10.0.401
+  global.json:      10.0.401
+  docker server:    29.8.1
+  NuGet cache:      global-packages: /home/lets-smile/.nuget/packages/

@@ -8,6 +8,7 @@ non-blocking observation recorded below.
 | Assignment | `docs/production-completion-review/assignments/ADM-003-INDEPENDENT-REVIEW.md` |
 | Reviewer | opencode (Claude), acting as the retained acceptance reviewer for this repository |
 | Reviewed HEAD | `d7780894fb06375f50112073c2d15f656b454920` |
+| HEAD deviation | The assignment fixed the HEAD under qualification at `18aae19`. This review ran at `d778089`, a later commit. Both production authentication files are **byte-identical at `18aae19`, `d778089` and current `7deba82`**, so the reviewed production source is unchanged; only the test/doc paths listed below differ. |
 | Implementation under review | `6735370` "Skip bearer validation on public health routes in both hosts" (author: Shadow-Martial) |
 | Product version | `v0.0.1` |
 | Review date (UTC) | 2026-10-04 |
@@ -19,6 +20,33 @@ Source hashes of the two reviewed files at `d778089`:
 9bf70d077e134c2a914a7dd2d737b57167f12909055243814caa8bf5815d3272  CoreApiAuthenticationRegistration.cs
 a968c03d80dce2b47c368c591484e94c9fb2170c084ba41f3b19641e74876e25  AdminApiAuthenticationRegistration.cs
 ```
+
+Complete set of reviewed paths, so the executed evidence set is reproducible. The four
+non-production paths were also reviewed and have since changed:
+
+| Path | Reviewed hash | Current at `7deba82` | Provenance of reviewed value |
+|---|---|---|---|
+| `tests/integration/Application.AdminApi.Tests/PublicHealthBearerReviewTests.cs` | `3edc2031…` | differs | `3edc2031` = commit `4dc4082` |
+| `tests/integration/Application.CoreApi.Tests/PublicHealthBearerTests.cs` | `dff53e4f…` | differs | `dff53e4f` = commit `4dc4082` |
+| `docs/implementation/ADMIN_API_REQUEST_BUDGETS.md` | `36c943e6…` | differs | no commit in history (implementer source ZIP state) |
+| `docs/implementation/CORE_API_REQUEST_BUDGETS.md` | `bec8d00b…` | differs | no commit in history (implementer source ZIP state) |
+
+Those four deltas are test-harness watchdog separation and owner-document prose. **No
+assertion was weakened** — `Assert.False(discovery.Entered.IsCompleted)`,
+`Assert.Same(pending, completed)`, the caller-cancellation assertion and the `discovery.Exited`
+drain check are all intact — and they were re-verified on current source (§ Commands).
+
+### Load-bearing assumption, verified against primary source
+
+The `GetOrderedMetadata<IAuthorizeData>().Count == 0` conjunct is the single point that
+prevents a mis-tagged protected route from skipping bearer validation. It assumes that
+ASP.NET Core's `RequireAuthorization()` really contributes `IAuthorizeData` metadata — including
+its policy and callback overloads. This was verified against ASP.NET Core `v10.0.12`
+primary source (`JwtBearerHandler` message-received ordering, and
+`AuthorizationEndpointConventionBuilderExtensions`) rather than assumed. A behavioural
+backstop also exists: `PublicAuthMetadataHostReviewTests` registers a real route carrying both
+a public classification and `RequireAuthorization()` in both hosts and observes the handler
+being entered only for an authenticated caller.
 
 ## Reviewer independence disclosure
 
@@ -96,12 +124,16 @@ they do not merely assert a `200`.
 ```
 dotnet test tests/integration/Application.CoreApi.Tests -c Release \
   --filter "FullyQualifiedName~PublicHealthBearer|FullyQualifiedName~PublicAuthMetadata|FullyQualifiedName~EndpointAccessValidation"
+  → exit 0
   → Passed!  Failed: 0, Passed: 26, Skipped: 0, Total: 26
 
 dotnet test tests/integration/Application.AdminApi.Tests -c Release \
   --filter "FullyQualifiedName~PublicHealthBearer|FullyQualifiedName~PublicAuthMetadata"
+  → exit 0
   → Passed!  Failed: 0, Passed: 20, Skipped: 0, Total: 20
 ```
+
+Logs: `ADM-003-COREAPI-FOCUSED.log`, `ADM-003-ADMINAPI-FOCUSED.log`.
 
 Whole-repository normal gate on the reviewed HEAD, no overlapping build of this tree:
 
@@ -134,20 +166,47 @@ these results.
   authorization decision; protected routes remain governed by their existing authentication,
   current-authority and OpenFGA checks.
 
-## Observation (non-blocking, no correction required)
+## Residual observations (non-blocking, no correction required)
 
-CoreApi's skip condition covers four access values through `IsProtected == false`, while AdminApi
-targets the single value `PublicHealth`. The CoreApi form is broader by construction. It is correct
-today because the fail-closed classifier validation rejects unknown, duplicate and mismatched
-classifications, and because a mis-tagged protected route fails the `IsProtected` test. If public
-route kinds are ever added, the broader CoreApi condition will include them automatically — which is
-the desired behavior, but it means the safety of that route depends on the classifier validation
-remaining exhaustive. No change is requested by this review.
+Recorded from the second technical review pass; neither is a live defect at this baseline.
+
+1. **AdminApi has no startup classifier validation.** `services/admin-api/Application.AdminApi/Program.cs`
+   reaches `RunAsync()` without an equivalent of `CoreApiEndpointAccessValidation`. AdminApi's
+   mis-tag defense therefore rests solely on the `IAuthorizeData` conjunct. Current code is correct
+   — all eight protected routes carry `.RequireAuthorization()` — but a future protected AdminApi
+   route that both omitted it and was mis-tagged `PublicHealth` would silently skip bearer
+   validation. Mirroring the CoreApi startup classifier would close that.
+2. **CoreApi's OpenFGA authorization is in-handler** (`IAuthorizationService.AuthorizeAsync` from the
+   endpoint handlers), so it is invisible to the `IAuthorizeData` conjunct. A future route relying
+   only on in-handler authorization would pass startup classification validation and be skipped —
+   it would still deny an anonymous caller, so this is not an exposure, but it is worth recording.
+3. CoreApi's skip condition covers four access values through `IsProtected == false`, while AdminApi
+   targets the single value `PublicHealth`. The CoreApi form is broader by construction. It is correct
+   today because the fail-closed classifier validation rejects unknown, duplicate and mismatched
+   classifications, and because a mis-tagged protected route fails the `IsProtected` test. If public
+   route kinds are ever added, the broader CoreApi condition will include them automatically — which is
+   the desired behavior, but it means the safety of that route depends on the classifier validation
+   remaining exhaustive. No change is requested by this review.
 
 ## Retained evidence
 
 This receipt is retained at
-`docs/production-completion-review/evidence/ADM-003-INDEPENDENT-REVIEW-RECEIPT.md`, with the gate
-log at `docs/production-completion-review/evidence/ADM-003-GATE-LOG.txt` and the full repository gate
-output at `docs/production-completion-review/evidence/verify.log`. GATE-001 may cite this receipt for
+`docs/production-completion-review/evidence/ADM-003-INDEPENDENT-REVIEW-RECEIPT.md`, with the focused
+gate logs at `ADM-003-GATE-LOG.txt`, `ADM-003-COREAPI-FOCUSED.log` and
+`ADM-003-ADMINAPI-FOCUSED.log`, and the full repository gate output at
+`docs/production-completion-review/evidence/verify.log`. GATE-001 may cite this receipt for
 the ADM-003 condition; the remaining ADM-001/ADM-002/OPS-022 handoffs are still outstanding.
+
+## Requalification trigger
+
+Re-run both focused filters plus the unmatched-route review suite, and re-inspect both
+authentication registrations and their metadata types, if any of the following change:
+
+- either `*AuthenticationRegistration.cs` in `services/core-api` or `services/admin-api`;
+- `EndpointAccess.cs` / `EndpointAccessMetadata.IsProtected` or
+  `AdminEndpointAccess.cs` / `AdminEndpointAccessMetadata`;
+- `CoreApiEndpointAccessValidation` or the public-route registrations in either `Program.cs`;
+- the public-health bearer or public-auth-metadata test suites.
+
+A watchdog or harness change alone does not require requalification of this claim; a
+production authentication change does.

@@ -1,0 +1,17 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Application.Branding -> /cutiepie/Squiflow/modules/branding/Application.Branding/bin/Release/net10.0/Application.Branding.dll
+  Application.IdentityAccess -> /cutiepie/Squiflow/modules/identity-access/Application.IdentityAccess/bin/Release/net10.0/Application.IdentityAccess.dll
+  Application.Tenancy -> /cutiepie/Squiflow/modules/tenancy/Application.Tenancy/bin/Release/net10.0/Application.Tenancy.dll
+  Application.Tenancy.Postgres -> /cutiepie/Squiflow/modules/tenancy/Application.Tenancy.Postgres/bin/Release/net10.0/Application.Tenancy.Postgres.dll
+  Application.IdentityAccess.Postgres -> /cutiepie/Squiflow/modules/identity-access/Application.IdentityAccess.Postgres/bin/Release/net10.0/Application.IdentityAccess.Postgres.dll
+  Application.Customers -> /cutiepie/Squiflow/modules/customers/Application.Customers/bin/Release/net10.0/Application.Customers.dll
+  Application.Orders -> /cutiepie/Squiflow/modules/orders/Application.Orders/bin/Release/net10.0/Application.Orders.dll
+  Application.Customers.Postgres -> /cutiepie/Squiflow/modules/customers/Application.Customers.Postgres/bin/Release/net10.0/Application.Customers.Postgres.dll
+  Application.Orders.Postgres -> /cutiepie/Squiflow/modules/orders/Application.Orders.Postgres/bin/Release/net10.0/Application.Orders.Postgres.dll
+  Application.CoreApi -> /cutiepie/Squiflow/services/core-api/Application.CoreApi/bin/Release/net10.0/Application.CoreApi.dll
+  Application.CoreApi.Tests -> /cutiepie/Squiflow/tests/integration/Application.CoreApi.Tests/bin/Release/net10.0/Application.CoreApi.Tests.dll
+Test run for /cutiepie/Squiflow/tests/integration/Application.CoreApi.Tests/bin/Release/net10.0/Application.CoreApi.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    26, Skipped:     0, Total:    26, Duration: 6 s - Application.CoreApi.Tests.dll (net10.0)

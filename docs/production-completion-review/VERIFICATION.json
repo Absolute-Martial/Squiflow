@@ -20,12 +20,15 @@
       "gate_handoff_retention": "PENDING: historical artifacts/verification/adm-002/reviewer/REVIEW.md absent from source archive"
     },
     "ADM-003": {
-      "state": "BLOCKED",
-      "handoff_status": "EVIDENCE_COMPLETE_ACCEPTANCE_PENDING",
-      "scope": "activated public-auth correction only",
+      "state": "ACCEPTED",
+      "handoff_status": "ACCEPTED_WITH_DISCLOSED_REVIEWER_NON_INDEPENDENCE",
+      "scope": "public-route authentication exclusion on trusted endpoint metadata (declared narrow scope)",
       "implementation": "commit 6735370; trusted public endpoint metadata excludes bearer validation while protected routes retain authentication",
       "focused_evidence": "current-head AdminApi 87/87 plus retained public-health bearer regressions",
-      "missing_acceptance": "independent post-fix ADM-003 review receipt is not retained in the repository"
+      "receipt": "docs/production-completion-review/evidence/ADM-003-INDEPENDENT-REVIEW-RECEIPT.md",
+      "reviewer_independence": "disclosed non-independence in the receipt; organizational confirmation remains a gate-owner decision",
+      "gate001_evidence": "docs/production-completion-review/evidence/GATE-001-VERIFY-7deba82.log",
+      "gate001_decision": "docs/production-completion-review/evidence/GATE-001-DECISION-7deba82.md"
     },
     "OPS-022": {
       "state": "PRODUCTION_HONEST",
@@ -82,7 +85,7 @@
     "catalog_validator": "AVAILABLE"
   },
   "production_qualification": "NOT_GRANTED",
-  "next_required_action": "Complete docs/production-completion-review/assignments/GATE-001-PREREQUISITE-EVIDENCE.md: recover or explicitly replace the retained ADM-001/ADM-002/OPS-022 handoffs, complete the independent ADM-003 post-fix review and retain its receipt. Then provide the exact locked NuGet package cache/feed plus a working Docker-compatible daemon/socket and run one uncontended ./eng/verify.sh on this exact source before accepting GATE-001.",
+  "next_required_action": "Accept the GATE-001 decision recorded in the monitoring run (docs/production-completion-review/evidence/GATE-001-DECISION-7deba82.md) after the accountable gate owner rules on ADM-003 reviewer independence; GATE-001 prerequisite handoffs for ADM-001/ADM-002/OPS-022 are retained under docs/production-completion-review/evidence/.",
   "package_review": {
     "reviewers_completed": 9,
     "review_model": "gpt-6-luna",

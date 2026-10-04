@@ -1,0 +1,5 @@
+ADM-003 focused gate logs — retained evidence
+Source: 7deba82d4c1a15dfc63acd660c8d99209b97f9c1   Product version: v0.0.1   Recorded (UTC): 2026-10-04T11:58:24Z
+
+Full repository gate (./eng/verify.sh) at the receipt HEAD:
+  exit 0 | 741 passed | 0 failed | 0 skipped | 16/16 projects | 0 warnings | 0 errors

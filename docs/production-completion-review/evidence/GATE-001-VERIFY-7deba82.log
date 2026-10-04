@@ -1,0 +1,137 @@
+  Determining projects to restore...
+  Restored /tmp/opencode/clonetest/modules/tenancy/Application.Tenancy/Application.Tenancy.csproj (in 318 ms).
+  Restored /tmp/opencode/clonetest/modules/orders/Application.Orders/Application.Orders.csproj (in 324 ms).
+  Restored /tmp/opencode/clonetest/modules/platform-administration/Application.PlatformAdministration/Application.PlatformAdministration.csproj (in 8 ms).
+  Restored /tmp/opencode/clonetest/modules/customers/Application.Customers/Application.Customers.csproj (in 5 ms).
+  Restored /tmp/opencode/clonetest/tests/architecture/Application.Architecture.Tests/Application.Architecture.Tests.csproj (in 525 ms).
+  Restored /tmp/opencode/clonetest/modules/branding/Application.Branding/Application.Branding.csproj (in 3 ms).
+  Restored /tmp/opencode/clonetest/tests/integration/Application.AdminBootstrap.Tests/Application.AdminBootstrap.Tests.csproj (in 525 ms).
+  Restored /tmp/opencode/clonetest/tests/integration/Application.Tenancy.Postgres.Tests/Application.Tenancy.Postgres.Tests.csproj (in 528 ms).
+  Restored /tmp/opencode/clonetest/services/db-migrator/Application.DatabaseMigrator/Application.DatabaseMigrator.csproj (in 526 ms).
+  Restored /tmp/opencode/clonetest/modules/application-profiles/Application.Profiles/Application.Profiles.csproj (in 10 ms).
+  Restored /tmp/opencode/clonetest/tests/integration/Application.AdminApi.Tests/Application.AdminApi.Tests.csproj (in 557 ms).
+  Restored /tmp/opencode/clonetest/tests/unit/Application.Profiles.Tests/Application.Profiles.Tests.csproj (in 11 ms).
+  Restored /tmp/opencode/clonetest/tests/unit/Application.IdentityAccess.Tests/Application.IdentityAccess.Tests.csproj (in 8 ms).
+  Restored /tmp/opencode/clonetest/tests/unit/Application.Customers.Tests/Application.Customers.Tests.csproj (in 13 ms).
+  Restored /tmp/opencode/clonetest/tests/unit/Application.Branding.Tests/Application.Branding.Tests.csproj (in 20 ms).
+  Restored /tmp/opencode/clonetest/modules/platform-administration/Application.PlatformAdministration.Postgres/Application.PlatformAdministration.Postgres.csproj (in 254 ms).
+  Restored /tmp/opencode/clonetest/modules/customers/Application.Customers.Postgres/Application.Customers.Postgres.csproj (in 199 ms).
+  Restored /tmp/opencode/clonetest/modules/tenancy/Application.Tenancy.Postgres/Application.Tenancy.Postgres.csproj (in 631 ms).
+  Restored /tmp/opencode/clonetest/tests/unit/Application.Tenancy.Tests/Application.Tenancy.Tests.csproj (in 35 ms).
+  Restored /tmp/opencode/clonetest/tests/integration/Application.IdentityAccess.Postgres.Tests/Application.IdentityAccess.Postgres.Tests.csproj (in 27 ms).
+  Restored /tmp/opencode/clonetest/modules/invoices/Application.Invoices/Application.Invoices.csproj (in 23 ms).
+  Restored /tmp/opencode/clonetest/tests/integration/Application.Orders.Postgres.Tests/Application.Orders.Postgres.Tests.csproj (in 65 ms).
+  Restored /tmp/opencode/clonetest/modules/identity-access/Application.IdentityAccess/Application.IdentityAccess.csproj (in 7 ms).
+  Restored /tmp/opencode/clonetest/tests/integration/Application.Customers.Postgres.Tests/Application.Customers.Postgres.Tests.csproj (in 63 ms).
+  Restored /tmp/opencode/clonetest/services/admin-api/Application.AdminApi/Application.AdminApi.csproj (in 45 ms).
+  Restored /tmp/opencode/clonetest/services/admin-bootstrap/Application.AdminBootstrap/Application.AdminBootstrap.csproj (in 39 ms).
+  Restored /tmp/opencode/clonetest/tests/unit/Application.PlatformAdministration.Tests/Application.PlatformAdministration.Tests.csproj (in 31 ms).
+  Restored /tmp/opencode/clonetest/modules/identity-access/Application.IdentityAccess.Postgres/Application.IdentityAccess.Postgres.csproj (in 33 ms).
+  Restored /tmp/opencode/clonetest/tests/unit/Application.Orders.Tests/Application.Orders.Tests.csproj (in 17 ms).
+  Restored /tmp/opencode/clonetest/modules/orders/Application.Orders.Postgres/Application.Orders.Postgres.csproj (in 63 ms).
+  Restored /tmp/opencode/clonetest/tests/unit/Application.Invoices.Tests/Application.Invoices.Tests.csproj (in 31 ms).
+  Restored /tmp/opencode/clonetest/services/core-api/Application.CoreApi/Application.CoreApi.csproj (in 104 ms).
+  Restored /tmp/opencode/clonetest/tests/integration/Application.CoreApi.Tests/Application.CoreApi.Tests.csproj (in 184 ms).
+  Application.Branding -> /tmp/opencode/clonetest/modules/branding/Application.Branding/bin/Release/net10.0/Application.Branding.dll
+  Application.IdentityAccess -> /tmp/opencode/clonetest/modules/identity-access/Application.IdentityAccess/bin/Release/net10.0/Application.IdentityAccess.dll
+  Application.Tenancy -> /tmp/opencode/clonetest/modules/tenancy/Application.Tenancy/bin/Release/net10.0/Application.Tenancy.dll
+  Application.Profiles -> /tmp/opencode/clonetest/modules/application-profiles/Application.Profiles/bin/Release/net10.0/Application.Profiles.dll
+  Application.Architecture.Tests -> /tmp/opencode/clonetest/tests/architecture/Application.Architecture.Tests/bin/Release/net10.0/Application.Architecture.Tests.dll
+  Application.PlatformAdministration -> /tmp/opencode/clonetest/modules/platform-administration/Application.PlatformAdministration/bin/Release/net10.0/Application.PlatformAdministration.dll
+  Application.IdentityAccess.Postgres -> /tmp/opencode/clonetest/modules/identity-access/Application.IdentityAccess.Postgres/bin/Release/net10.0/Application.IdentityAccess.Postgres.dll
+  Application.Tenancy.Tests -> /tmp/opencode/clonetest/tests/unit/Application.Tenancy.Tests/bin/Release/net10.0/Application.Tenancy.Tests.dll
+  Application.Customers -> /tmp/opencode/clonetest/modules/customers/Application.Customers/bin/Release/net10.0/Application.Customers.dll
+  Application.IdentityAccess.Tests -> /tmp/opencode/clonetest/tests/unit/Application.IdentityAccess.Tests/bin/Release/net10.0/Application.IdentityAccess.Tests.dll
+  Application.Tenancy.Postgres -> /tmp/opencode/clonetest/modules/tenancy/Application.Tenancy.Postgres/bin/Release/net10.0/Application.Tenancy.Postgres.dll
+  Application.PlatformAdministration.Postgres -> /tmp/opencode/clonetest/modules/platform-administration/Application.PlatformAdministration.Postgres/bin/Release/net10.0/Application.PlatformAdministration.Postgres.dll
+  Application.PlatformAdministration.Tests -> /tmp/opencode/clonetest/tests/unit/Application.PlatformAdministration.Tests/bin/Release/net10.0/Application.PlatformAdministration.Tests.dll
+  Application.Branding.Tests -> /tmp/opencode/clonetest/tests/unit/Application.Branding.Tests/bin/Release/net10.0/Application.Branding.Tests.dll
+  Application.Customers.Postgres -> /tmp/opencode/clonetest/modules/customers/Application.Customers.Postgres/bin/Release/net10.0/Application.Customers.Postgres.dll
+  Application.Orders -> /tmp/opencode/clonetest/modules/orders/Application.Orders/bin/Release/net10.0/Application.Orders.dll
+  Application.Customers.Tests -> /tmp/opencode/clonetest/tests/unit/Application.Customers.Tests/bin/Release/net10.0/Application.Customers.Tests.dll
+  Application.Profiles.Tests -> /tmp/opencode/clonetest/tests/unit/Application.Profiles.Tests/bin/Release/net10.0/Application.Profiles.Tests.dll
+  Application.AdminApi -> /tmp/opencode/clonetest/services/admin-api/Application.AdminApi/bin/Release/net10.0/Application.AdminApi.dll
+  Application.AdminBootstrap -> /tmp/opencode/clonetest/services/admin-bootstrap/Application.AdminBootstrap/bin/Release/net10.0/Application.AdminBootstrap.dll
+  Application.Customers.Postgres.Tests -> /tmp/opencode/clonetest/tests/integration/Application.Customers.Postgres.Tests/bin/Release/net10.0/Application.Customers.Postgres.Tests.dll
+  Application.Invoices -> /tmp/opencode/clonetest/modules/invoices/Application.Invoices/bin/Release/net10.0/Application.Invoices.dll
+  Application.Orders.Tests -> /tmp/opencode/clonetest/tests/unit/Application.Orders.Tests/bin/Release/net10.0/Application.Orders.Tests.dll
+  Application.AdminApi.Tests -> /tmp/opencode/clonetest/tests/integration/Application.AdminApi.Tests/bin/Release/net10.0/Application.AdminApi.Tests.dll
+  Application.Orders.Postgres -> /tmp/opencode/clonetest/modules/orders/Application.Orders.Postgres/bin/Release/net10.0/Application.Orders.Postgres.dll
+  Application.Invoices.Tests -> /tmp/opencode/clonetest/tests/unit/Application.Invoices.Tests/bin/Release/net10.0/Application.Invoices.Tests.dll
+  Application.DatabaseMigrator -> /tmp/opencode/clonetest/services/db-migrator/Application.DatabaseMigrator/bin/Release/net10.0/Application.DatabaseMigrator.dll
+  Application.AdminBootstrap.Tests -> /tmp/opencode/clonetest/tests/integration/Application.AdminBootstrap.Tests/bin/Release/net10.0/Application.AdminBootstrap.Tests.dll
+  Application.Tenancy.Postgres.Tests -> /tmp/opencode/clonetest/tests/integration/Application.Tenancy.Postgres.Tests/bin/Release/net10.0/Application.Tenancy.Postgres.Tests.dll
+  Application.Orders.Postgres.Tests -> /tmp/opencode/clonetest/tests/integration/Application.Orders.Postgres.Tests/bin/Release/net10.0/Application.Orders.Postgres.Tests.dll
+  Application.IdentityAccess.Postgres.Tests -> /tmp/opencode/clonetest/tests/integration/Application.IdentityAccess.Postgres.Tests/bin/Release/net10.0/Application.IdentityAccess.Postgres.Tests.dll
+  Application.CoreApi -> /tmp/opencode/clonetest/services/core-api/Application.CoreApi/bin/Release/net10.0/Application.CoreApi.dll
+  Application.CoreApi.Tests -> /tmp/opencode/clonetest/tests/integration/Application.CoreApi.Tests/bin/Release/net10.0/Application.CoreApi.Tests.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:10.29
+Test run for /tmp/opencode/clonetest/tests/architecture/Application.Architecture.Tests/bin/Release/net10.0/Application.Architecture.Tests.dll (.NETCoreApp,Version=v10.0)
+Test run for /tmp/opencode/clonetest/tests/integration/Application.CoreApi.Tests/bin/Release/net10.0/Application.CoreApi.Tests.dll (.NETCoreApp,Version=v10.0)
+Test run for /tmp/opencode/clonetest/tests/integration/Application.AdminBootstrap.Tests/bin/Release/net10.0/Application.AdminBootstrap.Tests.dll (.NETCoreApp,Version=v10.0)
+Test run for /tmp/opencode/clonetest/tests/integration/Application.Customers.Postgres.Tests/bin/Release/net10.0/Application.Customers.Postgres.Tests.dll (.NETCoreApp,Version=v10.0)
+Test run for /tmp/opencode/clonetest/tests/integration/Application.AdminApi.Tests/bin/Release/net10.0/Application.AdminApi.Tests.dll (.NETCoreApp,Version=v10.0)
+Test run for /tmp/opencode/clonetest/tests/integration/Application.Orders.Postgres.Tests/bin/Release/net10.0/Application.Orders.Postgres.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+Test run for /tmp/opencode/clonetest/tests/integration/Application.IdentityAccess.Postgres.Tests/bin/Release/net10.0/Application.IdentityAccess.Postgres.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+A total of 1 test files matched the specified pattern.
+Test run for /tmp/opencode/clonetest/tests/integration/Application.Tenancy.Postgres.Tests/bin/Release/net10.0/Application.Tenancy.Postgres.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+A total of 1 test files matched the specified pattern.
+A total of 1 test files matched the specified pattern.
+A total of 1 test files matched the specified pattern.
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    14, Skipped:     0, Total:    14, Duration: 800 ms - Application.Architecture.Tests.dll (net10.0)
+Test run for /tmp/opencode/clonetest/tests/unit/Application.Branding.Tests/bin/Release/net10.0/Application.Branding.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    11, Skipped:     0, Total:    11, Duration: 74 ms - Application.Branding.Tests.dll (net10.0)
+Test run for /tmp/opencode/clonetest/tests/unit/Application.Customers.Tests/bin/Release/net10.0/Application.Customers.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    21, Skipped:     0, Total:    21, Duration: 268 ms - Application.Customers.Tests.dll (net10.0)
+Test run for /tmp/opencode/clonetest/tests/unit/Application.IdentityAccess.Tests/bin/Release/net10.0/Application.IdentityAccess.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    12, Skipped:     0, Total:    12, Duration: 229 ms - Application.IdentityAccess.Tests.dll (net10.0)
+Test run for /tmp/opencode/clonetest/tests/unit/Application.Invoices.Tests/bin/Release/net10.0/Application.Invoices.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    25, Skipped:     0, Total:    25, Duration: 728 ms - Application.Invoices.Tests.dll (net10.0)
+Test run for /tmp/opencode/clonetest/tests/unit/Application.Orders.Tests/bin/Release/net10.0/Application.Orders.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    86, Skipped:     0, Total:    86, Duration: 527 ms - Application.Orders.Tests.dll (net10.0)
+Test run for /tmp/opencode/clonetest/tests/unit/Application.PlatformAdministration.Tests/bin/Release/net10.0/Application.PlatformAdministration.Tests.dll (.NETCoreApp,Version=v10.0)
+
+Passed!  - Failed:     0, Passed:     3, Skipped:     0, Total:     3, Duration: 40 s - Application.AdminBootstrap.Tests.dll (net10.0)
+A total of 1 test files matched the specified pattern.
+Test run for /tmp/opencode/clonetest/tests/unit/Application.Profiles.Tests/bin/Release/net10.0/Application.Profiles.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:     4, Skipped:     0, Total:     4, Duration: 181 ms - Application.PlatformAdministration.Tests.dll (net10.0)
+Test run for /tmp/opencode/clonetest/tests/unit/Application.Tenancy.Tests/bin/Release/net10.0/Application.Tenancy.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    19, Skipped:     0, Total:    19, Duration: 50 s - Application.IdentityAccess.Postgres.Tests.dll (net10.0)
+
+Passed!  - Failed:     0, Passed:    18, Skipped:     0, Total:    18, Duration: 416 ms - Application.Profiles.Tests.dll (net10.0)
+
+Passed!  - Failed:     0, Passed:    29, Skipped:     0, Total:    29, Duration: 452 ms - Application.Tenancy.Tests.dll (net10.0)
+
+Passed!  - Failed:     0, Passed:   333, Skipped:     0, Total:   333, Duration: 1 m 12 s - Application.CoreApi.Tests.dll (net10.0)
+
+Passed!  - Failed:     0, Passed:    87, Skipped:     0, Total:    87, Duration: 1 m 14 s - Application.AdminApi.Tests.dll (net10.0)
+
+Passed!  - Failed:     0, Passed:    19, Skipped:     0, Total:    19, Duration: 1 m 23 s - Application.Tenancy.Postgres.Tests.dll (net10.0)
+
+Passed!  - Failed:     0, Passed:    17, Skipped:     0, Total:    17, Duration: 1 m 37 s - Application.Customers.Postgres.Tests.dll (net10.0)
+
+Passed!  - Failed:     0, Passed:    43, Skipped:     0, Total:    43, Duration: 2 m 47 s - Application.Orders.Postgres.Tests.dll (net10.0)

@@ -29,7 +29,7 @@ metadata. The JWT package is 10.0.8; its inspected native
 returns the event result before discovery. Shared ASP.NET runtime 10.0.12 has
 the same ordering. The public-auth correction is implemented for this explicitly public scope and
 its focused guards are green, but ADM-003 independent post-fix acceptance is
-pending because the required reviewer receipt is not retained in this repository.
+The required reviewer receipt is retained at [ADM-003-INDEPENDENT-REVIEW-RECEIPT.md](../production-completion-review/evidence/ADM-003-INDEPENDENT-REVIEW-RECEIPT.md) with an explicit `ACCEPTED` disposition for its declared narrow scope; its recorded reviewer-independence caveat remains a gate-owner decision.
 `PublicAuthMetadataHostReviewTests` also exercises actual public-classified and
 unclassified routes with native `RequireAuthorization`: missing/invalid bearer
 identities cannot reach their handlers. Both suites are permanent normal-gate

@@ -3,7 +3,7 @@
 **Owner:** AdminApi host, `AdminApiRequestBudgets` and `AdminApiConfiguration`.
 **Product version:** v0.0.1.
 **Scope:** cooperative request cancellation for explicitly classified protected AdminApi routes.
-**State:** `PRODUCTION_HONEST` for the declared cooperative deadline. The explicitly public-health authentication exclusion is implemented and focused evidence is complete, but the required independent post-fix ADM-003 review receipt is absent from this repository; that slice remains acceptance-pending/`BLOCKED` for GATE-001. GATE-001 also remains blocked pending one complete normal repository gate on the exact integrated current source.
+**State:** `PRODUCTION_HONEST` for the declared cooperative deadline. The explicitly public-health authentication exclusion is implemented and focused evidence is complete. The required post-fix ADM-003 review receipt is retained at [ADM-003-INDEPENDENT-REVIEW-RECEIPT.md](../production-completion-review/evidence/ADM-003-INDEPENDENT-REVIEW-RECEIPT.md) with an explicit `ACCEPTED` disposition for its declared narrow scope, so that slice is no longer `BLOCKED`. Its recorded reviewer-independence caveat remains an accountable gate-owner decision rather than an assumed closure.
 
 `AdminApi:ProtectedRequestTimeoutSeconds` is the single AdminApi-owned request-budget setting. It is required at startup, accepts only integer values from 1 through 120 seconds, and is checked in as 30 seconds. The existing `AdminApiConfiguration` validates it together with the host's existing connection, concurrency and allowed-host settings.
 
