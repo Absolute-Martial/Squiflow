@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "head": "18aae19d7441018bc186b902bd5b61beddd5169e",
+  "product_version": "v0.0.1",
+  "first_sequence": {
+    "BAS-001": {
+      "state": "PRODUCTION_HONEST",
+      "scope": "exact current source/evidence inventory"
+    },
+    "ADM-001": {
+      "state": "PRODUCTION_HONEST",
+      "scope": "existing membership and tenant lifecycle",
+      "evidence": "current-head AdminApi 87/87; Tenancy.Postgres 19/19",
+      "gate_handoff_retention": "PENDING: gate-required retained handoff not present as a dedicated tracked receipt in this source archive"
+    },
+    "ADM-002": {
+      "state": "PRODUCTION_HONEST",
+      "scope": "protected-request cooperative deadline",
+      "evidence": "independent focused/routing/cancellation review plus current-head AdminApi 87/87",
+      "gate_handoff_retention": "PENDING: historical artifacts/verification/adm-002/reviewer/REVIEW.md absent from source archive"
+    },
+    "ADM-003": {
+      "state": "BLOCKED",
+      "handoff_status": "EVIDENCE_COMPLETE_ACCEPTANCE_PENDING",
+      "scope": "activated public-auth correction only",
+      "implementation": "commit 6735370; trusted public endpoint metadata excludes bearer validation while protected routes retain authentication",
+      "focused_evidence": "current-head AdminApi 87/87 plus retained public-health bearer regressions",
+      "missing_acceptance": "independent post-fix ADM-003 review receipt is not retained in the repository"
+    },
+    "OPS-022": {
+      "state": "PRODUCTION_HONEST",
+      "scope": "parallel Testcontainers startup/cleanup",
+      "evidence": "independent six-session 24-pass startup receipt, abort/SIGTERM cleanup, plus current-head Testcontainers-backed suites",
+      "gate_handoff_retention": "PENDING: historical artifacts/verification/ops-022/root-final-review.json absent from source archive"
+    },
+    "COM-020": {
+      "state": "PRODUCTION_HONEST",
+      "scope": "deliberately partial host-neutral invoice invariants",
+      "evidence": "current-head Invoices 25/25 and Architecture 14/14"
+    },
+    "GATE-001": {
+      "state": "BLOCKED",
+      "reason": "Gate-required ADM-001/ADM-002/OPS-022 handoffs are not fully retained in the source archive; independent post-fix ADM-003 acceptance receipt is absent; and the complete normal repository gate cannot execute in the local retry container because locked NuGet packages are unavailable and no Docker/Testcontainers daemon/socket is present"
+    }
+  },
+  "current_head_observed_checks": {
+    "Application.AdminApi.Tests": {
+      "passed": 87,
+      "failed": 0,
+      "skipped": 0
+    },
+    "Application.Tenancy.Postgres.Tests": {
+      "passed": 19,
+      "failed": 0,
+      "skipped": 0
+    },
+    "Application.Invoices.Tests": {
+      "passed": 25,
+      "failed": 0,
+      "skipped": 0
+    },
+    "Application.Architecture.Tests_during_normal_gate": {
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0
+    },
+    "normal_gate_release_build": {
+      "status": "PASSED",
+      "warnings": 0,
+      "errors": 0
+    },
+    "normal_gate_final_exit": "NOT_CAPTURED"
+  },
+  "local_continuation_environment": {
+    "dotnet": "10.0.401 AVAILABLE from Squiflow-offline-sdk(1).zip",
+    "runtime": "Microsoft.NETCore.App 10.0.12; Microsoft.AspNetCore.App 10.0.12",
+    "nuget_feed": "UNREACHABLE: api.nuget.org DNS/network unavailable",
+    "nuget_cache": "EMPTY",
+    "docker": "UNAVAILABLE",
+    "docker_socket": "UNAVAILABLE",
+    "outbound_dns": "UNAVAILABLE",
+    "catalog_validator": "AVAILABLE"
+  },
+  "production_qualification": "NOT_GRANTED",
+  "next_required_action": "Complete docs/production-completion-review/assignments/GATE-001-PREREQUISITE-EVIDENCE.md: recover or explicitly replace the retained ADM-001/ADM-002/OPS-022 handoffs, complete the independent ADM-003 post-fix review and retain its receipt. Then provide the exact locked NuGet package cache/feed plus a working Docker-compatible daemon/socket and run one uncontended ./eng/verify.sh on this exact source before accepting GATE-001.",
+  "package_review": {
+    "reviewers_completed": 9,
+    "review_model": "gpt-6-luna",
+    "reasoning_effort": "high",
+    "catalog_tasks_validated": 119,
+    "review_links_checked": 173,
+    "head_at_review_start": "18aae19d7441018bc186b902bd5b61beddd5169e",
+    "head_at_packaging": "18aae19d7441018bc186b902bd5b61beddd5169e",
+    "git_head_change_during_package_validation": "NONE; HEAD matches the current baseline",
+    "serial_dependency_order": "PASS including conditional edges",
+    "baseline_selected_files_changed_since_review_start": [],
+    "working_tree_reconciliation_is_part_of_baseline": true,
+    "dynamic_build_test_security_load_restore_checks": "NOT_RUN"
+  },
+  "gate001_retry_environment": {
+    "date": "2026-10-04",
+    "source_archive": "Squiflow(6).zip",
+    "source_archive_sha256": "a82e89695dbc3da1628eec60514daef91e2067208ef6986ba53d5dbfc1fddf12",
+    "head": "18aae19d7441018bc186b902bd5b61beddd5169e",
+    "archive_sdk_payload": "ABSENT",
+    "dotnet": "UNAVAILABLE",
+    "docker": "UNAVAILABLE",
+    "docker_socket": "UNAVAILABLE",
+    "outbound_dns": "UNAVAILABLE",
+    "normal_gate": "NOT_RUN"
+  },
+  "gate001_sdk_retry": {
+    "date": "2026-10-04",
+    "sdk_archive": "Squiflow-offline-sdk(1).zip",
+    "sdk_archive_sha256": "675016a1fb3df3ff3c1d62110b395e6524b295f15da962e055cc5cf63facda89",
+    "sdk_version": "10.0.401",
+    "runtime_version": "10.0.12",
+    "sdk_tar_sha512": "51c8b999af9e8dd9998c9edc5944e19a90788862068acd38694e098889054ce8c23d4f0c5cccfa16bf187d044562359e5ee69a9f8ad0bbe913ba90311fbce25b",
+    "initial_gate_attempt": "BLOCKED_BY_HOST_PLATFORM_ENVIRONMENT",
+    "platform_environment": "linux/amd64",
+    "retry_after_unset_platform": "LOCKED_RESTORE_REACHED",
+    "restore_result": "NU1301 api.nuget.org unreachable; retry stopped after repeated source-unavailable errors",
+    "locked_package_version_pairs": 123,
+    "nuget_manifest": "docs/production-completion-review/evidence/GATE-001-NUGET-MANIFEST.json",
+    "docker": "UNAVAILABLE",
+    "normal_gate": "NOT_COMPLETED"
+  }
+}

@@ -27,8 +27,9 @@ unknown-route non-disclosure plus authorization-required/missing-classification
 metadata. The JWT package is 10.0.8; its inspected native
 [message-received lifecycle](https://github.com/dotnet/aspnetcore/blob/v10.0.8/src/Security/Authentication/JwtBearer/src/JwtBearerHandler.cs#L55-L62)
 returns the event result before discovery. Shared ASP.NET runtime 10.0.12 has
-the same ordering. The public-auth correction is `PRODUCTION_HONEST` for this
-explicitly public scope, qualified by the receiving evidence below.
+the same ordering. The public-auth correction is implemented for this explicitly public scope and
+its focused guards are green, but ADM-003 independent post-fix acceptance is
+pending because the required reviewer receipt is not retained in this repository.
 `PublicAuthMetadataHostReviewTests` also exercises actual public-classified and
 unclassified routes with native `RequireAuthorization`: missing/invalid bearer
 identities cannot reach their handlers. Both suites are permanent normal-gate
@@ -86,27 +87,6 @@ skips and zero build warnings/errors. The normal PostgreSQL suites also passed.
 A focused read-only review found no concrete cancellation, disclosure or scope
 defect. Coverage, remote CI and production deployment were not qualified by this run.
 
-The 2026-10-04 [independent public-auth review](../../artifacts/verification/adm-003/reviewer/REVIEW.md)
-passed CoreApi 37/37 and AdminApi 56/56 focused cases, followed by six actual-host
-authorization-metadata cases per host, with zero failures/skips and no retries.
-The Core focused fixture uses controlled account/authorization ports; it does
-not supply new live identity-provider or PostgreSQL/OpenFGA qualification.
-The [original Admin liveness failure](../../artifacts/verification/adm-002/reviewer/public-liveness-bearer.log)
-is retained; the corrected reproducer passes. Native discovery blockers verify
-public exclusion and protected discovery cancellation. Core bootstrap cache/ETag,
-readiness status/no-store and valid/invalid/missing protected identities remain
-guarded.
+The public-auth correction is present in commit `6735370`, and the retained focused regression suites cover bearer-bearing public health, protected discovery/cancellation, and trusted endpoint-metadata skip conditions. The source archive does not retain the historical `artifacts/verification/adm-003/reviewer/REVIEW.md` independent post-fix receipt or the historical combined-gate artifacts that older notes referenced. Those absent files must not be treated as current acceptance evidence.
 
-The [combined receiving gate](../../artifacts/verification/foundation-baseline-combined-2026-10-04.json)
-ran `COLLECT_COVERAGE=1 ./eng/verify.sh`: exit 0, **726 passed, 0 failed,
-0 skipped in 16 suites**, zero build warnings/errors, including 333 CoreApi cases.
-The [transcript](../../artifacts/verification/foundation-baseline-combined-2026-10-04.log)
-and [archived Cobertura report](../../artifacts/verification/foundation-baseline-2026-10-04/coverage/report/Cobertura.xml)
-retain source-specific evidence. Core authentication covers 81/81 executable lines
-and 15/20 emitted branches; the changed public-auth guard covers 8/8. Existing
-null/claim-condition branches remain partial, and native JWT/framework assemblies
-are outside the repository coverage claim. Unmatched routes still invoke normal
-authentication; independence from discovery is not claimed for them. Live OIDC,
-actual TLS and deployment remain unqualified. GATE-001 remains separately blocked
-by invoice-core review findings; this narrow qualification is not whole-product
-acceptance.
+The Core focused fixture uses controlled account/authorization ports and does not supply new live identity-provider or PostgreSQL/OpenFGA qualification. Current focused evidence supports the implementation, while independent ADM-003 acceptance remains pending under [the tracked review assignment](../production-completion-review/assignments/ADM-003-INDEPENDENT-REVIEW.md). Native JWT/framework coverage, live OIDC, actual TLS and deployment remain unqualified.

@@ -3,7 +3,7 @@
 **Owner:** AdminApi host, `AdminApiRequestBudgets` and `AdminApiConfiguration`.
 **Product version:** v0.0.1.
 **Scope:** cooperative request cancellation for explicitly classified protected AdminApi routes.
-**State:** `PRODUCTION_HONEST` for the declared cooperative deadline and explicitly public-health authentication exclusion; `BLOCKED = none` within those scopes. GATE-001 remains blocked separately by the invoice-core review findings.
+**State:** `PRODUCTION_HONEST` for the declared cooperative deadline. The explicitly public-health authentication exclusion is implemented and focused evidence is complete, but the required independent post-fix ADM-003 review receipt is absent from this repository; that slice remains acceptance-pending/`BLOCKED` for GATE-001. GATE-001 also remains blocked pending one complete normal repository gate on the exact integrated current source.
 
 `AdminApi:ProtectedRequestTimeoutSeconds` is the single AdminApi-owned request-budget setting. It is required at startup, accepts only integer values from 1 through 120 seconds, and is checked in as 30 seconds. The existing `AdminApiConfiguration` validates it together with the host's existing connection, concurrency and allowed-host settings.
 
@@ -82,37 +82,11 @@ run is distinct from the independent receiving evidence below.
 
 ### Independent review and qualification, 2026-10-04
 
-The [ADM-002 independent review](../../artifacts/verification/adm-002/reviewer/REVIEW.md)
-records 39/39 covered host cases, three fresh processes with 11/11 hostile and
-cancellation cases each, and a separately justified routing run with 23/23.
-`RequestBudgetUnmatchedRouteReviewTests` permanently guards unknown, invalid-route
-and method-rejection responses against disclosure and unintended access audit.
-Budget coverage is 50/50 executable lines and 4/4 emitted classification branches;
-the collector emits no exception-filter branches. The four actual started-response
-OCE/IO and deadline/caller cases supply that behavioral evidence without claiming
-all race orderings. Real PostgreSQL authority-lock cancellation and admission
-recovery after pipeline unwinding also passed.
+The tracked [ADM-002 / ADM-003 current-head evidence](../production-completion-review/evidence/ADM-002-ADM-003.md) records the previously inspected ADM-002 focused results: 39/39 covered host cases, three fresh processes with 11/11 hostile/cancellation cases each, and a separately justified routing run with 23/23. The historical independent receipt path `artifacts/verification/adm-002/reviewer/REVIEW.md` is not retained in this source archive, so GATE-001 handoff retention remains pending even though the deadline scope's focused evidence is complete. `RequestBudgetUnmatchedRouteReviewTests` permanently guards unknown, invalid-route and method-rejection responses against disclosure and unintended access audit. Budget coverage was reported as 50/50 executable lines and 4/4 emitted classification branches; the collector emits no exception-filter branches. The four actual started-response OCE/IO and deadline/caller cases supply that behavioral evidence without claiming all race orderings. Real PostgreSQL authority-lock cancellation and admission recovery after pipeline unwinding also passed.
 
-The [ADM-003 independent review](../../artifacts/verification/adm-003/reviewer/REVIEW.md)
-records AdminApi 56/56 and CoreApi 37/37 focused cases, plus six actual-host
-authorization-metadata cases in each host, all without failures/skips or retries.
-The original public-liveness failure is retained in
-[public-liveness-bearer.log](../../artifacts/verification/adm-002/reviewer/public-liveness-bearer.log);
-the corrected reproducer passes. Changed public-auth guards each cover 8/8
-emitted branches; Admin authentication whole-file coverage remains 78/83 lines
-and 14/20 branches, with unrelated claim-validation paths unmeasured.
+The repository does not retain the required independent post-fix ADM-003 review receipt. The pre-fix public-liveness failure and the corrected implementation/focused checks are summarized in [ADM-002 / ADM-003 current-head evidence](../production-completion-review/evidence/ADM-002-ADM-003.md), and commit `6735370` is the implementation provenance. Focused AdminApi/CoreApi public-health bearer regressions pass on the corrected source, but those runs are not an independent acceptance receipt. The bounded [ADM-003 independent review assignment](../production-completion-review/assignments/ADM-003-INDEPENDENT-REVIEW.md) must be completed and its reviewer receipt retained before the public-auth slice or GATE-001 is accepted.
 
-The receiving [combined gate receipt](../../artifacts/verification/foundation-baseline-combined-2026-10-04.json)
-records the exact `COLLECT_COVERAGE=1 ./eng/verify.sh` exit 0: **726 passed,
-0 failed, 0 skipped across 16 suites**, zero build warnings/errors. It includes
-87 AdminApi cases. Its [retained transcript](../../artifacts/verification/foundation-baseline-combined-2026-10-04.log)
-and [archived coverage](../../artifacts/verification/foundation-baseline-2026-10-04/coverage/report/Cobertura.xml)
-qualify only these reviewed source revisions; subsequent changes require the
-appropriate guards again. The archived report confirms the budget's 4/4 and
-each public-auth guard's 8/8 emitted branches. Native framework/provider coverage,
-live ZITADEL, actual TLS negotiation, all provider cancellation, mutation-commit
-response-loss windows and deployment remain unqualified. Passing this gate does
-not accept GATE-001 or resolve the separate invoice-core findings.
+The receiving combined-gate evidence predating the later invoice/source corrections recorded an exact `COLLECT_COVERAGE=1 ./eng/verify.sh` exit 0: **726 passed, 0 failed, 0 skipped across 16 suites**, zero build warnings/errors, including 87 AdminApi cases. The ignored raw receipt/transcript/coverage are not carried in this source archive; the current tracked evidence summary is [ADM-002 / ADM-003 current-head evidence](../production-completion-review/evidence/ADM-002-ADM-003.md). That earlier combined gate qualifies only its reviewed source revisions. Native framework/provider coverage, live ZITADEL, actual TLS negotiation, all provider cancellation, mutation-commit response-loss windows and deployment remain unqualified. Current-head focused checks support this owner, while GATE-001 still requires one complete normal repository gate on the exact integrated source.
 
 ## Security boundaries and requalification
 

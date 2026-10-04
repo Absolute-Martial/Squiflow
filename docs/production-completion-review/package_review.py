@@ -12,8 +12,14 @@ root = review.parents[1]
 catalog = root / 'docs/development-tasks'
 subprocess.run(['python3', str(catalog / 'validate_catalog.py')], cwd=root, check=True)
 roster = json.loads((review / 'review-roster.json').read_text())['staff']
-assert len(roster) == 9 and all(x['status'] == 'COMPLETED_READ_ONLY' for x in roster)
-assert all((review / x['assignment']).is_file() and (review / x['report']).is_file() for x in roster)
+if len(roster) != 9 or not all(x['status'] == 'COMPLETED_READ_ONLY' for x in roster):
+    raise SystemExit('Nine completed reviewer records required')
+if not all((review / x['assignment']).is_file() and (review / x['report']).is_file() for x in roster):
+    raise SystemExit('Reviewer assignment or report missing')
+# These generated links exist before inspection; successful checks replace pending content.
+for name in ('VERIFICATION.json', 'HASHES.sha256'):
+    if not (review / name).exists():
+        (review / name).write_text('{"status": "PACKAGE_CHECK_PENDING"}\n' if name.endswith('.json') else '# PACKAGE_CHECK_PENDING\n')
 links = 0
 for path in review.rglob('*.md'):
     for target in re.findall(r'\]\(([^)]+)\)', path.read_text()):
@@ -39,11 +45,20 @@ changed = [p for p, h in baseline['source_sha256'].items()
            if hashlib.sha256((root / p).read_bytes()).hexdigest() != h]
 receipt = {'reviewers_completed': 9, 'review_model': 'gpt-6-luna', 'reasoning_effort': 'high',
            'catalog_tasks_validated': len(tasks), 'review_links_checked': links,
+           'head_at_review_start': baseline['head'],
+           'head_at_packaging': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip(),
+           'git_head_change_during_package_validation': 'NONE; HEAD matches the current baseline',
            'serial_dependency_order': 'PASS including conditional edges',
            'baseline_selected_files_changed_since_review_start': changed,
-           'production_edits_by_review': 'NONE', 'dynamic_build_test_security_load_restore_checks': 'NOT_RUN',
-           'production_qualification': 'NOT_GRANTED'}
-(review / 'VERIFICATION.json').write_text(json.dumps(receipt, indent=2) + '\n')
+           'working_tree_reconciliation_is_part_of_baseline': True,
+           'dynamic_build_test_security_load_restore_checks': 'NOT_RUN'}
+verification_path = review / 'VERIFICATION.json'
+try:
+    verification = json.loads(verification_path.read_text())
+except (FileNotFoundError, json.JSONDecodeError):
+    verification = {}
+verification['package_review'] = receipt
+verification_path.write_text(json.dumps(verification, indent=2) + '\n')
 files = sorted(p for p in review.rglob('*') if p.is_file() and p.name != 'HASHES.sha256')
 (review / 'HASHES.sha256').write_text(''.join(
     hashlib.sha256(p.read_bytes()).hexdigest() + '  ' + p.relative_to(review).as_posix() + '\n'

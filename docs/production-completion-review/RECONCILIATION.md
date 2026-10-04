@@ -6,7 +6,7 @@ Candidate findings from independent Luna staff are checked against current sourc
 
 | Priority | Observation | Root disposition | Unit to assign |
 |---|---|---|---|
-| P0 | Current source changed after the inspected 726-test gate; corrected invoice core lacks independent/current combined acceptance | Keep historical pass and focused correction receipts; independently verify exact incoming source | BAS-001 / bounded COM-020 review / GATE-001 |
+| P0 | ADM-003 code/focused evidence are complete on commit `6735370`, but the required independent post-fix reviewer receipt is absent; separately, the exact combined normal gate cannot complete locally because locked NuGet packages and Docker/Testcontainers are unavailable | Preserve focused evidence, obtain and retain the independent ADM-003 receipt, then require one complete uncontended normal gate on this exact source | ADM-003 / GATE-001 |
 | P0 | Request-budget test cleanup awaits cancellation/pending work without a finite bound | Confirmed static harness limitation, not reproduced production timeout defect; preserve contract and incoming changes | HAR-001 bounded ADM-002 follow-up |
 | P1 | README current blockers conflict with an unscoped BLOCKED=none paragraph | Confirmed static documentation inconsistency; do not declare runtime blockers closed | BAS-001 evidence/status reconciliation |
 | P1 | Root instructions and identity/session summary lag focused implementation owners | Confirmed status/scope drift; do not copy erroneous reviewer citation or automatically reopen qualified narrow scope | BAS-001 / ADM-004 focused summary reconciliation |

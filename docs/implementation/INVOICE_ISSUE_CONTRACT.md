@@ -284,13 +284,7 @@ availability returned by the Customers query fails fast with a static
 statuses. It never produces an issue candidate or calls the issue store's commit
 operation. Rejecting an unknown contract value does not decide inactive eligibility.
 
-Focused correction evidence is retained under
-`artifacts/verification/invoices-core/`: eight adversarial cases first failed
-against the pre-fix source (zero passed, eight failed, zero skipped; exit 1), then
-passed with the constructor/resolution guards. The full focused test and format
-results are recorded in `correction-results.json`; these are pure orchestration
-and fact-validation checks, not PostgreSQL, OpenFGA or durable invoice evidence.
-The earlier combined gate precedes these corrections and does not qualify them.
+Focused correction evidence first reproduced eight adversarial failures against the pre-fix source, then passed with the constructor/resolution guards. The ignored raw runtime artifacts are not carried in this source archive; the current tracked evidence summary is [COM-020 current-head evidence](../production-completion-review/evidence/COM-020.md). On current HEAD the complete focused invoice suite passed 25/25 and the architecture suite passed 14/14 before the combined-gate transport was lost. These are pure orchestration, fact-validation and dependency-direction checks, not PostgreSQL, OpenFGA or durable invoice evidence. The earlier combined gate predates these corrections and does not qualify GATE-001 for current source.
 
 ## Proposed file and dependency map
 

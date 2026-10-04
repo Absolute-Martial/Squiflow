@@ -24,7 +24,9 @@ Allowed areas: Named baseline qualification evidence and focused current-state c
 
 Compare the root agent statement, current README and incoming diff. Resolve claims from current focused owners and observed tests, never from earlier totals. Declare the exact baseline cases and get accountable owner acceptance; a remaining introduced blocker prevents further slice qualification.
 
-The condition for ADM-003 is active: independent review reproduced bearer-bearing public liveness entering JWT validation outside the protected deadline (0 passed / 1 failed / 0 skipped, exit 1). The bounded [public-auth assignment](../../../artifacts/orchestration/assignments/ADM-003-public-auth.md) and [independent review](../../../artifacts/verification/adm-002/reviewer/REVIEW.md) own this receiving-baseline correction and evidence. Narrow deadline passes do not close this introduced gap; correct it and independently verify the public/protected paths before accepting this gate. OPS-022 root focused startup/cleanup checks are now recorded by [its independent receipt](../../../artifacts/verification/ops-022/root-final-review.json); the combined normal gate remains pending.
+The ADM-003 condition was activated by the reproduced bearer-bearing public-liveness authentication gap. Commit `6735370` contains the correction and [ADM-002 / ADM-003 current-head evidence](../../production-completion-review/evidence/ADM-002-ADM-003.md) records the focused post-fix behavior: explicitly public routes skip bearer validation only through trusted endpoint metadata, while protected routes retain the complete authority path. That focused evidence does not substitute for the independent post-fix ADM-003 acceptance receipt required by this gate.
+
+This source archive also does not retain the historical gate-named handoff artifacts for ADM-001/ADM-002/OPS-022. In particular, the previously referenced `artifacts/verification/adm-002/reviewer/REVIEW.md` and `artifacts/verification/ops-022/root-final-review.json` are absent, as is the historical `artifacts/orchestration/assignments/ADM-003-public-auth.md`. Tracked summaries preserve inspected outcomes, but the gate must not silently redefine them as the missing handoffs. Before dispatching final GATE-001, recover/retain the required handoffs or make an accountable gate-owner decision that explicitly replaces those paths, and complete the bounded [ADM-003 independent review assignment](../../production-completion-review/assignments/ADM-003-INDEPENDENT-REVIEW.md) with a retained reviewer receipt. [COM-020 current-head evidence](../../production-completion-review/evidence/COM-020.md) records the deliberately partial invoice checks. After those prerequisite receipts are complete, GATE-001 still requires one complete normal repository gate on the exact integrated source.
 
 ## Acceptance and edge cases
 
@@ -51,7 +53,8 @@ Return the reviewed changed-file list, safe evidence, source-only ZIP with SHA-2
 ## Assignable prompt
 
 ```text
-Inspect BAS-001, ADM-001, ADM-002 and OPS-022 handoffs against current source.
+Do not dispatch final qualification until ADM-001/ADM-002/OPS-022 handoffs are retained and ADM-003 has an independent post-fix reviewer receipt.
+Inspect BAS-001 and every retained prerequisite handoff against current source.
 Confirm the exact baseline claims and owner acceptance.
 Review the incoming diff and canonical blocked state.
 Inspect real PostgreSQL/OpenFGA and host budget evidence.
