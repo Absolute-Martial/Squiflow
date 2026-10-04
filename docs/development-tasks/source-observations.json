@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "observed_at_utc": "2026-10-03T15:40:03.435224+00:00",
+  "git_sha": "5a94ad107084dbe872e8556d9400414735974d43",
+  "qualification": "source presence only; no acceptance inferred",
+  "file_contents_exported": false,
+  "preserved_external_files": [
+    {
+      "path": "AGENTS.md",
+      "git_state": "tracked_modified",
+      "sha256": "6a4bc816ef55e5b4456e10095ccff895ad94f6770c8856a6f873a9bbf449ad84"
+    },
+    {
+      "path": "Application.slnx",
+      "git_state": "tracked_modified",
+      "sha256": "b6c8f734f6265b691d5d7c95ad0be4917ac4642938e2063c801f90e63ce8de7d"
+    },
+    {
+      "path": "README.IMPLEMENTATION.md",
+      "git_state": "tracked_modified",
+      "sha256": "cffc2e875726773556bd0115e58e5a099cf8b530c3261d62c012a3c591430c16"
+    },
+    {
+      "path": "docs/decisions/CURRENT_DECISIONS.md",
+      "git_state": "tracked_modified",
+      "sha256": "2f62df2d6196b5b703fcfea3e748f2433755660b880db4a00c086f70aa7ee1ca"
+    },
+    {
+      "path": "docs/decisions/OPEN_DECISIONS.md",
+      "git_state": "tracked_modified",
+      "sha256": "c5ccf693b52fbf8fab2e8af30f8060373e904d5e335b8a688457dc7320ad43d6"
+    },
+    {
+      "path": "docs/implementation/ADMIN_API_REQUEST_BUDGETS.md",
+      "git_state": "untracked",
+      "sha256": "eecff3a524ad530e8f77a9f01e97c61c6dc62163225f502e30cfe53391d316a0"
+    },
+    {
+      "path": "docs/implementation/INVOICE_ISSUE_CONTRACT.md",
+      "git_state": "untracked",
+      "sha256": "1ac5dfc43838047a5d0300d3900a89eb4e5f1d7c834afaa154784fbe1e609870"
+    },
+    {
+      "path": "modules/AGENTS.md",
+      "git_state": "tracked_modified",
+      "sha256": "81355b3d7733290f994b862ee2ebda50163e248f75d962a6f2bbe834248a97c5"
+    },
+    {
+      "path": "modules/invoices/Application.Invoices/Application.Invoices.csproj",
+      "git_state": "untracked",
+      "sha256": "37c210a6047ca8916c947ee43ba66dc2aeb5efaa1b189c6127708fcb8a07f8ad"
+    },
+    {
+      "path": "modules/invoices/Application.Invoices/InvoiceIssue.cs",
+      "git_state": "untracked",
+      "sha256": "331d068816878aceff1ff3dd14018e2fa6d85b84b978de07039018a8e0d0b9ac"
+    },
+    {
+      "path": "modules/invoices/Application.Invoices/packages.lock.json",
+      "git_state": "untracked",
+      "sha256": "cde1083fc6a629d78a90c200298cd4c0fe78c7eafc154577d5489397a6371a3a"
+    },
+    {
+      "path": "package-lock.json",
+      "git_state": "untracked",
+      "sha256": "75d3ca7313b0135bb10a88f8e7aec0a0b49d5277fb39f3e3911d29442bb7648d"
+    },
+    {
+      "path": "services/admin-api/Application.AdminApi/AdminEndpointAccess.cs",
+      "git_state": "untracked",
+      "sha256": "d0973f3770cf91de7d12a41862baf832e77f053e4f89a614c200c958906e2b87"
+    },
+    {
+      "path": "services/admin-api/Application.AdminApi/Composition/AdminApiConfiguration.cs",
+      "git_state": "tracked_modified",
+      "sha256": "cae60a5c2d7eed0f0efbab7fc7556d694717f05b1feafc384bbaa762d427811a"
+    },
+    {
+      "path": "services/admin-api/Application.AdminApi/Composition/AdminApiRequestBudgets.cs",
+      "git_state": "untracked",
+      "sha256": "fb9138ec1a37bc92d3f1c2397348cd2abbaa816e802bcafd40d8279381ee3094"
+    },
+    {
+      "path": "services/admin-api/Application.AdminApi/Program.cs",
+      "git_state": "tracked_modified",
+      "sha256": "7dd350649501bece2e25f222e2f3d8d93ff90c4f7a3a817c524961f9175cd79a"
+    },
+    {
+      "path": "services/admin-api/Application.AdminApi/appsettings.json",
+      "git_state": "tracked_modified",
+      "sha256": "cf1b9f59335a99b81c4eb08ec7c3e1d98579baf144034e1677362959ca1f10f6"
+    },
+    {
+      "path": "tests/integration/Application.AdminApi.Tests/AdminApiTestEnvironment.cs",
+      "git_state": "tracked_modified",
+      "sha256": "a6e560b7b7b089bc11d1e4f9104b754be780a27e211ac590dca00d52a126621f"
+    },
+    {
+      "path": "tests/integration/Application.AdminApi.Tests/RequestBudgetTests.cs",
+      "git_state": "untracked",
+      "sha256": "02a677c1be49aa5f3c7ea059d79227d97a89cd54126a9959c306f189d5ad79ae"
+    },
+    {
+      "path": "tests/integration/Application.CoreApi.Tests/RequestBudgetTests.cs",
+      "git_state": "tracked_modified",
+      "sha256": "8ece6b6579d4c8c0936843105cbec8104f06251b2a9d1a648dc1a6a8cd3ba4e1"
+    },
+    {
+      "path": "tests/unit/Application.Invoices.Tests/Application.Invoices.Tests.csproj",
+      "git_state": "untracked",
+      "sha256": "07693113657082f0883191b7c175c25ab715df0817af09e32aee95024c3d9ecc"
+    },
+    {
+      "path": "tests/unit/Application.Invoices.Tests/InvoiceIssueTests.cs",
+      "git_state": "untracked",
+      "sha256": "968ba27ec1903d677cb7a42cf6e99bc857ec2d47f26f7c01693585cd9e7af94b"
+    },
+    {
+      "path": "tests/unit/Application.Invoices.Tests/packages.lock.json",
+      "git_state": "untracked",
+      "sha256": "e0f2d215ed4880ae4c0402e3cf72e41d5816d16be82ab848fd6bc24046b11757"
+    }
+  ],
+  "existing_work": [
+    {
+      "task": "ADM-002",
+      "observed": "AdminApi request budget implementation and tests",
+      "action": "verify existing; do not rebuild"
+    },
+    {
+      "task": "COM-020",
+      "observed": "host-neutral Invoices implementation and tests",
+      "action": "verify existing and accepted-contract deltas; durable store/API still absent"
+    }
+  ]
+}

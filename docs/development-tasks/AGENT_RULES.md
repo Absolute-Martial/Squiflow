@@ -1,0 +1,20 @@
+# Reusable assignment rules
+
+Attach this file, [HANDOFF_AND_INTEGRATION.md](HANDOFF_AND_INTEGRATION.md), and the full selected task. Read root and nearest scoped `AGENTS.md`, [current truth](../../README.IMPLEMENTATION.md), the task's focused owners and current accepted/open decisions before changing anything. An assignment plan does not authorize execution until the user or integrator explicitly assigns that task.
+
+1. Restate the exact intended outcome, permitted write scope, dependency evidence and non-claims. Planning status is not runtime qualification. Do not silently close owner decisions or broaden an accepted scope.
+2. Inspect existing code and incoming diffs. Preserve unrelated work, including incoming AdminApi request budgets and `package-lock.json`. No restoration of purged Parties code, empty future projects or implementations copied from memory.
+3. Implement the smallest production-honest responsibility. Existing framework/native/standard-library mechanisms precede custom infrastructure. Admit any new package/source through the [source review](../review/APPLICATION_BASELINE_IMPLEMENTATION_SOURCE_REVIEW.md), including version, license and bounded rationale.
+4. Keep one capability's meaning host-neutral. API, Web and Worker compose or invoke it; none duplicates authority. Enforce current membership and permission on replay as well as first execution. UI hiding and token claims alone never grant authority.
+   Keep `.NET 10`, neutral `Application.*` identities and product version `v0.1.0`. Runtime SQL belongs in the owning PostgreSQL adapter's parameterized embedded `.sql` resources. Current framework/native mechanisms and existing packages precede new dependencies.
+5. Treat input and historical persistence as untrusted: shape/size/ranges/version, tenant isolation, output encoding, parameterized SQL, bounded cancellation/retries and safe diagnostics. No secrets, raw provider messages, customer payloads or financial line content in logs/artifacts.
+6. Preserve durable idempotency, concurrency, transaction/recovery and compatibility guarantees for every introduced effect. Response loss after commit is explicit; do not promise rollback or exactly-once external effects without evidence.
+7. Add focused meaningful regressions against the actual property. PostgreSQL/OpenFGA/provider/browser/deployment guarantees require those real boundaries. Do not replace their checks with mocks, serialization, retries, disabled tests, uninstalled dependencies or reduced validation to obtain a pass.
+8. Perform task-specific static security review: actor/resource/tenant authority, stale versions, replay, denial, data disclosure, resource bounds and applicable host/session/provider boundary. Fix findings within scope; otherwise list blockers.
+9. Run exact task checks and normal `./eng/verify.sh` when required; inspect commands, exit status, totals, failures and skips. Unavailable SDK, Docker, providers or target deployment mean evidence pending. Never borrow a historical result, nearby target or another agent's uninspected run.
+10. Update only named focused owners when behavior changes; retain claim/owner, evidence, regression guard, requalification trigger and known non-claims. Introduced material uncertainty is `BLOCKED`, not deferred hardening.
+11. Return source-only ZIP, changed-file list, exact evidence and blockers. No commit/push, product version change, deletion of unrelated files or broader feature work. Only the explicitly authorized integrator can commit/push.
+
+Accepted product decisions are referenced in [coverage](COVERAGE_MATRIX.md), not newly chosen by task agents. Ambiguous taxonomy, approval, stock, allocation, recovery and legal requirements require an explicit owner decision before affected persistence/wire semantics are written.
+
+One assignment may be dispatched as a smaller reviewable slice under [orchestration](ORCHESTRATOR.md), but its parent task is accepted only after all selected slices and required real-boundary checks are integrated. Attach exact writable paths and approved input contract versions; a broad capability label is not permission to edit unrelated files.

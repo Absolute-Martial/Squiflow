@@ -1,0 +1,2189 @@
+{
+  "schema_version": 1,
+  "planning_only": true,
+  "tasks": [
+    {
+      "task_id": "BAS-001",
+      "title": "Record the source baseline and assignment manifest",
+      "phase": "00-baseline",
+      "status": "VERIFY_EXISTING",
+      "model": "GPT-6 Luna (high)",
+      "release_requirement": "REQUIRED",
+      "dependencies": [],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: New safe baseline manifest/evidence under the assigned task artifact directory; read-only source inventory and catalog metadata corrections only. No feature implementation, unrelated refactor, Git mutation or product-version change.",
+      "file": "phase-00-baseline/BAS-001-record-source-baseline-and-assignment-manifest.md"
+    },
+    {
+      "task_id": "GATE-001",
+      "title": "Qualify the current backend entry baseline",
+      "phase": "00-baseline",
+      "status": "VERIFY_EXISTING",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "BAS-001",
+        "ADM-001",
+        "ADM-002",
+        "OPS-022"
+      ],
+      "conditional_dependencies": [
+        {
+          "task_id": "ADM-003",
+          "condition": "ADM-003 when an existing public-route authentication gap is reproduced on the receiving baseline"
+        }
+      ],
+      "write_scope": "Allowed areas: Named baseline qualification evidence and focused current-state corrections explicitly approved for the assigned qualification; inspect existing source without introducing features. No feature implementation, unrelated refactor, Git mutation or product-version change.",
+      "file": "phase-00-baseline/GATE-001-qualify-the-current-backend-entry-baseline.md"
+    },
+    {
+      "task_id": "ADM-001",
+      "title": "Qualify existing membership and tenant lifecycle",
+      "phase": "01-admin-platform",
+      "status": "VERIFY_EXISTING",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "BAS-001"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: Existing Tenancy core/PostgreSQL lifecycle paths, their tests, AdminApi lifecycle adapters, runtime grant artifact and focused membership owner only. Exclude UI implementation, unrelated capabilities and purged Parties code.",
+      "file": "phase-01-admin-platform/ADM-001_qualify-existing-membership-and-tenant-lifecycle.md"
+    },
+    {
+      "task_id": "ADM-002",
+      "title": "Qualify incoming protected request budgets",
+      "phase": "01-admin-platform",
+      "status": "VERIFY_EXISTING",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "ADM-001"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: Incoming AdminApi budget/configuration/metadata files and request-budget test paths; targeted owner corrections only. Exclude UI implementation, unrelated capabilities and purged Parties code.",
+      "file": "phase-01-admin-platform/ADM-002_qualify-incoming-protected-request-budgets.md"
+    },
+    {
+      "task_id": "ADM-003",
+      "title": "Review route access readiness and admission gaps",
+      "phase": "01-admin-platform",
+      "status": "CONDITIONAL",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "CONDITIONAL",
+      "dependencies": [
+        "ADM-002"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: AdminApi route registration, readiness/admission configuration, shared request authorizer and corresponding boundary tests only. Exclude UI implementation, unrelated capabilities and purged Parties code.\n\nFor the activated public-auth slice only, the assigned host-native JWT registration files in AdminApi/CoreApi and corresponding public/protected pipeline tests are also allowed, exactly as listed in its bounded assignment. No new dependency, issuer/audience relaxation or generic authentication framework is earned.",
+      "file": "phase-01-admin-platform/ADM-003_review-route-access-readiness-and-admission-gaps.md"
+    },
+    {
+      "task_id": "ADM-004",
+      "title": "Decide and qualify live ZITADEL topology",
+      "phase": "01-admin-platform",
+      "status": "DECISION_REQUIRED",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "ADM-002"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: Identity topology decision/POC evidence, isolated provider test tooling, focused owner and reviewed deployment examples; no production account creation yet. Exclude UI implementation, unrelated capabilities and purged Parties code.",
+      "file": "phase-01-admin-platform/ADM-004_decide-and-qualify-live-zitadel-topology.md"
+    },
+    {
+      "task_id": "ADM-005",
+      "title": "Implement selected provider onboarding operation",
+      "phase": "01-admin-platform",
+      "status": "CONDITIONAL",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "CONDITIONAL",
+      "dependencies": [
+        "ADM-004",
+        "OPS-003",
+        "OPS-018"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: One accepted ZITADEL provisioning adapter/use case, identity import reuse, AdminApi contract, durable operation state and focused provider-onboarding tests only. Exclude UI implementation, unrelated capabilities and purged Parties code.",
+      "file": "phase-01-admin-platform/ADM-005_implement-selected-provider-onboarding-operation.md"
+    },
+    {
+      "task_id": "ADM-006",
+      "title": "Expose bounded platform registry reads",
+      "phase": "01-admin-platform",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "ADM-002",
+        "GATE-001"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: Tenancy and IdentityAccess read contracts/PostgreSQL adapters, explicit AdminApi read endpoints, scoped permissions and read tests only. Exclude UI implementation, unrelated capabilities and purged Parties code.",
+      "file": "phase-01-admin-platform/ADM-006_expose-bounded-platform-registry-reads.md"
+    },
+    {
+      "task_id": "ADM-007",
+      "title": "Decide account suspension and identity recovery lifecycle",
+      "phase": "01-admin-platform",
+      "status": "DECISION_REQUIRED",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "ADM-004",
+        "ADM-006",
+        "WEB-001"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: Focused IdentityAccess lifecycle decision, threat review and executable acceptance specification; no broad provider mutation or account-deletion implementation. Exclude UI implementation, unrelated capabilities and purged Parties code.",
+      "file": "phase-01-admin-platform/ADM-007_decide-account-suspension-and-identity-recovery-lifecycle.md"
+    },
+    {
+      "task_id": "ADM-008",
+      "title": "Decide Owner Staff and delegation contract",
+      "phase": "01-admin-platform",
+      "status": "DECISION_REQUIRED",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "ADM-001",
+        "ADM-004"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: Focused authorization owner/accepted decisions, capability permission inventory and bounded model experiments for current operations only. Exclude UI implementation, unrelated capabilities and purged Parties code.",
+      "file": "phase-01-admin-platform/ADM-008_decide-owner-staff-and-delegation-contract.md"
+    },
+    {
+      "task_id": "ADM-009",
+      "title": "Persist one tenant grant proposal and status",
+      "phase": "01-admin-platform",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "ADM-008",
+        "ADM-002",
+        "GATE-001"
+      ],
+      "conditional_dependencies": [
+        {
+          "task_id": "OPS-003",
+          "condition": "OPS-003 when automatic background grant reconciliation is selected"
+        }
+      ],
+      "write_scope": "Allowed areas: Accepted tenant authorization capability/core and PostgreSQL adapter, one proposal/status contract and focused grants/migrations; AdminApi admission adapter only if platform policy authorizes it. Exclude UI implementation, unrelated capabilities and purged Parties code.",
+      "file": "phase-01-admin-platform/ADM-009_persist-one-tenant-grant-proposal-and-status.md"
+    },
+    {
+      "task_id": "ADM-010",
+      "title": "Apply and reconcile one permission grant",
+      "phase": "01-admin-platform",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "ADM-009"
+      ],
+      "conditional_dependencies": [
+        {
+          "task_id": "OPS-003",
+          "condition": "OPS-003 when automatic background grant reconciliation is selected"
+        }
+      ],
+      "write_scope": "Allowed areas: One tenant permission grant handler/provider adapter, durable status completion and authorization revision/audit paths owned by ADM-009; no generic job scheduler. Exclude UI implementation, unrelated capabilities and purged Parties code.",
+      "file": "phase-01-admin-platform/ADM-010_apply-and-reconcile-one-permission-grant.md"
+    },
+    {
+      "task_id": "ADM-011",
+      "title": "Reconcile revocation and guarded Owner handoff",
+      "phase": "01-admin-platform",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "ADM-010",
+        "ADM-034"
+      ],
+      "conditional_dependencies": [
+        {
+          "task_id": "OPS-003",
+          "condition": "OPS-003 when automatic background revocation reconciliation is selected"
+        }
+      ],
+      "write_scope": "Allowed areas: One grant-revoke flow and revision enforcement in its owning authorization capability, plus explicitly accepted Owner handoff guard; impacted tenant admission tests only. Exclude UI implementation, unrelated capabilities and purged Parties code.",
+      "file": "phase-01-admin-platform/ADM-011_reconcile-revocation-and-guarded-owner-handoff.md"
+    },
+    {
+      "task_id": "ADM-012",
+      "title": "Add one tenant custom role lifecycle",
+      "phase": "01-admin-platform",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "ADM-011",
+        "ADM-008"
+      ],
+      "conditional_dependencies": [
+        {
+          "task_id": "OPS-003",
+          "condition": "OPS-003 when automatic background role reconciliation is selected"
+        }
+      ],
+      "write_scope": "Allowed areas: Authorization-owned custom-role definition/assignment contracts, PostgreSQL metadata, OpenFGA relationships and supported tenant endpoint adapters only. Exclude UI implementation, unrelated capabilities and purged Parties code.",
+      "file": "phase-01-admin-platform/ADM-012_add-one-tenant-custom-role-lifecycle.md"
+    },
+    {
+      "task_id": "ADM-013",
+      "title": "Decide first resource permission scope",
+      "phase": "01-admin-platform",
+      "status": "DECISION_REQUIRED",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "ADM-008",
+        "ADM-012"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: One selected capability resource-scope decision/model POC and executable threat specification; no universal scope framework or speculative branch schema. Exclude UI implementation, unrelated capabilities and purged Parties code.",
+      "file": "phase-01-admin-platform/ADM-013_decide-first-resource-permission-scope.md"
+    },
+    {
+      "task_id": "ADM-014",
+      "title": "Introduce narrowly scoped platform operator lifecycle",
+      "phase": "01-admin-platform",
+      "status": "DECISION_REQUIRED",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "ADM-002",
+        "ADM-010",
+        "ADM-034"
+      ],
+      "conditional_dependencies": [
+        {
+          "task_id": "OPS-003",
+          "condition": "OPS-003 when automatic operator authorization reconciliation is selected"
+        }
+      ],
+      "write_scope": "Allowed areas: PlatformAdministration operator policy and one enrollment/suspension use case, durable receipts/reconciliation, AdminApi endpoints and operator tests only. Exclude UI implementation, unrelated capabilities and purged Parties code.",
+      "file": "phase-01-admin-platform/ADM-014_introduce-narrowly-scoped-platform-operator-lifecycle.md"
+    },
+    {
+      "task_id": "ADM-015",
+      "title": "Enroll one principal-bound Admin device",
+      "phase": "01-admin-platform",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "ADM-014",
+        "OPS-015",
+        "ADM-034"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: PlatformAdministration device enrollment core/PostgreSQL path, one AdminApi enrollment endpoint, certificate proof tests and focused enrollment owner only. Exclude UI implementation, unrelated capabilities and purged Parties code.",
+      "file": "phase-01-admin-platform/ADM-015_enroll-one-principal-bound-admin-device.md"
+    },
+    {
+      "task_id": "ADM-016",
+      "title": "Rotate and revoke registered Admin certificates",
+      "phase": "01-admin-platform",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "ADM-015",
+        "ADM-017",
+        "OPS-018"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: Device-owned rotate/revoke command contracts, PostgreSQL transitions/receipts and real request-boundary tests; no tenant/Workstation device lifecycle. Exclude UI implementation, unrelated capabilities and purged Parties code.",
+      "file": "phase-01-admin-platform/ADM-016_rotate-and-revoke-registered-admin-certificates.md"
+    },
+    {
+      "task_id": "ADM-017",
+      "title": "Define and drill Admin access recovery ceremony",
+      "phase": "01-admin-platform",
+      "status": "DECISION_REQUIRED",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "ADM-014",
+        "OPS-015"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: Application operator/device recovery policy, minimum controlled recovery primitive and isolated drill tests; infrastructure credential/key recovery remains with OPS. Exclude UI implementation, unrelated capabilities and purged Parties code.",
+      "file": "phase-01-admin-platform/ADM-017_define-and-drill-admin-access-recovery-ceremony.md"
+    },
+    {
+      "task_id": "ADM-018",
+      "title": "Admit a real feature catalog and permission metadata",
+      "phase": "01-admin-platform",
+      "status": "DECISION_REQUIRED",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "ADM-008",
+        "GATE-001"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: Existing Application.Profiles definitions/tests, capability-owned descriptors for already implemented operations and reviewed catalog read contract only. Exclude UI implementation, unrelated capabilities and purged Parties code.",
+      "file": "phase-01-admin-platform/ADM-018_admit-a-real-feature-catalog-and-permission-metadata.md"
+    },
+    {
+      "task_id": "ADM-019",
+      "title": "Persist one typed setting revision",
+      "phase": "01-admin-platform",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "ADM-018"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: One accepted capability-owned typed setting definition, durable revision/history adapter, authorized edit/read contract and its tests only. Exclude UI implementation, unrelated capabilities and purged Parties code.",
+      "file": "phase-01-admin-platform/ADM-019_persist-one-typed-setting-revision.md"
+    },
+    {
+      "task_id": "ADM-020",
+      "title": "Publish one immutable tenant profile revision",
+      "phase": "01-admin-platform",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "ADM-019",
+        "ADM-009"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: Profile-owned draft/validate/publish contracts, minimal PostgreSQL authority adapter/migration, AdminApi publication endpoint and bounded profile tests only. Exclude UI implementation, unrelated capabilities and purged Parties code.",
+      "file": "phase-01-admin-platform/ADM-020_publish-one-immutable-tenant-profile-revision.md"
+    },
+    {
+      "task_id": "ADM-021",
+      "title": "Activate and roll back a published profile",
+      "phase": "01-admin-platform",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "ADM-020",
+        "ADM-011"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: Profile authority activation pointer/receipt, verified tenant profile resolver, one real data-driven consumer and concurrent activation tests only. Exclude UI implementation, unrelated capabilities and purged Parties code.",
+      "file": "phase-01-admin-platform/ADM-021_activate-and-roll-back-a-published-profile.md"
+    },
+    {
+      "task_id": "ADM-022",
+      "title": "Acquire tenant runtime only for a proven variant",
+      "phase": "01-admin-platform",
+      "status": "CONDITIONAL",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "CONDITIONAL",
+      "dependencies": [
+        "ADM-021"
+      ],
+      "conditional_dependencies": [
+        {
+          "task_id": "OPS-003",
+          "condition": "OPS-003 when the selected variant is consumed by Worker"
+        }
+      ],
+      "write_scope": "Allowed areas: Existing CoreApi profile composition/resolver boundary, one admitted trusted implementation variant and its runtime tests; capability contracts stay Autofac-neutral. Exclude UI implementation, unrelated capabilities and purged Parties code.",
+      "file": "phase-01-admin-platform/ADM-022_acquire-tenant-runtime-only-for-a-proven-variant.md"
+    },
+    {
+      "task_id": "ADM-023",
+      "title": "Provide authoritative administrative audit reads",
+      "phase": "01-admin-platform",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "ADM-006",
+        "ADM-010",
+        "ADM-020",
+        "OPS-013"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: Existing audit/receipt owners’ explicit read projections, bounded AdminApi audit endpoints, indexes and authorization tests; no centralized rewrite of every history table. Exclude UI implementation, unrelated capabilities and purged Parties code.",
+      "file": "phase-01-admin-platform/ADM-023_provide-authoritative-administrative-audit-reads.md"
+    },
+    {
+      "task_id": "ADM-024",
+      "title": "Publish bounded tenant branding overrides",
+      "phase": "01-admin-platform",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "ADM-021",
+        "WEB-001"
+      ],
+      "conditional_dependencies": [
+        {
+          "task_id": "OPS-008",
+          "condition": "OPS-008 when managed branding uploads are selected"
+        }
+      ],
+      "write_scope": "Allowed areas: Existing Branding validation, one profile-owned tenant override schema/publication input, verified tenant-scoped CoreApi branding read contract and focused branding tests only. Exclude UI implementation, unrelated capabilities and purged Parties code.",
+      "file": "phase-01-admin-platform/ADM-024_publish-bounded-tenant-branding-overrides.md"
+    },
+    {
+      "task_id": "ADM-025",
+      "title": "Implement local account availability commands",
+      "phase": "01-admin-platform",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "ADM-007",
+        "ADM-006",
+        "ADM-002",
+        "GATE-001"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: IdentityAccess local availability core/PostgreSQL transitions and receipts, narrowly authorized AdminApi commands, runtime grant changes and focused account/admission tests only. Exclude UI implementation, unrelated capabilities and purged Parties code.",
+      "file": "phase-01-admin-platform/ADM-025_implement-local-account-availability-commands.md"
+    },
+    {
+      "task_id": "ADM-026",
+      "title": "Implement one approved identity recovery operation",
+      "phase": "01-admin-platform",
+      "status": "CONDITIONAL",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "CONDITIONAL",
+      "dependencies": [
+        "ADM-007",
+        "ADM-025",
+        "ADM-004",
+        "ADM-034",
+        "OPS-018"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: One explicitly approved IdentityAccess recovery operation/proof contract, PostgreSQL binding/receipt effects, protected recovery endpoint and adversarial recovery tests only. Exclude UI implementation, unrelated capabilities and purged Parties code.",
+      "file": "phase-01-admin-platform/ADM-026_implement-one-approved-identity-recovery-operation.md"
+    },
+    {
+      "task_id": "ADM-027",
+      "title": "Conditional verified custom-domain lifecycle",
+      "phase": "01-admin-platform",
+      "status": "CONDITIONAL",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "CONDITIONAL",
+      "dependencies": [
+        "ADM-021",
+        "ADM-010",
+        "OPS-015",
+        "WEB-001"
+      ],
+      "conditional_dependencies": [
+        {
+          "task_id": "OPS-003",
+          "condition": "OPS-003 when DNS/certificate reconciliation runs automatically"
+        },
+        {
+          "task_id": "OPS-005",
+          "condition": "OPS-005 when renewal uses scheduled occurrences"
+        }
+      ],
+      "write_scope": "Allowed areas: one domain-owned normalized registration/verification/activation/removal contract, PostgreSQL state, tenant-authorized CoreApi adapters and reviewed edge/IdP configuration integration. Name exact approved paths before editing. Keep platform operational credentials in adapters. Exclude a portal, DNS hosting platform and arbitrary callback registration.",
+      "file": "phase-01-admin-platform/ADM-027-conditional-verified-custom-domain-lifecycle.md"
+    },
+    {
+      "task_id": "ADM-028",
+      "title": "Conditional encryption policy and key-lifecycle contract",
+      "phase": "01-admin-platform",
+      "status": "CONDITIONAL",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "CONDITIONAL",
+      "dependencies": [
+        "ADM-014",
+        "ADM-034",
+        "OPS-015"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: focused policy/provider decision, safe metadata contract, recovery examples and executable acceptance specification for one selected operation. No production cryptography, vault bootstrap, endpoints, private-key export, general key dashboard or Workstation encryption implementation.",
+      "file": "phase-01-admin-platform/ADM-028-conditional-encryption-policy-and-key-lifecycle-contract.md"
+    },
+    {
+      "task_id": "ADM-029",
+      "title": "Conditional one provider-owned key-lifecycle operation",
+      "phase": "01-admin-platform",
+      "status": "CONDITIONAL",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "CONDITIONAL",
+      "dependencies": [
+        "ADM-028",
+        "OPS-003",
+        "OPS-018"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: one provider-neutral lifecycle use case, durable intent/receipt, isolated provider adapter, AdminApi command/status projection and its Worker handler/tests. Reserve shared host/model/migration registration for integration. Exclude a custom vault, generic administrative execution, raw key export, unrelated sensitive-field encryption and all other key operations.",
+      "file": "phase-01-admin-platform/ADM-029-conditional-one-provider-owned-key-lifecycle-operation.md"
+    },
+    {
+      "task_id": "ADM-030",
+      "title": "Conditional time-bounded tenant support access",
+      "phase": "01-admin-platform",
+      "status": "CONDITIONAL",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "CONDITIONAL",
+      "dependencies": [
+        "ADM-014",
+        "ADM-034",
+        "OPS-013"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: one support request/approval/expiry contract, durable receipt and audit, protected AdminApi adapter and owning capability's narrow application operation. Name exact resource and fields in the write allowlist. No unrestricted customer browser, arbitrary SQL, impersonated permanent Owner grant or ordinary AdminApi-to-CoreApi proxy.",
+      "file": "phase-01-admin-platform/ADM-030-conditional-time-bounded-tenant-support-access.md"
+    },
+    {
+      "task_id": "ADM-031",
+      "title": "Conditional first resource-permission enforcement",
+      "phase": "01-admin-platform",
+      "status": "CONDITIONAL",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "CONDITIONAL",
+      "dependencies": [
+        "ADM-013",
+        "ADM-011"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: selected capability's ownership/assignment fact contract, pinned relation/check adapter, durable assignment mutation and affected CoreApi read/command tests. Coordinate shared model rollout. Exclude every-resource ACL frameworks, tenant-defined permission code and invented branch/ownership meanings.",
+      "file": "phase-01-admin-platform/ADM-031-conditional-first-resource-permission-enforcement.md"
+    },
+    {
+      "task_id": "ADM-032",
+      "title": "Tenant-authorized team and membership API",
+      "phase": "01-admin-platform",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "ADM-012",
+        "ADM-025",
+        "ADM-034"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: reuse Tenancy/IdentityAccess public lifecycle/query contracts, add narrow tenant actor/admission contracts where earned, protected CoreApi team browse/invite/selected transition adapters, scoped model relations and focused tests. Do not proxy through AdminApi or duplicate membership transition rules. No provider-side user creation, arbitrary identity linking or Workstation device lifecycle.",
+      "file": "phase-01-admin-platform/ADM-032-tenant-authorized-team-and-membership-api.md"
+    },
+    {
+      "task_id": "ADM-033",
+      "title": "Conditional bounded feature-release controls",
+      "phase": "01-admin-platform",
+      "status": "CONDITIONAL",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "CONDITIONAL",
+      "dependencies": [
+        "ADM-021",
+        "ADM-018",
+        "OPS-021"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: one profile-owned versioned channel/rollout publication, bounded targeting/effective read, authorized AdminApi command and selected consumer tests. Reuse current profile activation. Exclude generic experimentation/analytics, arbitrary feature flags, unsupported host targeting and financial/security variant semantics.",
+      "file": "phase-01-admin-platform/ADM-033-conditional-bounded-feature-release-controls.md"
+    },
+    {
+      "task_id": "ADM-034",
+      "title": "Backend high-risk action and step-up contract",
+      "phase": "01-admin-platform",
+      "status": "DECISION_REQUIRED",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "ADM-004",
+        "WEB-001",
+        "UIA-001",
+        "GATE-001"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: focused operation-risk/freshness contract, validated authentication-context admission adapter in each affected API, guarded Owner/device operation contract fixtures and bounded real-provider POC. Exclude UI, ordinary-operation approval requirements, parallel authentication mechanisms and universal security-workflow scaffolding.",
+      "file": "phase-01-admin-platform/ADM-034-backend-high-risk-action-and-step-up-contract.md"
+    },
+    {
+      "task_id": "COM-001",
+      "title": "Verify the commercial starting point",
+      "phase": "02-commercial-backend",
+      "status": "VERIFY_EXISTING",
+      "model": "GPT-6 Luna (high)",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "BAS-001"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: read Orders, Customers, incoming Invoices, their adapters, CoreApi contracts and existing tests. Write only a bounded review/handoff artifact unless a separately assigned defect fix is authorized; preserve all incoming edits. Record invoice-domain work as present and awaiting qualification, not a missing module to recreate.",
+      "file": "phase-02-commercial-backend/COM-001-verify-the-commercial-starting-point.md"
+    },
+    {
+      "task_id": "COM-002",
+      "title": "Customer contacts and representative relationships",
+      "phase": "02-commercial-backend",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "COM-001",
+        "GATE-001",
+        "ADM-008"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: Customers-owned contact editing and representative relationships in modules/customers, narrow PostgreSQL persistence, protected CoreApi operations and focused Customers/CoreApi tests. Reuse existing individual records where appropriate; exclude portal login, billing assignment and generic Parties restoration.",
+      "file": "phase-02-commercial-backend/COM-002-customer-contacts-and-representative-relationships.md"
+    },
+    {
+      "task_id": "COM-003",
+      "title": "Duplicate detection and deliberate customer consolidation",
+      "phase": "02-commercial-backend",
+      "status": "DECISION_REQUIRED",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "COM-002"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: Customers-owned duplicate suggestions and one explicitly selected consolidation or keep-separate operation, its receipts and protected reads. Exclude fuzzy matching engines, cross-tenant merging and rewriting frozen invoice debtor facts.",
+      "file": "phase-02-commercial-backend/COM-003-duplicate-detection-and-deliberate-customer-consolidation.md"
+    },
+    {
+      "task_id": "COM-004",
+      "title": "Bounded onboarding customer import",
+      "phase": "02-commercial-backend",
+      "status": "CONDITIONAL",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "CONDITIONAL",
+      "dependencies": [
+        "COM-003"
+      ],
+      "conditional_dependencies": [
+        {
+          "task_id": "OPS-008",
+          "condition": "OPS-008 when import bytes are retained"
+        },
+        {
+          "task_id": "OPS-003",
+          "condition": "OPS-003 when the accepted import uses background execution"
+        }
+      ],
+      "write_scope": "Allowed areas: one bounded customer format and supported organization/program/contact fields; validation, preview and authorized import receipts. Exclude a generic ETL platform, arbitrary mappings, supplier/financial imports and automatic identity-provider account creation.",
+      "file": "phase-02-commercial-backend/COM-004-bounded-onboarding-customer-import.md"
+    },
+    {
+      "task_id": "COM-005",
+      "title": "Tenant product and service catalog with explicit units",
+      "phase": "02-commercial-backend",
+      "status": "DECISION_REQUIRED",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "COM-001",
+        "GATE-001"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: catalog-owned identity, display fields, only earned tenant categories, availability, quantity/unit rules and protected bounded reads/mutations with focused tests. Identify the owning capability and exact approved paths before adding a project. Existing free-description order entry remains valid if selected; exclude generic units conversion, MRP and stock movements.",
+      "file": "phase-02-commercial-backend/COM-005-tenant-product-and-service-catalog-with-explicit-units.md"
+    },
+    {
+      "task_id": "COM-006",
+      "title": "Resolve price selection and override policy contracts",
+      "phase": "02-commercial-backend",
+      "status": "DECISION_REQUIRED",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "COM-005"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: focused pricing owner and decision records with executable decision examples; preserve current calculator, manual_pricer model and initial/later manual entry. No speculative price engine or new persistence belongs in this decision assignment.",
+      "file": "phase-02-commercial-backend/COM-006-resolve-price-selection-and-override-policy-contracts.md"
+    },
+    {
+      "task_id": "COM-007",
+      "title": "Published price policy and explainable selection",
+      "phase": "02-commercial-backend",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "COM-006",
+        "ADM-008"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: pricing-owned bounded definitions, immutable publication revisions, scoped selection and provider persistence; protected publication/selection APIs and focused tests. Reuse admitted calculation rather than copying arithmetic into hosts; exclude supplier cost, tax and arbitrary expressions.",
+      "file": "phase-02-commercial-backend/COM-007-published-price-policy-and-explainable-selection.md"
+    },
+    {
+      "task_id": "COM-008",
+      "title": "Controlled manual final-price overrides",
+      "phase": "02-commercial-backend",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "COM-007"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: pricing-owned override validation and evidence, Orders integration and protected guidance. Add only selected reason/approval fields and compatibility changes; exclude automatic markup, cost-based resale restrictions and blanket Owner bypass.",
+      "file": "phase-02-commercial-backend/COM-008-controlled-manual-final-price-overrides.md"
+    },
+    {
+      "task_id": "COM-009",
+      "title": "Optional quotations and immutable issued revisions",
+      "phase": "02-commercial-backend",
+      "status": "DECISION_REQUIRED",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "COM-007"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: quotation-owned draft/issue/revision contracts, pricing integration, protected API and persistence with focused tests. Retain applied price/source/currency/customer context; exclude tender-specific bureaucracy, conversion and mandatory quotation requirements.",
+      "file": "phase-02-commercial-backend/COM-009-optional-quotations-and-immutable-issued-revisions.md"
+    },
+    {
+      "task_id": "COM-010",
+      "title": "Quotation responses and idempotent order conversion",
+      "phase": "02-commercial-backend",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "COM-009"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: quotation response/conversion ownership, Orders entry integration, protected commands and retained links with focused tests. Keep conversion distinct from order commitment; exclude portal authentication and automatic invoice or fulfillment effects.",
+      "file": "phase-02-commercial-backend/COM-010-quotation-responses-and-idempotent-order-conversion.md"
+    },
+    {
+      "task_id": "COM-011",
+      "title": "One bounded typed customer workflow variation",
+      "phase": "02-commercial-backend",
+      "status": "DECISION_REQUIRED",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "COM-007",
+        "ADM-021"
+      ],
+      "conditional_dependencies": [
+        {
+          "task_id": "OPS-005",
+          "condition": "OPS-005 when the selected policy requires timed occurrences"
+        },
+        {
+          "task_id": "OPS-010",
+          "condition": "OPS-010 when external notification is selected"
+        }
+      ],
+      "write_scope": "Allowed areas: Web-administration-only authoring/publication APIs; one capability-owned effective selection path, bounded typed form schema, pure evaluation and retained version evidence with focused tests. No tenant scripts, uploaded SQL, visual app builder or financial truth defined by custom stages.",
+      "file": "phase-02-commercial-backend/COM-011-one-bounded-typed-customer-workflow-variation.md"
+    },
+    {
+      "task_id": "COM-012",
+      "title": "Approval decisions and human continuation",
+      "phase": "02-commercial-backend",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "COM-011",
+        "ADM-010"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: capability-owned approval request/decision facts, bounded work inbox and recovery commands with protected API/persistence and focused tests. Exclude generic task management and notification-as-authority; external delivery belongs to OPS-010 if selected.",
+      "file": "phase-02-commercial-backend/COM-012-approval-decisions-and-human-continuation.md"
+    },
+    {
+      "task_id": "COM-013",
+      "title": "Current policy admission for committed orders",
+      "phase": "02-commercial-backend",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "COM-008",
+        "COM-012"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: Orders-owned admission orchestration, versioned prerequisite evidence, protected guidance and transactional receipt compatibility. Reuse implemented commitment; exclude stock reservation, invoice posting and a new generic acceptance lifecycle.",
+      "file": "phase-02-commercial-backend/COM-013-current-policy-admission-for-committed-orders.md"
+    },
+    {
+      "task_id": "COM-014",
+      "title": "Partial fulfillment and actual work stages",
+      "phase": "02-commercial-backend",
+      "status": "DECISION_REQUIRED",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "COM-013"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: fulfillment-owned quantity/stage facts, protected transitions and bounded remaining-work reads linked to committed orders with focused tests. Reuse compatible typed guidance; exclude MRP, blanket stock reservations and automatic paid/invoiced flags.",
+      "file": "phase-02-commercial-backend/COM-014-partial-fulfillment-and-actual-work-stages.md"
+    },
+    {
+      "task_id": "COM-015",
+      "title": "Artwork approval and accountable handoff",
+      "phase": "02-commercial-backend",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "COM-014"
+      ],
+      "conditional_dependencies": [
+        {
+          "task_id": "OPS-008",
+          "condition": "OPS-008 when artwork bytes are retained"
+        },
+        {
+          "task_id": "OPS-009",
+          "condition": "OPS-009 when handoff includes a generated document"
+        }
+      ],
+      "write_scope": "Allowed areas: fulfillment-owned artwork revision references, approval evidence and partial handoff/discrepancy receipts. OPS-008 is a prerequisite when artwork bytes are retained; exclude a client portal and local printer implementation.",
+      "file": "phase-02-commercial-backend/COM-015-artwork-approval-and-accountable-handoff.md"
+    },
+    {
+      "task_id": "COM-016",
+      "title": "Practical purchasing receipts and supplier payables",
+      "phase": "02-commercial-backend",
+      "status": "CONDITIONAL",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "CONDITIONAL",
+      "dependencies": [
+        "COM-005"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: purchasing-owned supplier identity/contact, informal request, partial receipt, actual cost/payable and supplier payment facts with focused tests. Include useful order links; exclude mandatory formal PO approval, general ledger, tax and generic procurement infrastructure.",
+      "file": "phase-02-commercial-backend/COM-016-practical-purchasing-receipts-and-supplier-payables.md"
+    },
+    {
+      "task_id": "COM-017",
+      "title": "Outsourced production and resale evidence",
+      "phase": "02-commercial-backend",
+      "status": "CONDITIONAL",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "CONDITIONAL",
+      "dependencies": [
+        "COM-014",
+        "COM-016"
+      ],
+      "conditional_dependencies": [
+        {
+          "task_id": "COM-015",
+          "condition": "COM-015 when supplied artwork/input approval is required"
+        },
+        {
+          "task_id": "OPS-008",
+          "condition": "OPS-008 when supplied input bytes are retained"
+        }
+      ],
+      "write_scope": "Allowed areas: bounded fulfillment-to-purchasing links, supplied input/evidence, partial outsourced completion and cost explanation. Reuse purchasing and pricing contracts; exclude invented supplier design activity and a manufacturing engine.",
+      "file": "phase-02-commercial-backend/COM-017-outsourced-production-and-resale-evidence.md"
+    },
+    {
+      "task_id": "COM-018",
+      "title": "Conditional item tracking and inventory movements",
+      "phase": "02-commercial-backend",
+      "status": "CONDITIONAL",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "CONDITIONAL",
+      "dependencies": [
+        "COM-005",
+        "COM-014"
+      ],
+      "conditional_dependencies": [
+        {
+          "task_id": "COM-016",
+          "condition": "COM-016 when stock is received through purchasing"
+        }
+      ],
+      "write_scope": "Allowed areas: inventory-owned movements/current stock, damaged/unusable adjustment and fulfillment/purchase integration for precise items with focused tests. Availability-only records are not balances; exclude universal reservation, BOM/MRP, lots/serials and wastage optimization.",
+      "file": "phase-02-commercial-backend/COM-018-conditional-item-tracking-and-inventory-movements.md"
+    },
+    {
+      "task_id": "COM-019",
+      "title": "Close the first invoice contract decisions",
+      "phase": "02-commercial-backend",
+      "status": "DECISION_REQUIRED",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "COM-001"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: focused invoice owner and accepted/open decision updates only; define contract examples and scope. Preserve accepted debtor choices, currency, arithmetic and incoming host-neutral implementation. Exclude runtime issuance, tax, accounting compliance and a blanket universal ledger.",
+      "file": "phase-02-commercial-backend/COM-019-close-the-first-invoice-contract-decisions.md"
+    },
+    {
+      "task_id": "COM-020",
+      "title": "Host-neutral invoice and bill-to invariants",
+      "phase": "02-commercial-backend",
+      "status": "VERIFY_EXISTING",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "COM-019"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: modules/invoices/Application.Invoices, tests/unit/Application.Invoices.Tests and narrowly affected architecture guards. The incoming project already exists: inspect it before editing. Consume narrow public committed-Order and Customers debtor facts; never reselect prices or read provider tables. No provider SDK, HTTP, SQL, numbering transaction, file rendering or payment allocation belongs here. Shared solution/inventory corrections require integrator approval.",
+      "file": "phase-02-commercial-backend/COM-020-host-neutral-invoice-and-bill-to-invariants.md"
+    },
+    {
+      "task_id": "COM-021",
+      "title": "Atomic PostgreSQL invoice issuance and numbering",
+      "phase": "02-commercial-backend",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "COM-020",
+        "GATE-001"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: invoice PostgreSQL adapter and migrations, application issuance transaction, scoped runtime grants and actual provider regressions. Integrator reserves migrator ordering and solution/package registration. Exclude receivable posting, invoice HTTP, rendering and payment effects.",
+      "file": "phase-02-commercial-backend/COM-021-atomic-postgresql-invoice-issuance-and-numbering.md"
+    },
+    {
+      "task_id": "COM-022",
+      "title": "Invoice API authority and issue qualification",
+      "phase": "02-commercial-backend",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "COM-021",
+        "ADM-010",
+        "GATE-001"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: services/core-api/Application.CoreApi invoice ingress/composition, the dedicated billing relation in the reviewed tenant model, focused CoreApi/authorization tests and invoice owner updates. Reserve shared model rollout to the integrator.\n\nCoreApi adapters, request/result contracts, OpenAPI, relation checks and focused qualification evidence. Business and SQL meaning stays in the owning capability; exclude tenant Web and automatic rendering/payment.",
+      "file": "phase-02-commercial-backend/COM-022-invoice-api-authority-and-issue-qualification.md"
+    },
+    {
+      "task_id": "COM-023",
+      "title": "Receivable posting balances and debtor-scoped reads",
+      "phase": "02-commercial-backend",
+      "status": "DECISION_REQUIRED",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "COM-022"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: receivable-owned posting integrated atomically with new invoice issue, unique invoice linkage, consistent projections and bounded protected reads with focused tests. Include organization/program/individual context without collapsing independently owing debtors; exclude general ledger and automatic collections.",
+      "file": "phase-02-commercial-backend/COM-023-receivable-balances-and-debtor-scoped-reads.md"
+    },
+    {
+      "task_id": "COM-024",
+      "title": "Manual payment recording and reconciliation",
+      "phase": "02-commercial-backend",
+      "status": "DECISION_REQUIRED",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "COM-023"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: payment-owned manual record/reconciliation commands, currency/amount/evidence, receipt reads and persistence with focused tests. No provider adapter or receivable allocation yet; exclude cashbook/general-ledger and SaaS subscription billing.",
+      "file": "phase-02-commercial-backend/COM-024-manual-payment-recording-and-reconciliation.md"
+    },
+    {
+      "task_id": "COM-025",
+      "title": "Partial allocations unapplied funds and settlement",
+      "phase": "02-commercial-backend",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "COM-024"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: payment/receivable-owned allocation and explicit deallocation/correction facts, balance reads and settlement result with focused tests. Reuse frozen debtor and currency identity; exclude automatic cross-debtor transfers and mixed-currency accounting.",
+      "file": "phase-02-commercial-backend/COM-025-partial-allocations-unapplied-funds-and-settlement.md"
+    },
+    {
+      "task_id": "COM-026",
+      "title": "Conditional external payment integration",
+      "phase": "02-commercial-backend",
+      "status": "CONDITIONAL",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "CONDITIONAL",
+      "dependencies": [
+        "COM-025",
+        "OPS-003"
+      ],
+      "conditional_dependencies": [
+        {
+          "task_id": "OPS-005",
+          "condition": "OPS-005 when provider reconciliation uses scheduled occurrences"
+        }
+      ],
+      "write_scope": "Allowed areas: provider-neutral payment intent/outcome ownership and one isolated provider adapter, callbacks/status reconciliation and support reads with focused tests. Exclude default vendor choice, multiple-provider platform, FX and subscription billing.",
+      "file": "phase-02-commercial-backend/COM-026-conditional-external-payment-integration.md"
+    },
+    {
+      "task_id": "COM-027",
+      "title": "Conditional credit terms and shared exposure admission",
+      "phase": "02-commercial-backend",
+      "status": "CONDITIONAL",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "CONDITIONAL",
+      "dependencies": [
+        "COM-025",
+        "COM-013"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: credit-owned policy/exposure semantics, guarded admission/reservation only as earned, explicit approval exception and protected explanation with focused tests. Exclude credit scoring, lending, cached-authority decisions and a universal credit engine.",
+      "file": "phase-02-commercial-backend/COM-027-conditional-credit-terms-and-shared-exposure-admission.md"
+    },
+    {
+      "task_id": "COM-028",
+      "title": "Cancellation before committed irreversible effects",
+      "phase": "02-commercial-backend",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "COM-014",
+        "COM-025"
+      ],
+      "conditional_dependencies": [
+        {
+          "task_id": "OPS-003",
+          "condition": "OPS-003 when cancellation affects durable dispatched work"
+        },
+        {
+          "task_id": "COM-017",
+          "condition": "COM-017 when supplier work is involved"
+        },
+        {
+          "task_id": "COM-018",
+          "condition": "COM-018 when tracked stock is involved"
+        },
+        {
+          "task_id": "COM-027",
+          "condition": "COM-027 when credit exposure is involved"
+        }
+      ],
+      "write_scope": "Allowed areas: Orders/fulfillment-owned cancellation eligibility, remaining-work transition and history with focused tests. Preserve existing draft abandonment; exclude deleting issued invoices, undoing successful payments and pretending external supplier work was reversed.",
+      "file": "phase-02-commercial-backend/COM-028-cancellation-before-committed-irreversible-effects.md"
+    },
+    {
+      "task_id": "COM-029",
+      "title": "Invoice corrections credits and disputes",
+      "phase": "02-commercial-backend",
+      "status": "DECISION_REQUIRED",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "COM-025",
+        "COM-028"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: invoice/receivable-owned correction eligibility, partial credit and dispute facts, protected commands and balance effects with focused tests. Exclude destructive issued edits, automatic refunds, tax credit-note compliance and general accounting claims.",
+      "file": "phase-02-commercial-backend/COM-029-invoice-corrections-credits-and-disputes.md"
+    },
+    {
+      "task_id": "COM-030",
+      "title": "Returns refunds and partial compensation",
+      "phase": "02-commercial-backend",
+      "status": "DECISION_REQUIRED",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "COM-029"
+      ],
+      "conditional_dependencies": [
+        {
+          "task_id": "COM-016",
+          "condition": "COM-016 when supplier returns affect payables"
+        },
+        {
+          "task_id": "COM-018",
+          "condition": "COM-018 when returned stock is tracked"
+        },
+        {
+          "task_id": "COM-026",
+          "condition": "COM-026 when refunds execute through a payment provider"
+        }
+      ],
+      "write_scope": "Allowed areas: fulfillment return facts and Payment-owned refund eligibility/confirmation, explicit cross-effect links and operator continuation reads with focused tests. Supplier-return/payable consequences use enabled COM-016; inventory disposition uses COM-018; provider refund execution depends on enabled COM-026.",
+      "file": "phase-02-commercial-backend/COM-030-returns-refunds-and-partial-compensation.md"
+    },
+    {
+      "task_id": "COM-031",
+      "title": "Retained commercial history statements and useful reports",
+      "phase": "02-commercial-backend",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "COM-030",
+        "COM-023",
+        "OPS-013"
+      ],
+      "conditional_dependencies": [
+        {
+          "task_id": "COM-016",
+          "condition": "COM-016 when supplier payable reporting is selected"
+        },
+        {
+          "task_id": "OPS-009",
+          "condition": "OPS-009 when retained document exports are selected"
+        }
+      ],
+      "write_scope": "Allowed areas: capability-owned historical read composition, debtor statements and useful operator/accountant totals with focused tests. Include supplier payable reports when COM-016 is enabled. Exclude a data warehouse, universal general ledger, tax filing and telemetry-as-audit.",
+      "file": "phase-02-commercial-backend/COM-031-retained-commercial-history-statements-and-useful-reports.md"
+    },
+    {
+      "task_id": "COM-032",
+      "title": "Qualify supported commercial journeys and backend handoff",
+      "phase": "02-commercial-backend",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "GATE-001",
+        "COM-003",
+        "COM-010",
+        "COM-013",
+        "COM-015",
+        "COM-022",
+        "COM-025",
+        "COM-028",
+        "COM-029",
+        "COM-030",
+        "COM-031",
+        "OPS-009",
+        "OPS-013"
+      ],
+      "conditional_dependencies": [
+        {
+          "task_id": "COM-004",
+          "condition": "COM-004 when customer import is selected"
+        },
+        {
+          "task_id": "COM-016",
+          "condition": "COM-016 when purchasing is selected"
+        },
+        {
+          "task_id": "COM-017",
+          "condition": "COM-017 when outsourcing is selected"
+        },
+        {
+          "task_id": "COM-018",
+          "condition": "COM-018 when tracked stock is selected"
+        },
+        {
+          "task_id": "COM-026",
+          "condition": "COM-026 when provider payments are selected"
+        },
+        {
+          "task_id": "COM-027",
+          "condition": "COM-027 when credit is selected"
+        }
+      ],
+      "write_scope": "Allowed areas: focused journey regression tests and integration/requalification handoff only; fix newly exposed defects within separately bounded ownership. Exclude frontend implementation, product-version bump and declaring the whole production product qualified.",
+      "file": "phase-02-commercial-backend/COM-032-qualify-supported-commercial-journeys-and-backend-handoff.md"
+    },
+    {
+      "task_id": "OPS-001",
+      "title": "Select the first durable workload and authority contract",
+      "phase": "03-runtime-operations",
+      "status": "DECISION_REQUIRED",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "GATE-001",
+        "COM-001"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: the selected capability’s focused owner, accepted/open decisions and workload contract tests. Inspect actual producer and consumer source. Exclude imaginary generic queues, a business lifecycle expansion and runtime scaffolding. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "file": "phase-03-runtime-operations/OPS-001-select-the-first-durable-workload-and-authority-contract.md"
+    },
+    {
+      "task_id": "OPS-002",
+      "title": "Persist one capability consequence and transactional outbox",
+      "phase": "03-runtime-operations",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "OPS-001"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: the selected capability/provider, its migrations, registered migrator module, producer endpoint and focused tests. Implement only this workload’s job/outbox record and status. Exclude a universal event bus, repository framework or broker. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "file": "phase-03-runtime-operations/OPS-002-persist-one-capability-consequence-and-transactional-outbox.md"
+    },
+    {
+      "task_id": "OPS-003",
+      "title": "Implement Worker claims fencing and crash recovery",
+      "phase": "03-runtime-operations",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "OPS-002"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: earned Worker host/composition, selected capability handler/provider, claim schema/migrations and process/provider tests. Exclude HTTP administration, CoreApi credentials, distributed actors and business rules in the host. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "file": "phase-03-runtime-operations/OPS-003-implement-worker-claims-fencing-and-crash-recovery.md"
+    },
+    {
+      "task_id": "OPS-004",
+      "title": "Bound fair local execution with the selected actor runtime",
+      "phase": "03-runtime-operations",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "OPS-003"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: Worker runtime/composition, admission policy, first handler instrumentation and regression tests. Exclude Proto.Cluster/Remote/Persistence, generic Channel queue layering, permanent per-entity actor forests and hard CPU-isolation claims. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "file": "phase-03-runtime-operations/OPS-004-bound-fair-local-execution-with-the-selected-actor-runtime.md"
+    },
+    {
+      "task_id": "OPS-005",
+      "title": "Materialize durable scheduled occurrences with Quartz",
+      "phase": "03-runtime-operations",
+      "status": "CONDITIONAL",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "CONDITIONAL",
+      "dependencies": [
+        "OPS-003",
+        "OPS-004"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: one capability schedule contract/provider, Quartz adapter/persistent PostgreSQL migrations, Worker composition and schedule tests. Exclude schedules for imagined jobs, Quartz business handlers, direct dashboard/table administration and replacement schedulers. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "file": "phase-03-runtime-operations/OPS-005-materialize-durable-scheduled-occurrences-with-quartz.md"
+    },
+    {
+      "task_id": "OPS-006",
+      "title": "Authorize privileged pause drain retry and quarantine controls",
+      "phase": "03-runtime-operations",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "OPS-003",
+        "ADM-002",
+        "ADM-014"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: accepted PlatformAdministration/control capability, its persistence, AdminApi routes and Worker reconciliation tests. Select the first workload’s useful controls. Exclude Worker public admin endpoints, shared operator credentials and direct Quartz mutation. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "file": "phase-03-runtime-operations/OPS-006-authorize-privileged-pause-drain-retry-and-quarantine-controls.md"
+    },
+    {
+      "task_id": "OPS-007",
+      "title": "Qualify the owned object store adapter and migration boundary",
+      "phase": "03-runtime-operations",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "GATE-001",
+        "COM-001"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: infrastructure storage adapter/contracts, first real consumer/provider, migration tooling and contract tests. Exclude provider SDK types in capabilities, unused cloud features and a separate abstractions project without a boundary. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "file": "phase-03-runtime-operations/OPS-007-qualify-the-owned-object-store-adapter-and-migration-boundary.md"
+    },
+    {
+      "task_id": "OPS-008",
+      "title": "Protect streamed uploads metadata and quarantine",
+      "phase": "03-runtime-operations",
+      "status": "CONDITIONAL",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "CONDITIONAL",
+      "dependencies": [
+        "OPS-007",
+        "OPS-011"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: selected capability metadata/provider, CoreApi upload/download route, storage adapter, bounded scanning/staging and focused tests. Exclude arbitrary file browsers, public bucket access and treating filename or bucket path as ownership. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "file": "phase-03-runtime-operations/OPS-008-protect-streamed-uploads-metadata-and-quarantine.md"
+    },
+    {
+      "task_id": "OPS-009",
+      "title": "Render immutable document facts and retryable artifacts",
+      "phase": "03-runtime-operations",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "OPS-003",
+        "OPS-004",
+        "OPS-007",
+        "OPS-011",
+        "COM-022"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: one commercial document capability/provider, bounded renderer, Worker handler, object metadata and download/status tests. Exclude all document families, arbitrary template code, legal invoice design without accepted jurisdiction and a new workflow engine. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "file": "phase-03-runtime-operations/OPS-009-render-immutable-document-facts-and-retryable-artifacts.md"
+    },
+    {
+      "task_id": "OPS-010",
+      "title": "Deliver one notification with bounded retries and in-app continuation",
+      "phase": "03-runtime-operations",
+      "status": "CONDITIONAL",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "CONDITIONAL",
+      "dependencies": [
+        "OPS-003",
+        "OPS-004"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: one notification capability/provider adapter, durable consequence/attempt state, Worker handler and status/read contract tests. Exclude every provider/channel, webhook platform and notification-as-business-authority behavior. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "file": "phase-03-runtime-operations/OPS-010-deliver-one-notification-with-bounded-retries-and-in-app-continuation.md"
+    },
+    {
+      "task_id": "OPS-011",
+      "title": "Reserve and reconcile the first durable usage meter",
+      "phase": "03-runtime-operations",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "OPS-001",
+        "OPS-007"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: first consuming capability/provider, its meter/policy schema and tests, and relevant API/Worker admission. Exclude generic billing plans, pricing subscriptions, every meter and metrics as authoritative accounting. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "file": "phase-03-runtime-operations/OPS-011-reserve-and-reconcile-the-first-durable-usage-meter.md"
+    },
+    {
+      "task_id": "OPS-012",
+      "title": "Expose narrow usage reads and authorized limit controls",
+      "phase": "03-runtime-operations",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "OPS-011",
+        "ADM-002",
+        "ADM-019"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: first meter capability/provider, CoreApi tenant read, AdminApi approved controls, DTOs and tests. Exclude plan prices, invoicing, customer subscription management and duplicated business policy in either Web surface. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "file": "phase-03-runtime-operations/OPS-012-expose-narrow-usage-reads-and-authorized-limit-controls.md"
+    },
+    {
+      "task_id": "OPS-013",
+      "title": "Retain and read capability-owned business audit",
+      "phase": "03-runtime-operations",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "GATE-001",
+        "COM-001"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: selected commercial capability/provider transaction, audit schema/retention, CoreApi read and regression tests. Reuse valid retained business receipts where sufficient. Exclude a universal event store and administrative audit reads already owned by ADM-023. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "file": "phase-03-runtime-operations/OPS-013-retain-and-read-capability-owned-business-audit.md"
+    },
+    {
+      "task_id": "OPS-014",
+      "title": "Qualify the bounded OTLP pipeline and actionable alerts",
+      "phase": "03-runtime-operations",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6 Luna (high)",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "GATE-001"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: existing host instrumentation/composition, minimal shared consumer-earned observability code, collector configuration, alert/runbook fixtures and tests. Exclude new Diagnostics executables, per-method instrumentation and a monitoring product selected without workload/budget. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "file": "phase-03-runtime-operations/OPS-014-qualify-the-bounded-otlp-pipeline-and-actionable-alerts.md"
+    },
+    {
+      "task_id": "OPS-015",
+      "title": "Reproduce the first secure deployment profile",
+      "phase": "03-runtime-operations",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "GATE-001",
+        "ADM-004",
+        "WEB-001",
+        "UIA-001"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: deploy definitions/runbooks, existing host startup/config validation, secret-provider integration and deployment smoke tests. Exclude Kubernetes/HA promises, provisioning imagined hosts and choosing paid services without an accepted decision. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "file": "phase-03-runtime-operations/OPS-015-reproduce-the-first-secure-deployment-profile.md"
+    },
+    {
+      "task_id": "OPS-016",
+      "title": "Qualify separate database roles and migration registration",
+      "phase": "03-runtime-operations",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "GATE-001",
+        "OPS-003",
+        "COM-021",
+        "ADM-025",
+        "ADM-032"
+      ],
+      "conditional_dependencies": [
+        {
+          "task_id": "OPS-005",
+          "condition": "OPS-005 when persistent scheduling is selected"
+        }
+      ],
+      "write_scope": "Allowed areas: deployment role/grant scripts, existing DatabaseMigrator registration/lock behavior, actual capability migrations and real privilege tests. Exclude generic database abstractions and Worker/scheduler grants before those workloads exist. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "file": "phase-03-runtime-operations/OPS-016-qualify-separate-database-roles-and-migration-registration.md"
+    },
+    {
+      "task_id": "OPS-017",
+      "title": "Qualify independent host CI and meaningful quality gates",
+      "phase": "03-runtime-operations",
+      "status": "VERIFY_EXISTING",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "GATE-001"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: eng scripts, GitHub workflows, existing test/tool configuration, architecture checks and focused gaps. Reuse current coverage, secret scanning and host gates. Exclude GitLab migration, unused tool installation and desktop headless testing before a desktop task exists. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "file": "phase-03-runtime-operations/OPS-017-qualify-independent-host-ci-and-meaningful-quality-gates.md"
+    },
+    {
+      "task_id": "OPS-018",
+      "title": "Restore the complete first-profile recovery set",
+      "phase": "03-runtime-operations",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "OPS-015",
+        "OPS-016",
+        "OPS-007",
+        "ADM-017"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: backup/restore operations, narrow IBackupTarget adapter, encrypted packaging/manifests, selected providers’ supported recovery scripts and drill evidence. Exclude a universal backup-source framework and raw customer data on Kaggle. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "file": "phase-03-runtime-operations/OPS-018-restore-the-complete-first-profile-recovery-set.md"
+    },
+    {
+      "task_id": "OPS-019",
+      "title": "Measure representative capacity resource bounds and faults",
+      "phase": "03-runtime-operations",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "OPS-014",
+        "OPS-015",
+        "OPS-016",
+        "COM-032",
+        "OPS-009",
+        "OPS-012"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: workload fixtures/load harness, disposable deployment/fault scripts, query/admission tuning tied to measurements and focused regressions. Exclude synthetic CPU loops as HTTP capacity evidence, invented SLA numbers and premature sharding/HA platforms. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "file": "phase-03-runtime-operations/OPS-019-measure-representative-capacity-resource-bounds-and-faults.md"
+    },
+    {
+      "task_id": "OPS-020",
+      "title": "Drill release preflight expansion and failed-release recovery",
+      "phase": "03-runtime-operations",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "OPS-017",
+        "OPS-018",
+        "OPS-019",
+        "OPS-021"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: release packaging/provenance, deployment preflight/smoke scripts, actual schema/payload compatibility migrations and operator runbooks. Exclude zero-downtime/HA claims unsupported by topology and generic release orchestration infrastructure. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "file": "phase-03-runtime-operations/OPS-020-drill-release-preflight-expansion-and-failed-release-recovery.md"
+    },
+    {
+      "task_id": "OPS-021",
+      "title": "Qualify consumer API compatibility and stable contracts",
+      "phase": "03-runtime-operations",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "COM-032",
+        "ADM-024",
+        "ADM-032"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: actual host endpoint metadata/OpenAPI, stable DTO/error contracts, client contract fixtures and narrowly needed compatibility fixes. Exclude new transport frameworks, speculative Workstation protocols and redefining business authority in serializers. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "file": "phase-03-runtime-operations/OPS-021-qualify-consumer-api-compatibility-and-stable-contracts.md"
+    },
+    {
+      "task_id": "OPS-022",
+      "title": "Qualify parallel Testcontainers startup",
+      "phase": "03-runtime-operations",
+      "status": "VERIFY_EXISTING",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "BAS-001"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: the actual centrally pinned Testcontainers dependencies/lockfiles, narrowly relevant fixture/runtime configuration and permanent harness regression/evidence documents. Inspect the exact upstream initialization path first. Shared package changes require integrator ownership. Do not change identity/business semantics, upgrade the product/toolchain indiscriminately or delete runtime cleanup.",
+      "file": "phase-03-runtime-operations/OPS-022-qualify-parallel-testcontainers-startup.md"
+    },
+    {
+      "task_id": "WEB-001",
+      "title": "Decide tenant Web rendering and session topology",
+      "phase": "04-tenant-web",
+      "status": "DECISION_REQUIRED",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [],
+      "conditional_dependencies": [],
+      "write_scope": "Decision-only write scope: the focused Web/security owners and their accepted/open decision entries. An isolated proof may exercise framework behavior after its purpose is approved; it must not scaffold apps/web or change production code.",
+      "file": "phase-04-tenant-web/WEB-001-decide-tenant-web-rendering-and-session-topology.md"
+    },
+    {
+      "task_id": "WEB-002",
+      "title": "Real operator login, tenant entry and application shell",
+      "phase": "04-tenant-web",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "WEB-001",
+        "GATE-002"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Write only the earned apps/web entry/session/shell implementation, its focused browser/host checks and focused Web security owner. Do not add capability pages, identity provisioning, a second business API or placeholder projects.",
+      "file": "phase-04-tenant-web/WEB-002-real-operator-login-tenant-entry-and-application-shell.md"
+    },
+    {
+      "task_id": "WEB-003",
+      "title": "Customer organization, program and individual screens",
+      "phase": "04-tenant-web",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6 Luna (high)",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "WEB-002",
+        "COM-003"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Write customer routes/components under apps/web and their browser checks. Update the focused Web journey owner only; no Customers domain, migration or provider change. Contacts/import/editing appear only if separately qualified.",
+      "file": "phase-04-tenant-web/WEB-003-customer-organization-program-and-individual-screens.md"
+    },
+    {
+      "task_id": "WEB-004",
+      "title": "Priced draft entry, preview, revision and abandonment",
+      "phase": "04-tenant-web",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "WEB-003",
+        "COM-008",
+        "COM-011"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Write only apps/web order-entry/draft presentation and its tests. Business price selection, arithmetic, idempotency, persistence and new policy publication remain backend-owned; do not create browser autosave authority.",
+      "file": "phase-04-tenant-web/WEB-004-priced-draft-entry-preview-revision-and-abandonment.md"
+    },
+    {
+      "task_id": "WEB-005",
+      "title": "Commitment and explainable permitted next actions",
+      "phase": "04-tenant-web",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "WEB-004",
+        "COM-013"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Write commitment/detail/action-guidance components under apps/web and focused checks. Do not add approval, fulfillment or financial states, reinterpret receipts, or alter authoritative transition rules.",
+      "file": "phase-04-tenant-web/WEB-005-commitment-and-explainable-permitted-next-actions.md"
+    },
+    {
+      "task_id": "WEB-006",
+      "title": "Optional-use quotation and conditional approval continuation",
+      "phase": "04-tenant-web",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "WEB-005",
+        "COM-010",
+        "COM-012"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Write only selected quote/approval screens in apps/web and their tests. Exclude a workflow designer, generic task engine, customer portal, new lifecycle semantics and unqualified quote/approval endpoints.",
+      "file": "phase-04-tenant-web/WEB-006-optional-use-quotation-and-conditional-approval-continuation.md"
+    },
+    {
+      "task_id": "WEB-007",
+      "title": "Actual fulfillment with conditional supplier-performed work",
+      "phase": "04-tenant-web",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6 Luna (high)",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "WEB-005",
+        "COM-015"
+      ],
+      "conditional_dependencies": [
+        {
+          "task_id": "COM-017",
+          "condition": "COM-017 when supplier-performed work is selected"
+        },
+        {
+          "task_id": "OPS-008",
+          "condition": "OPS-008 when artwork uploads are selected"
+        }
+      ],
+      "write_scope": "Write selected fulfillment routes/components and browser checks under apps/web. Exclude equipment automation, Workstation printing, supplier accounting mutations, stock arithmetic and an invented universal production workflow.",
+      "file": "phase-04-tenant-web/WEB-007-actual-fulfillment-with-conditional-supplier-performed-work.md"
+    },
+    {
+      "task_id": "WEB-008",
+      "title": "Conditional supplier purchasing and payable screens",
+      "phase": "04-tenant-web",
+      "status": "CONDITIONAL",
+      "model": "GPT-6 Luna (high)",
+      "release_requirement": "CONDITIONAL",
+      "dependencies": [
+        "WEB-005",
+        "COM-016"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Write supplier/purchase/receipt/payable presentation and browser checks under apps/web. Do not introduce supplier rules, mandatory procurement workflow, stock tracking, payment integration or backend migrations.",
+      "file": "phase-04-tenant-web/WEB-008-conditional-supplier-purchasing-and-payable-screens.md"
+    },
+    {
+      "task_id": "WEB-009",
+      "title": "Conditional item inventory and movement screens",
+      "phase": "04-tenant-web",
+      "status": "CONDITIONAL",
+      "model": "GPT-6 Luna (high)",
+      "release_requirement": "CONDITIONAL",
+      "dependencies": [
+        "WEB-005",
+        "COM-018"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Write inventory browse/detail/movement/adjustment components and browser checks under apps/web. Exclude business quantity arithmetic, universal warehouses, reservations or scanning/device features absent from the qualified contracts.",
+      "file": "phase-04-tenant-web/WEB-009-conditional-item-inventory-and-movement-screens.md"
+    },
+    {
+      "task_id": "WEB-010",
+      "title": "Invoice, receivable and manual payment allocation screens",
+      "phase": "04-tenant-web",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "WEB-005",
+        "COM-025"
+      ],
+      "conditional_dependencies": [
+        {
+          "task_id": "COM-026",
+          "condition": "COM-026 when provider payment controls are selected"
+        },
+        {
+          "task_id": "COM-027",
+          "condition": "COM-027 when credit/exposure controls are selected"
+        }
+      ],
+      "write_scope": "Write apps/web invoice/receivable/manual-payment/allocation presentation and focused tests. Exclude tax/fiscal-compliance claims, payment-provider integration, ledger arithmetic and any UI-created debtor or credit policy.",
+      "file": "phase-04-tenant-web/WEB-010-invoice-receivable-and-manual-payment-allocation-screens.md"
+    },
+    {
+      "task_id": "WEB-011",
+      "title": "Corrections, statements and retained business documents",
+      "phase": "04-tenant-web",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "WEB-010",
+        "COM-031",
+        "OPS-007",
+        "OPS-009",
+        "OPS-013"
+      ],
+      "conditional_dependencies": [
+        {
+          "task_id": "OPS-008",
+          "condition": "OPS-008 when managed attachments/uploads are selected"
+        }
+      ],
+      "write_scope": "Write bounded apps/web correction/history/statement/document screens and tests. Physical printing, Workstation devices, arbitrary HTML templates, object-store credentials and backend correction/export engines are outside scope.",
+      "file": "phase-04-tenant-web/WEB-011-corrections-statements-and-retained-business-documents.md"
+    },
+    {
+      "task_id": "WEB-012",
+      "title": "Tenant settings, profiles, usage and permission administration",
+      "phase": "04-tenant-web",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "WEB-002",
+        "ADM-032",
+        "ADM-024",
+        "OPS-011",
+        "OPS-012",
+        "OPS-013"
+      ],
+      "conditional_dependencies": [
+        {
+          "task_id": "ADM-027",
+          "condition": "ADM-027 when custom domains are selected"
+        },
+        {
+          "task_id": "ADM-031",
+          "condition": "ADM-031 when resource-scoped roles are selected"
+        },
+        {
+          "task_id": "ADM-033",
+          "condition": "ADM-033 when tenant channel opt-in is selected"
+        }
+      ],
+      "write_scope": "Write the selected apps/web Settings pages and browser checks. No platform/operator authority, universal role editor, arbitrary scripts/plug-ins, generic config setter or assumed custom-domain backend is permitted.",
+      "file": "phase-04-tenant-web/WEB-012-tenant-settings-profiles-usage-and-permission-administration.md"
+    },
+    {
+      "task_id": "WEB-013",
+      "title": "Conditional external customer portal decision and boundary",
+      "phase": "04-tenant-web",
+      "status": "CONDITIONAL",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "CONDITIONAL",
+      "dependencies": [
+        "WEB-001"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Decision-only write scope: focused portal/domain/security owners and decision records. No operator login reuse, portal host, project/folder scaffold or customer-facing business API is authorized by this assignment.",
+      "file": "phase-04-tenant-web/WEB-013-conditional-external-customer-portal-decision-and-boundary.md"
+    },
+    {
+      "task_id": "WEB-014",
+      "title": "Qualify the complete tenant-operator journey",
+      "phase": "04-tenant-web",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "WEB-002",
+        "WEB-003",
+        "WEB-004",
+        "WEB-005",
+        "WEB-006",
+        "WEB-007",
+        "WEB-010",
+        "WEB-011",
+        "WEB-012",
+        "WEB-015",
+        "WEB-016",
+        "GATE-002",
+        "OPS-017",
+        "OPS-021"
+      ],
+      "conditional_dependencies": [
+        {
+          "task_id": "WEB-008",
+          "condition": "WEB-008 when purchasing is selected"
+        },
+        {
+          "task_id": "WEB-009",
+          "condition": "WEB-009 when tracked stock is selected"
+        },
+        {
+          "task_id": "WEB-013",
+          "condition": "WEB-013 when an external customer portal is selected"
+        }
+      ],
+      "write_scope": "Write tenant Web journey/browser regressions, earned independent host build/verification integration and focused evidence owners. No new features, unrelated refactors, product-version change or Workstation/sync/Guard implementation.",
+      "file": "phase-04-tenant-web/WEB-014-qualify-the-complete-tenant-operator-journey.md"
+    },
+    {
+      "task_id": "WEB-015",
+      "title": "Catalog and pricing-policy authoring screens",
+      "phase": "04-tenant-web",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "WEB-002",
+        "COM-005",
+        "COM-007",
+        "COM-008"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: apps/web catalog browse/detail/availability and selected price policy editor/publication/history screens with browser tests. Dispatcher chooses one screen/flow per bounded slice. Existing server calculation/selection contracts remain authoritative. No browser money engine, unit-conversion framework, supplier-cost editor, arbitrary formulas or new backend endpoints.",
+      "file": "phase-04-tenant-web/WEB-015-catalog-and-pricing-policy-authoring-screens.md"
+    },
+    {
+      "task_id": "WEB-016",
+      "title": "Customer policy, forms and approval configuration screens",
+      "phase": "04-tenant-web",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "WEB-002",
+        "COM-011",
+        "COM-012",
+        "ADM-021"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: apps/web purpose-built configuration/preview/publication/history screens for the accepted variation and browser regressions. Split edit/preview and publish/running-work effects into reviewed slices if needed. No generic visual workflow designer, uploaded scripts/SQL, universal form builder or financial effects defined by UI stages.",
+      "file": "phase-04-tenant-web/WEB-016-customer-policy-forms-and-approval-configuration-screens.md"
+    },
+    {
+      "task_id": "UIA-001",
+      "title": "Decide separate Platform Admin Web topology",
+      "phase": "05-admin-web",
+      "status": "DECISION_REQUIRED",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: decision-only focused Admin/security/network owners and decision entries. No apps/admin-web scaffold, project, shared tenant session, edge implementation or production certificate-forwarding change.",
+      "file": "phase-05-admin-web/UIA-001-decide-separate-platform-admin-web-topology.md"
+    },
+    {
+      "task_id": "UIA-002",
+      "title": "Admin login, session and registered-device binding",
+      "phase": "05-admin-web",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "UIA-001",
+        "GATE-002",
+        "GATE-003"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Write only earned apps/admin-web authentication/session entry and tests plus focused owner updates. Do not modify backend authority, bootstrap, device registration or forwarding middleware to make UI login pass.",
+      "file": "phase-05-admin-web/UIA-002-admin-login-session-and-registered-device-binding.md"
+    },
+    {
+      "task_id": "UIA-003",
+      "title": "Admin shell, access status and health views",
+      "phase": "05-admin-web",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6 Luna (high)",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "UIA-002"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Write shell/navigation/status components and browser tests under apps/admin-web. Do not introduce infrastructure dashboards, arbitrary cross-tenant customer browsing or unqualified operational controls.",
+      "file": "phase-05-admin-web/UIA-003-admin-shell-access-status-and-health-views.md"
+    },
+    {
+      "task_id": "UIA-004",
+      "title": "Tenant provisioning and exact identity onboarding",
+      "phase": "05-admin-web",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "UIA-003",
+        "ADM-006"
+      ],
+      "conditional_dependencies": [
+        {
+          "task_id": "ADM-005",
+          "condition": "ADM-005 when provider-side onboarding is selected"
+        },
+        {
+          "task_id": "ADM-026",
+          "condition": "ADM-026 when application identity recovery is selected"
+        }
+      ],
+      "write_scope": "Write bounded Admin tenant/account/import/link forms and operation-result views plus browser checks. Exclude provider-side user creation/reconciliation, bulk imports or email-based account matching unless separately qualified.",
+      "file": "phase-05-admin-web/UIA-004-tenant-provisioning-and-exact-identity-onboarding.md"
+    },
+    {
+      "task_id": "UIA-005",
+      "title": "Membership, tenant lifecycle and accepted delegation screens",
+      "phase": "05-admin-web",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "UIA-004",
+        "ADM-012",
+        "ADM-025"
+      ],
+      "conditional_dependencies": [
+        {
+          "task_id": "ADM-031",
+          "condition": "ADM-031 when resource-scoped grants are selected"
+        }
+      ],
+      "write_scope": "Write bounded Admin membership/tenant-lifecycle and accepted role/delegation pages plus tests. Do not invent universal roles, grant administration, ordinary Owner transfer or direct OpenFGA tuple editing.",
+      "file": "phase-05-admin-web/UIA-005-membership-tenant-lifecycle-and-accepted-delegation-screens.md"
+    },
+    {
+      "task_id": "UIA-006",
+      "title": "Platform operator and Admin-device lifecycle screens",
+      "phase": "05-admin-web",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "UIA-005",
+        "ADM-016",
+        "ADM-017"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Write only accepted operator/Admin-device list/detail/lifecycle pages and tests under apps/admin-web. Exclude workstation enrollment, private key export/generation in browser code and a universal SuperAdmin switch.",
+      "file": "phase-05-admin-web/UIA-006-platform-operator-and-admin-device-lifecycle-screens.md"
+    },
+    {
+      "task_id": "UIA-007",
+      "title": "Platform profiles, configuration and earned incident controls",
+      "phase": "05-admin-web",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "UIA-003",
+        "ADM-024",
+        "OPS-006",
+        "OPS-011",
+        "OPS-012",
+        "OPS-013"
+      ],
+      "conditional_dependencies": [
+        {
+          "task_id": "ADM-029",
+          "condition": "ADM-029 when a key-lifecycle control is selected"
+        },
+        {
+          "task_id": "ADM-033",
+          "condition": "ADM-033 when feature release controls are selected"
+        }
+      ],
+      "write_scope": "Write only selected Admin profile/config/status/control screens and tests. No generic set-anything, run-SQL, show-key, force-success or mark-job/payment-complete controls; Worker implementation is outside this catalog phase.",
+      "file": "phase-05-admin-web/UIA-007-platform-profiles-configuration-and-earned-incident-controls.md"
+    },
+    {
+      "task_id": "UIA-008",
+      "title": "Step-up, recovery, audit and high-risk failure UX",
+      "phase": "05-admin-web",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "UIA-002",
+        "UIA-007",
+        "ADM-034",
+        "ADM-023",
+        "OPS-013",
+        "OPS-015"
+      ],
+      "conditional_dependencies": [
+        {
+          "task_id": "ADM-026",
+          "condition": "ADM-026 when application identity recovery is selected"
+        },
+        {
+          "task_id": "ADM-030",
+          "condition": "ADM-030 when tenant support access is selected"
+        }
+      ],
+      "write_scope": "Write risk confirmation/step-up/operation-status/audit and accepted recovery views plus browser tests. Infrastructure unseal/node/DB repair remains a separate private runbook; no raw root keys, shares or generic break-glass account.",
+      "file": "phase-05-admin-web/UIA-008-step-up-recovery-audit-and-high-risk-failure-ux.md"
+    },
+    {
+      "task_id": "UIA-009",
+      "title": "Independent Admin Web build and browser qualification",
+      "phase": "05-admin-web",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "UIA-002",
+        "UIA-003",
+        "UIA-004",
+        "UIA-005",
+        "UIA-006",
+        "UIA-007",
+        "UIA-008",
+        "GATE-002",
+        "GATE-003",
+        "OPS-017",
+        "OPS-021"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Write Admin browser/journey regressions, earned independent host build/verification integration and focused qualification evidence. Do not implement additional controls, edit tenant business authority or raise product version.",
+      "file": "phase-05-admin-web/UIA-009-independent-admin-web-build-and-browser-qualification.md"
+    },
+    {
+      "task_id": "GATE-002",
+      "title": "Qualify backend readiness for frontend work",
+      "phase": "06-qualification",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "GATE-001",
+        "ADM-013",
+        "ADM-016",
+        "ADM-023",
+        "ADM-024",
+        "ADM-025",
+        "ADM-032",
+        "ADM-034",
+        "COM-032",
+        "OPS-006",
+        "OPS-009",
+        "OPS-012",
+        "OPS-013",
+        "OPS-020"
+      ],
+      "conditional_dependencies": [
+        {
+          "task_id": "ADM-003",
+          "condition": "ADM-003 when additional route/readiness/admission safeguards are needed"
+        },
+        {
+          "task_id": "ADM-005",
+          "condition": "ADM-005 when provider onboarding is selected"
+        },
+        {
+          "task_id": "ADM-022",
+          "condition": "ADM-022 when a real runtime implementation variant is selected"
+        },
+        {
+          "task_id": "ADM-026",
+          "condition": "ADM-026 when identity recovery is selected"
+        },
+        {
+          "task_id": "ADM-027",
+          "condition": "ADM-027 when custom domains are selected"
+        },
+        {
+          "task_id": "ADM-028",
+          "condition": "ADM-028 when a key-lifecycle contract is selected"
+        },
+        {
+          "task_id": "ADM-029",
+          "condition": "ADM-029 when a key-lifecycle runtime is selected"
+        },
+        {
+          "task_id": "ADM-030",
+          "condition": "ADM-030 when support access is selected"
+        },
+        {
+          "task_id": "ADM-031",
+          "condition": "ADM-031 when resource scope is selected"
+        },
+        {
+          "task_id": "ADM-033",
+          "condition": "ADM-033 when feature release controls are selected"
+        },
+        {
+          "task_id": "COM-004",
+          "condition": "COM-004 when customer import is selected"
+        },
+        {
+          "task_id": "COM-016",
+          "condition": "COM-016 when purchasing is selected"
+        },
+        {
+          "task_id": "COM-017",
+          "condition": "COM-017 when outsourcing is selected"
+        },
+        {
+          "task_id": "COM-018",
+          "condition": "COM-018 when tracked stock is selected"
+        },
+        {
+          "task_id": "COM-026",
+          "condition": "COM-026 when provider payments are selected"
+        },
+        {
+          "task_id": "COM-027",
+          "condition": "COM-027 when credit is selected"
+        },
+        {
+          "task_id": "OPS-005",
+          "condition": "OPS-005 when scheduling is selected"
+        },
+        {
+          "task_id": "OPS-008",
+          "condition": "OPS-008 when managed uploads are selected"
+        },
+        {
+          "task_id": "OPS-010",
+          "condition": "OPS-010 when external notification is selected"
+        }
+      ],
+      "write_scope": "Allowed areas: Backend release matrix, integration evidence and named focused gate-owner updates; inspect API/provider/operating contracts without building frontend features. No feature implementation, unrelated refactor, Git mutation or product-version change.",
+      "file": "phase-06-qualification/GATE-002-qualify-backend-readiness-for-frontend-work.md"
+    },
+    {
+      "task_id": "GATE-003",
+      "title": "Accept tenant Web qualification",
+      "phase": "06-qualification",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "GATE-002",
+        "WEB-014"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: Tenant Web acceptance matrix and qualification evidence; inspect WEB-014 results and named gate-owner updates. Do not duplicate WEB-014’s feature or test implementation. No feature implementation, unrelated refactor, Git mutation or product-version change.",
+      "file": "phase-06-qualification/GATE-003-accept-tenant-web-qualification.md"
+    },
+    {
+      "task_id": "GATE-004",
+      "title": "Accept Admin Web qualification",
+      "phase": "06-qualification",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "GATE-003",
+        "UIA-009"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: Admin Web acceptance matrix and qualification evidence; inspect UIA-009 handoff and named gate-owner updates. No new administration capability or duplicated browser suite. No feature implementation, unrelated refactor, Git mutation or product-version change.",
+      "file": "phase-06-qualification/GATE-004-accept-admin-web-qualification.md"
+    },
+    {
+      "task_id": "GATE-005",
+      "title": "Qualify the whole declared Web and backend release",
+      "phase": "06-qualification",
+      "status": "READY_AFTER_DEPENDENCIES",
+      "model": "GPT-6.1 Sol",
+      "release_requirement": "REQUIRED",
+      "dependencies": [
+        "GATE-002",
+        "GATE-003",
+        "GATE-004",
+        "OPS-021"
+      ],
+      "conditional_dependencies": [],
+      "write_scope": "Allowed areas: Whole selected release case matrix, integrated verification evidence and named focused gate-owner updates only. Workstation, SyncApi and Guard remain separate future required product boundaries, not implemented here. No feature implementation, unrelated refactor, Git mutation or product-version change.",
+      "file": "phase-06-qualification/GATE-005-qualify-the-whole-declared-web-and-backend-release.md"
+    }
+  ]
+}

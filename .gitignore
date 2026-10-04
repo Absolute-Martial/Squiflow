@@ -18,3 +18,7 @@ TestResults/
 # Curated upstream source snapshots are retained locally for project research.
 # Track reference-sources/{README.md,SOURCES.md,materialize.sh}; ignore source payloads.
 /reference-sources/snapshots/
+
+# A stray npm lock file has no place in this .NET repository; there is no npm
+# project, so a root package-lock.json is never product source.
+/package-lock.json

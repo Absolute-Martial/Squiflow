@@ -1,0 +1,636 @@
+{
+  "schema_version": 1,
+  "planning_only": true,
+  "coverage": [
+    {
+      "responsibility": "Dirty-source baseline and entry qualification",
+      "disposition": "REQUIRED",
+      "owner": "README.IMPLEMENTATION.md",
+      "tasks": [
+        "BAS-001",
+        "GATE-001"
+      ]
+    },
+    {
+      "responsibility": "Existing membership, initial Owner and tenant availability",
+      "disposition": "REQUIRED",
+      "owner": "docs/implementation/ADMIN_API_MEMBERSHIP_LIFECYCLE.md",
+      "tasks": [
+        "ADM-001"
+      ]
+    },
+    {
+      "responsibility": "Incoming protected Admin request budgets",
+      "disposition": "REQUIRED",
+      "owner": "docs/implementation/ADMIN_API_REQUEST_BUDGETS.md",
+      "tasks": [
+        "ADM-002"
+      ]
+    },
+    {
+      "responsibility": "Additional classified-route, readiness or admission gap fixes",
+      "disposition": "CONDITIONAL",
+      "owner": "docs/implementation/ADMIN_API_SLICE_SEQUENCE.md",
+      "tasks": [
+        "ADM-003"
+      ],
+      "deferred_reason": "Activate for a concrete existing-boundary gap; baseline safeguards remain required."
+    },
+    {
+      "responsibility": "Real ZITADEL layout, identity mapping and provider qualification",
+      "disposition": "REQUIRED",
+      "owner": "docs/security/IDENTITY_AND_SESSIONS.md",
+      "tasks": [
+        "ADM-004"
+      ]
+    },
+    {
+      "responsibility": "Provider-side account onboarding",
+      "disposition": "CONDITIONAL",
+      "owner": "docs/implementation/ADMIN_API_IDENTITY_IMPORT_AND_LINKING.md",
+      "tasks": [
+        "ADM-005"
+      ],
+      "deferred_reason": "Select only if import/link of existing verified human identities is insufficient."
+    },
+    {
+      "responsibility": "Platform registry browse/detail with safe projections",
+      "disposition": "REQUIRED",
+      "owner": "docs/admin/ADMIN_SURFACES.md",
+      "tasks": [
+        "ADM-006"
+      ]
+    },
+    {
+      "responsibility": "Local account availability and session-invalidating lifecycle",
+      "disposition": "REQUIRED",
+      "owner": "docs/security/IDENTITY_AND_SESSIONS.md",
+      "tasks": [
+        "ADM-007",
+        "ADM-025"
+      ]
+    },
+    {
+      "responsibility": "Application-owned identity recovery",
+      "disposition": "CONDITIONAL",
+      "owner": "docs/security/IDENTITY_AND_SESSIONS.md",
+      "tasks": [
+        "ADM-026"
+      ],
+      "deferred_reason": "Select the approved recovery operation; provider-owned recovery can remain the supported boundary."
+    },
+    {
+      "responsibility": "Owner/Staff defaults, grants, revoke, delegation, authorization revision and custom roles",
+      "disposition": "REQUIRED",
+      "owner": "docs/security/TENANT_PERMISSIONS.md",
+      "tasks": [
+        "ADM-008",
+        "ADM-009",
+        "ADM-010",
+        "ADM-011",
+        "ADM-012"
+      ]
+    },
+    {
+      "responsibility": "Resource-scope applicability decision",
+      "disposition": "REQUIRED",
+      "owner": "docs/security/TENANT_PERMISSIONS.md",
+      "tasks": [
+        "ADM-013"
+      ]
+    },
+    {
+      "responsibility": "First accepted Own/Assigned or resource-specific enforcement",
+      "disposition": "CONDITIONAL",
+      "owner": "docs/security/TENANT_PERMISSIONS.md",
+      "tasks": [
+        "ADM-031"
+      ],
+      "deferred_reason": "Implement only a resource family accepted by ADM-013; tenant-only scope is an explicit disposition."
+    },
+    {
+      "responsibility": "Ongoing platform operators, Admin devices and recoverable rotation",
+      "disposition": "REQUIRED",
+      "owner": "docs/admin/ADMIN_SURFACES.md",
+      "tasks": [
+        "ADM-014",
+        "ADM-015",
+        "ADM-016",
+        "ADM-017"
+      ]
+    },
+    {
+      "responsibility": "Production feature/permission catalog, typed settings and durable profile publish/activate/rollback",
+      "disposition": "REQUIRED",
+      "owner": "docs/architecture/TENANT_APPLICATION_PROFILES_AND_EXTENSIBILITY.md",
+      "tasks": [
+        "ADM-018",
+        "ADM-019",
+        "ADM-020",
+        "ADM-021"
+      ]
+    },
+    {
+      "responsibility": "Real tenant-specific implementation-runtime acquisition",
+      "disposition": "CONDITIONAL",
+      "owner": "docs/architecture/TENANT_APPLICATION_PROFILES_AND_EXTENSIBILITY.md",
+      "tasks": [
+        "ADM-022"
+      ],
+      "deferred_reason": "Activate only for a proven implementation-graph variant; data-driven settings do not automatically earn composition."
+    },
+    {
+      "responsibility": "Authoritative administrative audit/receipt reads",
+      "disposition": "REQUIRED",
+      "owner": "docs/admin/ADMIN_SURFACES.md",
+      "tasks": [
+        "ADM-023"
+      ]
+    },
+    {
+      "responsibility": "Tenant branding within supported published profiles",
+      "disposition": "REQUIRED",
+      "owner": "docs/web/CUSTOM_DOMAINS.md",
+      "tasks": [
+        "ADM-024"
+      ]
+    },
+    {
+      "responsibility": "Verified custom domain, TLS, routing, callback and anti-takeover lifecycle",
+      "disposition": "CONDITIONAL",
+      "owner": "docs/web/CUSTOM_DOMAINS.md",
+      "tasks": [
+        "ADM-027"
+      ],
+      "deferred_reason": "Select only if the release promises custom hostnames; default-origin tenant branding remains supported."
+    },
+    {
+      "responsibility": "Application encryption/key-policy and one provider-owned lifecycle request",
+      "disposition": "CONDITIONAL",
+      "owner": "docs/security/ENCRYPTION_POLICY_KEY_LIFECYCLE_AND_PRIVILEGED_ACCESS.md",
+      "tasks": [
+        "ADM-028",
+        "ADM-029"
+      ],
+      "deferred_reason": "Select a real application resource/operation. Infrastructure at-rest/backup encryption remains required under deployment/recovery."
+    },
+    {
+      "responsibility": "Narrow time-bounded cross-tenant support authority",
+      "disposition": "CONDITIONAL",
+      "owner": "docs/security/ENCRYPTION_POLICY_KEY_LIFECYCLE_AND_PRIVILEGED_ACCESS.md",
+      "tasks": [
+        "ADM-030"
+      ],
+      "deferred_reason": "Select only an approved support operation; platform/key administration does not imply customer browsing."
+    },
+    {
+      "responsibility": "Routine tenant-authorized team/membership administration through CoreApi",
+      "disposition": "REQUIRED",
+      "owner": "docs/admin/ADMIN_SURFACES.md",
+      "tasks": [
+        "ADM-032"
+      ]
+    },
+    {
+      "responsibility": "Feature channel/rollout or approved presentation variant control",
+      "disposition": "CONDITIONAL",
+      "owner": "docs/architecture/FEATURE_RELEASE_AND_EXPERIMENTS.md",
+      "tasks": [
+        "ADM-033"
+      ],
+      "deferred_reason": "Select a shipped capability with an actual rollout/opt-in need; stable-only profile operation is valid."
+    },
+    {
+      "responsibility": "Backend-verified authentication freshness and guarded high-risk action contract",
+      "disposition": "REQUIRED",
+      "owner": "docs/security/IDENTITY_AND_SESSIONS.md",
+      "tasks": [
+        "ADM-034"
+      ]
+    },
+    {
+      "responsibility": "Commercial source inventory, contacts/representatives and duplicate policy",
+      "disposition": "REQUIRED",
+      "owner": "docs/implementation/BUSINESS_OPERATION_END_TO_END.md",
+      "tasks": [
+        "COM-001",
+        "COM-002",
+        "COM-003"
+      ]
+    },
+    {
+      "responsibility": "Bounded customer onboarding import",
+      "disposition": "CONDITIONAL",
+      "owner": "docs/domain/BUSINESS_MODEL.md",
+      "tasks": [
+        "COM-004"
+      ],
+      "deferred_reason": "Select the actual supported file/fields; no general ETL or financial import promise."
+    },
+    {
+      "responsibility": "Product/service catalog, unit semantics and availability",
+      "disposition": "REQUIRED",
+      "owner": "docs/domain/BUSINESS_MODEL.md",
+      "tasks": [
+        "COM-005"
+      ]
+    },
+    {
+      "responsibility": "Price source precedence, policy publication, explanation and controlled overrides",
+      "disposition": "REQUIRED",
+      "owner": "docs/implementation/PRICING_COMPONENT_BOUNDARY.md",
+      "tasks": [
+        "COM-006",
+        "COM-007",
+        "COM-008"
+      ]
+    },
+    {
+      "responsibility": "Quotation capability, immutable offer revisions and exact-version order conversion",
+      "disposition": "REQUIRED",
+      "owner": "docs/implementation/BUSINESS_OPERATION_END_TO_END.md",
+      "tasks": [
+        "COM-009",
+        "COM-010"
+      ]
+    },
+    {
+      "responsibility": "Typed customer/program guidance, approval and current order admission",
+      "disposition": "REQUIRED",
+      "owner": "docs/workflow/WORKFLOW_DESIGN.md",
+      "tasks": [
+        "COM-011",
+        "COM-012",
+        "COM-013"
+      ]
+    },
+    {
+      "responsibility": "Actual partial fulfillment, input/artwork approval and accountable handoff",
+      "disposition": "REQUIRED",
+      "owner": "docs/implementation/BUSINESS_OPERATION_END_TO_END.md",
+      "tasks": [
+        "COM-014",
+        "COM-015"
+      ]
+    },
+    {
+      "responsibility": "Suppliers, informal purchase/receipt, cost, payable and supplier payment",
+      "disposition": "CONDITIONAL",
+      "owner": "docs/domain/BUSINESS_MODEL.md",
+      "tasks": [
+        "COM-016"
+      ],
+      "deferred_reason": "Select an actual purchase case, including separate payable and partial settlement semantics."
+    },
+    {
+      "responsibility": "Supplier-performed work and independently permitted resale",
+      "disposition": "CONDITIONAL",
+      "owner": "docs/implementation/BUSINESS_OPERATION_END_TO_END.md",
+      "tasks": [
+        "COM-017"
+      ],
+      "deferred_reason": "Select outsourcing when needed; qualify the required outsourced-production case if included in the product promise."
+    },
+    {
+      "responsibility": "Precise stock, availability-only/nonstock and attributable movement/disposition",
+      "disposition": "CONDITIONAL",
+      "owner": "docs/domain/BUSINESS_MODEL.md",
+      "tasks": [
+        "COM-018"
+      ],
+      "deferred_reason": "Select actual tracked items/modes; service work must not manufacture stock balances."
+    },
+    {
+      "responsibility": "Four invoice choices, incoming host-neutral core, atomic issue/number/receipt and billing ingress",
+      "disposition": "REQUIRED",
+      "owner": "docs/implementation/INVOICE_ISSUE_CONTRACT.md",
+      "tasks": [
+        "COM-019",
+        "COM-020",
+        "COM-021",
+        "COM-022"
+      ]
+    },
+    {
+      "responsibility": "Invoice-backed receivable, manual payment/reconciliation, partial allocation and unapplied funds",
+      "disposition": "REQUIRED",
+      "owner": "docs/domain/BUSINESS_MODEL.md",
+      "tasks": [
+        "COM-023",
+        "COM-024",
+        "COM-025"
+      ]
+    },
+    {
+      "responsibility": "External payment provider intent, confirmation and ambiguous-outcome reconciliation",
+      "disposition": "CONDITIONAL",
+      "owner": "docs/integrations/INTEGRATION_RESPONSIBILITY_AND_AUTHORITY.md",
+      "tasks": [
+        "COM-026"
+      ],
+      "deferred_reason": "Select one provider only when manual supported settlement does not satisfy the promise."
+    },
+    {
+      "responsibility": "Credit terms and authoritative concurrent shared-exposure admission",
+      "disposition": "CONDITIONAL",
+      "owner": "docs/domain/BUSINESS_MODEL.md",
+      "tasks": [
+        "COM-027"
+      ],
+      "deferred_reason": "Select explicit credit cases/policy; an outstanding receivable does not silently implement a credit limit."
+    },
+    {
+      "responsibility": "Before-effect cancellation and linked invoice credit/dispute/return/manual refund corrections",
+      "disposition": "REQUIRED",
+      "owner": "docs/implementation/BUSINESS_OPERATION_END_TO_END.md",
+      "tasks": [
+        "COM-028",
+        "COM-029",
+        "COM-030"
+      ]
+    },
+    {
+      "responsibility": "Retained business histories, debtor statements, useful reporting and API journeys",
+      "disposition": "REQUIRED",
+      "owner": "docs/implementation/BUSINESS_OPERATION_END_TO_END.md",
+      "tasks": [
+        "COM-031",
+        "COM-032"
+      ]
+    },
+    {
+      "responsibility": "Named durable consequence, transactional outbox, Worker fencing and bounded actor execution",
+      "disposition": "REQUIRED",
+      "owner": "docs/server/WORKER_RUNTIME_AND_SCHEDULING.md",
+      "tasks": [
+        "OPS-001",
+        "OPS-002",
+        "OPS-003",
+        "OPS-004"
+      ]
+    },
+    {
+      "responsibility": "Quartz durable scheduled occurrences and overlap/misfire policy",
+      "disposition": "CONDITIONAL",
+      "owner": "docs/server/WORKER_RUNTIME_AND_SCHEDULING.md",
+      "tasks": [
+        "OPS-005"
+      ],
+      "deferred_reason": "Select a real timed workload; scheduling is not needed solely because Worker exists."
+    },
+    {
+      "responsibility": "Private privileged Worker pause/drain/retry/quarantine controls",
+      "disposition": "REQUIRED",
+      "owner": "docs/admin/ADMIN_SURFACES.md",
+      "tasks": [
+        "OPS-006"
+      ]
+    },
+    {
+      "responsibility": "Qualified object-store adapter, paid-provider migration and immutable business artifact",
+      "disposition": "REQUIRED",
+      "owner": "docs/data/FILES_AND_OBJECT_STORAGE.md",
+      "tasks": [
+        "OPS-007",
+        "OPS-009"
+      ]
+    },
+    {
+      "responsibility": "Streamed uploads, metadata, quarantine and authorized attachment access",
+      "disposition": "CONDITIONAL",
+      "owner": "docs/data/FILES_AND_OBJECT_STORAGE.md",
+      "tasks": [
+        "OPS-008"
+      ],
+      "deferred_reason": "Select retained artwork/import/branding upload families and their actual scanning policy."
+    },
+    {
+      "responsibility": "One external notification channel with durable outcome and in-product continuation",
+      "disposition": "CONDITIONAL",
+      "owner": "docs/integrations/NOTIFICATIONS_AND_EXTERNAL_DELIVERY.md",
+      "tasks": [
+        "OPS-010"
+      ],
+      "deferred_reason": "Select the required channel/provider; in-product action/status remains mandatory without delivery."
+    },
+    {
+      "responsibility": "Durable consumption reservation/reconciliation and authorized usage/limit controls",
+      "disposition": "REQUIRED",
+      "owner": "docs/requirements/RESOURCE_CONSUMPTION_AND_LIMITS.md",
+      "tasks": [
+        "OPS-011",
+        "OPS-012"
+      ]
+    },
+    {
+      "responsibility": "Capability-owned authoritative business audit",
+      "disposition": "REQUIRED",
+      "owner": "docs/domain/CROSS_CUTTING_BUSINESS_PRIMITIVES.md",
+      "tasks": [
+        "OPS-013"
+      ]
+    },
+    {
+      "responsibility": "Bounded diagnostics/export and actionable operational alerts",
+      "disposition": "REQUIRED",
+      "owner": "docs/observability/OBSERVABILITY.md",
+      "tasks": [
+        "OPS-014"
+      ]
+    },
+    {
+      "responsibility": "Reproducible private/public deployment, secrets/TLS and restricted migration/runtime roles",
+      "disposition": "REQUIRED",
+      "owner": "docs/operations/DEPLOYMENT_CAPACITY_AND_RECOVERY.md",
+      "tasks": [
+        "OPS-015",
+        "OPS-016"
+      ]
+    },
+    {
+      "responsibility": "Independent host CI, complete recovery set, measured capacity and release drill",
+      "disposition": "REQUIRED",
+      "owner": "docs/implementation/INDEPENDENT_HOST_BUILDS.md",
+      "tasks": [
+        "OPS-017",
+        "OPS-018",
+        "OPS-019",
+        "OPS-020"
+      ]
+    },
+    {
+      "responsibility": "Executable API version/error/decimal/cursor/idempotency consumer compatibility",
+      "disposition": "REQUIRED",
+      "owner": "docs/api/API_CONTRACT_IDEMPOTENCY_AND_RETRY.md",
+      "tasks": [
+        "OPS-021"
+      ]
+    },
+    {
+      "responsibility": "Tenant Web session/render topology, real login and tenant entry",
+      "disposition": "REQUIRED",
+      "owner": "docs/web/WEB_RUNTIME_AND_STORAGE.md",
+      "tasks": [
+        "WEB-001",
+        "WEB-002"
+      ]
+    },
+    {
+      "responsibility": "Tenant customer, priced draft, commitment, quotation/approval and actual fulfillment screens",
+      "disposition": "REQUIRED",
+      "owner": "docs/implementation/BUSINESS_OPERATION_END_TO_END.md",
+      "tasks": [
+        "WEB-003",
+        "WEB-004",
+        "WEB-005",
+        "WEB-006",
+        "WEB-007"
+      ]
+    },
+    {
+      "responsibility": "Tenant purchasing/payable and inventory screens",
+      "disposition": "CONDITIONAL",
+      "owner": "docs/domain/BUSINESS_MODEL.md",
+      "tasks": [
+        "WEB-008",
+        "WEB-009"
+      ],
+      "deferred_reason": "Select the matching backend purchasing/stock branches; do not expose nonexistent business operations."
+    },
+    {
+      "responsibility": "Tenant invoice/payment/correction/statement/document and Settings screens",
+      "disposition": "REQUIRED",
+      "owner": "docs/admin/ADMIN_SURFACES.md",
+      "tasks": [
+        "WEB-010",
+        "WEB-011",
+        "WEB-012"
+      ]
+    },
+    {
+      "responsibility": "Separate external customer portal",
+      "disposition": "CONDITIONAL",
+      "owner": "docs/implementation/BUSINESS_OPERATION_END_TO_END.md",
+      "tasks": [
+        "WEB-013"
+      ],
+      "deferred_reason": "Requires separately accepted identity/resource authority and backend scope; operator Web is not a portal."
+    },
+    {
+      "responsibility": "Tenant catalog/pricing and customer policy/form/approval authoring screens",
+      "disposition": "REQUIRED",
+      "owner": "docs/workflow/WORKFLOW_DESIGN.md",
+      "tasks": [
+        "WEB-015",
+        "WEB-016"
+      ]
+    },
+    {
+      "responsibility": "Complete real tenant browser journey and independent build qualification",
+      "disposition": "REQUIRED",
+      "owner": "docs/testing/VERIFICATION_STRATEGY.md",
+      "tasks": [
+        "WEB-014"
+      ]
+    },
+    {
+      "responsibility": "Separate Admin Web topology, session/device proof and bounded shell",
+      "disposition": "REQUIRED",
+      "owner": "docs/admin/ADMIN_SURFACES.md",
+      "tasks": [
+        "UIA-001",
+        "UIA-002",
+        "UIA-003"
+      ]
+    },
+    {
+      "responsibility": "Admin tenant/account/membership/operator/device/profile/incident/recovery/audit screens",
+      "disposition": "REQUIRED",
+      "owner": "docs/admin/ADMIN_SURFACES.md",
+      "tasks": [
+        "UIA-004",
+        "UIA-005",
+        "UIA-006",
+        "UIA-007",
+        "UIA-008"
+      ]
+    },
+    {
+      "responsibility": "Admin Web independent build and real device/browser qualification",
+      "disposition": "REQUIRED",
+      "owner": "docs/testing/VERIFICATION_STRATEGY.md",
+      "tasks": [
+        "UIA-009"
+      ]
+    },
+    {
+      "responsibility": "Backend readiness, tenant Web, Admin Web and combined requested release gates",
+      "disposition": "REQUIRED",
+      "owner": "docs/implementation/PHASE_GATE_PRODUCTION_HONESTY.md",
+      "tasks": [
+        "GATE-002",
+        "GATE-003",
+        "GATE-004",
+        "GATE-005"
+      ]
+    },
+    {
+      "responsibility": "Workstation, SQLite/WAL, peripherals and local-first continuity",
+      "disposition": "DEFERRED",
+      "owner": "docs/workstation/LOCAL_FIRST_DESKTOP.md",
+      "tasks": [],
+      "deferred_reason": "Accepted later delivery after backend and both Web surfaces; outside this requested assignment package."
+    },
+    {
+      "responsibility": "SyncApi, device/workstation authority, transport proof and offline reconciliation",
+      "disposition": "DEFERRED",
+      "owner": "docs/sync/SYNC_AND_AUTHORITY.md",
+      "tasks": [],
+      "deferred_reason": "Belongs to the later Workstation/device/sync journey; no browser offline execution is implied."
+    },
+    {
+      "responsibility": "Guard supervision, desktop update/recovery and printer qualification",
+      "disposition": "DEFERRED",
+      "owner": "docs/workstation/GUARD_AND_RECOVERY.md",
+      "tasks": [],
+      "deferred_reason": "Requires an introduced supported desktop process and Windows/peripheral workload."
+    },
+    {
+      "responsibility": "Tax/fiscal certification, full general ledger and jurisdictional accounting",
+      "disposition": "EXCLUDED",
+      "owner": "docs/implementation/INVOICE_ISSUE_CONTRACT.md",
+      "tasks": [],
+      "deferred_reason": "Initial invoice tax is excluded; the business issuance scope makes no fiscal/full-ERP compliance claim."
+    },
+    {
+      "responsibility": "SaaS plans/subscription/license engine and billing-grade metering",
+      "disposition": "EXCLUDED",
+      "owner": "docs/decisions/OPEN_DECISIONS.md",
+      "tasks": [],
+      "deferred_reason": "No commercial plan semantics are accepted; application limits do not create tenant subscription billing."
+    },
+    {
+      "responsibility": "Multi-currency/FX, arbitrary integrations, general analytics and localization program",
+      "disposition": "DEFERRED",
+      "owner": "docs/decisions/OPEN_DECISIONS.md",
+      "tasks": [],
+      "deferred_reason": "Earn exact scope from a real supported workload; NPR issuance and bounded required reports remain covered."
+    },
+    {
+      "responsibility": "Formal accessibility certification program and transparent HA/zero-downtime claims",
+      "disposition": "EXCLUDED",
+      "owner": "docs/decisions/OPEN_DECISIONS.md",
+      "tasks": [],
+      "deferred_reason": "Ordinary usable labels/focus/keyboard/error handling are in browser tasks. Certification and unsupported availability guarantees are not claimed."
+    },
+    {
+      "responsibility": "Current normal-parallel container startup qualification",
+      "disposition": "REQUIRED",
+      "owner": "docs/testing/VERIFICATION_STRATEGY.md",
+      "tasks": [
+        "OPS-022"
+      ],
+      "deferred_reason": "Observed receiving gate failure; real ResourceReaper/startup correction and unmasked normal qualification precede GATE-001."
+    }
+  ]
+}

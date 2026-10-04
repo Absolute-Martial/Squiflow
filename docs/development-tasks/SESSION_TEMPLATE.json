@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "template_only": true,
+  "source_baseline": {
+    "git_sha": "<full SHA from assigned repository>",
+    "source_zip_sha256": "<SHA-256>",
+    "dirty_manifest_sha256": "<SHA-256>",
+    "catalog_manifest_sha256": "<SHA-256 of TASK_HASHES.sha256>"
+  },
+  "release_scope": {
+    "owner": "<accountable owner>",
+    "selected_conditional_task_ids": [],
+    "conditional_dispositions": [],
+    "accepted_case_matrix": "<artifact path and digest>"
+  },
+  "accepted_task_ids": [],
+  "assignments": [
+    {
+      "task_id": "<ID from tasks.json>",
+      "slice": "<contract/core/store/api/view/review/integrate or full>",
+      "dispatch_status": "PENDING",
+      "model": "<task default or explicitly approved equivalent>",
+      "agent": "<assignee>",
+      "write_allowlist": [],
+      "accepted_dependency_receipts": [],
+      "accepted_decisions": [],
+      "baseline_zip_sha256": "<digest>",
+      "returned_zip_sha256": null,
+      "changed_files": [],
+      "reviewer": null,
+      "static_findings": [],
+      "executed_checks": [],
+      "pending_checks": [],
+      "regression_guards": [],
+      "requalification_triggers": [],
+      "blockers": [],
+      "acceptance_receipt": null
+    }
+  ]
+}

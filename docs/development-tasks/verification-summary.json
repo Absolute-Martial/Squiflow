@@ -1,0 +1,132 @@
+{
+  "command": "./eng/verify.sh",
+  "observed_exit_code": 1,
+  "log": "artifacts/verification/development-task-catalog-current.log",
+  "log_sha256": "b95ee30711c2b5781f52b3452c5ed296521fe686737031ac5048b54e27003204",
+  "suites": [
+    {
+      "assembly": "Application.Architecture.Tests.dll",
+      "failed": 0,
+      "passed": 9,
+      "skipped": 0,
+      "total": 9
+    },
+    {
+      "assembly": "Application.IdentityAccess.Postgres.Tests.dll",
+      "failed": 11,
+      "passed": 4,
+      "skipped": 0,
+      "total": 15
+    },
+    {
+      "assembly": "Application.Branding.Tests.dll",
+      "failed": 0,
+      "passed": 11,
+      "skipped": 0,
+      "total": 11
+    },
+    {
+      "assembly": "Application.IdentityAccess.Tests.dll",
+      "failed": 0,
+      "passed": 12,
+      "skipped": 0,
+      "total": 12
+    },
+    {
+      "assembly": "Application.Customers.Tests.dll",
+      "failed": 0,
+      "passed": 21,
+      "skipped": 0,
+      "total": 21
+    },
+    {
+      "assembly": "Application.Invoices.Tests.dll",
+      "failed": 0,
+      "passed": 15,
+      "skipped": 0,
+      "total": 15
+    },
+    {
+      "assembly": "Application.Orders.Tests.dll",
+      "failed": 0,
+      "passed": 86,
+      "skipped": 0,
+      "total": 86
+    },
+    {
+      "assembly": "Application.PlatformAdministration.Tests.dll",
+      "failed": 0,
+      "passed": 4,
+      "skipped": 0,
+      "total": 4
+    },
+    {
+      "assembly": "Application.Profiles.Tests.dll",
+      "failed": 0,
+      "passed": 18,
+      "skipped": 0,
+      "total": 18
+    },
+    {
+      "assembly": "Application.AdminBootstrap.Tests.dll",
+      "failed": 0,
+      "passed": 3,
+      "skipped": 0,
+      "total": 3
+    },
+    {
+      "assembly": "Application.Tenancy.Tests.dll",
+      "failed": 0,
+      "passed": 29,
+      "skipped": 0,
+      "total": 29
+    },
+    {
+      "assembly": "Application.CoreApi.Tests.dll",
+      "failed": 0,
+      "passed": 310,
+      "skipped": 0,
+      "total": 310
+    },
+    {
+      "assembly": "Application.AdminApi.Tests.dll",
+      "failed": 0,
+      "passed": 56,
+      "skipped": 0,
+      "total": 56
+    },
+    {
+      "assembly": "Application.Tenancy.Postgres.Tests.dll",
+      "failed": 0,
+      "passed": 19,
+      "skipped": 0,
+      "total": 19
+    },
+    {
+      "assembly": "Application.Customers.Postgres.Tests.dll",
+      "failed": 0,
+      "passed": 17,
+      "skipped": 0,
+      "total": 17
+    },
+    {
+      "assembly": "Application.Orders.Postgres.Tests.dll",
+      "failed": 0,
+      "passed": 43,
+      "skipped": 0,
+      "total": 43
+    }
+  ],
+  "aggregate": {
+    "passed": 657,
+    "failed": 11,
+    "skipped": 0,
+    "total": 668
+  },
+  "release_build": {
+    "warnings": 0,
+    "errors": 0
+  },
+  "failure": "Testcontainers ResourceReaper initialization -> DockerImage/MatchImage -> RegexMatchTimeoutException",
+  "qualification": "baseline not qualified; OPS-022 required"
+}
