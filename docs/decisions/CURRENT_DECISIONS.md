@@ -76,6 +76,8 @@ This file records accepted direction only. Detailed reasoning and supersession h
 ## Small-team tenant control
 
 - `Owner` + `Staff` are the default small-team role templates.
+- New Staff default to read-only workspace, Customers and Orders access (product-owner selection 2026-10-04), with no mutation, price-entry/override, role-management or platform authority. The default includes all current Customers read surfaces, including individual records with their existing display name/email/phone projection. The inspected relation mapping, remaining Owner/delegation decisions and `NOT_INTRODUCED` role provisioning are owned by `docs/security/TENANT_PERMISSIONS.md`; this selection does not write tuples or migrate existing memberships.
+- The initial Owner default is team and role administration only (product-owner selection 2026-10-04); business rights are granted separately. It does not inherit Staff business reads or grant all tenant mutations. Exercise and delegation authority are distinct; exact delegation ceilings, role composition and self-assignment remain open under `docs/security/TENANT_PERMISSIONS.md`. This selects a default, not executable role provisioning or unrestricted grant policy.
 - Tenant Owner controls ordinary staff permissions inside SquiFlow security/platform-capability constraints; no commercial plan is implied.
 - Tenant administration is a server-authoritative capability. Web remains the primary/broader administration surface, but selected operations such as staff invitation/creation, role/permission assignment, device/workstation management, and other explicitly approved tenant-scoped actions may also be surfaced on an online authorized Workstation.
 - An online Workstation tenant-admin surface is only a host adapter: it never grants/revokes authority locally or offline, and it never receives OpenFGA administrative credentials.
@@ -318,7 +320,8 @@ and evidence owners: `ORDER_COMMITMENT_SLICE.md` and
 - Separate billing permission selects and freezes the debtor per invoice, with
   organization as the default and program/individual alternatives. It does not
   update future program defaults. The focused business owner is
-  `docs/domain/BUSINESS_MODEL.md`; invoice persistence remains absent.
+  `docs/domain/BUSINESS_MODEL.md`; the contract-only implementation owner is
+  `docs/implementation/INVOICE_ISSUE_CONTRACT.md`; invoice persistence remains absent.
 
 ### Initial Owner and tenant suspension, 2026-10-03
 

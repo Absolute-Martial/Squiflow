@@ -14,6 +14,34 @@ The tenant Owner controls ordinary staff rights inside the tenant's entitlement 
 
 The Owner may create custom roles such as Manager, Accounts, Designer, Sales, Stock or Print Operator. SquiFlow does not require those roles to exist.
 
+### Accepted initial-Owner default — 2026-10-04
+
+The product owner selected **team and role administration only for the initial Owner default**. Business-operation rights must be granted separately. This default does not inherit Staff's workspace/Customers/Orders reads, grant all tenant mutations, or confer pricing, debtor-assignment, billing or platform authority. The existing immutable initial-Owner bootstrap marker remains a protected designation; it does not currently materialize this selected role template.
+
+Authority to exercise an operation and authority to delegate it are distinct. Selecting the Owner administration default does not decide whether an Owner may grant business rights they do not exercise, assign additional rights to themselves, or compose them through multiple/custom roles. The exact delegation ceiling, composition and self-assignment rules remain the next explicit contract choice, alongside guarded Owner handoff/recovery. Do not implement unrestricted grant power or automatic business-right inheritance from this selection. Role/default provisioning remains `NOT_INTRODUCED`.
+
+### Accepted new-Staff default — 2026-10-04
+
+The product owner selected **read-only workspace, Customers and Orders access for new Staff**. The default grants no creation, editing, availability change, abandonment, commitment, price entry/override, debtor assignment, billing mutation, role management or platform administration authority. Tenant membership and the Staff label alone remain insufficient: current account/tenant/membership checks and the independent pinned-model authorization decision still apply.
+
+This is an accepted template contract, not implemented automatic provisioning. Staff/Owner role materialization, role assignment and tuple administration/reconciliation remain `NOT_INTRODUCED`. Existing memberships or tuples are not silently migrated by this decision. The module-owned permission catalog described below remains a selected direction, not an implemented runtime catalog.
+
+The existing read operations provide the following concrete mapping; these are inspected runtime relations, not newly invented permission IDs:
+
+| Existing tenant read surface | Persisted relation | Computed permission requiring current membership | Staff-default decision |
+|---|---|---|---|
+| Workspace | `workspace_viewer` | `can_view_workspace` | Read-only default accepted |
+| Customer organization browse/detail | `organization_viewer` | `can_view_organizations` | Read-only default accepted |
+| Customer program browse/detail within an organization | `program_viewer` | `can_view_programs` | Read-only default accepted |
+| Order browse/detail, draft history and action guidance | `order_viewer` | `can_view_orders` | Read-only default accepted; guidance grants no command authority |
+| Individual customer billing-record detail, including display name and optional email/phone | `individual_viewer` | `can_view_individuals` | Read-only default accepted for the existing public projection |
+
+Source owners: `infrastructure/authorization/openfga/tenant-authorization-model.json`, `services/core-api/Application.CoreApi/Authorization/TenantAuthorization.cs`, the corresponding tenant endpoint files and `services/core-api/Application.CoreApi/Composition/CustomerIndividualRoutes.cs`. Organization/program projections currently expose identity/name metadata; individual detail separately exposes display name, email and phone. The accepted Customers read scope includes all of these current read surfaces and `individual_viewer`. An individual customer/person billing record remains separate from application login/identity authority and debtor assignment. This read grant supplies no debtor assignment, billing mutation, credential/provider payload or future expanded sensitive-field access. Future projection expansion requires its own disclosure review.
+
+The existing Orders read projection includes stored prices/totals and history. Read access supplies no `manual_pricer` relation and cannot enter or override prices; any newly proposed sensitive cost/margin/contact projection needs its own disclosure policy rather than relying on UI hiding.
+
+The initial Owner and Staff default scopes are now selected. Remaining ADM-008 decisions are the exact delegation ceiling, custom-role/multiple-role composition, self-assignment and default-template changes, and guarded ownership transfer/recovery. The protected initial-Owner bootstrap marker grants no general Owner permissions. Tenant Owner authority never implies Platform Admin, cross-tenant, provider or infrastructure authority. Registry browse/detail work on the private AdminApi retains its separate current platform actor/device/OpenFGA checks and does not depend on resolving these tenant-role questions.
+
 ## 2. Stable permission vocabulary
 
 SquiFlow defines stable business capabilities such as:
