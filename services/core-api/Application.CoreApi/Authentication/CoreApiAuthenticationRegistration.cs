@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Application.IdentityAccess;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Application.CoreApi.Authentication;
@@ -38,6 +39,17 @@ internal static class CoreApiAuthenticationRegistration
                 };
                 options.Events = new JwtBearerEvents
                 {
+                    OnMessageReceived = context =>
+                    {
+                        var endpoint = context.HttpContext.GetEndpoint();
+                        if (endpoint?.Metadata.GetMetadata<EndpointAccessMetadata>() is { IsProtected: false } &&
+                            endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>().Count == 0)
+                        {
+                            context.NoResult();
+                        }
+
+                        return Task.CompletedTask;
+                    },
                     OnTokenValidated = context =>
                     {
                         var issuers = context.Principal?.FindAll("iss")
