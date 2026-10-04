@@ -1,6 +1,6 @@
 # Core API and Worker Architecture
 
-**Version:** v0.1.0
+**Version:** v0.0.1
 **Status:** CoreApi exists for public bootstrap/liveness, a classified OpenAPI v1 document, narrow authenticated-account and active-membership queries, authorized tenant-workspace read, and the bounded Order draft intake slice. AdminApi and Worker remain `NOT_INTRODUCED`. Responsibilities below become active contracts only when a current implementation slice earns the corresponding workload.
 
 ## 1. Core API

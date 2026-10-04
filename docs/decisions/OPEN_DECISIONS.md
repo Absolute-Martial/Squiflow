@@ -1,4 +1,4 @@
-# Open Decisions — v0.1.0
+# Open Decisions — v0.0.1
 
 These are decisions that can materially affect the current implementation baseline. Deferred ideas are not kept here merely because they may be useful someday.
 
@@ -172,7 +172,7 @@ The planned provider-migration trigger is the **first paying customer**, but mig
 - Invoice debtor validation still needs one business decision: whether an inactive individual billing record may be selected for a new invoice. Historical invoices are unaffected by later availability either way.
 - Exact tenant/business timezone/effective-date semantics before quotation expiry, scheduled business-day work, invoice dates or timezone-sensitive reporting depend on them. Invoice implementation specifically needs the invoice-business-date authority (operator supplied versus tenant-timezone derived) and any allowed back/future-dating bounds.
 - **Commercial plan/tier names, prices, default allowances, feature packaging and subscription lifecycle are OPEN; none are accepted now.** Application-level limits may still exist independently.
-- Whether v0.1.0 needs SaaS self-service billing/invoicing at all; manual commercial/account handling remains valid initially.
+- Whether v0.0.1 needs SaaS self-service billing/invoicing at all; manual commercial/account handling remains valid initially.
 - If a later commercial plan model is introduced, it maps product/commercial rules onto versioned entitlement/limit policy; plan names must not become scattered enforcement conditions in business code.
 - Whether authoritative consumption records later feed billing is a separate commercial/accounting decision; durable metering itself does not imply automatic tenant invoicing.
 - First client-client portal implementation scope/timing and authentication/account model.
@@ -192,7 +192,7 @@ Open only if a real requirement appears:
 - mixed-currency settlement/allocation;
 - accounting gain/loss behavior.
 
-## Deferred, not active v0.1.0 work
+## Deferred, not active v0.0.1 work
 
 - formal accessibility/a11y conformance program or dedicated accessibility testing/documentation;
 - browser partial-offline/offline business execution;

@@ -1,6 +1,6 @@
 # Implementation Hardcoding and Rule-Compliance Audit
 
-**Version:** v0.1.0
+**Version:** v0.0.1
 **Audited:** 2026-09-23
 **Baseline reviewed:** current Orders draft-intake change, including its neutral artifact identities
 **Scope:** current production/test projects, executable configuration, migrations, CI wrapper, closest `AGENTS.md` rules and current implementation claims
@@ -35,7 +35,7 @@ Hardcoded does not automatically mean incorrect. These constants express compati
 - `/api/v1`, OpenAPI document `v1`, stable endpoint names and error codes are current wire-contract identifiers.
 - `identity_access` and `tenancy` schemas, migration-history table names, migration identifiers, constraint/index names and enum storage values are persistence contracts.
 - feature count/dependency/identifier bounds, identity component sizes and branding field/URL limits are input/resource safety bounds with tests.
-- `v0.1.0` is the explicitly requested product-version lock until the production-capable product gate changes it.
+- `v0.0.1` is the explicitly requested product-version lock until the production-capable product gate changes it.
 - `Application.CoreApi.PrimaryDatabase` and `Application.CoreApi.ProfileRuntime` are brand-neutral internal telemetry namespaces; they contain no public product or development codename.
 - The external GitHub repository name may still place the codename in a hosted-runner checkout path. That path is controlled by the repository name rather than the .NET solution or compiled artifacts; removing it requires a separate repository rename.
 - event IDs, advisory-lock polling interval and maximum lock-timeout bound are implementation/operations protocol constants with named ownership, rather than tenant/business policy.
@@ -80,7 +80,7 @@ The checked-in pool sizes, retention periods, authentication timings and cache a
 
 ### Versioning and branding
 
-- Product version remains exactly v0.1.0.
+- Product version remains exactly v0.0.1.
 - Runtime branding and OpenAPI title come from required configuration without a codename fallback.
 - Public responses and checked-in runtime configuration have tests preventing codename exposure.
 - Active project, namespace, assembly, test and synthetic resource identities are neutral and contain no development codename.

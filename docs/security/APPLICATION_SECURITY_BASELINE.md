@@ -1,6 +1,6 @@
 # Application Security Baseline
 
-**Version:** v0.1.0
+**Version:** v0.0.1
 
 This document owns SquiFlow security requirements that sit outside the detailed identity and authorization documents. It consolidates browser, API, data-access, file, outbound-integration, dependency, build, and conditional container controls without creating a second authentication or authorization system.
 

@@ -1,6 +1,6 @@
 # Multi-Tenancy Isolation Strategy
 
-**Version:** v0.1.0
+**Version:** v0.0.1
 
 **Current implementation:** the global tenant registry, account-membership schema/query and membership-derived immutable `TenantContext` exist. The narrow Orders draft-intake slice adds the first tenant-owned business rows with explicit tenant predicates, transaction-local tenant context and forced PostgreSQL RLS. Broader client-selected execution and tenant-owned persistence remain `NOT_INTRODUCED`; the exact active claim is owned by `docs/implementation/ORDER_DRAFT_INTAKE_SLICE.md`.
 
@@ -15,7 +15,7 @@ The two source models reviewed for this decision use different vocabulary but po
 
 SquiFlow therefore does not assume that all tenants must always use one physical isolation pattern. Composition variation is another independent axis: a Tenant Application Profile may select capabilities and, where earned, trusted implementation variants without implying a different data or process placement. `TENANT_APPLICATION_PROFILES_AND_EXTENSIBILITY.md` owns that model.
 
-## 2. Current v0.1.0 baseline
+## 2. Current v0.0.1 baseline
 
 For ordinary small and medium tenants, the implementation target is a **pooled application + pooled authoritative data model**:
 

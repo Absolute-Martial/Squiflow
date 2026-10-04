@@ -18,7 +18,7 @@ Read [implementation truth](../../../README.IMPLEMENTATION.md), [source admissio
 
 ## Scope and exclusions
 
-Allowed areas: selected commercial capability/provider transaction, audit schema/retention, CoreApi read and regression tests. Reuse valid retained business receipts where sufficient. Exclude a universal event store and administrative audit reads already owned by ADM-023. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.
+Allowed areas: selected commercial capability/provider transaction, audit schema/retention, CoreApi read and regression tests. Reuse valid retained business receipts where sufficient. Exclude a universal event store and administrative audit reads already owned by ADM-023. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.
 
 ## Decisions/prerequisites
 

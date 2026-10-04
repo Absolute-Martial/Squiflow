@@ -1,0 +1,13 @@
+# BUS-02 — Skeptical receivables accountant
+
+Reviewer: `/root/business_billing_review`, GPT-6 Luna (high). Read-only review; root-edited summary. Dynamic checks: NOT_RUN. Tax remains outside the first invoice scope, with no fiscal-compliance claim.
+
+| Finding | Classification / existing unit | Evidence | Production falsifier |
+|---|---|---|---|
+| Four invoice contract decisions precede durable implementation: allocation/cardinality; individual/unattributed organization-reference scope and gaps; business-date authority; inactive individual eligibility | OPEN_DECISION; COM-019 before COM-020–022 | `docs/implementation/INVOICE_ISSUE_CONTRACT.md:231` | The accepted policy defines exact database constraints, idempotency meaning and concurrent allocation outcomes |
+| Corrected neutral invoice facts still need independent review and current combined evidence | EVIDENCE_GAP; bounded COM-020/BAS-001/GATE-001 follow-up | `docs/implementation/INVOICE_ISSUE_CONTRACT.md:287`; `artifacts/verification/invoices-core/correction-results.json` | Kind mismatch/unsupported availability rejected; authority precedes receipt disclosure; inspect current-source normal gate |
+| Orchestration fakes cannot prove durable receipt arbitration or API authority | IMPLEMENTATION_GAP + future EVIDENCE_GAP; COM-021/022 | `docs/implementation/INVOICE_ISSUE_CONTRACT.md:169` | Lose response after commit, retry same key once; changed debtor conflicts; wrong-scope receipt and revoked replay fail closed |
+| Invoice-to-receivable-to-payment-to-allocation is planned, not implemented | IMPLEMENTATION_GAP; COM-023–025 | `docs/development-tasks/OPERATION_FLOWS.md:36` | Concurrent allocations cannot consume one remaining amount twice; unpaid and unapplied amounts remain distinguishable |
+| Correction, return, credit and refund need separate meanings and accepted limits | OPEN_DECISION + IMPLEMENTATION_GAP; COM-028–031 | `docs/development-tasks/phase-02-commercial-backend/COM-029-invoice-corrections-credits-and-disputes.md:20` | Concurrent credits/refunds stay within accepted ceilings; response loss never automatically repeats a provider effect |
+
+No missing bill-to task found: organization default, exact attributed program and separate individual record agree across current owners. Login identity is not debtor identity. The historical 726-test gate precedes corrected source; focused 25/25 tests prove only their inspected neutral scope. Keep real PostgreSQL, OpenFGA, API and provider cases separate. Guard through focused tests, durable races and COM-032; requalify on financial contracts, historical serialization, identity scope or provider changes.

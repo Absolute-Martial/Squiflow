@@ -1,6 +1,6 @@
 # Tenant Owner Roles, Permission IDs, and OpenFGA Authorization
 
-**Version:** v0.1.0
+**Version:** v0.0.1
 
 **Current implementation:** SquiFlow owns a global tenant registry, current active account memberships and an immutable membership-derived `TenantContext`. The Core API checks `tenant#can_view_workspace`, `tenant#can_create_order`, `tenant#can_edit_order`, `tenant#can_apply_manual_price`, `tenant#can_view_orders`, `tenant#can_abandon_order`, `tenant#can_create_organization`, `tenant#can_view_organizations`, `tenant#can_create_program`, `tenant#can_view_programs`, `tenant#can_commit_order`, `tenant#can_create_individual`, `tenant#can_view_individuals`, and `tenant#can_change_individual_availability` under one explicitly configured model ID. Each computed relation requires verified current membership supplied as a contextual tuple plus its separate persisted permission relation. Role/custom-role administration, application tuple writes/reconciliation, authorization revision, device authority and resource-specific order relationships remain `NOT_INTRODUCED`.
 

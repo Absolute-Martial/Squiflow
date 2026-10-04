@@ -2,7 +2,7 @@
 
 **Status:** Current focused owner
 
-**Product version:** `v0.1.0`, locked
+**Product version:** `v0.0.1`, locked
 
 ## 1. Development codename boundary
 
@@ -41,9 +41,9 @@ Tenant-specific branding remains a future published Tenant Application Profile c
 
 ## 3. Product-version lock
 
-The product version is exactly `v0.1.0`. `VERSION`, `CURRENT_VERSION.txt` and .NET assembly/file/informational metadata must agree.
+The product version is exactly `v0.0.1`. `VERSION`, `CURRENT_VERSION.txt` and .NET assembly/file/informational metadata must agree.
 
-No later product version is assigned merely because another capability, phase, commit, migration or internal build is added. Git commit IDs and deployment provenance identify individual builds while the product version remains `v0.1.0`.
+No later product version is assigned merely because another capability, phase, commit, migration or internal build is added. Git commit IDs and deployment provenance identify individual builds while the product version remains `v0.0.1`.
 
 The following are independent compatibility identifiers and do not change the product version:
 
@@ -54,7 +54,7 @@ The following are independent compatibility identifiers and do not change the pr
 - capability implementation revisions;
 - Git commit IDs and deployment IDs.
 
-## 4. Gate for leaving v0.1.0
+## 4. Gate for leaving v0.0.1
 
 Changing the product version requires an explicit reviewed decision showing that the complete accepted product is capable of real production operation. At minimum:
 

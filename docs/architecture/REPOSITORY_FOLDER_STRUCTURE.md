@@ -1,6 +1,6 @@
 # Repository Folder-Only Structure
 
-**Version:** v0.1.0
+**Version:** v0.0.1
 **Purpose:** directory-only view of the tracked SquiFlow repository structure.
 
 **Current inventory:** the solution contains twelve production projects and twelve test projects, including Customers and Orders with their PostgreSQL adapters. See `README.IMPLEMENTATION.md` for the current responsibility-level implementation truth.

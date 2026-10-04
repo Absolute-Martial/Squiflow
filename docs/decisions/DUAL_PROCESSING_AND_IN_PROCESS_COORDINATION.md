@@ -1,7 +1,7 @@
 # Staged Authority and In-Process Coordination
 
 **Status:** Accepted implementation direction.
-**Product version:** v0.1.0.
+**Product version:** v0.0.1.
 **Authority boundary:** This record owns the Workstation/server two-stage execution model and the initial process-local coordination mechanism. Detailed trust/sync rules remain in `docs/sync/SYNC_AND_AUTHORITY.md`.
 
 ## 1. Decision summary

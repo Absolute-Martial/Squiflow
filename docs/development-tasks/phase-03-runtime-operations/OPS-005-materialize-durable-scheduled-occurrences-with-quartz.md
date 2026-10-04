@@ -18,7 +18,7 @@ Read [implementation truth](../../../README.IMPLEMENTATION.md), [source admissio
 
 ## Scope and exclusions
 
-Allowed areas: one capability schedule contract/provider, Quartz adapter/persistent PostgreSQL migrations, Worker composition and schedule tests. Exclude schedules for imagined jobs, Quartz business handlers, direct dashboard/table administration and replacement schedulers. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.
+Allowed areas: one capability schedule contract/provider, Quartz adapter/persistent PostgreSQL migrations, Worker composition and schedule tests. Exclude schedules for imagined jobs, Quartz business handlers, direct dashboard/table administration and replacement schedulers. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.
 
 ## Decisions/prerequisites
 

@@ -1,7 +1,7 @@
 # Core API protected-request cancellation budget
 
 **Owner:** CoreApi host, `CoreApiRequestBudgets`.
-**Product version:** v0.1.0.
+**Product version:** v0.0.1.
 **Scope:** cooperative request cancellation for current classified protected HTTP operations.
 **State:** `PRODUCTION_HONEST` for the cooperative cancellation scope; `BLOCKED = none`.
 

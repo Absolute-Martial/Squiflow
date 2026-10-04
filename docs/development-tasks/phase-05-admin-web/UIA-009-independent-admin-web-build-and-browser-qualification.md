@@ -44,7 +44,7 @@ Run .NET 10 locked restore/build, earned Admin host verification, normal ./eng/v
 
 ## Handoff
 
-Provide a source-only ZIP, changed-file list, safe evidence and claim/guard/requalification mapping. No Git commit/push. Preserve unrelated Admin budget edits and product v0.1.0. Implementation is assigned later; this catalog does not authorize starting it.
+Provide a source-only ZIP, changed-file list, safe evidence and claim/guard/requalification mapping. No Git commit/push. Preserve unrelated Admin budget edits and product v0.0.1. Implementation is assigned later; this catalog does not authorize starting it.
 
 ## Assignable prompt
 

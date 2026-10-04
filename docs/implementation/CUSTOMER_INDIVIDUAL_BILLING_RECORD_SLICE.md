@@ -1,6 +1,6 @@
 # Individual customer billing record
 
-Product version: v0.1.0. Focused owner: Customers. Owner decision, 2026-10-03:
+Product version: v0.0.1. Focused owner: Customers. Owner decision, 2026-10-03:
 a display name, optional email/phone and active/inactive state are sufficient for
 the first record. It is independent of application login accounts. Debtor
 assignment requires separate billing authority and is not introduced here.

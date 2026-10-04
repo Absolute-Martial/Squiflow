@@ -1,7 +1,7 @@
 # Core API mutation outcome diagnostics
 
 **Owner:** CoreApi host, `CoreApiMutationDiagnostics`.
-**Product version:** v0.1.0.
+**Product version:** v0.0.1.
 **Scope:** observed successful customer organization/program creates and Orders
 draft create/revise/abandon, after the application command returns its committed
 or replayed result.

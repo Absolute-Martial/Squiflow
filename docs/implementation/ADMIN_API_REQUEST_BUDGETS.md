@@ -1,7 +1,7 @@
 # Admin API protected-request cooperative deadline
 
 **Owner:** AdminApi host, `AdminApiRequestBudgets` and `AdminApiConfiguration`.
-**Product version:** v0.1.0.
+**Product version:** v0.0.1.
 **Scope:** cooperative request cancellation for explicitly classified protected AdminApi routes.
 **State:** `PRODUCTION_HONEST` for the declared cooperative deadline and explicitly public-health authentication exclusion; `BLOCKED = none` within those scopes. GATE-001 remains blocked separately by the invoice-core review findings.
 

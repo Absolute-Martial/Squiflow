@@ -5,7 +5,7 @@
 Each executable is its own build and publication root. Keeping all projects in
 `Application.slnx` provides repository-wide compatibility checks; it does not make
 that solution a prerequisite for building or publishing CoreApi. Product version
-remains v0.1.0. Current executable inventory belongs to `README.IMPLEMENTATION.md`.
+remains v0.0.1. Current executable inventory belongs to `README.IMPLEMENTATION.md`.
 
 Use the project graph of the selected host:
 

@@ -1,6 +1,6 @@
 # Separate Platform Admin Web assignments
 
-This is a future assignment catalog, not an implementation or qualification claim. Current truth remains in `README.IMPLEMENTATION.md`; product version stays v0.1.0. Catalog status expresses readiness to assign after prerequisites, not PRODUCTION_HONEST/BLOCKED runtime state.
+This is a future assignment catalog, not an implementation or qualification claim. Current truth remains in `README.IMPLEMENTATION.md`; product version stays v0.0.1. Catalog status expresses readiness to assign after prerequisites, not PRODUCTION_HONEST/BLOCKED runtime state.
 
 Backend gates precede frontend implementation. This application uses AdminApi directly and has its own identity, registered Admin-device, session and deployment boundary. Tenant Web phase completion is delivery sequencing, never an ordinary Admin runtime dependency.
 

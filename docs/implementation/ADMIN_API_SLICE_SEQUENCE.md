@@ -1,7 +1,7 @@
 # AdminApi slice sequence
 
 **Status:** active sequence, 2026-10-03  
-**Product version:** remains v0.1.0
+**Product version:** remains v0.0.1
 
 ## Delivery rule
 

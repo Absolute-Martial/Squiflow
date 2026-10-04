@@ -1,10 +1,10 @@
 # Web Runtime and Browser Storage Policy
 
-**Version:** v0.1.0
+**Version:** v0.0.1
 
 ## 1. Current decision
 
-The selected Web architecture is **online-only for business operations** at v0.1.0. The Web runtime remains `NOT_INTRODUCED`.
+The selected Web architecture is **online-only for business operations** at v0.0.1. The Web runtime remains `NOT_INTRODUCED`.
 
 Do not implement partial offline business behavior now.
 

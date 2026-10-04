@@ -19,7 +19,7 @@ Read [implementation truth](../../../README.IMPLEMENTATION.md), [source admissio
 
 ## Scope and exclusions
 
-Allowed areas: actual host endpoint metadata/OpenAPI, stable DTO/error contracts, client contract fixtures and narrowly needed compatibility fixes. Exclude new transport frameworks, speculative Workstation protocols and redefining business authority in serializers. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.
+Allowed areas: actual host endpoint metadata/OpenAPI, stable DTO/error contracts, client contract fixtures and narrowly needed compatibility fixes. Exclude new transport frameworks, speculative Workstation protocols and redefining business authority in serializers. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.
 
 ## Decisions/prerequisites
 

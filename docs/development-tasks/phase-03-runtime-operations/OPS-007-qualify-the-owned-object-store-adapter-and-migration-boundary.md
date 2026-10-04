@@ -18,7 +18,7 @@ Read [implementation truth](../../../README.IMPLEMENTATION.md), [source admissio
 
 ## Scope and exclusions
 
-Allowed areas: infrastructure storage adapter/contracts, first real consumer/provider, migration tooling and contract tests. Exclude provider SDK types in capabilities, unused cloud features and a separate abstractions project without a boundary. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.
+Allowed areas: infrastructure storage adapter/contracts, first real consumer/provider, migration tooling and contract tests. Exclude provider SDK types in capabilities, unused cloud features and a separate abstractions project without a boundary. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.
 
 ## Decisions/prerequisites
 

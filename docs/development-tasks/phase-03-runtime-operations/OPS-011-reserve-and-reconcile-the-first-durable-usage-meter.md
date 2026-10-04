@@ -18,7 +18,7 @@ Read [implementation truth](../../../README.IMPLEMENTATION.md), [source admissio
 
 ## Scope and exclusions
 
-Allowed areas: first consuming capability/provider, its meter/policy schema and tests, and relevant API/Worker admission. Exclude generic billing plans, pricing subscriptions, every meter and metrics as authoritative accounting. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.
+Allowed areas: first consuming capability/provider, its meter/policy schema and tests, and relevant API/Worker admission. Exclude generic billing plans, pricing subscriptions, every meter and metrics as authoritative accounting. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.
 
 ## Decisions/prerequisites
 

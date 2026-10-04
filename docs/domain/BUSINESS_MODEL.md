@@ -1,6 +1,6 @@
 # Business Model and Practical Domain Scope
 
-**Version:** v0.1.0
+**Version:** v0.0.1
 
 This document keeps SquiFlow grounded in the actual businesses it needs to support rather than turning every possible ERP feature into baseline architecture.
 
@@ -200,7 +200,7 @@ Reversed
 
 Credit operations that depend on current shared exposure may be provisional or server-required offline.
 
-Currency is not hardcoded. v0.1.0 does not add exchange rates or multi-currency accounting unless a real customer requires it.
+Currency is not hardcoded. v0.0.1 does not add exchange rates or multi-currency accounting unless a real customer requires it.
 
 ## 12. Documents/files
 

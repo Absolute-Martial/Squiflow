@@ -2,7 +2,7 @@
 
 **State:** `PRODUCTION_HONEST` for the declared retained-draft-history scope;
 `BLOCKED = none`. Broader commercial lifecycle and general audit remain
-`NOT_INTRODUCED`. Product version stays v0.1.0.
+`NOT_INTRODUCED`. Product version stays v0.0.1.
 
 Owner: `Application.Orders`; provider: `Application.Orders.Postgres`; transport:
 CoreApi. This responsibility adds a usable history of the already supported

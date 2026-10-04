@@ -2,7 +2,7 @@
 
 **Status:** `PRODUCTION_HONEST` for the declared narrow scope
 
-**Product version:** `v0.1.0`
+**Product version:** `v0.0.1`
 
 **BLOCKED:** none
 

@@ -18,7 +18,7 @@ Read [implementation truth](../../../README.IMPLEMENTATION.md), [source admissio
 
 ## Scope and exclusions
 
-Allowed areas: first meter capability/provider, CoreApi tenant read, AdminApi approved controls, DTOs and tests. Exclude plan prices, invoicing, customer subscription management and duplicated business policy in either Web surface. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.
+Allowed areas: first meter capability/provider, CoreApi tenant read, AdminApi approved controls, DTOs and tests. Exclude plan prices, invoicing, customer subscription management and duplicated business policy in either Web surface. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.
 
 ## Decisions/prerequisites
 

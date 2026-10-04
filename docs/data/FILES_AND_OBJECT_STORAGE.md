@@ -1,6 +1,6 @@
 # Files, Object Storage, and Backup Bootstrap
 
-**Version:** v0.1.0
+**Version:** v0.0.1
 
 ## 1. Current bootstrap providers
 

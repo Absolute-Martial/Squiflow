@@ -1,6 +1,6 @@
 # Explicit Boundaries and SOLID Design Rules
 
-**Version:** v0.1.0
+**Version:** v0.0.1
 **Status:** Accepted architecture owner  
 **Scope:** Cross-cutting code/module/process boundary design and SOLID application
 

@@ -1,6 +1,6 @@
 # SquiFlow Current Implementation Truth
 
-**Product version:** `v0.1.0`, locked until the complete production-capable product gate
+**Product version:** `v0.0.1`, locked until the complete production-capable product gate
 
 **Repository name:** internal development codename; public runtime identity is configuration-owned
 
@@ -209,7 +209,7 @@ normal parallel `./eng/verify.sh` run passed all **373 tests**, zero failures/sk
 and zero Release warnings/errors. The owner selected operator-entered prices
 first with controlled overrides; separate manual pricing authority is now implemented as described below; richer
 reason/approval/ceiling policy remains unintroduced. Product
-version remains **v0.1.0**; remote CI, coverage and deployment remain separate.
+version remains **v0.0.1**; remote CI, coverage and deployment remain separate.
 
 ### Retained draft history and order-entry boundaries, 2026-10-02
 
@@ -247,7 +247,7 @@ actual PostgreSQL and OpenFGA regressions. Deployments must publish/pin the upda
 model and explicitly grant intended pricing tuples. Acceptance, adaptive pricing
 policy/reasons/approvals, fulfillment, debtor/invoices and settlement remain
 `NOT_INTRODUCED`; this does not qualify the whole backend or production deployment.
-Product version remains **v0.1.0**.
+Product version remains **v0.0.1**.
 
 The next slice starts from a useful application responsibility, not a phase label or deleted project shape. Before custom infrastructure is written, use `docs/review/APPLICATION_BASELINE_IMPLEMENTATION_SOURCE_REVIEW.md` to decide whether to:
 

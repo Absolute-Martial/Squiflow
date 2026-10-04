@@ -1,6 +1,6 @@
 # PostgreSQL Connection Middleware Admission Research
 
-**Version:** v0.1.0
+**Version:** v0.0.1
 **Reviewed:** 2026-09-23
 **Decision owner:** `docs/data/PERSISTENCE_SELECTION.md`
 **Status:** Direct Npgsql pooling is the current runtime baseline. External PostgreSQL middleware is `NOT_INTRODUCED`.

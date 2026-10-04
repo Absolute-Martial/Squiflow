@@ -1,4 +1,4 @@
-# Current Decisions — v0.1.0
+# Current Decisions — v0.0.1
 
 This file records accepted direction only. Detailed reasoning and supersession history live in focused owner documents, `docs/decisions/MATERIAL_DECISION_HISTORY.md`, and `docs/review/DECISION_AUDIT.md`. When a summary here is less detailed than a focused owner, the focused owner governs.
 
@@ -22,7 +22,7 @@ This file records accepted direction only. Detailed reasoning and supersession h
 ## Product and runtime
 
 - `SquiFlow` is the repository's internal development codename, not public product identity. Active solution/project names, project directories, namespaces, assemblies, tests and synthetic runtime resources use neutral `Application.*`/`application_*` identities; the repository hosting name, explanatory docs and historical evidence may retain the codename. Public UI/API messages, deployment branding, telemetry and operational configuration remain brand-neutral or derive from validated brand configuration. `docs/product/PRODUCT_IDENTITY_AND_VERSIONING.md` owns the detailed rule.
-- Product version is exactly `v0.1.0` and remains locked until the complete production-capable product gate is explicitly qualified. Git revisions retain build traceability; API/schema/migration versions remain separate compatibility identifiers.
+- Product version is exactly `v0.0.1` and remains locked until the complete production-capable product gate is explicitly qualified. Git revisions retain build traceability; API/schema/migration versions remain separate compatibility identifiers.
 - C# / modern .NET is the application foundation; .NET 10 LTS is the current baseline.
 - FullStackHero at pinned revision `3f2959e683e9f83f13e55e1678c9119f63c7e8e5` is the source-owned backend starting base. The repository keeps its complete source locally and selectively adapts it without the template generator, runtime dependency, FSH branding, reflective module loader, Mediator source generator, built-in identity/permission authority, per-tenant database model, Hangfire stack or bundled infrastructure. Standard .NET/ASP.NET Core remain the runtime primitives and this repository retains all product authority. Detailed evidence: `docs/review/APPLICATION_BASE_FRAMEWORK_ADMISSION_RESEARCH.md` and `docs/review/FULLSTACKHERO_BACKEND_ADOPTION_LEDGER.md`.
 - ASP.NET Core is the server-host foundation when server hosts are implemented.

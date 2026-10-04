@@ -1,7 +1,7 @@
 # Schema and Contract Evolution
 
 **Status:** Accepted architecture direction  
-**Version:** v0.1.0
+**Version:** v0.0.1
 **Scope:** database schema, Workstation-local schema, API contracts, synchronization contracts, durable messages/jobs/events, IPC/config snapshots, and future independently versioned schemas
 
 ## 1. Decision

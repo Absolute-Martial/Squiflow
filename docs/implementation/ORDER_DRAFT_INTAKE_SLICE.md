@@ -1,6 +1,6 @@
 # Order Draft Intake, Revision, Browse, and Abandonment Slice
 
-**Product version:** v0.1.0
+**Product version:** v0.0.1
 **State:** `PRODUCTION_HONEST` for the narrow scope below
 **Business evidence status:** repository-backed product hypothesis; not yet validated as the universal first-customer journey
 

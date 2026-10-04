@@ -1,6 +1,6 @@
 # Application development task catalog
 
-This is an assignment package, not permission to begin implementation and not evidence of a completed product. Attach one complete task file and the shared instructions when assigning work. Current executable truth belongs to [README.IMPLEMENTATION.md](../../README.IMPLEMENTATION.md); focused owners and accepted decisions take precedence over this plan. Product version stays **v0.1.0**.
+This is an assignment package, not permission to begin implementation and not evidence of a completed product. Attach one complete task file and the shared instructions when assigning work. Current executable truth belongs to [README.IMPLEMENTATION.md](../../README.IMPLEMENTATION.md); focused owners and accepted decisions take precedence over this plan. Product version stays **v0.0.1**.
 
 ## Choose and assign a task
 

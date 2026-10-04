@@ -1,7 +1,7 @@
 # Current order-draft action guidance
 
 Owner: `Application.Orders` for lifecycle guidance; CoreApi for the current
-membership/permission adaptation and HTTP contract. Product version stays v0.1.0.
+membership/permission adaptation and HTTP contract. Product version stays v0.0.1.
 The bounded current-draft guidance is `PRODUCTION_HONEST`; `BLOCKED = none`.
 Broader customer/program workflow policy, acceptance, stored price/override policy,
 fulfillment and financial operations remain `NOT_INTRODUCED`.

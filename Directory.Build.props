@@ -14,10 +14,10 @@
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
     <IsPackable>false</IsPackable>
-    <LockedProductVersion>0.1.0</LockedProductVersion>
+    <LockedProductVersion>0.0.1</LockedProductVersion>
     <Version>$(LockedProductVersion)</Version>
-    <AssemblyVersion>0.1.0.0</AssemblyVersion>
-    <FileVersion>0.1.0.0</FileVersion>
+    <AssemblyVersion>0.0.1.0</AssemblyVersion>
+    <FileVersion>0.0.1.0</FileVersion>
     <InformationalVersion>$(LockedProductVersion)</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <GenerateAssemblyCompanyAttribute>false</GenerateAssemblyCompanyAttribute>
@@ -33,10 +33,10 @@
   <Target Name="ValidateLockedProductVersion" BeforeTargets="PrepareForBuild">
     <Error Condition="'$(Version)' != '$(LockedProductVersion)'"
            Text="Product version is locked to $(LockedProductVersion) until the production-capable product gate is explicitly qualified." />
-    <Error Condition="'$(AssemblyVersion)' != '0.1.0.0'"
-           Text="AssemblyVersion is locked to 0.1.0.0 until the production-capable product gate is explicitly qualified." />
-    <Error Condition="'$(FileVersion)' != '0.1.0.0'"
-           Text="FileVersion is locked to 0.1.0.0 until the production-capable product gate is explicitly qualified." />
+    <Error Condition="'$(AssemblyVersion)' != '0.0.1.0'"
+           Text="AssemblyVersion is locked to 0.0.1.0 until the production-capable product gate is explicitly qualified." />
+    <Error Condition="'$(FileVersion)' != '0.0.1.0'"
+           Text="FileVersion is locked to 0.0.1.0 until the production-capable product gate is explicitly qualified." />
     <Error Condition="'$(InformationalVersion)' != '$(LockedProductVersion)'"
            Text="InformationalVersion is locked to $(LockedProductVersion) until the production-capable product gate is explicitly qualified." />
   </Target>

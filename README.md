@@ -1,6 +1,6 @@
 # SquiFlow (internal development codename)
 
-**Current product version:** `v0.1.0` (locked until the complete production-capable product gate)
+**Current product version:** `v0.0.1` (locked until the complete production-capable product gate)
 
 **Implementation state:** narrow independently earned backend/API slices after the 2026-09-17 purge. Phase 0A remains qualified; the former 0B Parties implementation is retired history.
 
@@ -92,4 +92,4 @@ Phase 0 and the already-concrete Phase 1 trust boundary retain architecture dire
 
 ## Versioning
 
-The product version is exactly `v0.1.0` and remains locked there until the complete product is explicitly qualified as capable of its accepted real-production responsibilities. Git revisions identify builds and changes without creating alternate product versions. `/api/v1` and similar identifiers version a contract family; they are not the product version. Historical documents may retain the version that identified their original decision or qualification event.
+The product version is exactly `v0.0.1` and remains locked there until the complete product is explicitly qualified as capable of its accepted real-production responsibilities. Git revisions identify builds and changes without creating alternate product versions. `/api/v1` and similar identifiers version a contract family; they are not the product version. Historical documents may retain the version that identified their original decision or qualification event.

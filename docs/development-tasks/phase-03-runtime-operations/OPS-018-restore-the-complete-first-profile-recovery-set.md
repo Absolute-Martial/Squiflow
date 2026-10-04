@@ -18,7 +18,7 @@ Read [implementation truth](../../../README.IMPLEMENTATION.md), [source admissio
 
 ## Scope and exclusions
 
-Allowed areas: backup/restore operations, narrow IBackupTarget adapter, encrypted packaging/manifests, selected providers’ supported recovery scripts and drill evidence. Exclude a universal backup-source framework and raw customer data on Kaggle. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.
+Allowed areas: backup/restore operations, narrow IBackupTarget adapter, encrypted packaging/manifests, selected providers’ supported recovery scripts and drill evidence. Exclude a universal backup-source framework and raw customer data on Kaggle. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.
 
 ## Decisions/prerequisites
 

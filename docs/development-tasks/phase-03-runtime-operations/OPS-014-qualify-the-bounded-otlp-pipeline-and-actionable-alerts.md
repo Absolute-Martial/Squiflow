@@ -18,7 +18,7 @@ Read [implementation truth](../../../README.IMPLEMENTATION.md), [source admissio
 
 ## Scope and exclusions
 
-Allowed areas: existing host instrumentation/composition, minimal shared consumer-earned observability code, collector configuration, alert/runbook fixtures and tests. Exclude new Diagnostics executables, per-method instrumentation and a monitoring product selected without workload/budget. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.
+Allowed areas: existing host instrumentation/composition, minimal shared consumer-earned observability code, collector configuration, alert/runbook fixtures and tests. Exclude new Diagnostics executables, per-method instrumentation and a monitoring product selected without workload/budget. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.
 
 ## Decisions/prerequisites
 

@@ -18,7 +18,7 @@ Read [implementation truth](../../../README.IMPLEMENTATION.md), [source admissio
 
 ## Scope and exclusions
 
-Allowed areas: the selected capability/provider, its migrations, registered migrator module, producer endpoint and focused tests. Implement only this workload’s job/outbox record and status. Exclude a universal event bus, repository framework or broker. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.
+Allowed areas: the selected capability/provider, its migrations, registered migrator module, producer endpoint and focused tests. Implement only this workload’s job/outbox record and status. Exclude a universal event bus, repository framework or broker. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.
 
 ## Decisions/prerequisites
 

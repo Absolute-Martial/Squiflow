@@ -19,7 +19,7 @@ Read [implementation truth](../../../README.IMPLEMENTATION.md), [source admissio
 
 ## Scope and exclusions
 
-Allowed areas: deployment role/grant scripts, existing DatabaseMigrator registration/lock behavior, actual capability migrations and real privilege tests. Exclude generic database abstractions and Worker/scheduler grants before those workloads exist. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.
+Allowed areas: deployment role/grant scripts, existing DatabaseMigrator registration/lock behavior, actual capability migrations and real privilege tests. Exclude generic database abstractions and Worker/scheduler grants before those workloads exist. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.
 
 ## Decisions/prerequisites
 

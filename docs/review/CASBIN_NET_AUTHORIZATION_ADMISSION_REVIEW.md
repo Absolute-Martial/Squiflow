@@ -1,7 +1,7 @@
 # Casbin.NET Authorization Admission Review
 
 **Reviewed:** 2026-09-22  
-**Product version:** v0.1.0  
+**Product version:** v0.0.1\
 **Status:** Source-backed replacement-candidate review. No Casbin runtime, policy store, authorization-management surface, or protected business operation is implemented.
 
 ## 1. Decision boundary

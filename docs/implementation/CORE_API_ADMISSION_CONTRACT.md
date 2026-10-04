@@ -1,7 +1,7 @@
 # Core API concurrent request admission
 
 **Owner:** `CoreApiAdmission` in the CoreApi composition root.
-**Product version:** v0.1.0.
+**Product version:** v0.0.1.
 **Scope:** process-local simultaneous requests on explicitly protected endpoints.
 **State:** `PRODUCTION_HONEST` for this scope; the 2026-10-01 full parallel
 `eng/verify.sh` gate passed locked restore, format, Release build and 324 tests.

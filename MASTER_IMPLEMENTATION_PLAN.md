@@ -1,6 +1,6 @@
 # SquiFlow Master Implementation Plan
 
-**Product version:** v0.1.0, locked until the complete production-capable product gate
+**Product version:** v0.0.1, locked until the complete production-capable product gate
 **Status:** Current high-level implementation direction. Detailed scope, evidence, and phase shape are earned from real responsibilities rather than pre-specified here.
 
 ## 1. Canonical governance

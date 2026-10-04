@@ -1,6 +1,6 @@
 # Customer Organization, Program, and Draft Attribution Slice
 
-**Product version:** v0.1.0
+**Product version:** v0.0.1
 **Scope:** tenant-owned customer context for the first organization-with-program case
 **Business evidence:** owner-selected implementation anchor; customer workflow and legal billing meaning remain unvalidated
 

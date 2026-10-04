@@ -66,9 +66,9 @@ public sealed class BrandProfileTests
     {
         var assembly = typeof(BrandProfile).Assembly;
 
-        Assert.Equal(new Version(0, 1, 0, 0), assembly.GetName().Version);
+        Assert.Equal(new Version(0, 0, 1, 0), assembly.GetName().Version);
         Assert.Equal(
-            "0.1.0",
+            "0.0.1",
             assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion);
         Assert.Null(assembly.GetCustomAttribute<AssemblyProductAttribute>());
         Assert.Null(assembly.GetCustomAttribute<AssemblyCompanyAttribute>());

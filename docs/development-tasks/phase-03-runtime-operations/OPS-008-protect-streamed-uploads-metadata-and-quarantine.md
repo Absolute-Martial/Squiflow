@@ -18,7 +18,7 @@ Read [implementation truth](../../../README.IMPLEMENTATION.md), [source admissio
 
 ## Scope and exclusions
 
-Allowed areas: selected capability metadata/provider, CoreApi upload/download route, storage adapter, bounded scanning/staging and focused tests. Exclude arbitrary file browsers, public bucket access and treating filename or bucket path as ownership. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.
+Allowed areas: selected capability metadata/provider, CoreApi upload/download route, storage adapter, bounded scanning/staging and focused tests. Exclude arbitrary file browsers, public bucket access and treating filename or bucket path as ownership. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.
 
 ## Decisions/prerequisites
 

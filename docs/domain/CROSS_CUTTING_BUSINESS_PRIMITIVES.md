@@ -1,6 +1,6 @@
 # Cross-Cutting Business Primitives
 
-**Version:** v0.1.0
+**Version:** v0.0.1
 
 Keep only the cross-cutting rules that prevent expensive inconsistency across Sales, Purchasing, Inventory, Payments and Documents. Do not turn this document into a framework or a future accounting system.
 
@@ -10,7 +10,7 @@ Consequential business-term meaning and disputed vocabulary are owned by `docs/d
 
 Do not hardcode one currency throughout business logic.
 
-The v0.1.0 requirement is simply:
+The v0.0.1 requirement is simply:
 
 ```text
 Tenant.DefaultCurrencyCode

@@ -1,6 +1,6 @@
 # Tenant-operator Web assignments
 
-This is a future assignment catalog, not an implementation or qualification claim. Current truth remains in `README.IMPLEMENTATION.md`; product version stays v0.1.0. Catalog status expresses readiness to assign after prerequisites, not PRODUCTION_HONEST/BLOCKED runtime state.
+This is a future assignment catalog, not an implementation or qualification claim. Current truth remains in `README.IMPLEMENTATION.md`; product version stays v0.0.1. Catalog status expresses readiness to assign after prerequisites, not PRODUCTION_HONEST/BLOCKED runtime state.
 
 GATE-002 backend readiness must qualify before this runtime implementation starts. Quotation support, accepted customer-policy/approval behavior and actual fulfillment are required; quotation use per order is optional. Supplier/purchasing/inventory branches follow selected qualified backend cases. External customer portal remains a separate conditional decision.
 

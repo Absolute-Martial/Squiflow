@@ -1,6 +1,6 @@
 # Delivery Plan (living queue)
 
-**Product version:** v0.1.0
+**Product version:** v0.0.1
 **Authority:** none. This is a working queue, not a specification. Current truth is `README.IMPLEMENTATION.md`; gate rules are `PHASE_GATE_PRODUCTION_HONESTY.md` and `PHASE_GATE_EVIDENCE_REGRESSION_AND_TRANSITIONS.md`. If this file conflicts with a focused owner, the owner governs.
 **Last reconciled:** 2026-10-02 against the code in `modules/`, `services/`, `tests/`.
 
@@ -20,7 +20,7 @@ These are defects or gaps in claims that already exist, so the gate rules apply 
 | H1 | Order draft detail could combine an old header with new lines during a concurrent revision. | Reproduced deterministically by `DraftDetailReadsHeaderAndLinesFromOneSnapshotDuringConcurrentRevision`; fixed by a `RepeatableRead` snapshot session in `Application.Orders.Postgres`. | Fixed 2026-09-30, guarded by that test |
 | H2 | Defined safe HTTP database-failure responses and prevented raw provider diagnostic disclosure. | `CORE_API_FAILURE_CONTRACT.md`; real PostgreSQL outage/timeout/schema and hostile trace-parent tests. | Fixed 2026-10-01; full gate passed 324 tests |
 | H3 | Safe observed outcomes for customer creates and Orders draft create/revise/abandon. | `CORE_API_MUTATION_DIAGNOSTICS.md`; all five operations/replays, negative paths, disclosure checks and diagnostic-sink failure tests. | Fixed 2026-10-01; full gate passed 330 tests; best-effort diagnostics, not durable audit |
-| H4 | Root version markers must agree with the product lock. | `ProductVersionMarkersMatchTheLockedProductVersion` guards both markers against `LockedProductVersion`. | Fixed 2026-10-01; v0.1.0 restored and guarded |
+| H4 | Root version markers must agree with the product lock. | `ProductVersionMarkersMatchTheLockedProductVersion` guards both markers against `LockedProductVersion`. | Fixed 2026-10-01; v0.0.1 restored and guarded |
 | H5 | Customers cursor strictness, tenant-session completion and adapter page-size gaps. | Canonical cursor host regressions; real PostgreSQL completion, disposal, single-connection pool reuse and direct browse-bound tests; SQL resource architecture guard. | Fixed 2026-10-02; full gate passed 339 tests. Distinct payloads and DB isolation needs remain capability-owned; no speculative shared abstraction introduced |
 | H6 | Every PostgreSQL test class starts its own container (about 50 startups), which slows the suite. | `tests/integration/*/PostgresTestDatabase.cs`. | Open; not a correctness issue |
 | H7 | Protected HTTP work lacked a process-wide admission bound. | `CORE_API_ADMISSION_CONTRACT.md`; real-host saturation and permit recovery tests. | Fixed 2026-10-01; per-tenant quotas and cross-replica fairness are separate work |

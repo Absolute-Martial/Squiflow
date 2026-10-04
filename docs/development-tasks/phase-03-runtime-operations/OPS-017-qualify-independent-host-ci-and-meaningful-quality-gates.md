@@ -18,7 +18,7 @@ Read [implementation truth](../../../README.IMPLEMENTATION.md), [source admissio
 
 ## Scope and exclusions
 
-Allowed areas: eng scripts, GitHub workflows, existing test/tool configuration, architecture checks and focused gaps. Reuse current coverage, secret scanning and host gates. Exclude GitLab migration, unused tool installation and desktop headless testing before a desktop task exists. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.
+Allowed areas: eng scripts, GitHub workflows, existing test/tool configuration, architecture checks and focused gaps. Reuse current coverage, secret scanning and host gates. Exclude GitLab migration, unused tool installation and desktop headless testing before a desktop task exists. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.
 
 ## Decisions/prerequisites
 

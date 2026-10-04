@@ -2,7 +2,7 @@
 
 **Status:** active after principles-first implementation reset
 
-**Current product version:** v0.1.0, locked until the complete production-capable product gate
+**Current product version:** v0.0.1, locked until the complete production-capable product gate
 
 **Current qualified subphase:** 0A
 

@@ -1,6 +1,6 @@
 # Structured Logging, Event IDs, and Failure Codes
 
-**Version:** v0.1.0
+**Version:** v0.0.1
 **Status:** Accepted implementation direction
 
 ## 1. Purpose

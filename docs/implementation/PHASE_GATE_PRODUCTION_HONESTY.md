@@ -2,7 +2,7 @@
 
 **Status:** Canonical implementation-governance owner  
 **Applies to:** every active implementation phase, subphase, pull-forward, integration gate, gate sign-off, and the governance documents that describe them  
-**Baseline:** v0.1.0
+**Baseline:** v0.0.1
 
 ## 1. Core invariant
 

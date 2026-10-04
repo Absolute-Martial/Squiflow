@@ -18,7 +18,7 @@ Read [implementation truth](../../../README.IMPLEMENTATION.md), [source admissio
 
 ## Scope and exclusions
 
-Allowed areas: deploy definitions/runbooks, existing host startup/config validation, secret-provider integration and deployment smoke tests. Exclude Kubernetes/HA promises, provisioning imagined hosts and choosing paid services without an accepted decision. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.
+Allowed areas: deploy definitions/runbooks, existing host startup/config validation, secret-provider integration and deployment smoke tests. Exclude Kubernetes/HA promises, provisioning imagined hosts and choosing paid services without an accepted decision. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.
 
 ## Decisions/prerequisites
 

@@ -22,7 +22,7 @@ Allowed areas: Whole selected release case matrix, integrated verification evide
 
 ## Decisions/prerequisites
 
-Accountable owners approve the exact case matrix including selected conditionals and visible exclusions. Product v0.1.0 stays locked until the distinct complete production-capable product gate is explicitly qualified. A missing Workstation/Sync/Guard responsibility cannot be disguised as completed by this Web/backend gate.
+Accountable owners approve the exact case matrix including selected conditionals and visible exclusions. Product v0.0.1 stays locked until the distinct complete production-capable product gate is explicitly qualified. A missing Workstation/Sync/Guard responsibility cannot be disguised as completed by this Web/backend gate.
 
 ## Acceptance and edge cases
 
@@ -49,7 +49,7 @@ Return the reviewed changed-file list, safe evidence, source-only ZIP with SHA-2
 
 ```text
 Confirm the exact backend and two-Web release case matrix.
-Keep v0.1.0 and future Workstation/Sync/Guard scope visible.
+Keep v0.0.1 and future Workstation/Sync/Guard scope visible.
 Inspect accepted gates against integrated source/configuration.
 Run real target business and recovery smoke cases.
 Inspect authority separation and safe assets/logging.

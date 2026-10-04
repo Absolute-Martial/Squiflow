@@ -1,6 +1,6 @@
 # Direct order commitment
 
-Product version: v0.1.0. Focused owner: Orders. Owner decision, 2026-10-03:
+Product version: v0.0.1. Focused owner: Orders. Owner decision, 2026-10-03:
 commit the current priced draft and freeze its customer attribution; billing and
 fulfillment remain separate later operations. This is a direct order path;
 quotation is optional. This scope does not define universal tenant workflow.

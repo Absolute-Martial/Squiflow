@@ -19,7 +19,7 @@ Read [implementation truth](../../../README.IMPLEMENTATION.md), [source admissio
 
 ## Scope and exclusions
 
-Allowed areas: workload fixtures/load harness, disposable deployment/fault scripts, query/admission tuning tied to measurements and focused regressions. Exclude synthetic CPU loops as HTTP capacity evidence, invented SLA numbers and premature sharding/HA platforms. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.
+Allowed areas: workload fixtures/load harness, disposable deployment/fault scripts, query/admission tuning tied to measurements and focused regressions. Exclude synthetic CPU loops as HTTP capacity evidence, invented SLA numbers and premature sharding/HA platforms. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.
 
 ## Decisions/prerequisites
 

@@ -1,7 +1,7 @@
 # AdminApi JSON boundary contract
 
 **Status:** qualified narrow correction, 2026-10-03
-**Product version:** remains v0.1.0
+**Product version:** remains v0.0.1
 
 ## Declared scope and ownership
 

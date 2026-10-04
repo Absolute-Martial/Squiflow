@@ -1,6 +1,6 @@
 # Invoice issue contract
 
-**Product version:** v0.1.0  
+**Product version:** v0.0.1\
 **Status:** host-neutral issue behavior has focused pure-contract evidence; combined qualification remains `BLOCKED` pending independent review and the revised normal gate; durable invoice runtime remains `NOT_INTRODUCED`  
 **Focused owner:** Invoices, limited to issuance of retained invoice facts from a committed Order
 

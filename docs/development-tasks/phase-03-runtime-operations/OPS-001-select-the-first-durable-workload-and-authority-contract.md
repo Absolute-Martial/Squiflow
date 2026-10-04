@@ -18,7 +18,7 @@ Read [implementation truth](../../../README.IMPLEMENTATION.md), [source admissio
 
 ## Scope and exclusions
 
-Allowed areas: the selected capability’s focused owner, accepted/open decisions and workload contract tests. Inspect actual producer and consumer source. Exclude imaginary generic queues, a business lifecycle expansion and runtime scaffolding. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.
+Allowed areas: the selected capability’s focused owner, accepted/open decisions and workload contract tests. Inspect actual producer and consumer source. Exclude imaginary generic queues, a business lifecycle expansion and runtime scaffolding. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.
 
 ## Decisions/prerequisites
 

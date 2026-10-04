@@ -18,7 +18,7 @@ Read [implementation truth](../../../README.IMPLEMENTATION.md), [source admissio
 
 ## Scope and exclusions
 
-Allowed areas: one notification capability/provider adapter, durable consequence/attempt state, Worker handler and status/read contract tests. Exclude every provider/channel, webhook platform and notification-as-business-authority behavior. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.
+Allowed areas: one notification capability/provider adapter, durable consequence/attempt state, Worker handler and status/read contract tests. Exclude every provider/channel, webhook platform and notification-as-business-authority behavior. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.
 
 ## Decisions/prerequisites
 

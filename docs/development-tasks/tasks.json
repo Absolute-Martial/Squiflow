@@ -1205,7 +1205,7 @@
         "COM-001"
       ],
       "conditional_dependencies": [],
-      "write_scope": "Allowed areas: the selected capability’s focused owner, accepted/open decisions and workload contract tests. Inspect actual producer and consumer source. Exclude imaginary generic queues, a business lifecycle expansion and runtime scaffolding. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "write_scope": "Allowed areas: the selected capability’s focused owner, accepted/open decisions and workload contract tests. Inspect actual producer and consumer source. Exclude imaginary generic queues, a business lifecycle expansion and runtime scaffolding. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.",
       "file": "phase-03-runtime-operations/OPS-001-select-the-first-durable-workload-and-authority-contract.md"
     },
     {
@@ -1219,7 +1219,7 @@
         "OPS-001"
       ],
       "conditional_dependencies": [],
-      "write_scope": "Allowed areas: the selected capability/provider, its migrations, registered migrator module, producer endpoint and focused tests. Implement only this workload’s job/outbox record and status. Exclude a universal event bus, repository framework or broker. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "write_scope": "Allowed areas: the selected capability/provider, its migrations, registered migrator module, producer endpoint and focused tests. Implement only this workload’s job/outbox record and status. Exclude a universal event bus, repository framework or broker. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.",
       "file": "phase-03-runtime-operations/OPS-002-persist-one-capability-consequence-and-transactional-outbox.md"
     },
     {
@@ -1233,7 +1233,7 @@
         "OPS-002"
       ],
       "conditional_dependencies": [],
-      "write_scope": "Allowed areas: earned Worker host/composition, selected capability handler/provider, claim schema/migrations and process/provider tests. Exclude HTTP administration, CoreApi credentials, distributed actors and business rules in the host. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "write_scope": "Allowed areas: earned Worker host/composition, selected capability handler/provider, claim schema/migrations and process/provider tests. Exclude HTTP administration, CoreApi credentials, distributed actors and business rules in the host. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.",
       "file": "phase-03-runtime-operations/OPS-003-implement-worker-claims-fencing-and-crash-recovery.md"
     },
     {
@@ -1247,7 +1247,7 @@
         "OPS-003"
       ],
       "conditional_dependencies": [],
-      "write_scope": "Allowed areas: Worker runtime/composition, admission policy, first handler instrumentation and regression tests. Exclude Proto.Cluster/Remote/Persistence, generic Channel queue layering, permanent per-entity actor forests and hard CPU-isolation claims. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "write_scope": "Allowed areas: Worker runtime/composition, admission policy, first handler instrumentation and regression tests. Exclude Proto.Cluster/Remote/Persistence, generic Channel queue layering, permanent per-entity actor forests and hard CPU-isolation claims. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.",
       "file": "phase-03-runtime-operations/OPS-004-bound-fair-local-execution-with-the-selected-actor-runtime.md"
     },
     {
@@ -1262,7 +1262,7 @@
         "OPS-004"
       ],
       "conditional_dependencies": [],
-      "write_scope": "Allowed areas: one capability schedule contract/provider, Quartz adapter/persistent PostgreSQL migrations, Worker composition and schedule tests. Exclude schedules for imagined jobs, Quartz business handlers, direct dashboard/table administration and replacement schedulers. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "write_scope": "Allowed areas: one capability schedule contract/provider, Quartz adapter/persistent PostgreSQL migrations, Worker composition and schedule tests. Exclude schedules for imagined jobs, Quartz business handlers, direct dashboard/table administration and replacement schedulers. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.",
       "file": "phase-03-runtime-operations/OPS-005-materialize-durable-scheduled-occurrences-with-quartz.md"
     },
     {
@@ -1278,7 +1278,7 @@
         "ADM-014"
       ],
       "conditional_dependencies": [],
-      "write_scope": "Allowed areas: accepted PlatformAdministration/control capability, its persistence, AdminApi routes and Worker reconciliation tests. Select the first workload’s useful controls. Exclude Worker public admin endpoints, shared operator credentials and direct Quartz mutation. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "write_scope": "Allowed areas: accepted PlatformAdministration/control capability, its persistence, AdminApi routes and Worker reconciliation tests. Select the first workload’s useful controls. Exclude Worker public admin endpoints, shared operator credentials and direct Quartz mutation. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.",
       "file": "phase-03-runtime-operations/OPS-006-authorize-privileged-pause-drain-retry-and-quarantine-controls.md"
     },
     {
@@ -1293,7 +1293,7 @@
         "COM-001"
       ],
       "conditional_dependencies": [],
-      "write_scope": "Allowed areas: infrastructure storage adapter/contracts, first real consumer/provider, migration tooling and contract tests. Exclude provider SDK types in capabilities, unused cloud features and a separate abstractions project without a boundary. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "write_scope": "Allowed areas: infrastructure storage adapter/contracts, first real consumer/provider, migration tooling and contract tests. Exclude provider SDK types in capabilities, unused cloud features and a separate abstractions project without a boundary. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.",
       "file": "phase-03-runtime-operations/OPS-007-qualify-the-owned-object-store-adapter-and-migration-boundary.md"
     },
     {
@@ -1308,7 +1308,7 @@
         "OPS-011"
       ],
       "conditional_dependencies": [],
-      "write_scope": "Allowed areas: selected capability metadata/provider, CoreApi upload/download route, storage adapter, bounded scanning/staging and focused tests. Exclude arbitrary file browsers, public bucket access and treating filename or bucket path as ownership. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "write_scope": "Allowed areas: selected capability metadata/provider, CoreApi upload/download route, storage adapter, bounded scanning/staging and focused tests. Exclude arbitrary file browsers, public bucket access and treating filename or bucket path as ownership. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.",
       "file": "phase-03-runtime-operations/OPS-008-protect-streamed-uploads-metadata-and-quarantine.md"
     },
     {
@@ -1326,7 +1326,7 @@
         "COM-022"
       ],
       "conditional_dependencies": [],
-      "write_scope": "Allowed areas: one commercial document capability/provider, bounded renderer, Worker handler, object metadata and download/status tests. Exclude all document families, arbitrary template code, legal invoice design without accepted jurisdiction and a new workflow engine. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "write_scope": "Allowed areas: one commercial document capability/provider, bounded renderer, Worker handler, object metadata and download/status tests. Exclude all document families, arbitrary template code, legal invoice design without accepted jurisdiction and a new workflow engine. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.",
       "file": "phase-03-runtime-operations/OPS-009-render-immutable-document-facts-and-retryable-artifacts.md"
     },
     {
@@ -1341,7 +1341,7 @@
         "OPS-004"
       ],
       "conditional_dependencies": [],
-      "write_scope": "Allowed areas: one notification capability/provider adapter, durable consequence/attempt state, Worker handler and status/read contract tests. Exclude every provider/channel, webhook platform and notification-as-business-authority behavior. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "write_scope": "Allowed areas: one notification capability/provider adapter, durable consequence/attempt state, Worker handler and status/read contract tests. Exclude every provider/channel, webhook platform and notification-as-business-authority behavior. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.",
       "file": "phase-03-runtime-operations/OPS-010-deliver-one-notification-with-bounded-retries-and-in-app-continuation.md"
     },
     {
@@ -1356,7 +1356,7 @@
         "OPS-007"
       ],
       "conditional_dependencies": [],
-      "write_scope": "Allowed areas: first consuming capability/provider, its meter/policy schema and tests, and relevant API/Worker admission. Exclude generic billing plans, pricing subscriptions, every meter and metrics as authoritative accounting. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "write_scope": "Allowed areas: first consuming capability/provider, its meter/policy schema and tests, and relevant API/Worker admission. Exclude generic billing plans, pricing subscriptions, every meter and metrics as authoritative accounting. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.",
       "file": "phase-03-runtime-operations/OPS-011-reserve-and-reconcile-the-first-durable-usage-meter.md"
     },
     {
@@ -1372,7 +1372,7 @@
         "ADM-019"
       ],
       "conditional_dependencies": [],
-      "write_scope": "Allowed areas: first meter capability/provider, CoreApi tenant read, AdminApi approved controls, DTOs and tests. Exclude plan prices, invoicing, customer subscription management and duplicated business policy in either Web surface. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "write_scope": "Allowed areas: first meter capability/provider, CoreApi tenant read, AdminApi approved controls, DTOs and tests. Exclude plan prices, invoicing, customer subscription management and duplicated business policy in either Web surface. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.",
       "file": "phase-03-runtime-operations/OPS-012-expose-narrow-usage-reads-and-authorized-limit-controls.md"
     },
     {
@@ -1387,7 +1387,7 @@
         "COM-001"
       ],
       "conditional_dependencies": [],
-      "write_scope": "Allowed areas: selected commercial capability/provider transaction, audit schema/retention, CoreApi read and regression tests. Reuse valid retained business receipts where sufficient. Exclude a universal event store and administrative audit reads already owned by ADM-023. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "write_scope": "Allowed areas: selected commercial capability/provider transaction, audit schema/retention, CoreApi read and regression tests. Reuse valid retained business receipts where sufficient. Exclude a universal event store and administrative audit reads already owned by ADM-023. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.",
       "file": "phase-03-runtime-operations/OPS-013-retain-and-read-capability-owned-business-audit.md"
     },
     {
@@ -1401,7 +1401,7 @@
         "GATE-001"
       ],
       "conditional_dependencies": [],
-      "write_scope": "Allowed areas: existing host instrumentation/composition, minimal shared consumer-earned observability code, collector configuration, alert/runbook fixtures and tests. Exclude new Diagnostics executables, per-method instrumentation and a monitoring product selected without workload/budget. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "write_scope": "Allowed areas: existing host instrumentation/composition, minimal shared consumer-earned observability code, collector configuration, alert/runbook fixtures and tests. Exclude new Diagnostics executables, per-method instrumentation and a monitoring product selected without workload/budget. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.",
       "file": "phase-03-runtime-operations/OPS-014-qualify-the-bounded-otlp-pipeline-and-actionable-alerts.md"
     },
     {
@@ -1418,7 +1418,7 @@
         "UIA-001"
       ],
       "conditional_dependencies": [],
-      "write_scope": "Allowed areas: deploy definitions/runbooks, existing host startup/config validation, secret-provider integration and deployment smoke tests. Exclude Kubernetes/HA promises, provisioning imagined hosts and choosing paid services without an accepted decision. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "write_scope": "Allowed areas: deploy definitions/runbooks, existing host startup/config validation, secret-provider integration and deployment smoke tests. Exclude Kubernetes/HA promises, provisioning imagined hosts and choosing paid services without an accepted decision. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.",
       "file": "phase-03-runtime-operations/OPS-015-reproduce-the-first-secure-deployment-profile.md"
     },
     {
@@ -1441,7 +1441,7 @@
           "condition": "OPS-005 when persistent scheduling is selected"
         }
       ],
-      "write_scope": "Allowed areas: deployment role/grant scripts, existing DatabaseMigrator registration/lock behavior, actual capability migrations and real privilege tests. Exclude generic database abstractions and Worker/scheduler grants before those workloads exist. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "write_scope": "Allowed areas: deployment role/grant scripts, existing DatabaseMigrator registration/lock behavior, actual capability migrations and real privilege tests. Exclude generic database abstractions and Worker/scheduler grants before those workloads exist. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.",
       "file": "phase-03-runtime-operations/OPS-016-qualify-separate-database-roles-and-migration-registration.md"
     },
     {
@@ -1455,7 +1455,7 @@
         "GATE-001"
       ],
       "conditional_dependencies": [],
-      "write_scope": "Allowed areas: eng scripts, GitHub workflows, existing test/tool configuration, architecture checks and focused gaps. Reuse current coverage, secret scanning and host gates. Exclude GitLab migration, unused tool installation and desktop headless testing before a desktop task exists. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "write_scope": "Allowed areas: eng scripts, GitHub workflows, existing test/tool configuration, architecture checks and focused gaps. Reuse current coverage, secret scanning and host gates. Exclude GitLab migration, unused tool installation and desktop headless testing before a desktop task exists. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.",
       "file": "phase-03-runtime-operations/OPS-017-qualify-independent-host-ci-and-meaningful-quality-gates.md"
     },
     {
@@ -1472,7 +1472,7 @@
         "ADM-017"
       ],
       "conditional_dependencies": [],
-      "write_scope": "Allowed areas: backup/restore operations, narrow IBackupTarget adapter, encrypted packaging/manifests, selected providers’ supported recovery scripts and drill evidence. Exclude a universal backup-source framework and raw customer data on Kaggle. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "write_scope": "Allowed areas: backup/restore operations, narrow IBackupTarget adapter, encrypted packaging/manifests, selected providers’ supported recovery scripts and drill evidence. Exclude a universal backup-source framework and raw customer data on Kaggle. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.",
       "file": "phase-03-runtime-operations/OPS-018-restore-the-complete-first-profile-recovery-set.md"
     },
     {
@@ -1491,7 +1491,7 @@
         "OPS-012"
       ],
       "conditional_dependencies": [],
-      "write_scope": "Allowed areas: workload fixtures/load harness, disposable deployment/fault scripts, query/admission tuning tied to measurements and focused regressions. Exclude synthetic CPU loops as HTTP capacity evidence, invented SLA numbers and premature sharding/HA platforms. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "write_scope": "Allowed areas: workload fixtures/load harness, disposable deployment/fault scripts, query/admission tuning tied to measurements and focused regressions. Exclude synthetic CPU loops as HTTP capacity evidence, invented SLA numbers and premature sharding/HA platforms. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.",
       "file": "phase-03-runtime-operations/OPS-019-measure-representative-capacity-resource-bounds-and-faults.md"
     },
     {
@@ -1508,7 +1508,7 @@
         "OPS-021"
       ],
       "conditional_dependencies": [],
-      "write_scope": "Allowed areas: release packaging/provenance, deployment preflight/smoke scripts, actual schema/payload compatibility migrations and operator runbooks. Exclude zero-downtime/HA claims unsupported by topology and generic release orchestration infrastructure. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "write_scope": "Allowed areas: release packaging/provenance, deployment preflight/smoke scripts, actual schema/payload compatibility migrations and operator runbooks. Exclude zero-downtime/HA claims unsupported by topology and generic release orchestration infrastructure. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.",
       "file": "phase-03-runtime-operations/OPS-020-drill-release-preflight-expansion-and-failed-release-recovery.md"
     },
     {
@@ -1524,7 +1524,7 @@
         "ADM-032"
       ],
       "conditional_dependencies": [],
-      "write_scope": "Allowed areas: actual host endpoint metadata/OpenAPI, stable DTO/error contracts, client contract fixtures and narrowly needed compatibility fixes. Exclude new transport frameworks, speculative Workstation protocols and redefining business authority in serializers. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.",
+      "write_scope": "Allowed areas: actual host endpoint metadata/OpenAPI, stable DTO/error contracts, client contract fixtures and narrowly needed compatibility fixes. Exclude new transport frameworks, speculative Workstation protocols and redefining business authority in serializers. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.",
       "file": "phase-03-runtime-operations/OPS-021-qualify-consumer-api-compatibility-and-stable-contracts.md"
     },
     {

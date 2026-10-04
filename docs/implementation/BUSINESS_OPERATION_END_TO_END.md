@@ -2,7 +2,7 @@
 
 **Status:** source-backed business scope and implementation guide, not a completed
 backend or a universal tenant workflow. Current executable truth remains in
-`README.IMPLEMENTATION.md`. Product version remains v0.1.0.
+`README.IMPLEMENTATION.md`. Product version remains v0.0.1.
 
 **Owner request, 2026-10-02:** first identify the complete business operation;
 separate pricing; support guided, adaptable operation for each tenant's customers

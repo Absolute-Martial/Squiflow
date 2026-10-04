@@ -1,7 +1,7 @@
 # Encryption, Key Management, and Zero-Trust Platform Administration
 
 **Status:** Accepted architecture direction  
-**Version:** v0.1.0
+**Version:** v0.0.1
 **Base architecture revision:** MR !49
 
 ## 1. Decision

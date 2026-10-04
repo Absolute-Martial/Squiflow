@@ -1,0 +1,106 @@
+{
+  "model": "gpt-6-luna",
+  "reasoning_effort": "high",
+  "scope": "planning-only",
+  "staff": [
+    {
+      "id": "BUS-01",
+      "department": "Business",
+      "lens": "Skeptical sales operator",
+      "assignment": "assignments/BUS-01.md",
+      "report": "reports/BUS-01.md",
+      "status": "COMPLETED_READ_ONLY",
+      "agent": "/root/business_sales_review",
+      "dynamic_checks": "NOT_RUN",
+      "report_is": "root-edited summary with stated corrections, not verbatim transcript"
+    },
+    {
+      "id": "BUS-02",
+      "department": "Business",
+      "lens": "Skeptical receivables accountant",
+      "assignment": "assignments/BUS-02.md",
+      "report": "reports/BUS-02.md",
+      "status": "COMPLETED_READ_ONLY",
+      "agent": "/root/business_billing_review",
+      "dynamic_checks": "NOT_RUN",
+      "report_is": "root-edited summary with stated corrections, not verbatim transcript"
+    },
+    {
+      "id": "BUS-03",
+      "department": "Business",
+      "lens": "Demanding customer with an unusual program",
+      "assignment": "assignments/BUS-03.md",
+      "report": "reports/BUS-03.md",
+      "status": "COMPLETED_READ_ONLY",
+      "agent": "/root/business_variants_review",
+      "dynamic_checks": "NOT_RUN",
+      "report_is": "root-edited summary with stated corrections, not verbatim transcript"
+    },
+    {
+      "id": "DEV-01",
+      "department": "Development and integration",
+      "lens": "Strict boundary maintainer",
+      "assignment": "assignments/DEV-01.md",
+      "report": "reports/DEV-01.md",
+      "status": "COMPLETED_READ_ONLY",
+      "agent": "/root/development_boundaries_review",
+      "dynamic_checks": "NOT_RUN",
+      "report_is": "root-edited summary with stated corrections, not verbatim transcript"
+    },
+    {
+      "id": "DEV-02",
+      "department": "Development and integration",
+      "lens": "Transaction and compatibility skeptic",
+      "assignment": "assignments/DEV-02.md",
+      "report": "reports/DEV-02.md",
+      "status": "COMPLETED_READ_ONLY",
+      "agent": "/root/development_persistence_review",
+      "dynamic_checks": "NOT_RUN",
+      "report_is": "root-edited summary with stated corrections, not verbatim transcript"
+    },
+    {
+      "id": "DEV-03",
+      "department": "Development and integration",
+      "lens": "Impatient consumer integrator",
+      "assignment": "assignments/DEV-03.md",
+      "report": "reports/DEV-03.md",
+      "status": "COMPLETED_READ_ONLY",
+      "agent": "/root/development_consumers_review",
+      "dynamic_checks": "NOT_RUN",
+      "report_is": "root-edited summary with stated corrections, not verbatim transcript"
+    },
+    {
+      "id": "SEC-01",
+      "department": "Security and operations",
+      "lens": "Hostile authorization tester",
+      "assignment": "assignments/SEC-01.md",
+      "report": "reports/SEC-01.md",
+      "status": "COMPLETED_READ_ONLY",
+      "agent": "/root/security_authority_review",
+      "dynamic_checks": "NOT_RUN",
+      "report_is": "root-edited summary with stated corrections, not verbatim transcript"
+    },
+    {
+      "id": "SEC-02",
+      "department": "Security and operations",
+      "lens": "Incident commander",
+      "assignment": "assignments/SEC-02.md",
+      "report": "reports/SEC-02.md",
+      "status": "COMPLETED_READ_ONLY",
+      "agent": "/root/operations_recovery_review",
+      "dynamic_checks": "NOT_RUN",
+      "report_is": "root-edited summary with stated corrections, not verbatim transcript"
+    },
+    {
+      "id": "SEC-03",
+      "department": "Security and operations",
+      "lens": "Adversarial quality examiner",
+      "assignment": "assignments/SEC-03.md",
+      "report": "reports/SEC-03.md",
+      "status": "COMPLETED_READ_ONLY",
+      "agent": "/root/quality_hostile_review",
+      "dynamic_checks": "NOT_RUN",
+      "report_is": "root-edited summary with stated corrections, not verbatim transcript"
+    }
+  ]
+}

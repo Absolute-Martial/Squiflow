@@ -18,7 +18,7 @@ Read [implementation truth](../../../README.IMPLEMENTATION.md), [source admissio
 
 ## Scope and exclusions
 
-Allowed areas: Worker runtime/composition, admission policy, first handler instrumentation and regression tests. Exclude Proto.Cluster/Remote/Persistence, generic Channel queue layering, permanent per-entity actor forests and hard CPU-isolation claims. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.
+Allowed areas: Worker runtime/composition, admission policy, first handler instrumentation and regression tests. Exclude Proto.Cluster/Remote/Persistence, generic Channel queue layering, permanent per-entity actor forests and hard CPU-isolation claims. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.
 
 ## Decisions/prerequisites
 

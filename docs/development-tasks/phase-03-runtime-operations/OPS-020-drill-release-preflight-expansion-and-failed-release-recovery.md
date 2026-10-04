@@ -18,11 +18,11 @@ Read [implementation truth](../../../README.IMPLEMENTATION.md), [source admissio
 
 ## Scope and exclusions
 
-Allowed areas: release packaging/provenance, deployment preflight/smoke scripts, actual schema/payload compatibility migrations and operator runbooks. Exclude zero-downtime/HA claims unsupported by topology and generic release orchestration infrastructure. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.
+Allowed areas: release packaging/provenance, deployment preflight/smoke scripts, actual schema/payload compatibility migrations and operator runbooks. Exclude zero-downtime/HA claims unsupported by topology and generic release orchestration infrastructure. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.
 
 ## Decisions/prerequisites
 
-Accept maintenance/rollback window, operator stop authority, compatible expand/migrate/switch/contract ordering and binaries/schema/job versions supported together. Product stays v0.1.0; build revision/schema IDs remain separate traceability identifiers.
+Accept maintenance/rollback window, operator stop authority, compatible expand/migrate/switch/contract ordering and binaries/schema/job versions supported together. Product stays v0.0.1; build revision/schema IDs remain separate traceability identifiers.
 
 ## Acceptance and edge cases
 

@@ -1,7 +1,7 @@
 # Core API unhandled-failure contract
 
 **Owner:** CoreApi HTTP host, `CoreApiExceptionHandler`.
-**Product version:** v0.1.0.
+**Product version:** v0.0.1.
 **Scope:** failures reaching the exception middleware before response headers are committed.
 **State:** `PRODUCTION_HONEST` for this scope; the 2026-10-01 full parallel
 `eng/verify.sh` gate passed locked restore, format, Release build and 324 tests.

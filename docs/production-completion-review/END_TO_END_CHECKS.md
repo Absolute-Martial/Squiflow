@@ -1,0 +1,27 @@
+# Connected operation and adversarial acceptance map
+
+This is a required-case review map, not executed tests or a new canonical business contract. Use the current focused owners and [catalog functionality scenarios](../development-tasks/FUNCTIONALITY_ACCEPTANCE.md). Each case needs named actor/permission, inputs and versions, durable effect/receipt, next actor/action, read/discovery path, failure/recovery and compatibility evidence.
+
+| Journey | Connected completion check | Hostile / unexpected continuation | Task coverage |
+|---|---|---|---|
+| Platform onboarding | Bootstrap exact admin/device→current Admin access→tenant/account/membership setup→registry read→activate→tenant entry | Duplicate link; removed identity/membership/device; suspended tenant; stale transition; Admin audit failure denies safely | BAS/ADM-001–017/025/032/034; UIA-002–006 |
+| Tenant authority | Owner manages team without automatic business rights; Staff initially reads workspace/Customers/Orders; separate business grants | Self-assignment/escalation; unsupported role relation; ambiguous OpenFGA write; revoke then retry old command | ADM-008–013/032/034; WEB-012 |
+| Direct commercial order | Organization/program setup→authorized price entry/selection→draft→revise→current admission/commit→actual work→invoice→payment→settlement | Changed price/profile mid-draft; response lost after commit; invalid customer attribution; replay after revoked permission | COM-001–008/011–015/019–025; WEB-003–007/010 |
+| Optional quotation | Issue immutable version→valid exact response→idempotent conversion→normal order flow | Expired/superseded quote; concurrent revisions/conversions; notification failure leaves in-product continuation | COM-009/010/012; OPS-010 if selected; WEB-006 |
+| Three debtor variants | Issue organization-default, independent-program and separate-individual invoices; each has explainable balance/history | Wrong tenant/program parent; login mistaken for individual debtor; changed debtor under old idempotency key; later customer changes do not change invoice | COM-019–025/031; WEB-010/011 |
+| Partial and corrective work | Actual partial quantities, partial payments, remaining work/debt; valid cancellation before effect versus explicit later correction | Two allocations/credits/refunds compete for same remainder; uncertain provider result; return does not automatically imply financial or stock reversal | COM-014/025/028–031; selected COM-018/026; WEB-007/010/011 |
+| Personalization | Publish typed settings/profile→activate→resolve customer/program guidance→pin compatible versions→explain next step | Conflicting rules; incompatible form; new policy silently reinterprets running work; stale local/profile context bypasses current authority | ADM-018–024; COM-011–013; WEB-012/015/016 |
+| Selected supply/stock | Real purchase receipt/payable→supplier work linked to order→precise or availability-only or non-stock semantics | Informal purchase; partial supplier payment; damaged item; concurrent stock movement; service incorrectly decremented | Selected COM-016–018; WEB-008/009 |
+| Consequences | Commit business effect/outbox→Worker claim/fence→generate frozen artifact/deliver→read status | Crash after provider effect; lease expires; poison item; noisy tenant; lost notification; retry does not undo/repeat money | OPS-001–013; COM-031/032 |
+| Operator Web | Login/session→tenant entry→discover/action→connected commercial outcome→logout/revocation | CSRF/cookie/callback/circuit loss; stale button; safe retry after ambiguous result; framework JS never owns business rules | WEB-001–016; GATE-003 |
+| Private Admin Web | Independent login/device proof→registry/action→current result→audit/recovery | Spoofed cert header; tenant cookie; CoreApi outage; TLS termination loses person/device binding; locked-out admin recovery | UIA-001–009; ADM-014–017/034; GATE-004 |
+| Runtime release | Exact least-privilege deployment→migrate→business smoke→load→backup/restore→failed release rollback | Restore receipts without effects or mismatched provider authority; schema incompatible with old host; secrets/PII in logs | OPS-015–022; GATE-002/005 |
+| Later offline product | Enroll device→qualified snapshots→provisional local intent→sync authoritative receipt→reconcile→update/recovery | Offline revoked device; duplicate/tampered envelope; outdated rules; conflict; crash/WAL/key loss; interrupted update | Not covered by implementable catalog units yet: FUTURE_BOUNDARIES.md |
+
+## Qualification rules
+
+- Unit coverage measures emitted paths only; it cannot qualify PostgreSQL atomicity, OpenFGA revocation, actual TLS/browser identity, remote deployment or restore.
+- Adversarial static findings are hypotheses until inspected/reproduced. A missing future runtime is not automatically a defect in today's declared narrow scope.
+- Every selected case needs current source/configuration/provider evidence and a permanent/recurring guard. Preserve failures; do not hide them with retries, blanket serialization or disabled tests.
+- For every claim record owner, scope, actual evidence, known non-claims and requalification trigger. Source, protocol, identity/model, deployment, resource or recovery changes invalidate the affected evidence.
+- Release exclusions require accountable scope decisions and activation triggers. “Conditional” cannot silently exclude previously requested behavior.

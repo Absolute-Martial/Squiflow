@@ -18,7 +18,7 @@ Read [implementation truth](../../../README.IMPLEMENTATION.md), [source admissio
 
 ## Scope and exclusions
 
-Allowed areas: earned Worker host/composition, selected capability handler/provider, claim schema/migrations and process/provider tests. Exclude HTTP administration, CoreApi credentials, distributed actors and business rules in the host. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.
+Allowed areas: earned Worker host/composition, selected capability handler/provider, claim schema/migrations and process/provider tests. Exclude HTTP administration, CoreApi credentials, distributed actors and business rules in the host. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.
 
 ## Decisions/prerequisites
 

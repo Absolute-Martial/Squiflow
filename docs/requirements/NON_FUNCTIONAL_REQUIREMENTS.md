@@ -1,6 +1,6 @@
 # SquiFlow Non-Functional and Operational Requirements
 
-**Version:** v0.1.0 baseline
+**Version:** v0.0.1 baseline
 **Status:** Accepted cross-cutting requirements model. Exact numerical targets remain measurement-driven or OPEN where stated.
 
 This document owns the cross-cutting non-functional/operational requirement model for SquiFlow. Focused architecture/domain documents still own detailed semantics. This document does not replace them; it makes the required quality, failure, degradation, recovery, compatibility and operability properties explicit across components.
@@ -295,7 +295,7 @@ Ordinary Owner/Staff operation should expose business/recovery concepts rather t
 
 A small business should not need to understand OpenFGA, OTLP, job leases, DB locks, gateway routing, or protocol negotiation to use normal flows.
 
-Formal accessibility/a11y conformance remains deferred as a dedicated program in v0.1.0; that deferral must not be reinterpreted as a requirement to create inaccessible UX.
+Formal accessibility/a11y conformance remains deferred as a dedicated program in v0.0.1; that deferral must not be reinterpreted as a requirement to create inaccessible UX.
 
 ### NFR-PLAT-021 — Durable consumption accounting and limit enforcement
 **Class:** HardInvariant + DegradedMode + OperationalTarget where a resource is metered/enforced  

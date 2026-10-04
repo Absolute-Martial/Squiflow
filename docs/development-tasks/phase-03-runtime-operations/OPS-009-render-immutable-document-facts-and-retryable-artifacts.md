@@ -19,7 +19,7 @@ Read [implementation truth](../../../README.IMPLEMENTATION.md), [source admissio
 
 ## Scope and exclusions
 
-Allowed areas: one commercial document capability/provider, bounded renderer, Worker handler, object metadata and download/status tests. Exclude all document families, arbitrary template code, legal invoice design without accepted jurisdiction and a new workflow engine. Keep neutral `Application.*` identities and product version `v0.1.0`. No empty future projects or unrelated changes.
+Allowed areas: one commercial document capability/provider, bounded renderer, Worker handler, object metadata and download/status tests. Exclude all document families, arbitrary template code, legal invoice design without accepted jurisdiction and a new workflow engine. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.
 
 ## Decisions/prerequisites
 
