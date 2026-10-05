@@ -135,13 +135,40 @@ def validate_redirects(inventory: Inventory) -> None:
             fail(f"Tenant redirect must use HTTPS or native loopback HTTP: {uri}")
 
 
+class SameOriginRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Refuses to follow a redirect that leaves the origin of the original request.
+
+    urllib's default opener replays the request headers, including the live verifier
+    bearer credential, against whatever host a redirect names. Qualification must never
+    disclose that credential to another origin, so a cross-origin redirect is a hard
+    failure rather than a followed hop.
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        original = urllib.parse.urlsplit(req.full_url)
+        target = urllib.parse.urlsplit(newurl)
+        if (original.scheme, original.hostname, original.port) != (
+                target.scheme, target.hostname, target.port):
+            raise urllib.error.HTTPError(
+                newurl,
+                code,
+                "refused cross-origin redirect during provider qualification",
+                headers,
+                fp,
+            )
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+QUALIFICATION_OPENER = urllib.request.build_opener(SameOriginRedirectHandler())
+
+
 def get_json(url: str, bearer: str | None = None) -> tuple[int, dict[str, object]]:
     headers = {"Accept": "application/json"}
     if bearer:
         headers["Authorization"] = f"Bearer {bearer}"
     request = urllib.request.Request(url, headers=headers, method="GET")
     try:
-        with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
+        with QUALIFICATION_OPENER.open(request, timeout=TIMEOUT_SECONDS) as response:
             body = response.read(MAX_RESPONSE_BYTES + 1)
             status = response.status
     except urllib.error.HTTPError as exc:
@@ -214,10 +241,19 @@ def qualify_unknown(inventory: Inventory, token: str, subject: str) -> dict[str,
     status, _ = get_json(f"{inventory.issuer}/v2/users/{encoded}", token)
     if status == 200:
         fail("unknown-subject probe unexpectedly resolved a provider user")
+    # Only a genuine not-found is evidence that the subject is unknown. A rejected
+    # verifier credential, a throttled request or a provider outage is not, and treating
+    # those as a pass would let live qualification succeed without ever confirming the
+    # subject is unresolved.
+    if status != 404:
+        fail(
+            "unknown-subject probe could not confirm the subject is unknown: "
+            f"expected 404 from the provider but observed {status}"
+        )
     return {
         "status": status,
         "subjectSha256": subject_fingerprint(subject),
-        "result": "non-success-as-required",
+        "result": "not-found-as-required",
     }
 
 

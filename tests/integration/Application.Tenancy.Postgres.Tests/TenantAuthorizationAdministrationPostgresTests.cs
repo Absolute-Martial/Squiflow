@@ -12,6 +12,67 @@ public sealed class TenantAuthorizationAdministrationPostgresTests : PostgresTes
     private static readonly DateTimeOffset OccurredAt = new(2026, 10, 5, 1, 0, 0, TimeSpan.Zero);
 
     [Fact]
+    public async Task ExhaustedReconciliationBudgetLeavesAnAmbiguousProposalUncertainAndHoldingItsSlot()
+    {
+        var fixture = await SeedAsync();
+        await using var source = NpgsqlDataSource.Create(ConnectionString);
+        var store = new PostgresTenantAuthorizationAdministrationStore(source);
+        var actor = TenantAuthorizationActor.Create(fixture.OwnerAccountId);
+        var created = await store.ProposeAsync(actor, TenantAuthorizationProposalIntent.PermissionChange(
+            TenantAuthorizationProposalKind.GrantPermission,
+            fixture.TenantId,
+            fixture.TargetAccountId,
+            "orders.view",
+            1,
+            "ambiguous-budget"), OccurredAt, CancellationToken.None);
+        var proposal = Assert.IsType<TenantAuthorizationProposal>(created.Proposal);
+
+        // Drive the proposal past the reconciliation budget entirely through ambiguous
+        // outcomes. A timeout can hide a provider write that succeeded, so the proposal must
+        // never be turned into a final failure on this evidence.
+        for (var attempt = 0; attempt < 24; attempt++)
+        {
+            await store.MarkAttemptAsync(
+                fixture.TenantId, proposal.ProposalId, OccurredAt.AddSeconds(attempt), CancellationToken.None);
+            await store.MarkUncertainAsync(
+                fixture.TenantId, proposal.ProposalId, "provider_timeout",
+                OccurredAt.AddSeconds(attempt), CancellationToken.None);
+        }
+
+        var exhausted = await store.FindProposalAsync(
+            fixture.TenantId, proposal.ProposalId, CancellationToken.None);
+        Assert.NotNull(exhausted);
+        Assert.Equal(TenantAuthorizationProposalStatus.Uncertain, exhausted!.Status);
+        Assert.Equal("attempt_limit_reached", exhausted.FailureCode);
+        Assert.Equal(20, exhausted.AttemptCount);
+
+        // The slot must still be held: a competing change to the same authorization has to be
+        // refused, otherwise it would reconcile against provider state that may already
+        // reflect this unresolved write.
+        var competing = await store.ProposeAsync(actor, TenantAuthorizationProposalIntent.PermissionChange(
+            TenantAuthorizationProposalKind.GrantPermission,
+            fixture.TenantId,
+            fixture.TargetAccountId,
+            "orders.view",
+            1,
+            "competing-after-budget"), OccurredAt.AddSeconds(60), CancellationToken.None);
+        Assert.Equal(
+            TenantAuthorizationProposalResultStatus.AuthorizationRevisionConflict,
+            competing.Status);
+
+        // Still reconcilable: the authorization revision must not have advanced and the
+        // grant must not have been completed behind the ambiguous outcome.
+        Assert.Equal(1, await store.GetAuthorizationRevisionAsync(fixture.TenantId, CancellationToken.None));
+        Assert.False(await GrantIsActiveAsync(fixture.TenantId, fixture.TargetAccountId, "orders.view"));
+
+        // A later reconciliation that does observe the provider can still complete it.
+        var completed = await store.CompleteAsync(
+            fixture.TenantId, proposal.ProposalId, OccurredAt.AddSeconds(120), CancellationToken.None);
+        Assert.Equal(TenantAuthorizationProposalStatus.Applied, completed!.Status);
+        Assert.Equal(2, await store.GetAuthorizationRevisionAsync(fixture.TenantId, CancellationToken.None));
+    }
+
+    [Fact]
     public async Task GrantProposalIsIdempotentArbitratedAndAdvancesRevisionOnlyOnceAfterCompletion()
     {
         var fixture = await SeedAsync();

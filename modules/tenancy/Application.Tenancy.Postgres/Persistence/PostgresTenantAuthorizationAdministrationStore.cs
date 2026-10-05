@@ -7,6 +7,9 @@ namespace Application.Tenancy.Postgres;
 public sealed class PostgresTenantAuthorizationAdministrationStore(NpgsqlDataSource dataSource)
     : ITenantAuthorizationAdministrationStore
 {
+    /// <summary>Reconciliation attempts allowed before an unresolved proposal is terminally failed.</summary>
+    private const int MaximumReconciliationAttempts = 20;
+
     public async Task<int?> GetAuthorizationRevisionAsync(Guid tenantId, CancellationToken cancellationToken)
     {
         if (tenantId == Guid.Empty) throw new ArgumentException("Tenant identity cannot be empty.", nameof(tenantId));
@@ -402,10 +405,26 @@ public sealed class PostgresTenantAuthorizationAdministrationStore(NpgsqlDataSou
             await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
             return proposal;
         }
-        if (incrementAttempt && proposal.AttemptCount >= 20)
+        // An unresolved provider outcome is not evidence that the change did not apply. A
+        // timeout or a failed verification can hide a write that succeeded, so this store must
+        // never turn Uncertain into a final Failed: Failed releases the proposal slot, which
+        // would let a later proposal change the same authorization against provider state that
+        // may already reflect this one, while the original change is never completed.
+        //
+        // Marking an attempt likewise only records that reconciliation is about to consult the
+        // authorization provider, so the budget cannot terminalise the proposal from there
+        // either. Once the budget is spent the proposal stays Uncertain, keeps holding its slot
+        // and stays reconcilable, and only the automatic attempt counter stops advancing.
+        if (proposal.AttemptCount >= MaximumReconciliationAttempts)
         {
+            // The budget is spent, so stop consuming automatic attempts. An unresolved
+            // outcome still stays Uncertain; a known rejection still becomes Failed with its
+            // own code, and a confirmed application still becomes Applied.
+            var unresolved = status is null || status == TenantAuthorizationProposalStatus.Uncertain;
             await SetProposalStatusAsync(connection, transaction, proposal,
-                TenantAuthorizationProposalStatus.Failed, "attempt_limit_reached", occurredAt, incrementAttempt: false, cancellationToken)
+                unresolved ? TenantAuthorizationProposalStatus.Uncertain : status!.Value,
+                unresolved ? "attempt_limit_reached" : failureCode,
+                occurredAt, incrementAttempt: false, cancellationToken)
                 .ConfigureAwait(false);
         }
         else

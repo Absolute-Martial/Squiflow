@@ -473,6 +473,167 @@ public sealed class OpenFgaTenantAuthorizationTests : IAsyncLifetime
             (await oldProvider.EnsureAsync(grant with { ProposalId = Guid.NewGuid() }, [], CancellationToken.None)).Outcome);
     }
 
+    [Fact]
+    public async Task DirectRevocationSucceedsWhileACustomRoleStillGrantsTheSamePermission()
+    {
+        var apiUrl = $"http://127.0.0.1:{_server.GetMappedPublicPort(OpenFgaPort)}";
+        using var administrativeClient = new HttpClient { BaseAddress = new Uri(apiUrl) };
+        var storeId = await CreateStoreAsync(administrativeClient);
+        var modelJson = await File.ReadAllTextAsync(Path.Combine(
+            AppContext.BaseDirectory,
+            "OpenFga",
+            "tenant-authorization-model.json"));
+        var modelId = await WriteModelAsync(administrativeClient, storeId, modelJson);
+        var configuration = OpenFgaAuthorizationConfiguration.From(new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Authorization:OpenFga:ApiUrl"] = apiUrl,
+                ["Authorization:OpenFga:StoreId"] = storeId,
+                ["Authorization:OpenFga:AuthorizationModelId"] = modelId,
+                ["Authorization:OpenFga:RequestTimeoutSeconds"] = "5",
+                ["Authorization:OpenFga:MaximumRetries"] = "1",
+                ["Authorization:OpenFga:MinimumRetryDelayMilliseconds"] = "100",
+                ["Authorization:OpenFga:CredentialMethod"] = "None",
+            })
+            .Build());
+        using var client = new OpenFgaClient(configuration.ToClientConfiguration());
+        var provider = new OpenFgaTenantAuthorizationAdministrationProvider(client, configuration);
+        var tenantId = Guid.NewGuid();
+        var accountId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var roleId = Guid.NewGuid();
+
+        var grant = Proposal(
+            TenantAuthorizationProposalKind.GrantPermission,
+            tenantId,
+            actorId,
+            targetAccountId: accountId,
+            permissionId: "orders.view");
+        Assert.Equal(
+            TenantAuthorizationProviderOutcome.Applied,
+            (await provider.EnsureAsync(grant, [], CancellationToken.None)).Outcome);
+
+        // The same account also receives the identical permission through a custom role, so
+        // the aggregate permission stays allowed after the direct tuple is removed.
+        Assert.Equal(
+            TenantAuthorizationProviderOutcome.Applied,
+            (await provider.EnsureAsync(Proposal(
+                TenantAuthorizationProposalKind.CreateRole,
+                tenantId,
+                actorId,
+                roleId: roleId,
+                expectedRoleRevision: 1,
+                roleName: "Order reader",
+                requestedPermissions: ["orders.view"]), [], CancellationToken.None)).Outcome);
+        Assert.Equal(
+            TenantAuthorizationProviderOutcome.Applied,
+            (await provider.EnsureAsync(Proposal(
+                TenantAuthorizationProposalKind.AssignRole,
+                tenantId,
+                actorId,
+                targetAccountId: accountId,
+                roleId: roleId), [], CancellationToken.None)).Outcome);
+
+        // Revoking only the direct grant must succeed. Verifying the aggregate permission here
+        // would still observe allowed through the role and strand the proposal as Uncertain.
+        Assert.Equal(
+            TenantAuthorizationProviderOutcome.Applied,
+            (await provider.EnsureAsync(grant with
+            {
+                ProposalId = Guid.NewGuid(),
+                Kind = TenantAuthorizationProposalKind.RevokePermission,
+            }, [], CancellationToken.None)).Outcome);
+
+        Assert.Empty(await ReadDirectTuplesAsync(client, storeId, accountId, "order_viewer", tenantId));
+        Assert.True(await CheckRelationAsync(
+            client, configuration, $"user:{accountId:N}", "order_viewer", $"tenant:{tenantId:N}"));
+    }
+
+    private static async Task<IReadOnlyList<object>> ReadDirectTuplesAsync(
+        OpenFgaClient client,
+        string storeId,
+        Guid accountId,
+        string relation,
+        Guid tenantId)
+    {
+        var response = await client.Read(
+            new ClientReadRequest
+            {
+                User = $"user:{accountId:N}",
+                Relation = relation,
+                Object = $"tenant:{tenantId:N}",
+            },
+            new ClientReadOptions
+            {
+                StoreId = storeId,
+                Consistency = OpenFga.Sdk.Model.ConsistencyPreference.HIGHERCONSISTENCY,
+            },
+            CancellationToken.None);
+        return response.Tuples ?? [];
+    }
+
+    [Fact]
+    public async Task RevisingAnUnassignedRoleStillApplies()
+    {
+        var apiUrl = $"http://127.0.0.1:{_server.GetMappedPublicPort(OpenFgaPort)}";
+        using var administrativeClient = new HttpClient { BaseAddress = new Uri(apiUrl) };
+        var storeId = await CreateStoreAsync(administrativeClient);
+        var modelJson = await File.ReadAllTextAsync(Path.Combine(
+            AppContext.BaseDirectory,
+            "OpenFga",
+            "tenant-authorization-model.json"));
+        var modelId = await WriteModelAsync(administrativeClient, storeId, modelJson);
+        var configuration = OpenFgaAuthorizationConfiguration.From(new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Authorization:OpenFga:ApiUrl"] = apiUrl,
+                ["Authorization:OpenFga:StoreId"] = storeId,
+                ["Authorization:OpenFga:AuthorizationModelId"] = modelId,
+                ["Authorization:OpenFga:RequestTimeoutSeconds"] = "5",
+                ["Authorization:OpenFga:MaximumRetries"] = "1",
+                ["Authorization:OpenFga:MinimumRetryDelayMilliseconds"] = "100",
+                ["Authorization:OpenFga:CredentialMethod"] = "None",
+            })
+            .Build());
+        using var client = new OpenFgaClient(configuration.ToClientConfiguration());
+        var provider = new OpenFgaTenantAuthorizationAdministrationProvider(client, configuration);
+        var tenantId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var roleId = Guid.NewGuid();
+
+        // A brand new role has no assignee at all. Reconciling it must still apply, because
+        // the claim is about the role's permission tuple and not about who currently holds it.
+        Assert.Equal(
+            TenantAuthorizationProviderOutcome.Applied,
+            (await provider.EnsureAsync(Proposal(
+                TenantAuthorizationProposalKind.CreateRole,
+                tenantId,
+                actorId,
+                roleId: roleId,
+                expectedRoleRevision: 1,
+                roleName: "Order reader",
+                requestedPermissions: ["orders.view"]), [], CancellationToken.None)).Outcome);
+
+        Assert.Equal(
+            TenantAuthorizationProviderOutcome.Applied,
+            (await provider.EnsureAsync(Proposal(
+                TenantAuthorizationProposalKind.ReviseRole,
+                tenantId,
+                actorId,
+                roleId: roleId,
+                expectedRoleRevision: 2,
+                roleName: "Order reader",
+                requestedPermissions: ["orders.view", "orders.edit"],
+                appliedPermissions: ["orders.view"]), [], CancellationToken.None)).Outcome);
+
+        Assert.True(await CheckRelationAsync(
+            client, configuration, RoleUserset(tenantId, roleId), "order_viewer", $"tenant:{tenantId:N}"));
+        Assert.True(await CheckRelationAsync(
+            client, configuration, RoleUserset(tenantId, roleId), "order_editor", $"tenant:{tenantId:N}"));
+    }
+
+    private static string RoleUserset(Guid tenantId, Guid roleId) => $"role:{tenantId:N}_{roleId:N}#assignee";
+
     private static async Task<bool> CheckRelationAsync(
         OpenFgaClient client,
         OpenFgaAuthorizationConfiguration configuration,

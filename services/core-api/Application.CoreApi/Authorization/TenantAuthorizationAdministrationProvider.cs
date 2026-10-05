@@ -64,6 +64,16 @@ internal sealed class OpenFgaTenantAuthorizationAdministrationProvider(
                     timeout.Token).ConfigureAwait(false);
             }
 
+            foreach (var expected in mutations.DirectTuples)
+            {
+                if (await DirectTupleExistsAsync(expected, timeout.Token).ConfigureAwait(false) != expected.Allowed)
+                {
+                    return new TenantAuthorizationProviderResult(
+                        TenantAuthorizationProviderOutcome.Uncertain,
+                        "provider_state_not_observed");
+                }
+            }
+
             foreach (var expected in mutations.Expected)
             {
                 var observed = await CheckAsync(expected.User, expected.Relation, expected.Object, timeout.Token)
@@ -125,6 +135,24 @@ internal sealed class OpenFgaTenantAuthorizationAdministrationProvider(
         return result.Allowed is true;
     }
 
+    private async Task<bool> DirectTupleExistsAsync(ExpectedTuple expected, CancellationToken cancellationToken)
+    {
+        var response = await client.Read(
+            new ClientReadRequest
+            {
+                User = expected.User,
+                Relation = expected.Relation,
+                Object = expected.Object,
+            },
+            new ClientReadOptions
+            {
+                StoreId = configuration.StoreId,
+                Consistency = OpenFga.Sdk.Model.ConsistencyPreference.HIGHERCONSISTENCY,
+            },
+            cancellationToken).ConfigureAwait(false);
+        return response.Tuples is { Count: > 0 };
+    }
+
     private static MutationSet BuildMutations(
         TenantAuthorizationProposal proposal,
         IReadOnlyList<TenantRoleAssignment> roleAssignments)
@@ -132,6 +160,7 @@ internal sealed class OpenFgaTenantAuthorizationAdministrationProvider(
         var writes = new List<ClientTupleKey>();
         var deletes = new List<ClientTupleKeyWithoutCondition>();
         var expected = new List<ExpectedTuple>();
+        var directTuples = new List<ExpectedTuple>();
         var tenantObject = $"tenant:{proposal.TenantId:N}";
 
         switch (proposal.Kind)
@@ -142,7 +171,32 @@ internal sealed class OpenFgaTenantAuthorizationAdministrationProvider(
                     var definition = Permission(proposal.PermissionId!);
                     var user = $"user:{proposal.TargetAccountId!.Value:N}";
                     var allowed = proposal.Kind == TenantAuthorizationProposalKind.GrantPermission;
-                    AddMutation(writes, deletes, expected, user, definition.Relation, tenantObject, allowed);
+                    // A direct grant is one tuple. Whether the account still holds the
+                    // permission afterwards is not the claim: the same permission can
+                    // legitimately arrive through a custom role, so an aggregate permission
+                    // check would keep reporting allowed after the direct tuple was removed
+                    // and strand the proposal as Uncertain. Write the tuple, then verify the
+                    // tuple rather than the aggregate permission.
+                    if (allowed)
+                    {
+                        writes.Add(new ClientTupleKey
+                        {
+                            User = user,
+                            Relation = definition.Relation,
+                            Object = tenantObject,
+                        });
+                    }
+                    else
+                    {
+                        deletes.Add(new ClientTupleKeyWithoutCondition
+                        {
+                            User = user,
+                            Relation = definition.Relation,
+                            Object = tenantObject,
+                        });
+                    }
+
+                    directTuples.Add(new ExpectedTuple(user, definition.Relation, tenantObject, allowed));
                     break;
                 }
             case TenantAuthorizationProposalKind.CreateRole:
@@ -198,7 +252,7 @@ internal sealed class OpenFgaTenantAuthorizationAdministrationProvider(
                 throw new ArgumentOutOfRangeException(nameof(proposal));
         }
 
-        return new MutationSet(writes, deletes, expected);
+        return new MutationSet(writes, deletes, expected, directTuples);
     }
 
     private static TenantPermissionDefinition Permission(string permissionId) =>
@@ -233,7 +287,8 @@ internal sealed class OpenFgaTenantAuthorizationAdministrationProvider(
     private sealed record MutationSet(
         List<ClientTupleKey> Writes,
         List<ClientTupleKeyWithoutCondition> Deletes,
-        List<ExpectedTuple> Expected);
+        List<ExpectedTuple> Expected,
+        List<ExpectedTuple> DirectTuples);
 
     private sealed record ExpectedTuple(string User, string Relation, string Object, bool Allowed);
 }
