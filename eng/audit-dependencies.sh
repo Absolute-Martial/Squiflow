@@ -14,5 +14,5 @@ cd "$repository_root"
     dotnet restore Application.slnx --locked-mode \
         -p:NuGetAudit=true \
         -p:NuGetAuditMode=all \
-        '-p:WarningsAsErrors=NU1901;NU1902;NU1903;NU1904'
+        -p:WarningsAsErrors=NU1901%3bNU1902%3bNU1903%3bNU1904
 } 2>&1 | tee "$output"
