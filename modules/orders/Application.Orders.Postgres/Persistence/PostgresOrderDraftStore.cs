@@ -211,9 +211,15 @@ public sealed partial class PostgresOrderDraftStore(
         OrderDraftSnapshot order,
         CancellationToken cancellationToken)
     {
+        if (order.Lines.Count == 0)
+        {
+            return;
+        }
+
+        await using var batch = session.CreateBatch();
         foreach (var line in order.Lines)
         {
-            await using var command = session.CreateCommand(OrderSql.InsertLine);
+            var command = new NpgsqlBatchCommand(OrderSql.InsertLine);
             command.Parameters.AddWithValue("tenant_id", order.TenantId);
             command.Parameters.AddWithValue("order_id", order.OrderId);
             command.Parameters.AddWithValue("position", line.Position);
@@ -222,7 +228,8 @@ public sealed partial class PostgresOrderDraftStore(
             command.Parameters.AddWithValue("unit_code", line.UnitCode);
             command.Parameters.AddWithValue("unit_price", line.UnitPrice);
             command.Parameters.AddWithValue("line_total", line.LineTotal);
-            await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            batch.BatchCommands.Add(command);
         }
+        await batch.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
 }
