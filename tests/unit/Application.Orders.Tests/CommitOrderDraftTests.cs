@@ -132,14 +132,17 @@ public sealed class CommitOrderDraftTests
     [Fact]
     public void LifecycleRejectsUnknownStateWithStableCommitDiagnostic()
     {
-        var commitError = Assert.Throws<InvalidOperationException>(() =>
+        var exCommit = Assert.Throws<InvalidOperationException>(() =>
             OrderDraftLifecycle.AssessCommit((OrderDraftState)99, 1, 1));
-        Assert.Equal("The order draft has an unsupported state.", commitError.Message);
+        Assert.Equal("The order draft has an unsupported state.", exCommit.Message);
 
-        Assert.Throws<InvalidOperationException>(() =>
+        var exRevise = Assert.Throws<InvalidOperationException>(() =>
             OrderDraftLifecycle.AssessRevise((OrderDraftState)99, 1, 1));
-        Assert.Throws<InvalidOperationException>(() =>
+        Assert.Equal("The order draft has an unsupported state.", exRevise.Message);
+
+        var exAbandon = Assert.Throws<InvalidOperationException>(() =>
             OrderDraftLifecycle.AssessAbandon((OrderDraftState)99, 1, 1));
+        Assert.Equal("The order draft has an unsupported state.", exAbandon.Message);
     }
 
     private static string Fingerprint(CommitOrderDraftRequest request)
