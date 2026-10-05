@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Application.CoreApi.Authorization;
+using Application.Tenancy;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using OpenFga.Sdk.Client;
@@ -310,11 +311,13 @@ public sealed class OpenFgaTenantAuthorizationTests : IAsyncLifetime
             pricingOnlyAccountId, tenantId, CancellationToken.None));
 
         var oldModel = JsonNode.Parse(modelJson)!.AsObject();
-        var tenantType = oldModel["type_definitions"]![1]!;
-        tenantType["relations"]!.AsObject().Remove("manual_pricer");
-        tenantType["relations"]!.AsObject().Remove("can_apply_manual_price");
-        tenantType["metadata"]!["relations"]!.AsObject().Remove("manual_pricer");
-        tenantType["metadata"]!["relations"]!.AsObject().Remove("can_apply_manual_price");
+        var tenantType = oldModel["type_definitions"]!.AsArray()
+            .Select(node => node!.AsObject())
+            .Single(node => node["type"]!.GetValue<string>() == "tenant");
+        Assert.True(tenantType["relations"]!.AsObject().Remove("manual_pricer"));
+        Assert.True(tenantType["relations"]!.AsObject().Remove("can_apply_manual_price"));
+        Assert.True(tenantType["metadata"]!["relations"]!.AsObject().Remove("manual_pricer"));
+        Assert.True(tenantType["metadata"]!["relations"]!.AsObject().Remove("can_apply_manual_price"));
         var olderModelId = await WriteModelAsync(administrativeClient, storeId, oldModel.ToJsonString());
         var olderModelConfiguration = OpenFgaAuthorizationConfiguration.From(new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -337,6 +340,195 @@ public sealed class OpenFgaTenantAuthorizationTests : IAsyncLifetime
             ((ITenantOrderAuthorization)olderModelAuthorization).CanApplyManualPriceAsync(
                 pricingOnlyAccountId, tenantId, CancellationToken.None));
     }
+
+
+    [Fact]
+    public async Task AdministrationProviderReconcilesGrantRevokeAndTenantScopedCustomRoleAgainstPinnedModel()
+    {
+        var apiUrl = $"http://127.0.0.1:{_server.GetMappedPublicPort(OpenFgaPort)}";
+        using var administrativeClient = new HttpClient { BaseAddress = new Uri(apiUrl) };
+        var storeId = await CreateStoreAsync(administrativeClient);
+        var modelJson = await File.ReadAllTextAsync(Path.Combine(
+            AppContext.BaseDirectory,
+            "OpenFga",
+            "tenant-authorization-model.json"));
+        var modelId = await WriteModelAsync(administrativeClient, storeId, modelJson);
+        var configuration = OpenFgaAuthorizationConfiguration.From(new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Authorization:OpenFga:ApiUrl"] = apiUrl,
+                ["Authorization:OpenFga:StoreId"] = storeId,
+                ["Authorization:OpenFga:AuthorizationModelId"] = modelId,
+                ["Authorization:OpenFga:RequestTimeoutSeconds"] = "5",
+                ["Authorization:OpenFga:MaximumRetries"] = "1",
+                ["Authorization:OpenFga:MinimumRetryDelayMilliseconds"] = "100",
+                ["Authorization:OpenFga:CredentialMethod"] = "None",
+            })
+            .Build());
+        using var client = new OpenFgaClient(configuration.ToClientConfiguration());
+        var provider = new OpenFgaTenantAuthorizationAdministrationProvider(client, configuration);
+        var tenantId = Guid.NewGuid();
+        var otherTenantId = Guid.NewGuid();
+        var accountId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var roleId = Guid.NewGuid();
+
+        var grant = Proposal(
+            TenantAuthorizationProposalKind.GrantPermission,
+            tenantId,
+            actorId,
+            targetAccountId: accountId,
+            permissionId: "orders.view");
+        Assert.Equal(
+            TenantAuthorizationProviderOutcome.Applied,
+            (await provider.EnsureAsync(grant, [], CancellationToken.None)).Outcome);
+
+        Assert.True(await CheckRelationAsync(
+            client, configuration, $"user:{accountId:N}", "order_viewer", $"tenant:{tenantId:N}"));
+
+        var revoke = grant with
+        {
+            ProposalId = Guid.NewGuid(),
+            Kind = TenantAuthorizationProposalKind.RevokePermission,
+        };
+        Assert.Equal(
+            TenantAuthorizationProviderOutcome.Applied,
+            (await provider.EnsureAsync(revoke, [], CancellationToken.None)).Outcome);
+        Assert.False(await CheckRelationAsync(
+            client, configuration, $"user:{accountId:N}", "order_viewer", $"tenant:{tenantId:N}"));
+
+        var createRole = Proposal(
+            TenantAuthorizationProposalKind.CreateRole,
+            tenantId,
+            actorId,
+            roleId: roleId,
+            roleName: "Order reader",
+            requestedPermissions: ["orders.view"]);
+        Assert.Equal(
+            TenantAuthorizationProviderOutcome.Applied,
+            (await provider.EnsureAsync(createRole, [], CancellationToken.None)).Outcome);
+        var assign = Proposal(
+            TenantAuthorizationProposalKind.AssignRole,
+            tenantId,
+            actorId,
+            targetAccountId: accountId,
+            roleId: roleId);
+        Assert.Equal(
+            TenantAuthorizationProviderOutcome.Applied,
+            (await provider.EnsureAsync(assign, [], CancellationToken.None)).Outcome);
+        Assert.True(await CheckRelationAsync(
+            client, configuration, $"user:{accountId:N}", "order_viewer", $"tenant:{tenantId:N}"));
+        Assert.False(await CheckRelationAsync(
+            client, configuration, $"user:{accountId:N}", "order_viewer", $"tenant:{otherTenantId:N}"));
+
+        var assignments = new[]
+        {
+            new TenantRoleAssignment(
+                tenantId,
+                roleId,
+                accountId,
+                TenantRoleAssignmentAvailability.Active,
+                1,
+                DateTimeOffset.UtcNow,
+                null),
+        };
+        var retire = Proposal(
+            TenantAuthorizationProposalKind.RetireRole,
+            tenantId,
+            actorId,
+            roleId: roleId,
+            expectedRoleRevision: 1,
+            appliedPermissions: ["orders.view"]);
+        Assert.Equal(
+            TenantAuthorizationProviderOutcome.Applied,
+            (await provider.EnsureAsync(retire, assignments, CancellationToken.None)).Outcome);
+        Assert.False(await CheckRelationAsync(
+            client, configuration, $"user:{accountId:N}", "order_viewer", $"tenant:{tenantId:N}"));
+
+        var oldModel = JsonNode.Parse(modelJson)!.AsObject();
+        var tenantType = oldModel["type_definitions"]!.AsArray()
+            .Select(node => node!.AsObject())
+            .Single(node => node["type"]!.GetValue<string>() == "tenant");
+        Assert.True(tenantType["relations"]!.AsObject().Remove("order_viewer"));
+        Assert.True(tenantType["relations"]!.AsObject().Remove("can_view_orders"));
+        Assert.True(tenantType["metadata"]!["relations"]!.AsObject().Remove("order_viewer"));
+        Assert.True(tenantType["metadata"]!["relations"]!.AsObject().Remove("can_view_orders"));
+        var oldModelId = await WriteModelAsync(administrativeClient, storeId, oldModel.ToJsonString());
+        var oldConfiguration = OpenFgaAuthorizationConfiguration.From(new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Authorization:OpenFga:ApiUrl"] = apiUrl,
+                ["Authorization:OpenFga:StoreId"] = storeId,
+                ["Authorization:OpenFga:AuthorizationModelId"] = oldModelId,
+                ["Authorization:OpenFga:RequestTimeoutSeconds"] = "5",
+                ["Authorization:OpenFga:MaximumRetries"] = "1",
+                ["Authorization:OpenFga:MinimumRetryDelayMilliseconds"] = "100",
+                ["Authorization:OpenFga:CredentialMethod"] = "None",
+            })
+            .Build());
+        using var oldClient = new OpenFgaClient(oldConfiguration.ToClientConfiguration());
+        var oldProvider = new OpenFgaTenantAuthorizationAdministrationProvider(oldClient, oldConfiguration);
+        Assert.Equal(
+            TenantAuthorizationProviderOutcome.Failed,
+            (await oldProvider.EnsureAsync(grant with { ProposalId = Guid.NewGuid() }, [], CancellationToken.None)).Outcome);
+    }
+
+    private static async Task<bool> CheckRelationAsync(
+        OpenFgaClient client,
+        OpenFgaAuthorizationConfiguration configuration,
+        string user,
+        string relation,
+        string objectId)
+    {
+        var result = await client.Check(
+            new ClientCheckRequest
+            {
+                User = user,
+                Relation = relation,
+                Object = objectId,
+            },
+            new ClientCheckOptions
+            {
+                StoreId = configuration.StoreId,
+                AuthorizationModelId = configuration.AuthorizationModelId,
+                Consistency = ConsistencyPreference.HIGHERCONSISTENCY,
+            },
+            CancellationToken.None);
+        return result.Allowed is true;
+    }
+
+    private static TenantAuthorizationProposal Proposal(
+        TenantAuthorizationProposalKind kind,
+        Guid tenantId,
+        Guid actorAccountId,
+        Guid? targetAccountId = null,
+        string? permissionId = null,
+        Guid? roleId = null,
+        int? expectedRoleRevision = null,
+        string? roleName = null,
+        string[]? requestedPermissions = null,
+        string[]? appliedPermissions = null) =>
+        new(
+            Guid.NewGuid(),
+            tenantId,
+            actorAccountId,
+            "test-idempotency",
+            new string('A', 64),
+            kind,
+            TenantAuthorizationProposalStatus.Pending,
+            1,
+            null,
+            targetAccountId,
+            permissionId,
+            roleId,
+            expectedRoleRevision,
+            roleName,
+            requestedPermissions ?? [],
+            appliedPermissions ?? [],
+            0,
+            null,
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow);
 
     public Task InitializeAsync() => _server.StartAsync();
 

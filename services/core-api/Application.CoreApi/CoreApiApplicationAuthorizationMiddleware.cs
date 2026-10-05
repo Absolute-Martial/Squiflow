@@ -97,6 +97,9 @@ internal static class CoreApiApplicationAuthorizationMiddleware
             EndpointAccess.AuthorizedCustomerIndividualAvailability =>
                 new TenantCustomerResource(tenantContext, cancellationToken),
 
+            EndpointAccess.AuthorizedTenantRoleAdministration =>
+                new TenantAuthorizationAdministrationResource(tenantContext, cancellationToken),
+
             _ => throw new InvalidOperationException(
                 $"Core API access classification {access} has no application-authorization resource contract."),
         };

@@ -71,6 +71,19 @@ internal static class TenantRequestAccess
         return TenantRequestAccessResult.Allowed(tenantContext);
     }
 
+
+    internal static TenantContext RequireResolvedContext(Guid tenantId, HttpContext httpContext)
+    {
+        ArgumentNullException.ThrowIfNull(httpContext);
+        if (tenantId == Guid.Empty) throw new ArgumentException("Tenant identity cannot be empty.", nameof(tenantId));
+        if (!httpContext.Items.TryGetValue(ResolvedTenantContextKey, out var value) || value is not TenantContext context || context.TenantId != tenantId)
+        {
+            throw new InvalidOperationException("The protected tenant endpoint executed without its resolved tenant context.");
+        }
+
+        return context;
+    }
+
     internal static ProblemHttpResult Problem(string code, string detail) =>
         TypedResults.Problem(
             statusCode: StatusCodes.Status403Forbidden,

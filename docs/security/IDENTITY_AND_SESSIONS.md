@@ -74,16 +74,9 @@ If UserInfo is used, its `sub` must match the authenticated token subject.
 
 ## 5. ZITADEL organization mapping is deliberate
 
-ZITADEL Organizations are designed for B2B/multi-tenant identity scenarios, but SquiFlow must not silently equate ZITADEL organization identity with SquiFlow business tenancy before the POC proves the lifecycle works for:
-- an Owner + Staff tenant;
-- a user who can access more than one SquiFlow tenant;
-- enterprise SSO/federated identity later;
-- tenant custom domains;
-- account recovery/support.
+ADM-004 selects the initial topology deliberately: one ZITADEL Cloud instance per environment with separate Tenant Access and Platform Admin projects/applications/audiences. `ZITADEL OrganizationId` is **not** the SquiFlow Tenant identifier. Provider Organizations may later be used as identity-policy/SSO/branding containers, but SquiFlow derives authoritative `TenantContext` from its own tenant/membership records and OpenFGA relationships.
 
-The likely direction is to use ZITADEL organization capability where it gives useful identity-policy/SSO/branding separation, while SquiFlow still derives authoritative `TenantContext` from its own membership/tenant records and OpenFGA relationships.
-
-`ZITADEL OrganizationId` or an OIDC claim is never by itself permission to access a SquiFlow tenant's business records.
+One provider human may bind to one SquiFlow account and participate in multiple SquiFlow tenants through local memberships. A ZITADEL organization claim never by itself grants access to SquiFlow tenant business records. Enterprise SSO/customer-managed provider Organizations/custom domains remain later qualification, not prerequisites of the first topology.
 
 ## 6. Workstation interactive login
 
@@ -203,7 +196,7 @@ Signing out/revoking credentials does not erase unsynced local business work.
 
 Ordinary role editing must not strand a tenant with no recoverable Owner-level administration.
 
-Owner transfer/removal is guarded, Web-only, audited, and can require ZITADEL step-up authentication.
+Owner transfer is guarded, Web-only and audited. ADM-034 now requires exact configured Tenant Web client binding plus configured stronger/recent ZITADEL authentication evidence (`azp`, `acr`, provider `auth_time`) before the atomic handoff. The exact live ZITADEL ACR mapping remains evidence-pending.
 
 If the only Owner is unavailable, recovery is a support/security process with strong ownership evidence. Support cannot silently assign itself permanent OpenFGA/tenant authority.
 
@@ -225,7 +218,7 @@ Cloud hosting does not change the authority split:
 - OpenFGA evaluates application relationships/permissions;
 - SquiFlow enforces module availability, tenant isolation and domain rules.
 
-Phase 1 still chooses and proves the exact ZITADEL instance/project/application layout, service-account scopes, tenant-organization mapping, callback/session behavior, and provisioning/recovery procedures.
+ADM-004 selects the exact first instance/project/application split, tenant-mapping rule and import-only provisioning/recovery direction. The read-only live qualification matrix still must prove the nonproduction Cloud instance, callback inventory, human/machine lookup behavior and least-privilege verifier scope before that provider topology is accepted.
 
 ## 16. Self-hosting is a later migration, not an automatic growth step
 

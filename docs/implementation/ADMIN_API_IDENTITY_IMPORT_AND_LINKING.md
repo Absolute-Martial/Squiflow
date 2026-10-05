@@ -89,25 +89,16 @@ command is run successfully.
 
 ## Explicit non-claims
 
-This slice does not create or mutate a ZITADEL user, decide a SquiFlow-tenant to
-ZITADEL-organization mapping, create invitations or memberships, create tenant
-OpenFGA tuples or roles, provide batch import/drift reconciliation, qualify a
-particular ZITADEL Cloud instance/service-account scope set, or introduce
-Web/Workstation login/session flows.
+This slice does not create or mutate a ZITADEL user, create provider invitations, provide batch provider drift reconciliation, or introduce Web/Workstation login/session flows. ADM-004 has since selected the topology rule: provider Organization identity is not SquiFlow Tenant identity; local membership remains tenant authority. Tenant OpenFGA role/grant administration is a separate ADM-009–012 CoreApi/Tenancy responsibility, not part of identity import/link.
 
-The tenant-to-ZITADEL organization mapping stays open until the identity
-lifecycle POC proves multi-tenant users, Owner/Staff behavior, enterprise
-SSO/custom-domain needs and recovery semantics.
+Provider-side human creation/invitation is deliberately not selected for `v0.0.1`; ADM-005 closes through this existing-human import/link path. Live ZITADEL Cloud topology/service-identity qualification remains evidence-pending under `docs/implementation/ZITADEL_LIVE_TOPOLOGY.md`.
 
 ## Production-honesty classification
 
 The SquiFlow-owned identity import/link command semantics, PostgreSQL durability
 and AdminApi security/transport boundary described above are PRODUCTION_HONEST.
 
-Provider-side account creation, tenant/provider organization mapping,
-provider-side reconciliation and live ZITADEL Cloud deployment qualification
-remain NOT_INTRODUCED. They are not hidden prerequisites of this declared scope
-because these operations only accept provider subjects that already exist.
+Provider-side human creation/invitation remains deliberately `NOT_INTRODUCED`. The tenant/provider mapping decision is now explicit (`ZITADEL OrganizationId != SquiFlow TenantId` by contract), while automatic provider reconciliation and live ZITADEL Cloud deployment qualification remain unintroduced/evidence-pending. These are not hidden prerequisites of this import/link slice because it only accepts provider subjects that already exist.
 
 BLOCKED = none for this declared slice.
 

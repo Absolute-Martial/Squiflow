@@ -29,6 +29,12 @@ public sealed class CoreApiRuntimeRoleProvisioningTests : PostgresTestDatabase
                  {
                      "identity_access.accounts", "identity_access.external_identity_bindings",
                      "tenancy.tenants", "tenancy.memberships",
+                     "tenancy.tenant_authorization_state",
+                     "tenancy.tenant_authorization_proposals",
+                     "tenancy.tenant_permission_grants",
+                     "tenancy.custom_roles",
+                     "tenancy.custom_role_assignments",
+                     "tenancy.owner_transfer_receipts",
                      "customers.organizations", "customers.programs",
                      "customers.organization_receipts", "customers.program_receipts",
                      "orders.order_drafts",
@@ -71,6 +77,53 @@ public sealed class CoreApiRuntimeRoleProvisioningTests : PostgresTestDatabase
         await using var allowedLineDelete = runtime.CreateCommand();
         allowedLineDelete.CommandText = "DELETE FROM orders.order_draft_lines WHERE false";
         Assert.Equal(0, await allowedLineDelete.ExecuteNonQueryAsync(CancellationToken.None));
+
+        await using var allowedTenantRevisionUpdate = runtime.CreateCommand();
+        allowedTenantRevisionUpdate.CommandText = "UPDATE tenancy.tenants SET revision = revision WHERE false";
+        Assert.Equal(0, await allowedTenantRevisionUpdate.ExecuteNonQueryAsync(CancellationToken.None));
+
+        await using var allowedMembershipOwnerUpdate = runtime.CreateCommand();
+        allowedMembershipOwnerUpdate.CommandText =
+            "UPDATE tenancy.memberships SET revision = revision, is_initial_owner = is_initial_owner WHERE false";
+        Assert.Equal(0, await allowedMembershipOwnerUpdate.ExecuteNonQueryAsync(CancellationToken.None));
+
+        await using var forbiddenMembershipAvailabilityUpdate = runtime.CreateCommand();
+        forbiddenMembershipAvailabilityUpdate.CommandText =
+            "UPDATE tenancy.memberships SET availability = availability WHERE false";
+        var membershipUpdateFailure = await Assert.ThrowsAsync<PostgresException>(() =>
+            forbiddenMembershipAvailabilityUpdate.ExecuteNonQueryAsync(CancellationToken.None));
+        Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, membershipUpdateFailure.SqlState);
+
+        await using var allowedAuthorizationStateUpdate = runtime.CreateCommand();
+        allowedAuthorizationStateUpdate.CommandText =
+            "UPDATE tenancy.tenant_authorization_state SET revision = revision, updated_at = updated_at WHERE false";
+        Assert.Equal(0, await allowedAuthorizationStateUpdate.ExecuteNonQueryAsync(CancellationToken.None));
+
+        await using var allowedProposalUpdate = runtime.CreateCommand();
+        allowedProposalUpdate.CommandText =
+            "UPDATE tenancy.tenant_authorization_proposals " +
+            "SET status = status, applied_authorization_revision = applied_authorization_revision, " +
+            "attempt_count = attempt_count, failure_code = failure_code, updated_at = updated_at WHERE false";
+        Assert.Equal(0, await allowedProposalUpdate.ExecuteNonQueryAsync(CancellationToken.None));
+
+        await using var forbiddenProposalIntentRewrite = runtime.CreateCommand();
+        forbiddenProposalIntentRewrite.CommandText =
+            "UPDATE tenancy.tenant_authorization_proposals SET request_fingerprint = request_fingerprint WHERE false";
+        var proposalRewriteFailure = await Assert.ThrowsAsync<PostgresException>(() =>
+            forbiddenProposalIntentRewrite.ExecuteNonQueryAsync(CancellationToken.None));
+        Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, proposalRewriteFailure.SqlState);
+
+        await using var forbiddenEventRead = runtime.CreateCommand();
+        forbiddenEventRead.CommandText = "SELECT count(*) FROM tenancy.tenant_authorization_events";
+        var eventReadFailure = await Assert.ThrowsAsync<PostgresException>(() =>
+            forbiddenEventRead.ExecuteScalarAsync(CancellationToken.None));
+        Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, eventReadFailure.SqlState);
+
+        await using var forbiddenAuthorizationDelete = runtime.CreateCommand();
+        forbiddenAuthorizationDelete.CommandText = "DELETE FROM tenancy.custom_roles";
+        var authorizationDeleteFailure = await Assert.ThrowsAsync<PostgresException>(() =>
+            forbiddenAuthorizationDelete.ExecuteNonQueryAsync(CancellationToken.None));
+        Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, authorizationDeleteFailure.SqlState);
 
         await using var forbiddenDdl = runtime.CreateCommand();
         forbiddenDdl.CommandText = "CREATE TABLE orders.forbidden_runtime_ddl (id integer)";

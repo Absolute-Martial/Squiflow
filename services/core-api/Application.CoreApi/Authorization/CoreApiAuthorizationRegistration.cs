@@ -12,6 +12,8 @@ internal static class CoreApiAuthorizationRegistration
         services.AddSingleton<OpenFga.Sdk.Client.IOpenFgaClient>(_ =>
             new OpenFga.Sdk.Client.OpenFgaClient(configuration.ToClientConfiguration()));
         services.AddSingleton<OpenFgaTenantAuthorization>();
+        services.AddSingleton<ITenantAuthorizationAdministrationProvider, OpenFgaTenantAuthorizationAdministrationProvider>();
+        services.AddScoped<TenantAuthorizationReconciler>();
         services.AddSingleton<ITenantWorkspaceAuthorization>(serviceProvider =>
             serviceProvider.GetRequiredService<OpenFgaTenantAuthorization>());
         services.AddSingleton<ITenantOrderAuthorization>(serviceProvider =>
@@ -32,6 +34,7 @@ internal static class CoreApiAuthorizationRegistration
         services.AddScoped<IAuthorizationHandler, CreateIndividualAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, ViewIndividualsAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, ChangeIndividualAvailabilityAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, ManageTenantRolesAuthorizationHandler>();
         services.AddAuthorization();
 
         return services;

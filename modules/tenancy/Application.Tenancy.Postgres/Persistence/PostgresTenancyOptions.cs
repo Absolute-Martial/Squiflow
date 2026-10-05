@@ -1,5 +1,6 @@
 using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace Application.Tenancy.Postgres;
 
@@ -18,6 +19,7 @@ public static class PostgresTenancyOptions
         {
             postgres.MigrationsHistoryTable(MigrationHistoryTable);
             postgres.MigrationsAssembly(typeof(TenancyDbContext).Assembly.FullName);
+            builder.ReplaceService<IMigrationsIdGenerator, MigrationIdentifierGenerator>();
         });
     }
 
@@ -32,6 +34,7 @@ public static class PostgresTenancyOptions
         {
             postgres.MigrationsHistoryTable(MigrationHistoryTable);
             postgres.MigrationsAssembly(typeof(TenancyDbContext).Assembly.FullName);
+            builder.ReplaceService<IMigrationsIdGenerator, MigrationIdentifierGenerator>();
         });
     }
 }

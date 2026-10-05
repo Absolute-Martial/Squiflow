@@ -130,10 +130,12 @@ public sealed class CommitOrderDraftTests
     }
 
     [Fact]
-    public void LifecycleRejectsUnknownState()
+    public void LifecycleRejectsUnknownStateWithStableCommitDiagnostic()
     {
-        Assert.Throws<InvalidOperationException>(() =>
+        var commitError = Assert.Throws<InvalidOperationException>(() =>
             OrderDraftLifecycle.AssessCommit((OrderDraftState)99, 1, 1));
+        Assert.Equal("The order draft has an unsupported state.", commitError.Message);
+
         Assert.Throws<InvalidOperationException>(() =>
             OrderDraftLifecycle.AssessRevise((OrderDraftState)99, 1, 1));
         Assert.Throws<InvalidOperationException>(() =>
