@@ -7,6 +7,9 @@ namespace Application.Tenancy.Postgres;
 public sealed class PostgresTenantAuthorizationAdministrationStore(NpgsqlDataSource dataSource)
     : ITenantAuthorizationAdministrationStore
 {
+    /// <summary>Reconciliation attempts allowed before an unresolved proposal is terminally failed.</summary>
+    private const int MaximumReconciliationAttempts = 20;
+
     public async Task<int?> GetAuthorizationRevisionAsync(Guid tenantId, CancellationToken cancellationToken)
     {
         if (tenantId == Guid.Empty) throw new ArgumentException("Tenant identity cannot be empty.", nameof(tenantId));
@@ -402,7 +405,14 @@ public sealed class PostgresTenantAuthorizationAdministrationStore(NpgsqlDataSou
             await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
             return proposal;
         }
-        if (incrementAttempt && proposal.AttemptCount >= 20)
+        // Marking an attempt only records that reconciliation is about to consult the
+        // authorization provider, so exhausting the budget must never terminalise the
+        // proposal from here. Doing so pre-empts that consultation: a provider write that
+        // succeeded behind an ambiguous timeout would be recorded as a durable failure while
+        // the permission stayed effective in the provider, the proposal slot would then be
+        // released, and later changes would build on that inconsistent state.
+        if (status == TenantAuthorizationProposalStatus.Uncertain
+            && proposal.AttemptCount >= MaximumReconciliationAttempts)
         {
             await SetProposalStatusAsync(connection, transaction, proposal,
                 TenantAuthorizationProposalStatus.Failed, "attempt_limit_reached", occurredAt, incrementAttempt: false, cancellationToken)
