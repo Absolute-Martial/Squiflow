@@ -232,15 +232,17 @@ public sealed class TenantMembershipLifecyclePostgresTests : PostgresTestDatabas
         var exception = await Assert.ThrowsAsync<PostgresException>(() => db.Database.MigrateAsync("0"));
         Assert.Contains("lifecycle evidence exists", exception.MessageText, StringComparison.Ordinal);
         Assert.Equal(1L, await ReceiptCountAsync());
-        // The refused revert must discard no lifecycle evidence: the guard aborts before any
-        // table, column or constraint is dropped and the retained receipt survives. EF retires
-        // the history row of the migration whose own Down it was running, so that one migration
-        // is reported unapplied afterwards; this asserts the evidence and every other recorded
-        // migration instead of an empty pending set, which would hide a real schema loss.
-        var retained = await db.Database.GetAppliedMigrationsAsync();
+        // The refused revert must discard no lifecycle evidence. Migrations newer than the
+        // guarded lifecycle migration may have been safely reverted before that guard runs, so
+        // only history at or before the protected boundary is required to remain. EF retires the
+        // lifecycle migration history row before executing its guarded Down; earlier migrations
+        // must still be retained and the lifecycle receipt must survive.
+        var retained = (await db.Database.GetAppliedMigrationsAsync()).ToArray();
         Assert.All(
-            applied.Where(migration => migration != "202610030005_TenantAndInitialOwnerLifecycle"),
+            applied.Where(migration => string.CompareOrdinal(
+                migration, "202610030005_TenantAndInitialOwnerLifecycle") < 0),
             migration => Assert.Contains(migration, retained));
+        Assert.DoesNotContain("202610030005_TenantAndInitialOwnerLifecycle", retained);
         Assert.Equal(1L, await ReceiptCountAsync());
     }
 

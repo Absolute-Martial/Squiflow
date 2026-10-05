@@ -102,6 +102,16 @@ This file records accepted direction only. Detailed reasoning and supersession h
 - Permission/relationship changes return success only after the authoritative external change is known/applied; ambiguous outcomes are reconciled.
 - SquiFlow does not add a separate JWT/PASETO authentication subsystem.
 
+### Tenant authorization administration decisions — 2026-10-05
+
+- ADM-005 closes through the import/link-only branch: existing ZITADEL humans may be imported/linked, but SquiFlow does not create or invite provider humans in `v0.0.1`.
+- ADM-007 separates global local-account lifecycle from tenant membership lifecycle. Tenant Owner authority cannot globally disable a SquiFlow account; global suspension/reactivation is reserved for a future Platform Admin/security capability.
+- ADM-008 fixes the first tenant delegation contract: only the current initial Owner manages roles/grants; exercise and delegation are separate; self-grant is permitted within the compiled business-permission ceiling; direct grants and multiple custom roles compose by allow-union; no explicit deny, cross-tenant grant, platform authority, arbitrary OpenFGA relation or delegable `roles.manage`.
+- ADM-009–ADM-012 use one Tenancy-owned durable proposal/revision/custom-role state machine and a CoreApi OpenFGA adapter. PostgreSQL owns intent/evidence; OpenFGA remains execution authority. One Pending/Uncertain proposal per tenant is arbitrated, provider state is observed before Applied/revision advancement, and Uncertain never reports success.
+- Reconciliation is bounded synchronous/manual for this slice. A Worker/background executor is not introduced; OPS-003 remains conditional.
+- Initial Owner handoff is atomic/replayable and advances membership, tenant and authorization revisions. The CoreApi route requires current Owner authorization plus recent configured Tenant Web `azp`/`acr`/`auth_time` evidence; arbitrary headers/cookies cannot substitute.
+- Custom roles are tenant metadata with stable role IDs, bounded permission sets and assignments. OpenFGA uses one stable `role#assignee` userset model; it does not create one model per custom role.
+
 ## Zero-trust Platform Admin
 
 - Platform Admin is a private security/control plane, not ordinary tenant administration.

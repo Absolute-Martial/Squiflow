@@ -20,10 +20,12 @@ public static class TenancyPostgresRegistration
         services.AddScoped<ITenantProvisioningStore, PostgresTenantProvisioningStore>();
         services.AddScoped<ITenantMembershipLifecycleStore, PostgresTenantMembershipLifecycleStore>();
         services.AddScoped<ITenantLifecycleStore, PostgresTenantLifecycleStore>();
+        services.AddScoped<ITenantAuthorizationAdministrationStore, PostgresTenantAuthorizationAdministrationStore>();
         services.AddScoped<ResolveTenantContext>();
         services.AddScoped<ProvisionTenant>();
         services.AddScoped<ManageTenantMembership>();
         services.AddScoped<ManageTenantLifecycle>();
+        services.AddScoped<TenantAuthorizationAdministration>();
 
         return services;
     }

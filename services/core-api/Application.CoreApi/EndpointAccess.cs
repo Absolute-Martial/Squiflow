@@ -30,6 +30,7 @@ internal enum EndpointAccess
     AuthorizedCustomerIndividualCreation,
     AuthorizedCustomerIndividualRead,
     AuthorizedCustomerIndividualAvailability,
+    AuthorizedTenantRoleAdministration,
 }
 
 internal sealed record EndpointAccessMetadata(EndpointAccess Access)
@@ -70,6 +71,7 @@ internal static class CoreApiApplicationAuthorizationContract
         EndpointAccess.AuthorizedCustomerIndividualCreation => [CreateIndividualRequirement.Instance],
         EndpointAccess.AuthorizedCustomerIndividualRead => [ViewIndividualsRequirement.Instance],
         EndpointAccess.AuthorizedCustomerIndividualAvailability => [ChangeIndividualAvailabilityRequirement.Instance],
+        EndpointAccess.AuthorizedTenantRoleAdministration => [ManageTenantRolesRequirement.Instance],
         _ => throw new InvalidOperationException(
             $"Core API access classification {access} has no application-authorization contract."),
     };

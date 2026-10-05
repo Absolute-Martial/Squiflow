@@ -67,3 +67,21 @@ The uploaded `Squiflow-offline-sdk(1).zip` was inspected and its .NET 10.0.401 t
 A first `./eng/verify.sh` attempt was invalidated before restore by this sandbox's injected `PLATFORM=linux/amd64`, which MSBuild interpreted as a solution platform. Re-running with only that host variable removed reached locked restore. The exact repository gate then could not continue because the sandbox cannot resolve/reach `api.nuget.org`, has an empty NuGet package cache, and has no Docker-compatible daemon/socket. The active lockfiles require **123 package/version pairs**.
 
 Tracked details: [SDK/runtime retry receipt](../production-completion-review/evidence/GATE-001-SDK-RETRY-2026-10-04.md) and [locked NuGet manifest](../production-completion-review/evidence/GATE-001-NUGET-MANIFEST.json). No full gate pass is claimed. GATE-001 remains `BLOCKED` pending offline/reachable locked packages, working Docker/Testcontainers, and one complete normal run on the exact current source.
+
+## ADM-005 through ADM-012 implementation pass — 2026-10-05
+
+The authorization-administration continuation is recorded in [ADM-005 through ADM-012 current implementation evidence](../production-completion-review/evidence/ADM-005-ADM-012-CURRENT-IMPLEMENTATION.md).
+
+Executed locally with .NET SDK 10.0.401:
+
+- `Application.Tenancy` Release build with `--no-restore`: **0 warnings / 0 errors**.
+- ADM-004 Python harness syntax/static negative tests: pass.
+- isolated .NET 10 Web-SDK compilation for the new high-risk admission / tenant-authorization endpoint / role-authorization source: **0 warnings / 0 errors** during the implementation pass.
+- source/JSON/static security checks and `git diff --check`: pass at the recorded checkpoints.
+
+Provider-backed restore/build remains unavailable in this container: NuGet restore reaches `NU1301` for `https://api.nuget.org/v3/index.json`, and no Docker daemon/socket is available. Consequently the authored PostgreSQL/OpenFGA tests and exact full `./eng/verify.sh` remain **EVIDENCE_PENDING**, not passed or skipped.
+
+
+## ADM-005 through ADM-012 receiving red-gate repair — 2026-10-05
+
+The first external/receiving normal gate for the uncommitted ADM-005–ADM-012 batch had a clean Release build but remained **red**: four tests plus two architecture guards failed. The exact failures and source corrections are retained in [ADM-005 through ADM-012 current implementation evidence](../production-completion-review/evidence/ADM-005-ADM-012-CURRENT-IMPLEMENTATION.md). The fixes cover model-drift fixture targeting, provider-owned OpenFGA semantics, rooted historical migration rollback, tenant-route 429 contracts, embedded runtime SQL, and neutral active test identity. The repaired batch remains `EVIDENCE_PENDING` until the receiving environment reruns the affected PostgreSQL/OpenFGA/architecture suites and one complete `./eng/verify.sh` successfully. The green qualified `b9f4026` baseline remains separate and untouched.

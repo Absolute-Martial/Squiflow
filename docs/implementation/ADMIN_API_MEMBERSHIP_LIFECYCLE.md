@@ -22,11 +22,7 @@ Tenant suspension immediately makes every membership ineffective because
 active tenant. Reactivation restores access only for memberships that are still
 active; it does not reactivate suspended or removed memberships.
 
-The initial Owner marker is an immutable bootstrap designation, not the complete
-Owner permission model. Until baseline permission administration exists, the
-initial Owner cannot be suspended or removed and a second initial Owner cannot be
-created. This avoids silently orphaning the tenant while not inventing Staff
-defaults, delegation ceilings or tenant role administration.
+The initial Owner marker was introduced here as an immutable bootstrap designation. ADM-008–ADM-012 now add the explicit role-administration contract and a guarded atomic Owner handoff; this historical AdminApi lifecycle still cannot suspend/remove the member currently carrying `is_initial_owner`, and it never rewrites that designation itself. After a successful CoreApi Owner handoff, the former Owner becomes an ordinary membership and can be managed through the normal lifecycle rules.
 
 ## Authority and durability
 
@@ -77,10 +73,7 @@ This evidence does not qualify a production deployment or later AdminApi slices.
 
 ## Explicit non-claims
 
-This slice does not introduce Staff defaults, general Owner permissions, role or
-grant administration, tenant OpenFGA tuple writes, authorization revision,
-delegation, invitation delivery, provider-side users/organizations, self-service
-tenant administration, or operator/Admin-device lifecycle.
+This historical slice itself does not implement Staff defaults, tenant role/grant administration, OpenFGA tuple writes, authorization revision/delegation, invitation delivery, provider-side users/organizations or operator/Admin-device lifecycle. Those non-claims do not override the later ADM-008–ADM-012 CoreApi/Tenancy authorization-administration slice, which owns role/grant administration and guarded Owner handoff separately.
 
 ## Requalification triggers
 

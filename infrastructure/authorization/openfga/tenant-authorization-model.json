@@ -9,6 +9,25 @@
       }
     },
     {
+      "type": "role",
+      "relations": {
+        "assignee": {
+          "this": {}
+        }
+      },
+      "metadata": {
+        "relations": {
+          "assignee": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
       "type": "tenant",
       "relations": {
         "member": {
@@ -229,8 +248,16 @@
         "can_create_individual": {
           "intersection": {
             "child": [
-              { "computedUserset": { "relation": "member" } },
-              { "computedUserset": { "relation": "individual_creator" } }
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "individual_creator"
+                }
+              }
             ]
           }
         },
@@ -240,8 +267,16 @@
         "can_view_individuals": {
           "intersection": {
             "child": [
-              { "computedUserset": { "relation": "member" } },
-              { "computedUserset": { "relation": "individual_viewer" } }
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "individual_viewer"
+                }
+              }
             ]
           }
         },
@@ -251,8 +286,16 @@
         "can_change_individual_availability": {
           "intersection": {
             "child": [
-              { "computedUserset": { "relation": "member" } },
-              { "computedUserset": { "relation": "individual_availability_editor" } }
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "individual_availability_editor"
+                }
+              }
             ]
           }
         }
@@ -270,6 +313,10 @@
             "directly_related_user_types": [
               {
                 "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
               }
             ]
           },
@@ -277,6 +324,10 @@
             "directly_related_user_types": [
               {
                 "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
               }
             ]
           },
@@ -284,6 +335,10 @@
             "directly_related_user_types": [
               {
                 "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
               }
             ]
           },
@@ -291,6 +346,10 @@
             "directly_related_user_types": [
               {
                 "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
               }
             ]
           },
@@ -298,6 +357,10 @@
             "directly_related_user_types": [
               {
                 "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
               }
             ]
           },
@@ -305,6 +368,10 @@
             "directly_related_user_types": [
               {
                 "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
               }
             ]
           },
@@ -330,6 +397,10 @@
             "directly_related_user_types": [
               {
                 "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
               }
             ]
           },
@@ -340,6 +411,10 @@
             "directly_related_user_types": [
               {
                 "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
               }
             ]
           },
@@ -350,6 +425,10 @@
             "directly_related_user_types": [
               {
                 "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
               }
             ]
           },
@@ -360,6 +439,10 @@
             "directly_related_user_types": [
               {
                 "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
               }
             ]
           },
@@ -370,6 +453,10 @@
             "directly_related_user_types": [
               {
                 "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
               }
             ]
           },
@@ -377,19 +464,43 @@
             "directly_related_user_types": []
           },
           "individual_creator": {
-            "directly_related_user_types": [{ "type": "user" }]
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
           },
           "can_create_individual": {
             "directly_related_user_types": []
           },
           "individual_viewer": {
-            "directly_related_user_types": [{ "type": "user" }]
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
           },
           "can_view_individuals": {
             "directly_related_user_types": []
           },
           "individual_availability_editor": {
-            "directly_related_user_types": [{ "type": "user" }]
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
           },
           "can_change_individual_availability": {
             "directly_related_user_types": []

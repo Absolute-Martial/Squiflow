@@ -36,7 +36,10 @@ BEGIN
              AND c.relname IN ('accounts', 'external_identity_bindings', 'tenants', 'memberships',
                                'organizations', 'programs', 'organization_receipts', 'program_receipts',
                                'individuals', 'individual_command_receipts',
-                               'order_drafts', 'order_draft_lines', 'command_receipts')
+                               'order_drafts', 'order_draft_lines', 'command_receipts',
+                               'tenant_authorization_state', 'tenant_authorization_proposals',
+                               'tenant_permission_grants', 'custom_roles', 'custom_role_assignments',
+                               'tenant_authorization_events', 'owner_transfer_receipts')
              AND c.relowner = role_record.oid) THEN
         RAISE EXCEPTION 'CoreApi runtime role must not own the database, schemas or application tables';
     END IF;
@@ -61,6 +64,32 @@ BEGIN
         'tenancy.tenants', 'tenancy.memberships'] LOOP
         EXECUTE format('GRANT SELECT ON TABLE %s TO %I', target_table, runtime_role);
     END LOOP;
+    EXECUTE format('GRANT UPDATE (revision) ON TABLE tenancy.tenants TO %I', runtime_role);
+    EXECUTE format('GRANT UPDATE (revision, is_initial_owner) ON TABLE tenancy.memberships TO %I', runtime_role);
+
+    FOREACH target_table IN ARRAY ARRAY[
+        'tenancy.tenant_authorization_state',
+        'tenancy.tenant_authorization_proposals',
+        'tenancy.tenant_permission_grants',
+        'tenancy.custom_roles',
+        'tenancy.custom_role_assignments',
+        'tenancy.owner_transfer_receipts'] LOOP
+        EXECUTE format('GRANT SELECT, INSERT ON TABLE %s TO %I', target_table, runtime_role);
+    END LOOP;
+    EXECUTE format('GRANT INSERT ON TABLE tenancy.tenant_authorization_events TO %I', runtime_role);
+    EXECUTE format('GRANT UPDATE (revision, updated_at) ON TABLE tenancy.tenant_authorization_state TO %I', runtime_role);
+    EXECUTE format(
+        'GRANT UPDATE (status, applied_authorization_revision, attempt_count, failure_code, updated_at) ON TABLE tenancy.tenant_authorization_proposals TO %I',
+        runtime_role);
+    EXECUTE format(
+        'GRANT UPDATE (is_active, revision, granted_at, revoked_at) ON TABLE tenancy.tenant_permission_grants TO %I',
+        runtime_role);
+    EXECUTE format(
+        'GRANT UPDATE (name, availability, revision, permission_ids, updated_at, retired_at) ON TABLE tenancy.custom_roles TO %I',
+        runtime_role);
+    EXECUTE format(
+        'GRANT UPDATE (availability, revision, assigned_at, removed_at) ON TABLE tenancy.custom_role_assignments TO %I',
+        runtime_role);
     FOREACH target_table IN ARRAY ARRAY[
         'customers.organizations', 'customers.programs',
         'customers.organization_receipts', 'customers.program_receipts',
@@ -113,9 +142,16 @@ BEGIN
         IF NOT has_column_privilege(runtime_role, target_table, target_column.column_name, 'SELECT')
            OR (target_column.schema_name IN ('customers', 'orders')
                AND NOT has_column_privilege(runtime_role, target_table, target_column.column_name, 'INSERT'))
-           OR (target_column.schema_name NOT IN ('customers', 'orders')
+           OR (target_column.schema_name = 'identity_access'
                AND (has_column_privilege(runtime_role, target_table, target_column.column_name, 'INSERT')
                     OR has_column_privilege(runtime_role, target_table, target_column.column_name, 'UPDATE')))
+           OR (target_column.schema_name = 'tenancy'
+               AND has_column_privilege(runtime_role, target_table, target_column.column_name, 'INSERT'))
+           OR (target_column.schema_name = 'tenancy'
+               AND has_column_privilege(runtime_role, target_table, target_column.column_name, 'UPDATE')
+                   <> ((target_column.table_name = 'tenants' AND target_column.column_name = 'revision')
+                    OR (target_column.table_name = 'memberships'
+                        AND target_column.column_name IN ('revision', 'is_initial_owner'))))
            OR (target_column.schema_name IN ('customers', 'orders')
                AND has_column_privilege(runtime_role, target_table, target_column.column_name, 'UPDATE')
                    <> ((target_column.schema_name = 'orders' AND target_column.table_name = 'order_drafts'
@@ -146,5 +182,60 @@ BEGIN
             RAISE EXCEPTION 'CoreApi runtime table privileges are unsafe on %', target_table;
         END IF;
     END LOOP;
+
+    FOREACH target_table IN ARRAY ARRAY[
+        'tenancy.tenant_authorization_state',
+        'tenancy.tenant_authorization_proposals',
+        'tenancy.tenant_permission_grants',
+        'tenancy.custom_roles',
+        'tenancy.custom_role_assignments',
+        'tenancy.owner_transfer_receipts'] LOOP
+        IF NOT has_table_privilege(runtime_role, target_table, 'SELECT')
+           OR NOT has_table_privilege(runtime_role, target_table, 'INSERT')
+           OR has_table_privilege(runtime_role, target_table, 'DELETE')
+           OR has_table_privilege(runtime_role, target_table, 'TRUNCATE')
+           OR has_table_privilege(runtime_role, target_table, 'REFERENCES')
+           OR has_table_privilege(runtime_role, target_table, 'TRIGGER') THEN
+            RAISE EXCEPTION 'CoreApi authorization-administration table privileges are unsafe on %', target_table;
+        END IF;
+    END LOOP;
+
+    FOR target_column IN
+        SELECT n.nspname AS schema_name, c.relname AS table_name, a.attname AS column_name
+        FROM pg_class AS c
+        JOIN pg_namespace AS n ON n.oid = c.relnamespace
+        JOIN pg_attribute AS a ON a.attrelid = c.oid
+        WHERE n.nspname = 'tenancy'
+          AND c.relname IN (
+              'tenant_authorization_state', 'tenant_authorization_proposals',
+              'tenant_permission_grants', 'custom_roles', 'custom_role_assignments',
+              'owner_transfer_receipts')
+          AND a.attnum > 0 AND NOT a.attisdropped
+    LOOP
+        target_table := format('%I.%I', target_column.schema_name, target_column.table_name);
+        IF has_column_privilege(runtime_role, target_table, target_column.column_name, 'UPDATE')
+               <> ((target_column.table_name = 'tenant_authorization_state'
+                    AND target_column.column_name IN ('revision', 'updated_at'))
+                OR (target_column.table_name = 'tenant_authorization_proposals'
+                    AND target_column.column_name IN (
+                        'status', 'applied_authorization_revision', 'attempt_count', 'failure_code', 'updated_at'))
+                OR (target_column.table_name = 'tenant_permission_grants'
+                    AND target_column.column_name IN ('is_active', 'revision', 'granted_at', 'revoked_at'))
+                OR (target_column.table_name = 'custom_roles'
+                    AND target_column.column_name IN (
+                        'name', 'availability', 'revision', 'permission_ids', 'updated_at', 'retired_at'))
+                OR (target_column.table_name = 'custom_role_assignments'
+                    AND target_column.column_name IN (
+                        'availability', 'revision', 'assigned_at', 'removed_at'))) THEN
+            RAISE EXCEPTION 'CoreApi authorization-administration UPDATE privileges are unsafe on %.%',
+                target_table, target_column.column_name;
+        END IF;
+    END LOOP;
+    IF has_table_privilege(runtime_role, 'tenancy.tenant_authorization_events', 'SELECT')
+       OR NOT has_table_privilege(runtime_role, 'tenancy.tenant_authorization_events', 'INSERT')
+       OR has_table_privilege(runtime_role, 'tenancy.tenant_authorization_events', 'UPDATE')
+       OR has_table_privilege(runtime_role, 'tenancy.tenant_authorization_events', 'DELETE') THEN
+        RAISE EXCEPTION 'CoreApi authorization-event privileges are unsafe';
+    END IF;
 END
 $verify$;

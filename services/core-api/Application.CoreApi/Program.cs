@@ -24,6 +24,7 @@ var bootstrapCacheConfiguration = brandingSection
     ?? throw new InvalidOperationException("The Branding bootstrap cache policy is required.");
 var authenticationConfiguration = OidcAuthenticationConfiguration.From(builder.Configuration);
 var openFgaAuthorizationConfiguration = OpenFgaAuthorizationConfiguration.From(builder.Configuration);
+var highRiskActionConfiguration = HighRiskActionAdmissionConfiguration.From(builder.Configuration);
 var databaseConfiguration = RuntimeDatabaseConfiguration.From(builder.Configuration);
 RequestHostConfiguration.Validate(builder.Configuration);
 var brandProfile = brandingConfiguration.ToProfile();
@@ -35,6 +36,8 @@ builder.Services.AddCoreApiPersistence(databaseConfiguration);
 builder.Services.AddCoreApiAuthentication(authenticationConfiguration);
 builder.Services.AddCoreApiAdmission(builder.Configuration);
 builder.Services.AddCoreApiRequestBudgets(builder.Configuration);
+builder.Services.AddSingleton(highRiskActionConfiguration);
+builder.Services.AddSingleton<HighRiskActionAdmission>();
 builder.Services.AddSingleton<CoreApiMutationDiagnostics>();
 builder.Services
     .AddMultiTenant<TenantInfo>()
@@ -121,6 +124,126 @@ app.MapGet("/api/v1/tenants/{tenantId:guid}/workspace", TenantWorkspaceEndpoint.
     .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
     .ProducesProblem(StatusCodes.Status500InternalServerError)
     .ProducesProblem(StatusCodes.Status504GatewayTimeout);
+
+var authorizationBase = "/api/v1/tenants/{tenantId:guid}/authorization";
+app.MapGet(authorizationBase, TenantAuthorizationAdministrationEndpoint.GetAsync)
+    .WithName("GetTenantAuthorizationAdministration")
+    .WithTags("Authorization")
+    .WithCoreApiAccess(EndpointAccess.AuthorizedTenantRoleAdministration)
+    .WithCoreApiApplicationAuthorization(EndpointAccess.AuthorizedTenantRoleAdministration)
+    .ProducesProblem(StatusCodes.Status429TooManyRequests)
+    .RequireAuthorization()
+    .Produces<TenantAuthorizationAdministrationResponse>()
+    .ProducesProblem(401).ProducesProblem(403).ProducesProblem(503).ProducesProblem(500).ProducesProblem(504);
+
+app.MapPost($"{authorizationBase}/permissions/grant", TenantAuthorizationAdministrationEndpoint.GrantPermissionAsync)
+    .WithName("ProposeTenantPermissionGrant")
+    .WithTags("Authorization")
+    .WithCoreApiAccess(EndpointAccess.AuthorizedTenantRoleAdministration)
+    .WithCoreApiApplicationAuthorization(EndpointAccess.AuthorizedTenantRoleAdministration)
+    .ProducesProblem(StatusCodes.Status429TooManyRequests)
+    .WithMetadata(new RequestSizeLimitAttribute(TenantAuthorizationAdministrationEndpoint.MaximumRequestBodyBytes))
+    .RequireAuthorization()
+    .Accepts<TenantAuthorizationAdministrationEndpoint.PermissionChangePayload>("application/json")
+    .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(409).ProducesProblem(503).ProducesProblem(500).ProducesProblem(504);
+
+app.MapPost($"{authorizationBase}/permissions/revoke", TenantAuthorizationAdministrationEndpoint.RevokePermissionAsync)
+    .WithName("ProposeTenantPermissionRevocation")
+    .WithTags("Authorization")
+    .WithCoreApiAccess(EndpointAccess.AuthorizedTenantRoleAdministration)
+    .WithCoreApiApplicationAuthorization(EndpointAccess.AuthorizedTenantRoleAdministration)
+    .ProducesProblem(StatusCodes.Status429TooManyRequests)
+    .WithMetadata(new RequestSizeLimitAttribute(TenantAuthorizationAdministrationEndpoint.MaximumRequestBodyBytes))
+    .RequireAuthorization()
+    .Accepts<TenantAuthorizationAdministrationEndpoint.PermissionChangePayload>("application/json")
+    .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(409).ProducesProblem(503).ProducesProblem(500).ProducesProblem(504);
+
+app.MapGet($"{authorizationBase}/proposals/{{proposalId:guid}}", TenantAuthorizationAdministrationEndpoint.GetProposalAsync)
+    .WithName("GetTenantAuthorizationProposal")
+    .WithTags("Authorization")
+    .WithCoreApiAccess(EndpointAccess.AuthorizedTenantRoleAdministration)
+    .WithCoreApiApplicationAuthorization(EndpointAccess.AuthorizedTenantRoleAdministration)
+    .ProducesProblem(StatusCodes.Status429TooManyRequests)
+    .RequireAuthorization()
+    .Produces<TenantAuthorizationProposal>()
+    .ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(503).ProducesProblem(500).ProducesProblem(504);
+
+app.MapPost($"{authorizationBase}/proposals/{{proposalId:guid}}/reconcile", TenantAuthorizationAdministrationEndpoint.ReconcileProposalAsync)
+    .WithName("ReconcileTenantAuthorizationProposal")
+    .WithTags("Authorization")
+    .WithCoreApiAccess(EndpointAccess.AuthorizedTenantRoleAdministration)
+    .WithCoreApiApplicationAuthorization(EndpointAccess.AuthorizedTenantRoleAdministration)
+    .ProducesProblem(StatusCodes.Status429TooManyRequests)
+    .RequireAuthorization()
+    .Produces<TenantAuthorizationProposal>()
+    .ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409).ProducesProblem(503).ProducesProblem(500).ProducesProblem(504);
+
+app.MapPost($"{authorizationBase}/roles", TenantAuthorizationAdministrationEndpoint.CreateRoleAsync)
+    .WithName("ProposeTenantCustomRoleCreation")
+    .WithTags("Authorization")
+    .WithCoreApiAccess(EndpointAccess.AuthorizedTenantRoleAdministration)
+    .WithCoreApiApplicationAuthorization(EndpointAccess.AuthorizedTenantRoleAdministration)
+    .ProducesProblem(StatusCodes.Status429TooManyRequests)
+    .WithMetadata(new RequestSizeLimitAttribute(TenantAuthorizationAdministrationEndpoint.MaximumRequestBodyBytes))
+    .RequireAuthorization()
+    .Accepts<TenantAuthorizationAdministrationEndpoint.CreateRolePayload>("application/json")
+    .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(409).ProducesProblem(503).ProducesProblem(500).ProducesProblem(504);
+
+app.MapPut($"{authorizationBase}/roles/{{roleId:guid}}", TenantAuthorizationAdministrationEndpoint.ReviseRoleAsync)
+    .WithName("ProposeTenantCustomRoleRevision")
+    .WithTags("Authorization")
+    .WithCoreApiAccess(EndpointAccess.AuthorizedTenantRoleAdministration)
+    .WithCoreApiApplicationAuthorization(EndpointAccess.AuthorizedTenantRoleAdministration)
+    .ProducesProblem(StatusCodes.Status429TooManyRequests)
+    .WithMetadata(new RequestSizeLimitAttribute(TenantAuthorizationAdministrationEndpoint.MaximumRequestBodyBytes))
+    .RequireAuthorization()
+    .Accepts<TenantAuthorizationAdministrationEndpoint.ReviseRolePayload>("application/json")
+    .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(409).ProducesProblem(503).ProducesProblem(500).ProducesProblem(504);
+
+app.MapPost($"{authorizationBase}/roles/{{roleId:guid}}/retire", TenantAuthorizationAdministrationEndpoint.RetireRoleAsync)
+    .WithName("ProposeTenantCustomRoleRetirement")
+    .WithTags("Authorization")
+    .WithCoreApiAccess(EndpointAccess.AuthorizedTenantRoleAdministration)
+    .WithCoreApiApplicationAuthorization(EndpointAccess.AuthorizedTenantRoleAdministration)
+    .ProducesProblem(StatusCodes.Status429TooManyRequests)
+    .WithMetadata(new RequestSizeLimitAttribute(TenantAuthorizationAdministrationEndpoint.MaximumRequestBodyBytes))
+    .RequireAuthorization()
+    .Accepts<TenantAuthorizationAdministrationEndpoint.RetireRolePayload>("application/json")
+    .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(409).ProducesProblem(503).ProducesProblem(500).ProducesProblem(504);
+
+app.MapPost($"{authorizationBase}/roles/{{roleId:guid}}/assignments/{{accountId:guid}}/assign", TenantAuthorizationAdministrationEndpoint.AssignRoleAsync)
+    .WithName("ProposeTenantCustomRoleAssignment")
+    .WithTags("Authorization")
+    .WithCoreApiAccess(EndpointAccess.AuthorizedTenantRoleAdministration)
+    .WithCoreApiApplicationAuthorization(EndpointAccess.AuthorizedTenantRoleAdministration)
+    .ProducesProblem(StatusCodes.Status429TooManyRequests)
+    .WithMetadata(new RequestSizeLimitAttribute(TenantAuthorizationAdministrationEndpoint.MaximumRequestBodyBytes))
+    .RequireAuthorization()
+    .Accepts<TenantAuthorizationAdministrationEndpoint.RoleAssignmentPayload>("application/json")
+    .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(409).ProducesProblem(503).ProducesProblem(500).ProducesProblem(504);
+
+app.MapPost($"{authorizationBase}/roles/{{roleId:guid}}/assignments/{{accountId:guid}}/remove", TenantAuthorizationAdministrationEndpoint.UnassignRoleAsync)
+    .WithName("ProposeTenantCustomRoleUnassignment")
+    .WithTags("Authorization")
+    .WithCoreApiAccess(EndpointAccess.AuthorizedTenantRoleAdministration)
+    .WithCoreApiApplicationAuthorization(EndpointAccess.AuthorizedTenantRoleAdministration)
+    .ProducesProblem(StatusCodes.Status429TooManyRequests)
+    .WithMetadata(new RequestSizeLimitAttribute(TenantAuthorizationAdministrationEndpoint.MaximumRequestBodyBytes))
+    .RequireAuthorization()
+    .Accepts<TenantAuthorizationAdministrationEndpoint.RoleAssignmentPayload>("application/json")
+    .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(409).ProducesProblem(503).ProducesProblem(500).ProducesProblem(504);
+
+app.MapPost($"{authorizationBase}/owner-transfer", TenantAuthorizationAdministrationEndpoint.TransferOwnerAsync)
+    .WithName("TransferTenantInitialOwner")
+    .WithTags("Authorization")
+    .WithCoreApiAccess(EndpointAccess.AuthorizedTenantRoleAdministration)
+    .WithCoreApiApplicationAuthorization(EndpointAccess.AuthorizedTenantRoleAdministration)
+    .ProducesProblem(StatusCodes.Status429TooManyRequests)
+    .WithMetadata(new RequestSizeLimitAttribute(TenantAuthorizationAdministrationEndpoint.MaximumRequestBodyBytes))
+    .RequireAuthorization()
+    .Accepts<TenantAuthorizationAdministrationEndpoint.OwnerTransferPayload>("application/json")
+    .Produces<TenantOwnerTransferResult>()
+    .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(409).ProducesProblem(503).ProducesProblem(500).ProducesProblem(504);
 
 var organizations = "/api/v1/tenants/{tenantId:guid}/customers/organizations";
 app.MapPost(organizations, TenantCustomerEndpoint.CreateOrganizationAsync)

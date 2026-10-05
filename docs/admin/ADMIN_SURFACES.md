@@ -40,18 +40,19 @@ Tenant-control backend operations remain server-authoritative tenant-scoped appl
 Role changes are not direct client-to-OpenFGA calls.
 
 ```text
-Tenant Web OR authorized online Workstation
-→ authoritative tenant administration endpoint/use case
-→ ZITADEL-authenticated session/device context
-→ current OpenFGA ManageRoles/delegation check
-→ validate requested permission ceiling
-→ durable/reconcilable authorization change
-→ OpenFGA tuple write/delete
-→ verify/apply SquiFlow revision + audit
-→ client shows Applied only after authoritative outcome is known
+Tenant Web
+→ CoreApi `/api/v1/tenants/{tenantId}/authorization/...`
+→ current active membership + current initial-Owner authorization
+→ validate compiled business-permission delegation ceiling
+→ durable PostgreSQL proposal at expected TenantAuthorizationRevision
+→ bounded manual reconciliation
+→ pinned-model OpenFGA tuple write/delete
+→ higher-consistency observation
+→ mark Applied + advance revision exactly once
+→ client shows Applied only after provider outcome is known
 ```
 
-The Workstation may cache permission snapshots for local UX/offline eligibility, but those snapshots cannot grant or revoke tenant authority.
+The Workstation may cache permission snapshots for local UX/offline eligibility, but those snapshots cannot grant or revoke tenant authority. In `v0.0.1`, role/grant administration and initial-Owner handoff are Tenant Web/CoreApi operations; the high-risk handoff is bound to the configured Tenant Web authentication context.
 
 ## 3. Module, feature, setting, and permission administration
 

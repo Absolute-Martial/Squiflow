@@ -93,7 +93,7 @@
     "catalog_validator": "AVAILABLE"
   },
   "production_qualification": "NOT_GRANTED",
-  "next_required_action": "Run the OPS-017 exact-current-source dynamic qualification commands and inspect the corresponding GitHub Verify/Security jobs. COM-001 is complete; do not rerun commercial runtime qualification solely for its read-only map.",
+  "next_required_action": "In the receiving environment, rerun the two affected OpenFGA tests, Tenancy PostgreSQL authorization tests, TenantAdmissionTests, Application.Architecture.Tests, then one complete ./eng/verify.sh. Accept no ADM-009\u2013ADM-012 qualification unless all pass with no skips and the final gate exit is zero.",
   "package_review": {
     "reviewers_completed": 9,
     "review_model": "gpt-6-luna",
@@ -101,15 +101,19 @@
     "catalog_tasks_validated": 119,
     "review_links_checked": 173,
     "head_at_review_start": "18aae19d7441018bc186b902bd5b61beddd5169e",
-    "head_at_packaging": "c652db5e4ce722f3289dadddda6c0bcd5e1dcffa",
+    "head_at_packaging": "b9f402649da6552cfd1cba144973465dd1e77ee2",
     "git_head_change_during_package_validation": "NONE; HEAD matches the current baseline",
     "serial_dependency_order": "PASS including conditional edges",
     "baseline_selected_files_changed_since_review_start": [
       "AGENTS.md",
       "README.IMPLEMENTATION.md",
+      "docs/decisions/CURRENT_DECISIONS.md",
+      "docs/decisions/OPEN_DECISIONS.md",
       "docs/development-tasks/TASK_HASHES.sha256",
       "docs/development-tasks/TASK_STATUS.md",
+      "docs/development-tasks/VERIFICATION_RESULT.md",
       "docs/development-tasks/phase-01-admin-platform/ADM-003_review-route-access-readiness-and-admission-gaps.md",
+      "docs/implementation/ADMIN_API_MEMBERSHIP_LIFECYCLE.md",
       "docs/implementation/ADMIN_API_REQUEST_BUDGETS.md",
       "docs/production-completion-review/evidence/FIRST-SEQUENCE-CURRENT-HEAD.md",
       "docs/implementation/CORE_API_REQUEST_BUDGETS.md"
@@ -160,6 +164,46 @@
       "scope": "read-only commercial starting-point preservation map",
       "runtime_claim": "NONE; no commercial runtime source changed and no new test pass is claimed",
       "evidence": "docs/production-completion-review/evidence/COM-001.md"
+    },
+    "ADM-005-ADM-012": {
+      "state": "RED_GATE_REPAIRED_RERUN_PENDING",
+      "source_head": "b9f402649da6552cfd1cba144973465dd1e77ee2",
+      "working_tree": "part of the implementation evidence; not committed",
+      "decision_complete": [
+        "ADM-005 import/link-only branch",
+        "ADM-007 local-account lifecycle decision",
+        "ADM-008 Owner/delegation policy"
+      ],
+      "implemented": [
+        "ADM-009 durable authorization proposal/revision state",
+        "ADM-010 OpenFGA apply/reconcile",
+        "ADM-011 revocation and guarded Owner handoff",
+        "ADM-012 bounded custom-role lifecycle",
+        "ADM-034 high-risk admission prerequisite"
+      ],
+      "host_neutral_build": "Application.Tenancy Release: 0 warnings / 0 errors on .NET SDK 10.0.401",
+      "static_evidence": "ADM-004 static regressions pass; 119-task catalog validation; package review; git diff --check",
+      "dynamic_acceptance": "PENDING: rerun affected PostgreSQL/OpenFGA/architecture suites plus exact ./eng/verify.sh after the six receiving-gate repairs",
+      "environment_blocker": "locked provider-backed restore cannot reach api.nuget.org (NU1301); no Docker daemon/socket",
+      "evidence": "docs/production-completion-review/evidence/ADM-005-ADM-012-CURRENT-IMPLEMENTATION.md",
+      "receiving_gate": {
+        "result": "FAILED",
+        "build": {
+          "warnings": 0,
+          "errors": 0
+        },
+        "failed_tests": [
+          "OpenFgaTenantAuthorizationTests.RealServerRequiresPersistedOrderPermissionsAndUsesPinnedModel",
+          "OpenFgaTenantAuthorizationTests.AdministrationProviderReconcilesGrantRevokeAndTenantScopedCustomRoleAgainstPinnedModel",
+          "TenantAuthorizationAdministrationPostgresTests.MigrationRollbackRefusesToDiscardAuthorizationEvidence",
+          "TenantAdmissionTests.TenantContractsDescribeCapacityRejectionWithoutChangingAccountContracts"
+        ],
+        "failed_architecture_guards": [
+          "RuntimeSqlRemainsInEmbeddedAdapterResources",
+          "ActiveSourceAndBuildIdentitiesContainNoDevelopmentCodename"
+        ],
+        "repair_status": "source fixes applied; full receiving rerun pending"
+      }
     }
   }
 }

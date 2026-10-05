@@ -72,6 +72,17 @@ internal sealed class OrderTenantDbSession : IAsyncDisposable
         return new NpgsqlCommand(sql, _connection, _transaction);
     }
 
+
+    internal NpgsqlBatch CreateBatch()
+    {
+        if (_completed)
+        {
+            throw new InvalidOperationException("The Orders tenant database session has completed.");
+        }
+
+        return new NpgsqlBatch(_connection, _transaction);
+    }
+
     internal async Task CommitAsync(CancellationToken cancellationToken)
     {
         if (_completed)

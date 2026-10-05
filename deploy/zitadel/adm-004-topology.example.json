@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "environment": "nonproduction",
+  "issuer": "https://example.zitadel.cloud",
+  "providerOrganizationId": "REPLACE_WITH_NON_SECRET_ORGANIZATION_ID",
+  "tenantAccess": {
+    "projectId": "REPLACE_WITH_TENANT_PROJECT_ID",
+    "webClientId": "REPLACE_WITH_WEB_CLIENT_ID",
+    "nativeClientId": "REPLACE_WITH_NATIVE_CLIENT_ID",
+    "apiAudience": "REPLACE_WITH_TENANT_API_AUDIENCE",
+    "redirectUris": [
+      "https://app.example.invalid/signin-oidc",
+      "http://127.0.0.1/callback"
+    ]
+  },
+  "platformAdmin": {
+    "projectId": "REPLACE_WITH_ADMIN_PROJECT_ID",
+    "webClientId": "REPLACE_WITH_ADMIN_WEB_CLIENT_ID",
+    "apiAudience": "REPLACE_WITH_ADMIN_API_AUDIENCE",
+    "redirectUris": [
+      "https://admin.example.invalid/signin-oidc"
+    ]
+  },
+  "identityVerifier": {
+    "serviceUserId": "REPLACE_WITH_SERVICE_USER_ID",
+    "declaredProviderRole": "REPLACE_WITH_NARROW_READ_ONLY_ROLE",
+    "roleAssignmentEvidenceSha256": "REPLACE_WITH_SHA256_OF_REDACTED_ROLE_ASSIGNMENT_EVIDENCE"
+  },
+  "export": {
+    "reference": "REPLACE_WITH_REVIEWED_EXPORT_OR_INVENTORY_REFERENCE",
+    "capturedAtUtc": "2026-10-04T00:00:00Z"
+  },
+  "recoveryEvidence": {
+    "inventorySha256": "REPLACE_WITH_SHA256_OF_REVIEWED_NON_SECRET_EXPORT",
+    "knownSubjectBindingEvidenceSha256": "REPLACE_WITH_SHA256_OF_REDACTED_ACCOUNT_LINK_RECOVERY_EVIDENCE"
+  }
+}

@@ -2,7 +2,7 @@
 
 **Version:** v0.0.1
 
-**Current implementation:** SquiFlow owns a global tenant registry, current active account memberships and an immutable membership-derived `TenantContext`. The Core API checks `tenant#can_view_workspace`, `tenant#can_create_order`, `tenant#can_edit_order`, `tenant#can_apply_manual_price`, `tenant#can_view_orders`, `tenant#can_abandon_order`, `tenant#can_create_organization`, `tenant#can_view_organizations`, `tenant#can_create_program`, `tenant#can_view_programs`, `tenant#can_commit_order`, `tenant#can_create_individual`, `tenant#can_view_individuals`, and `tenant#can_change_individual_availability` under one explicitly configured model ID. Each computed relation requires verified current membership supplied as a contextual tuple plus its separate persisted permission relation. Role/custom-role administration, application tuple writes/reconciliation, authorization revision, device authority and resource-specific order relationships remain `NOT_INTRODUCED`.
+**Current implementation:** SquiFlow owns a global tenant registry, current active memberships, immutable membership-derived `TenantContext`, a compiled stable business-permission catalog, per-tenant authorization revision, durable authorization proposals/evidence, direct business-grant state, bounded custom-role definitions/assignments and replay-safe initial-Owner transfer. CoreApi remains the OpenFGA provider adapter under one explicitly configured model ID. Each executable business permission still requires current membership plus its provider relation; custom roles use tenant-scoped `role#assignee` usersets and do not create one authorization model per role. Device authority and resource-specific order relationships remain outside this tenant-role administration slice.
 
 SquiFlow is small-team-first. `Owner` and `Staff` are default templates, not fixed product roles.
 
@@ -18,13 +18,13 @@ The Owner may create custom roles such as Manager, Accounts, Designer, Sales, St
 
 The product owner selected **team and role administration only for the initial Owner default**. Business-operation rights must be granted separately. This default does not inherit Staff's workspace/Customers/Orders reads, grant all tenant mutations, or confer pricing, debtor-assignment, billing or platform authority. The existing immutable initial-Owner bootstrap marker remains a protected designation; it does not currently materialize this selected role template.
 
-Authority to exercise an operation and authority to delegate it are distinct. Selecting the Owner administration default does not decide whether an Owner may grant business rights they do not exercise, assign additional rights to themselves, or compose them through multiple/custom roles. The exact delegation ceiling, composition and self-assignment rules remain the next explicit contract choice, alongside guarded Owner handoff/recovery. Do not implement unrestricted grant power or automatic business-right inheritance from this selection. Role/default provisioning remains `NOT_INTRODUCED`.
+Authority to exercise an operation and authority to delegate it are distinct. For `v0.0.1`, only the current protected initial Owner may administer tenant business grants/roles. That Owner may grant any permission in the current compiled tenant-business permission catalog to an active membership, including itself, without needing to exercise that permission personally. Direct grants and multiple custom-role assignments compose by allow-union. The delegation ceiling excludes role administration itself, Platform Admin authority, arbitrary OpenFGA relations and cross-tenant authority. Initial-Owner handoff is a separate high-risk operation and atomically moves the protected designation/revisions; it does not silently grant business rights.
 
 ### Accepted new-Staff default — 2026-10-04
 
 The product owner selected **read-only workspace, Customers and Orders access for new Staff**. The default grants no creation, editing, availability change, abandonment, commitment, price entry/override, debtor assignment, billing mutation, role management or platform administration authority. Tenant membership and the Staff label alone remain insufficient: current account/tenant/membership checks and the independent pinned-model authorization decision still apply.
 
-This is an accepted template contract, not implemented automatic provisioning. Staff/Owner role materialization, role assignment and tuple administration/reconciliation remain `NOT_INTRODUCED`. Existing memberships or tuples are not silently migrated by this decision. The module-owned permission catalog described below remains a selected direction, not an implemented runtime catalog.
+This remains a template contract rather than automatic Staff provisioning. Existing memberships/tuples are not silently migrated. The module-owned permission catalog and custom-role administration now exist, but automatic application of the Staff template is not introduced by ADM-008–012.
 
 The existing read operations provide the following concrete mapping; these are inspected runtime relations, not newly invented permission IDs:
 
@@ -40,7 +40,7 @@ Source owners: `infrastructure/authorization/openfga/tenant-authorization-model.
 
 The existing Orders read projection includes stored prices/totals and history. Read access supplies no `manual_pricer` relation and cannot enter or override prices; any newly proposed sensitive cost/margin/contact projection needs its own disclosure policy rather than relying on UI hiding.
 
-The initial Owner and Staff default scopes are now selected. Remaining ADM-008 decisions are the exact delegation ceiling, custom-role/multiple-role composition, self-assignment and default-template changes, and guarded ownership transfer/recovery. The protected initial-Owner bootstrap marker grants no general Owner permissions. Tenant Owner authority never implies Platform Admin, cross-tenant, provider or infrastructure authority. Registry browse/detail work on the private AdminApi retains its separate current platform actor/device/OpenFGA checks and does not depend on resolving these tenant-role questions.
+The initial Owner/Staff default scopes and ADM-008 delegation contract are now selected. The protected initial Owner has role/team administration authority only; it grants no automatic business permission. Direct/custom-role grants compose by allow-union and self-grant is allowed only inside the compiled delegation ceiling. Owner handoff is guarded, atomic and step-up protected. Tenant Owner authority never implies Platform Admin, cross-tenant, provider or infrastructure authority. Default-template publication/change mechanics beyond these accepted defaults remain separate future work.
 
 ## 2. Stable permission vocabulary
 
@@ -94,7 +94,15 @@ A definition may contain:
 
 This borrows the useful definition/catalog idea from ABP and the module-aware composition idea from Orchard Core without adopting either permission runtime or role store.
 
-Permission definitions are trusted versioned code/module metadata. Tenants can compose supported definitions into custom roles, but cannot create arbitrary executable permission rules.
+Permission definitions are trusted versioned code/module metadata. The current runtime catalog contains only implemented tenant business permissions mapped to known OpenFGA relations. Tenants can compose those definitions into custom roles but cannot create arbitrary executable permission rules or `roles.manage`/platform authority.
+
+## 3A. Current ADM-009–ADM-012 administration protocol
+
+Tenant authorization administration is a two-system operation with PostgreSQL as durable intent/evidence and OpenFGA as execution authority. A mutation first records one semantic proposal in PostgreSQL under the expected `TenantAuthorizationRevision`. At most one Pending/Uncertain proposal may be active per tenant. The caller may then invoke bounded reconciliation. Reconciliation rechecks that the original requester is still the current initial Owner, applies an idempotent tuple write/delete against the pinned model, observes the requested provider state at higher consistency, and only then marks the proposal Applied and advances the tenant authorization revision exactly once. Provider uncertainty remains `Uncertain`; it is never reported as success.
+
+Custom role definitions are SquiFlow metadata. A role has a stable tenant-scoped ID, bounded name/permission set and lifecycle revision. OpenFGA represents role membership as `role:<tenant>_<role>#assignee`; tenant business permission relations accept either direct users or that userset. Role revision reconciles the tuple diff. Retirement removes role permission tuples and active assignments while preserving durable historical evidence.
+
+Owner handoff is not an OpenFGA role edit. It atomically moves the protected `is_initial_owner` marker to an active target membership, increments affected membership/tenant/authorization revisions and retains a semantic replay receipt. The CoreApi Owner-transfer route additionally requires recent configured Tenant Web authentication context (`azp`, `acr`, provider `auth_time`) before the transaction.
 
 ## 4. Feature availability is not authorization
 
