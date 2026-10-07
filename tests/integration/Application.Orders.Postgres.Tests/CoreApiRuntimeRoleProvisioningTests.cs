@@ -201,6 +201,70 @@ public sealed class CoreApiRuntimeRoleProvisioningTests : PostgresTestDatabase
         Assert.Contains("inherit or assume", failure.MessageText, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task ProvisioningRejectsInheritedQuotationMutationPrivilegesWithoutApplyingPartialGrants()
+    {
+        await ApplyOrderSchemaAsync();
+        await CreateRoleAsync();
+
+        foreach (var table in new[] { "heads", "issued", "numbers", "receipts" })
+        {
+            await AssertProvisioningRejectedAsync($"TRUNCATE ON TABLE quotations.{table}");
+            await AssertProvisioningRejectedAsync($"DELETE ON TABLE quotations.{table}");
+        }
+
+        foreach (var (table, column) in new[]
+                 {
+                     ("heads", "created_by"), ("issued", "facts"), ("numbers", "tenant_id"), ("receipts", "response"),
+                 })
+        {
+            await AssertProvisioningRejectedAsync($"UPDATE ({column}) ON TABLE quotations.{table}");
+        }
+
+        foreach (var table in new[] { "issued", "receipts" })
+        {
+            await AssertProvisioningRejectedAsync($"UPDATE ON TABLE quotations.{table}");
+        }
+    }
+
+    private async Task AssertProvisioningRejectedAsync(string privilege)
+    {
+        await using (var admin = new NpgsqlConnection(ConnectionString))
+        {
+            await admin.OpenAsync(CancellationToken.None);
+            await using var grant = admin.CreateCommand();
+            grant.CommandText = $"GRANT {privilege} TO PUBLIC";
+            await grant.ExecuteNonQueryAsync(CancellationToken.None);
+        }
+
+        try
+        {
+            var failure = await Assert.ThrowsAsync<PostgresException>(ApplyProvisioningAsync);
+            Assert.Equal(PostgresErrorCodes.RaiseException, failure.SqlState);
+
+            await using var connection = new NpgsqlConnection(ConnectionString);
+            await connection.OpenAsync(CancellationToken.None);
+            await using var check = connection.CreateCommand();
+            check.CommandText = """
+                SELECT has_table_privilege(@role, 'identity_access.accounts', 'SELECT'),
+                       has_schema_privilege(@role, 'quotations', 'USAGE')
+                """;
+            check.Parameters.AddWithValue("role", RuntimeRole);
+            await using var reader = await check.ExecuteReaderAsync(CancellationToken.None);
+            Assert.True(await reader.ReadAsync(CancellationToken.None));
+            Assert.False(reader.GetBoolean(0));
+            Assert.False(reader.GetBoolean(1));
+        }
+        finally
+        {
+            await using var admin = new NpgsqlConnection(ConnectionString);
+            await admin.OpenAsync(CancellationToken.None);
+            await using var revoke = admin.CreateCommand();
+            revoke.CommandText = $"REVOKE {privilege} FROM PUBLIC";
+            await revoke.ExecuteNonQueryAsync(CancellationToken.None);
+        }
+    }
+
     private async Task CreateRoleAsync()
     {
         await using var connection = new NpgsqlConnection(ConnectionString);

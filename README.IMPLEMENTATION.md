@@ -11,8 +11,8 @@
 The three count lines below are machine-read by `Application.Architecture.Tests` (`ReadCount` matches `^label: N$`). Keep each on its own line in exactly this form.
 
 ```text
-production projects: 22
-test projects:       20
+production projects: 24
+test projects:       22
 executable hosts:    4
 solution files:      1
 repository build/test contract: present
@@ -33,15 +33,21 @@ BLOCKED: COM-004 external Hugging Face provider qualification (OPS-007/OPS-008),
 | Catalog | `Application.Catalog`, `.Postgres` | Tenant product/service and unit identity, rename/retirement history, immutable direct conversions, availability-only state and bounded frozen catalog line facts. Numerical inventory remains separate. |
 | Orders | `Application.Orders`, `.Postgres` | Manual or separate catalog-priced drafts: create/read/browse/revise/abandon/commit with immutable receipts/history and optional customer/program attribution. Catalog-priced commitment revalidates current compatible publication/policy under an effect-transaction-bound pin; committed facts never reprice. |
 | Pricing | `Application.Pricing`, `.Postgres` | Versioned tenant price drafts/publication/retirement, deterministic source precedence, typed missing/expired/conflict outcomes, override evidence and explainable candidate selection. |
+| Quotations | `Application.Quotations`, `.Postgres` | Optional supplied-price or Catalog/Pricing drafts, revision-checked immutable issuance, tenant-wide numbering and protected bounded history. Drafting/issuance/history is locally qualified; responses/conversion are not yet introduced. |
 | Invoices | `Application.Invoices` | Host-neutral invoice-issue orchestration over committed Orders: current billing-authority port, caller-scoped idempotency/replay contract, NPR/revision/arithmetic validation, debtor resolution through Customers public queries, immutable retained issued-fact contracts and explicit safe outcomes. No PostgreSQL adapter, numbering/date policy implementation, HTTP surface or durable invoice runtime is introduced. |
 | CoreApi | `Application.CoreApi` | ASP.NET Core host: protected capability routes, JWT validation, membership-derived resource authorization with pinned OpenFGA checks, Autofac composition, shared bounded Npgsql pool, safe failure/admission/budget/health behavior, the conditional Hugging Face Storage Bucket adapter, and dormant profile-runtime mechanics. Explicitly enabled autonomous customer-import execution awaits bounded tenant discovery/row batches and drains through standard hosting; no generic Worker/scheduler is implied. |
 | AdminApi | `Application.AdminApi` | Private ASP.NET Core host with exact ZITADEL identity, active registered Admin-device certificate, pinned-model OpenFGA authorization, retained protected-access audit, tenant provisioning, verified import/link of existing ZITADEL human identities into stable local accounts, bounded tenant/account/membership registry reads, and a bounded cooperative deadline on explicitly classified protected routes. |
 | AdminBootstrap | `Application.AdminBootstrap` | One-shot private infrastructure executable. It prepares/reuses the durable bootstrap intent, writes the initial administrator relation to the explicitly pinned platform OpenFGA model with duplicate-safe semantics, confirms access at higher consistency, then marks local bootstrap complete. It exposes no HTTP bootstrap endpoint. |
-| DatabaseMigrator | `Application.DatabaseMigrator` | One-shot ordered migration of IdentityAccess, Tenancy, PlatformAdministration, Customers, Catalog, Pricing and Orders under an advisory lock. |
+| DatabaseMigrator | `Application.DatabaseMigrator` | One-shot ordered migration of IdentityAccess, Tenancy, PlatformAdministration, Customers, Catalog, Pricing, Orders and Quotations under an advisory lock. |
 
 Each PostgreSQL adapter owns its context factory, migration files, runtime DI registration and persistence code. The migrator owns only the advisory lock, command/exit behavior and ordering. Capability projects stay host- and provider-neutral.
 
 ## Implemented HTTP surface (CoreApi)
+
+The quotation draft/issue/detail/history routes and their exact accepted contract
+are owned by [`QUOTATIONS_AND_CONVERSION.md`](docs/implementation/QUOTATIONS_AND_CONVERSION.md);
+COM-009 is `PRODUCTION_HONEST` for that declared bounded scope, with its
+[qualification receipt](docs/review/COM_009_IMPLEMENTATION_RECEIPT.md).
 
 All protected responses are `no-store`, including authentication failures and handled errors. `GET /openapi/v1.json` describes the executable contract using the configured public brand; its OpenID Connect scheme is attached only to operations that require authorization.
 
@@ -135,7 +141,7 @@ A deployment must provide the public Branding values, Authentication authority/a
 
 ## Explicitly `NOT_INTRODUCED`
 
-No production feature catalog; durable Tenant Application Profile authority; production profile-specific resolution (no production endpoint acquires the internal tenant-keyed profile-runtime registry); live ZITADEL-instance/service-account qualification; provider-side user creation or reconciliation; tenant-to-ZITADEL organization mapping; login/callback/session flows; general Owner/Staff permissions or custom-role modeling; ongoing platform/tenant role administration and tuple reconciliation; authorization revision; normal Admin-device registration/revocation/rotation lifecycle; tenant/Workstation device lifecycle; a broader order/business lifecycle (quotation, admission, fulfillment, durable invoice persistence/number allocation, payment, credit, return, refund); an external PostgreSQL pooler; Worker; Web UI; Workstation; a general ApplicationKernel/module runtime.
+No production feature catalog; durable Tenant Application Profile authority; production profile-specific resolution (no production endpoint acquires the internal tenant-keyed profile-runtime registry); live ZITADEL-instance/service-account qualification; provider-side user creation or reconciliation; tenant-to-ZITADEL organization mapping; login/callback/session flows; general Owner/Staff permissions or custom-role modeling; ongoing platform/tenant role administration and tuple reconciliation; authorization revision; normal Admin-device registration/revocation/rotation lifecycle; tenant/Workstation device lifecycle; a broader order/business lifecycle (recorded quotation responses/conversion, admission, fulfillment, durable invoice persistence/number allocation, payment, credit, return, refund); an external PostgreSQL pooler; Worker; Web UI; Workstation; a general ApplicationKernel/module runtime.
 
 ## Excluded from the inventory
 

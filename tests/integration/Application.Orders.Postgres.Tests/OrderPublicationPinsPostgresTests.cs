@@ -41,7 +41,7 @@ public sealed partial class OrderMigrationAndRlsTests
         var write = ExecuteCommercialMutationAsync(writerSource, context, fixture, mutation, deadline.Token);
         try
         {
-            await AssertOrderTransactionOwnsPublicationPinAsync("publication-reader");
+            await AssertEffectTransactionOwnsPublicationPinAsync("publication-reader");
             await WaitForPublicationLockAsync("publication-writer", granted: false, "ExclusiveLock");
             Assert.False(write.IsCompleted);
             // Reads remain usable while an exclusive writer waits. In particular,
@@ -96,8 +96,8 @@ public sealed partial class OrderMigrationAndRlsTests
         try
         {
             await Task.WhenAll(firstGate.Compared.Task, secondGate.Compared.Task).WaitAsync(TimeSpan.FromSeconds(10));
-            await AssertOrderTransactionOwnsPublicationPinAsync("tenant-first");
-            await AssertOrderTransactionOwnsPublicationPinAsync("tenant-second");
+            await AssertEffectTransactionOwnsPublicationPinAsync("tenant-first");
+            await AssertEffectTransactionOwnsPublicationPinAsync("tenant-second");
             var result = await new PostgresPricingStore(writer).PublishPolicyAsync(new(other, account),
                 new(0, 0, 100), "other-policy", default).WaitAsync(TimeSpan.FromSeconds(5));
             Assert.Equal(PublishPricingPolicyStatus.Published, result.Status);
@@ -206,7 +206,7 @@ public sealed partial class OrderMigrationAndRlsTests
             await HoldCommercialReceiptInsertAsync(admin, receiptBlock);
             gate.Continue.TrySetResult();
             await WaitForRelationLockAsync("orders-commercial-commit", "orders.command_receipts", "RowExclusiveLock", granted: false);
-            await AssertOrderTransactionOwnsPublicationPinAsync("orders-commercial-commit");
+            await AssertEffectTransactionOwnsPublicationPinAsync("orders-commercial-commit");
             Assert.False(commit.IsCompleted);
             Assert.False(retirement.IsCompleted);
             // The header UPDATE has run, but neither it nor its receipt is visible.
@@ -264,7 +264,7 @@ public sealed partial class OrderMigrationAndRlsTests
                 gate.Continue.TrySetResult();
                 await WaitForRelationLockAsync("terminated-orders", "orders.command_receipts", "RowExclusiveLock", granted: false);
             }
-            var pid = await AssertOrderTransactionOwnsPublicationPinAsync("terminated-orders");
+            var pid = await AssertEffectTransactionOwnsPublicationPinAsync("terminated-orders");
             await TerminateCommercialBackendAsync(pid);
             // No guard unwind, heartbeat, final read or separate pin disposal is
             // needed for progress: killing THIS backend releases its transaction.
@@ -507,17 +507,18 @@ public sealed partial class OrderMigrationAndRlsTests
         }
     }
 
-    private async Task<int> AssertOrderTransactionOwnsPublicationPinAsync(string name)
+    private async Task<int> AssertEffectTransactionOwnsPublicationPinAsync(string name, string relation = "orders.order_drafts")
     {
         await using var monitor = new NpgsqlConnection(ConnectionString);
         await monitor.OpenAsync();
         await using var probe = new NpgsqlCommand("""
             SELECT p.pid, EXISTS(SELECT 1 FROM pg_locks r WHERE r.pid=p.pid AND r.granted
-              AND r.relation='orders.order_drafts'::regclass AND r.mode='RowShareLock')
+              AND r.relation=@relation::regclass AND r.mode='RowShareLock')
             FROM pg_locks p JOIN pg_stat_activity a ON a.pid=p.pid
             WHERE a.application_name=@name AND p.locktype='advisory' AND p.mode='ShareLock' AND p.granted
             """, monitor);
         probe.Parameters.AddWithValue("name", name);
+        probe.Parameters.AddWithValue("relation", relation);
         await using var reader = await probe.ExecuteReaderAsync();
         Assert.True(await reader.ReadAsync());
         var pid = reader.GetInt32(0);

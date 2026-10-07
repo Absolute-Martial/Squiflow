@@ -72,6 +72,16 @@ internal sealed class OpenFgaTenantAuthorization(
     ITenantCatalogAuthorization,
     ITenantPricingAuthorization
 {
+    internal Task<bool> CheckQuotationAsync(Guid account, Guid tenant, Application.Quotations.QuotationCapability capability, CancellationToken ct) =>
+        CheckAsync(account, tenant, capability switch
+        {
+            Application.Quotations.QuotationCapability.Create => "can_create_quotation",
+            Application.Quotations.QuotationCapability.Edit => "can_edit_quotation",
+            Application.Quotations.QuotationCapability.View => "can_view_quotations",
+            Application.Quotations.QuotationCapability.Issue => "can_issue_quotation",
+            _ => throw new ArgumentOutOfRangeException(nameof(capability)),
+        }, ct);
+
     private const string MemberRelation = "member";
     private const string ViewWorkspaceRelation = "can_view_workspace";
     private const string CreateOrderRelation = "can_create_order";

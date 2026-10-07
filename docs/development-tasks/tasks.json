@@ -734,7 +734,7 @@
       "task_id": "COM-009",
       "title": "Optional quotations and immutable issued revisions",
       "phase": "02-commercial-backend",
-      "status": "DECISION_REQUIRED",
+      "status": "VERIFY_EXISTING",
       "model": "GPT-6.1 Sol",
       "release_requirement": "REQUIRED",
       "dependencies": [

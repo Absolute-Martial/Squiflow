@@ -80,6 +80,10 @@ public static class TenantPermissionCatalog
         new("pricing.publish", "pricing_publisher", "Publish price revisions and policy"),
         new("pricing.retire", "pricing_retirer", "Retire published price revisions"),
         new("pricing.override", "pricing_overrider", "Override a selected price with a reason"),
+        new("quotations.create", "quotation_creator", "Create quotation drafts"),
+        new("quotations.edit", "quotation_editor", "Revise quotation drafts"),
+        new("quotations.view", "quotation_viewer", "Read quotation facts and history"),
+        new("quotations.issue", "quotation_issuer", "Issue immutable quotation revisions"),
         new("pricing.override_beyond_policy", "pricing_exception_overrider", "Override outside the current policy envelope"),
     ];
 

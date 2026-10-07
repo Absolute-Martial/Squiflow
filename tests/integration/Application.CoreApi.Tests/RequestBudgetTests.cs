@@ -29,15 +29,21 @@ public sealed class RequestBudgetTests
             builder.UseSetting(CoreApiRequestBudgets.TimeoutKey, "1"));
         using var client = factory.CreateClient();
         using var slowBody = new SlowBodyStream();
-        var completed = await factory.Server.SendAsync(context =>
+        var token = baseline.CreateToken("slow-body-subject");
+        var pending = factory.Server.SendAsync(context =>
         {
             context.Request.Method = "POST";
             context.Request.Path = $"/api/v1/tenants/{tenant:D}/customers/organizations";
             context.Request.ContentType = "application/json";
-            context.Request.Headers.Authorization = "Bearer " + baseline.CreateToken("slow-body-subject");
+            context.Request.Headers.Authorization = "Bearer " + token;
             context.Request.Headers["Idempotency-Key"] = "slow-body-key";
             context.Request.Body = slowBody;
-        }).WaitAsync(TimeSpan.FromSeconds(5));
+        });
+        // Observe the blocked body read independently of TestServer request dispatch.
+        // The server budget remains one second; only the test watchdog changes.
+        await slowBody.Entered.Task.WaitAsync(TimeSpan.FromSeconds(30));
+        var completed = await pending.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.True(slowBody.Exited.Task.IsCompleted);
         Assert.True(slowBody.CancellationObserved);
         Assert.Equal(StatusCodes.Status504GatewayTimeout, completed.Response.StatusCode);
         Assert.Equal("no-store", completed.Response.Headers.CacheControl.ToString());
@@ -222,14 +228,18 @@ public sealed class RequestBudgetTests
     {
         public override bool CanSeek => false;
         public bool CancellationObserved { get; private set; }
+        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Exited { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
         {
+            Entered.TrySetResult();
             try { await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken); }
             catch (OperationCanceledException)
             {
                 CancellationObserved = cancellationToken.IsCancellationRequested;
                 throw;
             }
+            finally { Exited.TrySetResult(); }
             throw new InvalidOperationException("The blocked read unexpectedly completed.");
         }
     }

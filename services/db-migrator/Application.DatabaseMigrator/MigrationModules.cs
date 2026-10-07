@@ -26,6 +26,7 @@ internal static class MigrationModules
         new("catalog", 260, typeof(CatalogDbContext), CatalogPostgresMigrations.CreateContext),
         new("pricing", 275, typeof(PricingDbContext), PricingPostgresMigrations.CreateContext),
         new("orders", 300, typeof(OrderDbContext), OrdersPostgresMigrations.CreateContext),
+        new("quotations", 325, typeof(Application.Quotations.Postgres.QuotationDbContext), Application.Quotations.Postgres.QuotationsPostgresRegistration.CreateContext),
     ]);
 
     internal static IReadOnlyList<MigrationModule> ValidateAndOrder(IEnumerable<MigrationModule> modules)

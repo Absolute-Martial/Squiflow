@@ -27,6 +27,7 @@ internal static class CoreApiPersistenceRegistration
         services.AddSingleton(TimeProvider.System);
         services.AddOrdersPostgres();
         services.AddCatalogOrderIntegration();
+        Application.Quotations.Postgres.QuotationsPostgresRegistration.AddQuotationsPostgres(services);
 
         return services;
     }

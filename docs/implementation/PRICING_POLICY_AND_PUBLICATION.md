@@ -2,8 +2,8 @@
 
 **Owner:** COM-006 and COM-007. **Decision:** 2026-10-06. **Product:** v0.0.1.
 
-Pricing owns source selection, publication and override policy. Orders continues
-to own quantity-times-price calculation, decimal rounding and totals through
+Pricing owns source selection, publication and override policy. Orders and Quotations own their document totals and validation, using the shared
+`Application.Pricing/SellingPriceArithmetic.cs` line arithmetic described by
 [`PRICING_COMPONENT_BOUNDARY.md`](PRICING_COMPONENT_BOUNDARY.md). No host copies
 that arithmetic. Current repository inventory is in `README.IMPLEMENTATION.md`.
 
@@ -15,7 +15,7 @@ that arithmetic. Current repository inventory is in `README.IMPLEMENTATION.md`.
 | PostgreSQL prices, immutable receipts/policy history, contextual bounded reads | `PRODUCTION_HONEST` | Real PostgreSQL regressions; not a deployment qualification. |
 | Pricing HTTP ingress and shared host integration | `PRODUCTION_HONEST` | Composed independent authorization, strict DTOs, migration and restricted grants; exact normal local receiving gate passed. |
 | Orders pre-commit application integration | `PRODUCTION_HONEST` | Frozen facts, compatibility comparison and effect-transaction-bound publication fencing; real backend-loss/race guards and normal gate passed. |
-| Quotation/agreement owning-fact integration | `NOT_INTRODUCED` | COM-009 is absent. No client ID or price-book publication may pretend to be a committed fact. |
+| Quotation/agreement owning-fact integration | `NOT_INTRODUCED` | COM-009 issuance is receiving qualification; the accepted-offer reader/conversion remains COM-010. No client ID or price-book publication may pretend to be a committed fact. |
 | Discount calculation, approval workflow, arbitrary wholesale tiers | `NOT_INTRODUCED` | No expression language, guessed eligibility GUID or universal maker/checker rule. |
 
 The normal **1011-test** repository gate supplies combined receiving evidence;

@@ -53,6 +53,8 @@ internal static class CoreApiAuthorizationRegistration
         services.AddScoped<IAuthorizationHandler, OverridePricingAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, OverrideBeyondPolicyPricingAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, ManageTenantRolesAuthorizationHandler>();
+        services.AddScoped<Application.Quotations.IQuotationAuthority, QuotationAuthority>();
+        services.AddScoped<IAuthorizationHandler, QuotationAuthorizationHandler>();
         services.AddAuthorization();
 
         return services;

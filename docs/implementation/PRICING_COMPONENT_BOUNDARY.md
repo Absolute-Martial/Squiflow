@@ -128,7 +128,7 @@ The decisions and bounded implementation for durable price publication,
 precedence, typed resolution, override evidence, revision retention and
 PostgreSQL persistence are now owned by
 [`PRICING_POLICY_AND_PUBLICATION.md`](PRICING_POLICY_AND_PUBLICATION.md).
-The current Orders calculator remains unchanged and is not a policy selector.
+The Orders calculator preserves its contract and now consumes the shared line arithmetic described below; it is not a policy selector.
 That owner defines stable item/unit price identity, durable configurable policy,
 isolated CoreApi routes and neutral draft-revalidation comparison. Shared host,
 OpenFGA, DbMigrator/grants and Orders receiving integration remain main-owned;
@@ -223,3 +223,14 @@ regressions. A separate read-only security review found no concrete bypass or
 unsafe fallback. `BLOCKED = none` for this manual-entry authorization scope.
 Coverage, remote CI, real OIDC/tuple administration, deployment rollout and the
 complete commercial backend are not qualified by this local gate.
+
+
+## Quotation arithmetic consumer — COM-009
+
+The accepted second price-bearing consumer earns the shared host-neutral
+`Application.Pricing/SellingPriceArithmetic.cs` quantity-times-price calculation.
+Orders retains its existing validation, unit-code, fingerprint and receipt
+contracts and total assembly; Quotations owns its offer inputs and total assembly.
+Both use the same checked decimal(19,4) and four-decimal ToEven line arithmetic.
+Price selection and permissions remain independent of calculation. No tax,
+supplier-cost, quantity-break or discount calculation is introduced.

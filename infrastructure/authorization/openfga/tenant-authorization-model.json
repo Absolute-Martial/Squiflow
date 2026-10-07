@@ -359,6 +359,14 @@
         "can_override_pricing": { "intersection": { "child": [ { "computedUserset": { "relation": "member" } }, { "computedUserset": { "relation": "pricing_overrider" } } ] } },
         "pricing_exception_overrider": { "this": {} },
         "can_override_pricing_beyond_policy": { "intersection": { "child": [ { "computedUserset": { "relation": "member" } }, { "computedUserset": { "relation": "pricing_exception_overrider" } } ] } },
+        "quotation_creator": {"this": {}},
+        "can_create_quotation": {"intersection": {"child": [{"computedUserset": {"relation": "member"}}, {"computedUserset": {"relation": "quotation_creator"}}]}},
+        "quotation_editor": {"this": {}},
+        "can_edit_quotation": {"intersection": {"child": [{"computedUserset": {"relation": "member"}}, {"computedUserset": {"relation": "quotation_editor"}}]}},
+        "quotation_viewer": {"this": {}},
+        "can_view_quotations": {"intersection": {"child": [{"computedUserset": {"relation": "member"}}, {"computedUserset": {"relation": "quotation_viewer"}}]}},
+        "quotation_issuer": {"this": {}},
+        "can_issue_quotation": {"intersection": {"child": [{"computedUserset": {"relation": "member"}}, {"computedUserset": {"relation": "quotation_issuer"}}]}},
         "representative_manager": {
           "this": {}
         },
@@ -634,6 +642,14 @@
           "can_override_pricing": { "directly_related_user_types": [] },
           "pricing_exception_overrider": { "directly_related_user_types": [ { "type": "user" }, { "type": "role", "relation": "assignee" } ] },
           "can_override_pricing_beyond_policy": { "directly_related_user_types": [] },
+          "quotation_creator": {"directly_related_user_types": [{"type": "user"}, {"type": "role", "relation": "assignee"}]},
+          "can_create_quotation": {"directly_related_user_types": []},
+          "quotation_editor": {"directly_related_user_types": [{"type": "user"}, {"type": "role", "relation": "assignee"}]},
+          "can_edit_quotation": {"directly_related_user_types": []},
+          "quotation_viewer": {"directly_related_user_types": [{"type": "user"}, {"type": "role", "relation": "assignee"}]},
+          "can_view_quotations": {"directly_related_user_types": []},
+          "quotation_issuer": {"directly_related_user_types": [{"type": "user"}, {"type": "role", "relation": "assignee"}]},
+          "can_issue_quotation": {"directly_related_user_types": []},
           "representative_manager": {
             "directly_related_user_types": [
               {

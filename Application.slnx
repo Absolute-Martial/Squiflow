@@ -18,6 +18,8 @@
     <Project Path="modules/platform-administration/Application.PlatformAdministration/Application.PlatformAdministration.csproj" />
     <Project Path="modules/pricing/Application.Pricing.Postgres/Application.Pricing.Postgres.csproj" />
     <Project Path="modules/pricing/Application.Pricing/Application.Pricing.csproj" />
+    <Project Path="modules/quotations/Application.Quotations/Application.Quotations.csproj" />
+    <Project Path="modules/quotations/Application.Quotations.Postgres/Application.Quotations.Postgres.csproj" />
     <Project Path="modules/tenancy/Application.Tenancy.Postgres/Application.Tenancy.Postgres.csproj" />
     <Project Path="modules/tenancy/Application.Tenancy/Application.Tenancy.csproj" />
   </Folder>
@@ -47,6 +49,8 @@
     <Project Path="tests/unit/Application.Tenancy.Tests/Application.Tenancy.Tests.csproj" />
     <Project Path="tests/unit/Application.Orders.Tests/Application.Orders.Tests.csproj" />
     <Project Path="tests/unit/Application.PlatformAdministration.Tests/Application.PlatformAdministration.Tests.csproj" />
+    <Project Path="tests/unit/Application.Quotations.Tests/Application.Quotations.Tests.csproj" />
+    <Project Path="tests/integration/Application.Quotations.Postgres.Tests/Application.Quotations.Postgres.Tests.csproj" />
     <Project Path="tests/unit/Application.Pricing.Tests/Application.Pricing.Tests.csproj" />
   </Folder>
 </Solution>

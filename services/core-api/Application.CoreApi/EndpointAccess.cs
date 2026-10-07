@@ -46,6 +46,10 @@ internal enum EndpointAccess
     AuthorizedTenantCatalogOrderCreation,
     AuthorizedTenantCatalogOrderRevision,
     AuthorizedTenantRoleAdministration,
+    AuthorizedQuotationCreate,
+    AuthorizedQuotationEdit,
+    AuthorizedQuotationView,
+    AuthorizedQuotationIssue,
 }
 
 internal sealed record EndpointAccessMetadata(EndpointAccess Access)
@@ -67,6 +71,10 @@ internal static class CoreApiApplicationAuthorizationContract
 {
     internal static IReadOnlyList<IAuthorizationRequirement> RequirementsFor(EndpointAccess access) => access switch
     {
+        EndpointAccess.AuthorizedQuotationCreate => [new QuotationRequirement(Application.Quotations.QuotationCapability.Create)],
+        EndpointAccess.AuthorizedQuotationEdit => [new QuotationRequirement(Application.Quotations.QuotationCapability.Edit)],
+        EndpointAccess.AuthorizedQuotationView => [new QuotationRequirement(Application.Quotations.QuotationCapability.View)],
+        EndpointAccess.AuthorizedQuotationIssue => [new QuotationRequirement(Application.Quotations.QuotationCapability.Issue)],
         EndpointAccess.AuthorizedTenantWorkspace => [ViewTenantWorkspaceRequirement.Instance],
         EndpointAccess.AuthorizedTenantOrderCreation => [CreateOrderRequirement.Instance, ApplyManualPriceRequirement.Instance],
         EndpointAccess.AuthorizedTenantOrderRead => [ViewOrdersRequirement.Instance],

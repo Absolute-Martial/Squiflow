@@ -65,6 +65,16 @@ public sealed class OpenFgaTenantAuthorizationTests : IAsyncLifetime
         var tenantId = Guid.NewGuid();
         var customerAccountId = Guid.NewGuid();
 
+        var quoteAccountId = Guid.NewGuid();
+        Assert.False(await authorization.CheckQuotationAsync(quoteAccountId, tenantId, Application.Quotations.QuotationCapability.Create, CancellationToken.None));
+        await WriteTenantRelationAsync(administrativeClient, storeId, pinnedModelId, quoteAccountId, tenantId, "quotation_creator");
+        Assert.True(await authorization.CheckQuotationAsync(quoteAccountId, tenantId, Application.Quotations.QuotationCapability.Create, CancellationToken.None));
+        Assert.False(await authorization.CheckQuotationAsync(quoteAccountId, tenantId, Application.Quotations.QuotationCapability.Issue, CancellationToken.None));
+        Assert.False(await authorization.CheckQuotationAsync(quoteAccountId, tenantId, Application.Quotations.QuotationCapability.View, CancellationToken.None));
+        await WriteTenantRelationAsync(administrativeClient, storeId, pinnedModelId, quoteAccountId, tenantId, "quotation_issuer");
+        Assert.True(await authorization.CheckQuotationAsync(quoteAccountId, tenantId, Application.Quotations.QuotationCapability.Issue, CancellationToken.None));
+
+
         Assert.False(await customerAuthorization.CanCreateOrganizationAsync(customerAccountId, tenantId, CancellationToken.None));
         Assert.False(await customerAuthorization.CanViewOrganizationsAsync(customerAccountId, tenantId, CancellationToken.None));
         Assert.False(await customerAuthorization.CanCreateProgramAsync(customerAccountId, tenantId, CancellationToken.None));

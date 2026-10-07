@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <ItemGroup>
+    <ProjectReference Include="../../../modules/quotations/Application.Quotations.Postgres/Application.Quotations.Postgres.csproj" />
     <ProjectReference Include="../../../foundation/object-storage/Application.ObjectStorage/Application.ObjectStorage.csproj" />
     <ProjectReference Include="../../../modules/catalog/Application.Catalog.Postgres/Application.Catalog.Postgres.csproj" />
     <ProjectReference Include="../../../modules/catalog/Application.Catalog/Application.Catalog.csproj" />

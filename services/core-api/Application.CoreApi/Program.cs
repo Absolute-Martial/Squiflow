@@ -468,6 +468,7 @@ app.MapCustomerDuplicateImportEndpoints();
 app.MapCatalogEndpoints();
 app.MapPricingEndpoints();
 app.MapCatalogOrderEndpoints();
+app.MapQuotationEndpoints();
 app.MapCustomerRepresentativeEndpoints();
 
 app.MapHealthChecks("/health/live", new HealthCheckOptions

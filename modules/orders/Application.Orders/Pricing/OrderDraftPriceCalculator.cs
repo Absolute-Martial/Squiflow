@@ -35,10 +35,7 @@ internal static class OrderDraftPriceCalculator
             decimal lineTotal;
             try
             {
-                lineTotal = decimal.Round(
-                    checked(input.Quantity * input.UnitPrice),
-                    4,
-                    MidpointRounding.ToEven);
+                lineTotal = Application.Pricing.SellingPriceArithmetic.LineAmount(input.Quantity, input.UnitPrice);
                 OrderDraftRules.RequireNonNegativeDecimal(lineTotal, "line_total_invalid");
                 total = checked(total + lineTotal);
                 OrderDraftRules.RequireNonNegativeDecimal(total, "order_total_invalid");

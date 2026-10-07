@@ -330,3 +330,56 @@ BEGIN
     END IF;
 END
 $verify$;
+
+
+-- Quotation facts and receipts are append-only; only owned header/counter columns may change.
+DO $quotations$
+DECLARE runtime_role text := nullif(current_setting('app.provision_runtime_role', true), '');
+    table_name text;
+    target_column record;
+BEGIN
+    IF runtime_role IS NULL OR EXISTS (SELECT 1 FROM pg_namespace WHERE nspname='quotations'
+        AND nspowner=(SELECT oid FROM pg_roles WHERE rolname=runtime_role)) OR EXISTS (
+        SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='quotations'
+        AND c.relowner=(SELECT oid FROM pg_roles WHERE rolname=runtime_role)) THEN
+        RAISE EXCEPTION 'Unsafe quotation runtime owner';
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+        WHERE n.nspname='quotations' AND c.relkind='r' AND (NOT c.relrowsecurity OR NOT c.relforcerowsecurity)
+        AND c.relname <> '__EFMigrationsHistory') THEN RAISE EXCEPTION 'Quotation RLS is required'; END IF;
+    EXECUTE format('GRANT USAGE ON SCHEMA quotations TO %I', runtime_role);
+    FOREACH table_name IN ARRAY ARRAY['heads','issued','numbers','receipts'] LOOP
+        EXECUTE format('REVOKE ALL ON TABLE quotations.%I FROM %I', table_name, runtime_role);
+        EXECUTE format('GRANT SELECT, INSERT ON TABLE quotations.%I TO %I', table_name, runtime_role);
+    END LOOP;
+    EXECUTE format('GRANT UPDATE (version, number, draft, current_issued_id, last_issued_revision) ON quotations.heads TO %I', runtime_role);
+    EXECUTE format('GRANT UPDATE (value) ON quotations.numbers TO %I', runtime_role);
+    FOREACH table_name IN ARRAY ARRAY['heads','issued','numbers','receipts'] LOOP
+        IF has_table_privilege(runtime_role, format('quotations.%I', table_name), 'DELETE') OR
+           has_table_privilege(runtime_role, format('quotations.%I', table_name), 'TRUNCATE') OR
+           has_table_privilege(runtime_role, format('quotations.%I', table_name), 'UPDATE') THEN
+            RAISE EXCEPTION 'Unsafe quotation runtime table privileges on quotations.%', table_name;
+        END IF;
+    END LOOP;
+    FOR target_column IN
+        SELECT c.relname AS table_name, a.attname AS column_name
+        FROM pg_class AS c
+        JOIN pg_namespace AS n ON n.oid = c.relnamespace
+        JOIN pg_attribute AS a ON a.attrelid = c.oid
+        WHERE n.nspname = 'quotations' AND c.relname IN ('heads','issued','numbers','receipts')
+          AND a.attnum > 0 AND NOT a.attisdropped
+    LOOP
+        IF has_column_privilege(runtime_role,
+                format('quotations.%I', target_column.table_name), target_column.column_name, 'UPDATE')
+           <> ((target_column.table_name = 'heads' AND target_column.column_name IN
+                ('version','number','draft','current_issued_id','last_issued_revision')) OR
+               (target_column.table_name = 'numbers' AND target_column.column_name = 'value')) THEN
+            RAISE EXCEPTION 'Unsafe quotation runtime UPDATE privilege on quotations.%.%',
+                target_column.table_name, target_column.column_name;
+        END IF;
+    END LOOP;
+    IF has_schema_privilege(runtime_role,'quotations','CREATE') THEN
+        RAISE EXCEPTION 'Unsafe quotation runtime schema privileges';
+    END IF;
+END
+$quotations$;

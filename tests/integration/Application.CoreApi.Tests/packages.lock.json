@@ -663,6 +663,7 @@
           "Application.Orders.Postgres": "[0.0.1, )",
           "Application.Pricing": "[0.0.1, )",
           "Application.Pricing.Postgres": "[0.0.1, )",
+          "Application.Quotations.Postgres": "[0.0.1, )",
           "Application.Tenancy": "[0.0.1, )",
           "Application.Tenancy.Postgres": "[0.0.1, )",
           "Autofac": "[9.3.4, )",
@@ -729,6 +730,24 @@
         "type": "Project",
         "dependencies": {
           "Application.Pricing": "[0.0.1, )",
+          "Microsoft.EntityFrameworkCore": "[10.0.8, )",
+          "Npgsql": "[10.0.2, )",
+          "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.1, )"
+        }
+      },
+      "application.quotations": {
+        "type": "Project",
+        "dependencies": {
+          "Application.Catalog": "[0.0.1, )",
+          "Application.Customers": "[0.0.1, )",
+          "Application.Pricing": "[0.0.1, )",
+          "Application.Tenancy": "[0.0.1, )"
+        }
+      },
+      "application.quotations.postgres": {
+        "type": "Project",
+        "dependencies": {
+          "Application.Quotations": "[0.0.1, )",
           "Microsoft.EntityFrameworkCore": "[10.0.8, )",
           "Npgsql": "[10.0.2, )",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.1, )"

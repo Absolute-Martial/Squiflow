@@ -92,6 +92,10 @@ internal static class CoreApiApplicationAuthorizationMiddleware
             EndpointAccess.AuthorizedCustomerOrganizationRead or
             EndpointAccess.AuthorizedCustomerOrganizationBrowse or
             EndpointAccess.AuthorizedCustomerProgramCreation or
+            EndpointAccess.AuthorizedQuotationCreate or
+            EndpointAccess.AuthorizedQuotationEdit or
+            EndpointAccess.AuthorizedQuotationView or
+            EndpointAccess.AuthorizedQuotationIssue or
             EndpointAccess.AuthorizedCustomerProgramRead or
             EndpointAccess.AuthorizedCustomerProgramBrowse or
             EndpointAccess.AuthorizedCustomerIndividualCreation or

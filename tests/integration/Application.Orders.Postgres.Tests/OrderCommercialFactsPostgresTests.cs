@@ -187,7 +187,7 @@ public sealed partial class OrderMigrationAndRlsTests
         await guard.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
         try
         {
-            await AssertOrderTransactionOwnsPublicationPinAsync("locked-commercial-draft");
+            await AssertEffectTransactionOwnsPublicationPinAsync("locked-commercial-draft");
             await using var connection = await source.OpenConnectionAsync();
             await SetTenantContextAsync(connection, tenant);
             await using var probe = new NpgsqlCommand("SELECT id FROM orders.order_drafts WHERE tenant_id=@tenant AND id=@id FOR UPDATE NOWAIT", connection);

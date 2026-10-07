@@ -353,3 +353,9 @@ and evidence owners: `ORDER_COMMITMENT_SLICE.md` and
   that remained active.
 - These decisions do not define general Owner/Staff permissions. Exact executable
   scope: `docs/implementation/ADMIN_API_MEMBERSHIP_LIFECYCLE.md`.
+
+### Accepted COM-009 / COM-010 quotation contract — 2026-10-07
+
+- The owner accepted the complete quotation decision proposal in this session. Optional quotations use supplied-price or Catalog/Pricing entry, independent create/edit/view/issue authority, tenant-wide family numbering and immutable issued revisions. Validity starts at authoritative UTC issuance and ends at an explicitly offset-supplied instant; no business-day default is inferred.
+- The separately authorized operator records acceptance/rejection/expiry against one exact issued offer. Acceptance must be current and within its half-open validity interval. Accepted prices freeze through one atomic, idempotent conversion to a linked Order draft; order commitment remains separate. An accepted quotation cannot be superseded or rewritten.
+- Focused owner: `docs/implementation/QUOTATIONS_AND_CONVERSION.md`. These closed choices do not qualify runtime, storage, delivery, legal signature or a customer portal.
