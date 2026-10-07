@@ -2,7 +2,7 @@
 
 Task ID: COM-005
 Phase: 02-commercial-backend
-Status: DECISION_REQUIRED
+Status: READY_AFTER_DEPENDENCIES
 Model: GPT-6.1 Sol
 Dependencies: COM-001, GATE-001
 Release requirement: REQUIRED
@@ -23,7 +23,7 @@ Allowed areas: catalog-owned identity, display fields, only earned tenant catego
 
 ## Decisions/prerequisites
 
-Choose actual product/service fields, allowed unit changes and historical identity retention from supported cases. Decide per-item precise, availability-only or non-stock behavior; actual tracked inventory is conditional COM-018, not created by a catalog flag.
+Owner decisions were closed on 2026-10-06. Stable product/service and unit identity, immutable/versioned direct conversions, retirement history and independent precise/availability-only/non-stock modes are accepted. Actual numerical inventory remains COM-018. Current implementation/evidence: [CATALOG_AND_UNIT_BOUNDARY.md](../../implementation/CATALOG_AND_UNIT_BOUNDARY.md).
 
 ## Acceptance and edge cases
 

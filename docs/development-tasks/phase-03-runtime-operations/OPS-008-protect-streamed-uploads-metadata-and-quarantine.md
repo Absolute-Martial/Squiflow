@@ -2,11 +2,32 @@
 
 Task ID: OPS-008
 Phase: 03-runtime-operations
-Status: CONDITIONAL
+Status: BLOCKED
 Model: GPT-6.1 Sol
 Dependencies: OPS-007, OPS-011
 Release requirement: CONDITIONAL
+
+Local implementation and qualification are complete for the declared neutral,
+CoreApi and PostgreSQL consumer contracts. The exact 1045-test gate passed with
+zero failures/skips and zero Release warnings/errors; CoreApi 458/458 and real
+Customers PostgreSQL 51/51 are current final-gate results. Expiry-aware reads,
+fenced retirement/recovery, safe stream disposal, metadata survival and runtime
+RLS/grant/migration guards are locally qualified where exercised. Controlled
+signing/streamed-PUT regressions passed 4/4 after the disposed-hasher correction.
+
+`OPS-008` remains `BLOCKED` only for its required real Hugging Face provider-backed
+qualification, not for a missing local COM-004 retention implementation.
+Live Hugging Face upload, download, delete, conditional write, redirects/timeouts, finite capacity, asymmetric provider/database failure and remote reconciliation remain unrun and NOT qualified. Checked-in `ObjectStorage.Enabled=false`; no nonempty relevant provider runtime configuration variables were visible. No private credential, substitute provider or fallback byte archive was introduced.
+
+Current evidence/guards are owned by
+[CUSTOMER_DUPLICATES_AND_IMPORTS_SLICE.md](../../implementation/CUSTOMER_DUPLICATES_AND_IMPORTS_SLICE.md).
+No repository integration or production acceptance is inferred.
+
 Qualification consumers: COM-015 and WEB-011 consume accepted artwork references after this upload boundary qualifies.
+
+COM-004 is the first selected consumer. This owner now covers only its canonical
+`customer-import/v1` raw source; artwork, arbitrary attachments and generic file
+browsing remain absent.
 
 ## Outcome
 
@@ -33,13 +54,25 @@ Activate when the commercial journey needs uploads. Accept file families, per-fi
 - Upload success with failed metadata produces reconcilable orphans; missing/corrupt referenced bytes produce repair state.
 - Retries preserve immutable identity; physical cleanup respects retention and outstanding references.
 
+The implemented import path stages only to a bounded disposable server file, validates
+the complete CSV, reserves retained bytes in PostgreSQL, streams through `IObjectStore`,
+then publishes metadata/reference state. Default raw bytes expire after seven days;
+`X-Tenant-Import-Retention: archive` is the explicit archival election. Source reads
+require current tenant/import authorization and available metadata. Staged/quarantined,
+orphaned and unavailable state never becomes downloadable. Manifests, row hashes,
+decisions, plans and results are independent of raw-byte retirement.
+
 ## Security/static review
 
 Review parser isolation, safe keys/download headers, SSRF and executable placement; scanners receive minimum data/privilege and no customer content in ordinary logs. Inspect the complete changed dependency and authority path; redact credentials and sensitive content from errors, logs and artifacts.
 
 ## Dynamic verification and unavailable-environment handling
 
-Run real streaming/provider tests with truncated, oversized, traversal, decompression-bomb and scan-unavailable fixtures; exercise both storage/DB asymmetric failures. Run applicable focused checks and the normal `./eng/verify.sh` without masking parallel failures. If required tooling/provider access is unavailable, report the exact missing evidence and keep introduced claims `BLOCKED`; never substitute mocks for the property.
+The unit/CoreApi/PostgreSQL guards cover bounded invalid-election/CSV admission, tenant
+metadata/RLS, durable reservation replay and expiry retirement. Real Hugging Face
+streaming, provider checksum/redirect, asymmetric object/DB failure and live
+capacity/retention runs were unavailable; OPS-008 remains `BLOCKED` until those real
+provider checks are inspected; the current local normal repository gate has already passed. Enabling/changing provider configuration requires its own receiving qualification.
 
 ## Handoff
 

@@ -60,6 +60,52 @@ internal static class TenantCustomerIndividualEndpoint
         catch (CustomerValidationException error) { return TenantCustomerEndpoint.Invalid(error.Code, error.Message); }
     }
 
+    internal static async Task<IResult> EditContactAsync(Guid tenantId, Guid individualId, HttpContext http,
+        ClaimsPrincipal principal, ResolveAccountBinding account, ResolveTenantContext tenant,
+        IAuthorizationService authorization, EditCustomerIndividualContact command,
+        CoreApiMutationDiagnostics diagnostics, CancellationToken ct)
+    {
+        var access = await TenantCustomerEndpoint.ResolveAsync(tenantId, http, principal, account, tenant,
+            authorization, ct);
+        if (access.Failure is not null) return access.Failure;
+        if (!TenantCustomerEndpoint.TryKey(http.Request, out var key))
+            return TenantCustomerEndpoint.Invalid("idempotency_key_invalid", "One Idempotency-Key header is required.");
+        var payload = await TenantCustomerEndpoint.ReadPayloadAsync<EditIndividualContactPayload>(http.Request, ct, strict: true);
+        if (payload.Failure is not null) return payload.Failure;
+        try
+        {
+            var result = await command.ExecuteAsync(access.Context!,
+                new EditCustomerIndividualContactRequest(individualId, payload.Value!.ExpectedRevision,
+                    payload.Value.DisplayName ?? string.Empty, payload.Value.Email, payload.Value.Phone),
+                key!, ct);
+            if (result.Status == EditCustomerIndividualContactStatus.NotFound)
+                return TenantCustomerEndpoint.NotFound("individual_not_found", "Individual not found in this tenant.");
+            if (result.Status == EditCustomerIndividualContactStatus.IdempotencyKeyConflict)
+                return TenantCustomerEndpoint.Conflict();
+            if (result.Status is EditCustomerIndividualContactStatus.RevisionConflict or EditCustomerIndividualContactStatus.NoChange)
+            {
+                return TypedResults.Problem(statusCode: 409, title: "Individual contact conflict.",
+                    extensions: new Dictionary<string, object?>
+                    {
+                        ["code"] = result.Status == EditCustomerIndividualContactStatus.RevisionConflict
+                            ? "revision_conflict"
+                            : "individual_contact_unchanged"
+                    });
+            }
+            if (result.Status is not (EditCustomerIndividualContactStatus.Changed or EditCustomerIndividualContactStatus.Replayed))
+                throw new InvalidOperationException("Individual contact edit returned an unsupported status.");
+
+            var value = result.Individual ?? throw new InvalidOperationException("Individual contact edit returned no record.");
+            ValidateIdentity(value, access.Context!, individualId);
+            diagnostics.RecordSuccess(CoreApiMutation.CustomerIndividualContactChanged, access.Context!,
+                individualId, result.Status == EditCustomerIndividualContactStatus.Replayed, http.TraceIdentifier);
+            if (result.Status == EditCustomerIndividualContactStatus.Replayed)
+                http.Response.Headers.Append("Idempotency-Replayed", "true");
+            return TypedResults.Ok(ToResponse(value));
+        }
+        catch (CustomerValidationException error) { return TenantCustomerEndpoint.Invalid(error.Code, error.Message); }
+    }
+
     internal static async Task<IResult> ChangeAvailabilityAsync(Guid tenantId, Guid individualId, HttpContext http,
         ClaimsPrincipal principal, ResolveAccountBinding account, ResolveTenantContext tenant,
         IAuthorizationService authorization, ChangeCustomerIndividualAvailability command,
@@ -121,13 +167,15 @@ internal static class TenantCustomerIndividualEndpoint
 
     private static CustomerIndividualResponse ToResponse(CustomerIndividualSnapshot value) =>
         new(value.IndividualId, value.DisplayName, value.Email, value.Phone, WireAvailability(value.Availability),
-            value.Revision, value.CreatedAt, value.AvailabilityChangedAt);
+            value.Revision, value.CreatedAt, value.AvailabilityChangedAt, value.ContactChangedAt);
 }
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 internal sealed record CreateIndividualPayload(string? DisplayName, string? Email = null, string? Phone = null);
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+internal sealed record EditIndividualContactPayload(long ExpectedRevision, string? DisplayName, string? Email = null, string? Phone = null);
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 internal sealed record IndividualAvailabilityPayload(long ExpectedRevision, string? Availability);
 internal sealed record CustomerIndividualResponse(Guid IndividualId, string DisplayName, string? Email, string? Phone,
-    string Availability, long Revision, DateTimeOffset CreatedAt, DateTimeOffset? AvailabilityChangedAt);
+    string Availability, long Revision, DateTimeOffset CreatedAt, DateTimeOffset? AvailabilityChangedAt, DateTimeOffset? ContactChangedAt);
 internal sealed record IndividualAvailabilityResponse(Guid IndividualId, string Availability, long Revision, DateTimeOffset AvailabilityChangedAt);

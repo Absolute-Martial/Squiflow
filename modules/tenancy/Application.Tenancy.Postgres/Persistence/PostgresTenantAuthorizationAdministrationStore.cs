@@ -421,9 +421,15 @@ public sealed class PostgresTenantAuthorizationAdministrationStore(NpgsqlDataSou
             // outcome still stays Uncertain; a known rejection still becomes Failed with its
             // own code, and a confirmed application still becomes Applied.
             var unresolved = status is null || status == TenantAuthorizationProposalStatus.Uncertain;
+            // Record why the outcome is unresolved. Stamp the exhausted budget only when no
+            // more specific code is available, otherwise the real cause of a wedged proposal
+            // (a provider outage, an unobserved write, a credential that cannot read tuples)
+            // is discarded after twenty attempts and the operator is left with only
+            // attempt_limit_reached.
+            var budgetCode = failureCode is null ? "attempt_limit_reached" : failureCode;
             await SetProposalStatusAsync(connection, transaction, proposal,
                 unresolved ? TenantAuthorizationProposalStatus.Uncertain : status!.Value,
-                unresolved ? "attempt_limit_reached" : failureCode,
+                unresolved ? budgetCode : failureCode,
                 occurredAt, incrementAttempt: false, cancellationToken)
                 .ConfigureAwait(false);
         }

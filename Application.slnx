@@ -1,7 +1,12 @@
 <Solution>
+  <Folder Name="/foundation/">
+    <Project Path="foundation/object-storage/Application.ObjectStorage/Application.ObjectStorage.csproj" />
+  </Folder>
   <Folder Name="/modules/">
     <Project Path="modules/application-profiles/Application.Profiles/Application.Profiles.csproj" />
     <Project Path="modules/branding/Application.Branding/Application.Branding.csproj" />
+    <Project Path="modules/catalog/Application.Catalog.Postgres/Application.Catalog.Postgres.csproj" />
+    <Project Path="modules/catalog/Application.Catalog/Application.Catalog.csproj" />
     <Project Path="modules/customers/Application.Customers.Postgres/Application.Customers.Postgres.csproj" />
     <Project Path="modules/customers/Application.Customers/Application.Customers.csproj" />
     <Project Path="modules/identity-access/Application.IdentityAccess.Postgres/Application.IdentityAccess.Postgres.csproj" />
@@ -11,6 +16,8 @@
     <Project Path="modules/orders/Application.Orders/Application.Orders.csproj" />
     <Project Path="modules/platform-administration/Application.PlatformAdministration.Postgres/Application.PlatformAdministration.Postgres.csproj" />
     <Project Path="modules/platform-administration/Application.PlatformAdministration/Application.PlatformAdministration.csproj" />
+    <Project Path="modules/pricing/Application.Pricing.Postgres/Application.Pricing.Postgres.csproj" />
+    <Project Path="modules/pricing/Application.Pricing/Application.Pricing.csproj" />
     <Project Path="modules/tenancy/Application.Tenancy.Postgres/Application.Tenancy.Postgres.csproj" />
     <Project Path="modules/tenancy/Application.Tenancy/Application.Tenancy.csproj" />
   </Folder>
@@ -25,17 +32,21 @@
     <Project Path="tests/integration/Application.AdminApi.Tests/Application.AdminApi.Tests.csproj" />
     <Project Path="tests/integration/Application.CoreApi.Tests/Application.CoreApi.Tests.csproj" />
     <Project Path="tests/integration/Application.AdminBootstrap.Tests/Application.AdminBootstrap.Tests.csproj" />
+    <Project Path="tests/integration/Application.Catalog.Postgres.Tests/Application.Catalog.Postgres.Tests.csproj" />
     <Project Path="tests/integration/Application.Customers.Postgres.Tests/Application.Customers.Postgres.Tests.csproj" />
     <Project Path="tests/integration/Application.IdentityAccess.Postgres.Tests/Application.IdentityAccess.Postgres.Tests.csproj" />
     <Project Path="tests/integration/Application.Orders.Postgres.Tests/Application.Orders.Postgres.Tests.csproj" />
+    <Project Path="tests/integration/Application.Pricing.Postgres.Tests/Application.Pricing.Postgres.Tests.csproj" />
     <Project Path="tests/integration/Application.Tenancy.Postgres.Tests/Application.Tenancy.Postgres.Tests.csproj" />
     <Project Path="tests/unit/Application.Profiles.Tests/Application.Profiles.Tests.csproj" />
     <Project Path="tests/unit/Application.Branding.Tests/Application.Branding.Tests.csproj" />
+    <Project Path="tests/unit/Application.Catalog.Tests/Application.Catalog.Tests.csproj" />
     <Project Path="tests/unit/Application.Customers.Tests/Application.Customers.Tests.csproj" />
     <Project Path="tests/unit/Application.IdentityAccess.Tests/Application.IdentityAccess.Tests.csproj" />
     <Project Path="tests/unit/Application.Invoices.Tests/Application.Invoices.Tests.csproj" />
     <Project Path="tests/unit/Application.Tenancy.Tests/Application.Tenancy.Tests.csproj" />
     <Project Path="tests/unit/Application.Orders.Tests/Application.Orders.Tests.csproj" />
     <Project Path="tests/unit/Application.PlatformAdministration.Tests/Application.PlatformAdministration.Tests.csproj" />
+    <Project Path="tests/unit/Application.Pricing.Tests/Application.Pricing.Tests.csproj" />
   </Folder>
 </Solution>

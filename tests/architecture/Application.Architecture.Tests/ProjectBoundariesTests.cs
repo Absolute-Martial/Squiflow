@@ -187,7 +187,8 @@ public sealed class ProjectBoundariesTests
         var root = FindRepositoryRoot();
         foreach (var (capability, folder) in new[]
                  {
-                     ("Customers", "customers"), ("Orders", "orders"),
+                      ("Customers", "customers"), ("Orders", "orders"),
+                      ("Catalog", "catalog"), ("Pricing", "pricing"),
                      ("IdentityAccess", "identity-access"), ("Tenancy", "tenancy"),
                  })
         {

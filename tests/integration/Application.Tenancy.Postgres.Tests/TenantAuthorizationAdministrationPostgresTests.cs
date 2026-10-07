@@ -43,7 +43,10 @@ public sealed class TenantAuthorizationAdministrationPostgresTests : PostgresTes
             fixture.TenantId, proposal.ProposalId, CancellationToken.None);
         Assert.NotNull(exhausted);
         Assert.Equal(TenantAuthorizationProposalStatus.Uncertain, exhausted!.Status);
-        Assert.Equal("attempt_limit_reached", exhausted.FailureCode);
+        // The exhausted budget must not erase why the outcome is unresolved: an operator
+        // looking at a wedged proposal needs the provider's own reason, not only the fact
+        // that twenty attempts were spent.
+        Assert.Equal("provider_timeout", exhausted.FailureCode);
         Assert.Equal(20, exhausted.AttemptCount);
 
         // The slot must still be held: a competing change to the same authorization has to be

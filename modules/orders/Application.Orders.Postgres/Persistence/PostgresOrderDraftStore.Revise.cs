@@ -79,10 +79,11 @@ public sealed partial class PostgresOrderDraftStore
         }
 
         var headerWithOldLines = await FindOrderAsync(
-            session, tenantContext.TenantId, request.OrderId, cancellationToken)
+            session, tenantContext.TenantId, request.OrderId, cancellationToken, validateCommercialFacts: false)
             .ConfigureAwait(false)
             ?? throw new InvalidOperationException("The revised order disappeared before line replacement.");
         var order = headerWithOldLines with { Lines = intent.Lines };
+        OrderCommercialFactsValidation.RequireValid(order);
         await using (var delete = session.CreateCommand(OrderSql.DeleteLines))
         {
             delete.Parameters.AddWithValue("tenant_id", tenantContext.TenantId);

@@ -128,6 +128,8 @@ public sealed partial class CustomerPostgresTests
         await db.Database.MigrateAsync();
         Assert.Equal(1L, await CountAsync("pg_catalog.pg_class WHERE oid = 'customers.individuals'::regclass"));
         Assert.Equal(1L, await CountAsync("pg_catalog.pg_class WHERE oid = 'customers.organizations'::regclass"));
+        Assert.Equal(1L, await CountAsync("pg_catalog.pg_class WHERE oid = 'customers.representatives'::regclass"));
+        Assert.Equal(1L, await CountAsync("pg_catalog.pg_class WHERE oid = 'customers.representative_command_receipts'::regclass"));
         Assert.False(db.Database.HasPendingModelChanges());
     }
 
@@ -144,6 +146,7 @@ public sealed partial class CustomerPostgresTests
         await using var db = CustomersPostgresMigrations.CreateContext(ConnectionString);
         var refused = await Assert.ThrowsAsync<PostgresException>(() => db.Database.MigrateAsync("0"));
         Assert.Contains("billing records exist", refused.MessageText, StringComparison.Ordinal);
+        await db.Database.MigrateAsync();
         Assert.Equal(1L, await CountAsync("customers.individuals"));
         Assert.Equal(1L, await CountAsync("customers.individual_command_receipts"));
         Assert.Equal(individual, await new GetCustomerIndividual(new PostgresCustomerStore(source)).ExecuteAsync(
@@ -190,7 +193,8 @@ public sealed partial class CustomerPostgresTests
         }
         await using (var forbidden = connection.CreateCommand())
         {
-            forbidden.CommandText = "UPDATE customers.individuals SET display_name = 'Tampered'";
+            forbidden.CommandText = "UPDATE customers.individuals SET created_by_account_id = @account_id";
+            forbidden.Parameters.AddWithValue("account_id", Guid.NewGuid());
             var denied = await Assert.ThrowsAsync<PostgresException>(() => forbidden.ExecuteNonQueryAsync());
             Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, denied.SqlState);
         }
@@ -239,6 +243,8 @@ public sealed partial class CustomerPostgresTests
             receipt.Parameters.AddWithValue("created_at", DateTimeOffset.UnixEpoch);
             receipt.Parameters.Add("availability_changed_by_account_id", NpgsqlTypes.NpgsqlDbType.Uuid).Value = DBNull.Value;
             receipt.Parameters.Add("availability_changed_at", NpgsqlTypes.NpgsqlDbType.TimestampTz).Value = DBNull.Value;
+            receipt.Parameters.Add("contact_changed_by_account_id", NpgsqlTypes.NpgsqlDbType.Uuid).Value = DBNull.Value;
+            receipt.Parameters.Add("contact_changed_at", NpgsqlTypes.NpgsqlDbType.TimestampTz).Value = DBNull.Value;
             Assert.Equal(1, await receipt.ExecuteScalarAsync());
         }
         Assert.Equal(0L, await CountAsync("customers.individuals"));

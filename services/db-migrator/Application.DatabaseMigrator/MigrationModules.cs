@@ -1,8 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using Application.Customers.Postgres;
+using Application.Catalog.Postgres;
 using Application.IdentityAccess.Postgres;
 using Application.Orders.Postgres;
 using Application.PlatformAdministration.Postgres;
+using Application.Pricing.Postgres;
 using Application.Tenancy.Postgres;
 
 namespace Application.DatabaseMigrator;
@@ -21,6 +23,8 @@ internal static class MigrationModules
         new("tenancy", 200, typeof(TenancyDbContext), TenancyPostgresMigrations.CreateContext),
         new("platform-administration", 225, typeof(PlatformAdministrationDbContext), PlatformAdministrationPostgresMigrations.CreateContext),
         new("customers", 250, typeof(CustomerDbContext), CustomersPostgresMigrations.CreateContext),
+        new("catalog", 260, typeof(CatalogDbContext), CatalogPostgresMigrations.CreateContext),
+        new("pricing", 275, typeof(PricingDbContext), PricingPostgresMigrations.CreateContext),
         new("orders", 300, typeof(OrderDbContext), OrdersPostgresMigrations.CreateContext),
     ]);
 

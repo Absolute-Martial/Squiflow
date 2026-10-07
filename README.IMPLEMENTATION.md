@@ -4,37 +4,40 @@
 
 **Repository name:** internal development codename; public runtime identity is configuration-owned
 
-**Current state:** first backend/API vertical slice implemented
+**Current state:** backend/API baseline plus the bounded commercial continuation implemented; complete product qualification remains separate
 
 ## Current inventory
 
 The three count lines below are machine-read by `Application.Architecture.Tests` (`ReadCount` matches `^label: N$`). Keep each on its own line in exactly this form.
 
 ```text
-production projects: 17
-test projects:       16
+production projects: 22
+test projects:       20
 executable hosts:    4
 solution files:      1
 repository build/test contract: present
-BLOCKED: ADM-004 live ZITADEL topology evidence, ADM-006 exact-current-source dynamic qualification, ADM-009–ADM-012 tenant-authorization administration dynamic qualification, and the OPS-017 quality-gate expansion remain pending; COM-001 is complete as a read-only preservation map and adds no runtime claim
+BLOCKED: COM-004 external Hugging Face provider qualification (OPS-007/OPS-008), with local raw-source contracts qualified; existing ADM-004 live ZITADEL topology evidence, ADM-006/ADM-009–ADM-012 gate-owner qualification and OPS-017 quality-gate expansion remain separate pending claims
 ```
 
 ## What exists
 
 | Area | Projects | Current responsibility (declared narrow scope) |
 |---|---|---|
+| Object storage | `Application.ObjectStorage` | Host-neutral `IObjectStore` request/result boundary for bounded retained objects; no provider SDK/API types or provider qualification claim. |
 | ApplicationProfiles | `Application.Profiles` | Bounded feature definition, dependency-graph validation and deterministic, dependency-closed effective-selection compilation with stable catalog/selection fingerprints. No production feature catalog and no durable tenant profile authority. |
 | Branding | `Application.Branding` | Validated, deployment-supplied public identity (name, legal identity, theme, links). No codename fallback. |
 | IdentityAccess | `Application.IdentityAccess`, `.Postgres` | Durable binding of one or more exact OIDC `(issuer, subject)` identities to a stable application account, including caller-scoped onboarding/link receipts and concurrency-safe identity uniqueness. Stores no password, role or permission authority. |
 | Tenancy | `Application.Tenancy`, `.Postgres` | Tenant registry, revision-checked membership/tenant lifecycle, membership-derived immutable `TenantContext`, durable tenant-authorization revision/proposals/evidence, bounded direct business grants, custom-role metadata/assignments, and atomic initial-Owner handoff. Capability permission semantics remain a stable compiled catalog; provider-specific OpenFGA mutation stays in the CoreApi adapter. |
 | PlatformAdministration | `Application.PlatformAdministration`, `.Postgres` | One-time initial Platform Admin bootstrap authority plus request-time active principal/Admin-device resolution and retained AdminApi access audit. Ongoing operator, device and role lifecycle remains absent. |
-| Customers | `Application.Customers`, `.Postgres` | Immutable tenant-owned customer organizations and child programs: create, read and bounded browse; separate individual billing records: create/read and revision-checked active/inactive changes. Commands retain caller-scoped semantic idempotency. |
-| Orders | `Application.Orders`, `.Postgres` | Priced order drafts: create, read, bounded browse, full revision, one-way abandonment and direct commitment of immutable priced facts, with optional customer/program attribution and caller-scoped semantic idempotency. |
+| Customers | `Application.Customers`, `.Postgres` | Tenant-owned customer organizations/programs and individual billing records with contact/availability edits, representative relationships, duplicate review/keep-separate/consolidation redirects, and bounded customer-import plans/work results. Commands retain caller-scoped semantic idempotency; issued facts are not rewritten. |
+| Catalog | `Application.Catalog`, `.Postgres` | Tenant product/service and unit identity, rename/retirement history, immutable direct conversions, availability-only state and bounded frozen catalog line facts. Numerical inventory remains separate. |
+| Orders | `Application.Orders`, `.Postgres` | Manual or separate catalog-priced drafts: create/read/browse/revise/abandon/commit with immutable receipts/history and optional customer/program attribution. Catalog-priced commitment revalidates current compatible publication/policy under an effect-transaction-bound pin; committed facts never reprice. |
+| Pricing | `Application.Pricing`, `.Postgres` | Versioned tenant price drafts/publication/retirement, deterministic source precedence, typed missing/expired/conflict outcomes, override evidence and explainable candidate selection. |
 | Invoices | `Application.Invoices` | Host-neutral invoice-issue orchestration over committed Orders: current billing-authority port, caller-scoped idempotency/replay contract, NPR/revision/arithmetic validation, debtor resolution through Customers public queries, immutable retained issued-fact contracts and explicit safe outcomes. No PostgreSQL adapter, numbering/date policy implementation, HTTP surface or durable invoice runtime is introduced. |
-| CoreApi | `Application.CoreApi` | ASP.NET Core host: HTTP contract, JWT validation, Finbuckle route-candidate capture, ASP.NET resource authorization with pinned-model OpenFGA checks, Autofac root composition, the shared bounded Npgsql data source, safe unhandled-failure responses, process-local protected-request and verified-tenant concurrency admission, health endpoints, and bounded dormant tenant-keyed profile-runtime mechanics. |
+| CoreApi | `Application.CoreApi` | ASP.NET Core host: protected capability routes, JWT validation, membership-derived resource authorization with pinned OpenFGA checks, Autofac composition, shared bounded Npgsql pool, safe failure/admission/budget/health behavior, the conditional Hugging Face Storage Bucket adapter, and dormant profile-runtime mechanics. Explicitly enabled autonomous customer-import execution awaits bounded tenant discovery/row batches and drains through standard hosting; no generic Worker/scheduler is implied. |
 | AdminApi | `Application.AdminApi` | Private ASP.NET Core host with exact ZITADEL identity, active registered Admin-device certificate, pinned-model OpenFGA authorization, retained protected-access audit, tenant provisioning, verified import/link of existing ZITADEL human identities into stable local accounts, bounded tenant/account/membership registry reads, and a bounded cooperative deadline on explicitly classified protected routes. |
 | AdminBootstrap | `Application.AdminBootstrap` | One-shot private infrastructure executable. It prepares/reuses the durable bootstrap intent, writes the initial administrator relation to the explicitly pinned platform OpenFGA model with duplicate-safe semantics, confirms access at higher consistency, then marks local bootstrap complete. It exposes no HTTP bootstrap endpoint. |
-| DatabaseMigrator | `Application.DatabaseMigrator` | One-shot ordered migration of IdentityAccess, Tenancy, PlatformAdministration, Customers and Orders under an advisory lock. |
+| DatabaseMigrator | `Application.DatabaseMigrator` | One-shot ordered migration of IdentityAccess, Tenancy, PlatformAdministration, Customers, Catalog, Pricing and Orders under an advisory lock. |
 
 Each PostgreSQL adapter owns its context factory, migration files, runtime DI registration and persistence code. The migrator owns only the advisory lock, command/exit behavior and ordering. Capability projects stay host- and provider-neutral.
 
@@ -64,7 +67,9 @@ Unhandled transient PostgreSQL failures return safe `503` / `database_unavailabl
 
 | `POST /api/v1/tenants/{tenantId}/orders/{orderId}/commit` | Current membership plus `order_committer`; expectedRevision and caller-scoped idempotency; freezes priced facts without billing or fulfillment effects. |
 | `POST /api/v1/tenants/{tenantId}/customers/individuals`; `GET .../individuals/{individualId}` | Current membership plus independent `individual_creator` or `individual_viewer`; no login binding or debtor assignment. |
+| `POST .../individuals/{individualId}/contact` | Current membership plus independent `individual_contact_editor`; expectedRevision and idempotency; updates bounded display-name/email/phone facts with attributable change metadata. |
 | `POST .../individuals/{individualId}/availability` | Current membership plus `individual_availability_editor`; expectedRevision and idempotency; contact-free transition response. |
+| `POST .../organizations/{organizationId}/representatives`; `GET .../representatives/{representativeId}`; `POST .../representatives/{representativeId}/unlink` | Current membership plus independent `representative_manager` or `representative_viewer`; active individual and valid organization/program parent required; relationship reads do not disclose linked contact fields. |
 
 Every tenant route captures the route tenant only as an untrusted candidate (Finbuckle), establishes the current account, derives `TenantContext` from current membership, and only then checks OpenFGA. OpenFGA receives verified membership only as a contextual tuple, uses opaque GUID-based tuple identifiers, checks with `HIGHER_CONSISTENCY`, and fails closed with a bounded safe `503` when the provider is unavailable.
 
@@ -148,6 +153,8 @@ The bounded ApplicationProfiles feature compiler, deployment-wide public Brandin
 
 The host-neutral `Application.Invoices` slice is `PRODUCTION_HONEST` for its deliberately partial scope: current billing-authority orchestration, caller-scoped replay/idempotency flow, committed-Order/revision/NPR checks, decimal 19,4 `ToEven` verification, tenant-scoped debtor resolution and immutable issue facts. On current HEAD the focused invoice suite passed 25/25 and the architecture suite passed 14/14 before the combined-gate transport was lost. PostgreSQL persistence, numbering/allocation, business-date policy, HTTP/OpenFGA adapters and durable invoice runtime remain `NOT_INTRODUCED`; the focused owner is `docs/implementation/INVOICE_ISSUE_CONTRACT.md`, and the current tracked evidence summary is `docs/production-completion-review/evidence/COM-020.md`.
 
+Historical AdminApi evidence before the retained GATE-001 owner acceptance (the pending statements in this paragraph describe that earlier snapshot, not the current combined local gate):
+
 The private AdminApi request boundary, tenant provisioning command, and the exact existing-ZITADEL-human identity import/link slice are `PRODUCTION_HONEST` for their declared narrow scopes. The account operation atomically owns local account/binding/receipt effects; the link operation serializes against account availability and atomically owns binding/receipt effects. Both recheck request-time principal, registered device and pinned OpenFGA authority, preserve caller-scoped semantic idempotency, and return safe provider failures. Revision-checked AdminApi membership and tenant suspension/reactivation operations, including one protected initial-Owner bootstrap designation, are `PRODUCTION_HONEST` for the narrow scope in `docs/implementation/ADMIN_API_MEMBERSHIP_LIFECYCLE.md`. The protected-request cooperative deadline is `PRODUCTION_HONEST`; current-head AdminApi and Tenancy PostgreSQL suites passed 87/87 and 19/19 respectively. The explicitly public-health bearer exclusion is implemented in commit `6735370` with focused current-head evidence, but its required independent post-fix ADM-003 review receipt is absent from the repository, so that slice remains acceptance-pending/`BLOCKED` for GATE-001. The scope and retry semantics are owned by `docs/implementation/ADMIN_API_REQUEST_BUDGETS.md`, with tracked current-head evidence in `docs/production-completion-review/evidence/ADM-002-ADM-003.md`. GATE-001 remains `BLOCKED` pending both that independent receipt and the exact combined normal repository gate. Provider-side creation/reconciliation, live ZITADEL deployment qualification, general roles and ongoing operator/Admin-device lifecycle remain `NOT_INTRODUCED`. Identity evidence and requalification triggers remain owned by `docs/implementation/ADMIN_API_IDENTITY_IMPORT_AND_LINKING.md`.
 
 ## Active implementation rule
@@ -229,6 +236,135 @@ and zero Release warnings/errors. The owner selected operator-entered prices
 first with controlled overrides; separate manual pricing authority is now implemented as described below; richer
 reason/approval/ceiling policy remains unintroduced. Product
 version remains **v0.0.1**; remote CI, coverage and deployment remain separate.
+
+### COM-002 customer contacts and representative relationships, 2026-10-06
+
+The current working tree contains the bounded Customers contact-edit and
+organization/program representative relationship slice. It is `PRODUCTION_HONEST`
+only for the focused scope in `docs/implementation/CUSTOMER_CONTACTS_REPRESENTATIVES_SLICE.md`:
+revision-checked contact changes, active-individual relationship validation,
+tenant-owned persistence/RLS, independent OpenFGA permissions, replay-safe receipts,
+and protected CoreApi reads/mutations. It does not introduce duplicate resolution,
+onboarding import, catalog identity or adaptive price selection.
+
+The exact normal `./eng/verify.sh` run on 2026-10-06 passed locked restore, formatting,
+the Release build with zero warnings/errors, and all **789 tests** across the solution
+with zero failures/skips. `git diff --check` is clean. This is local receiving-tree
+evidence only; it does not qualify remote CI, deployment, or the unresolved COM-003,
+COM-004, COM-005, COM-006 and dependent COM-007 decisions.
+
+### COM-003–COM-007 continuation, 2026-10-07
+
+The owner closed the commercial decisions on 2026-10-06; they are no longer
+undecided prerequisites. The current uncommitted tree composes duplicate review/
+manual forward canonicalization, bounded CSV planning and durable autonomous row
+execution, Catalog units/conversions/availability, Pricing publication/policy/
+selection and a separate catalog-priced Orders path. All remain tenant-scoped with
+independent permissions, retained receipts/history and immutable committed facts.
+Focused owners are `CUSTOMER_DUPLICATES_AND_IMPORTS_SLICE.md`,
+`CATALOG_AND_UNIT_BOUNDARY.md`, `PRICING_POLICY_AND_PUBLICATION.md` and
+`ORDER_CATALOG_PRICED_DRAFTS.md` under `docs/implementation/`.
+
+The original COM-001/002 behavior and manual-entry compatibility are preserved.
+The first combined gate passed restore/format/build but failed three old manual
+HTTP tests because new strict DTO attributes rejected formerly ignored input.
+That narrowing was reverted; a new regression proves ignored fields cannot attach
+server-owned commercial facts. A separate red-first pure/PostgreSQL regression
+found price selection ignoring conversion revision; filtering now precedes all
+candidate bounds and incompatible unit meaning cannot reuse an old price.
+
+  An earlier retained snapshot passed the normal `./eng/verify.sh` with locked restore,
+  formatting, a Release build with zero warnings/errors and all **1044 tests** across 20/20
+  test projects, zero failures/skips. Retained log:
+  `docs/production-completion-review/evidence/GATE-COMBINED-03406c4-WORKTREE-1044.log`.
+
+  Historical project summaries for that earlier run (not the final qualification below):
+
+  | test project | passed | seconds |
+  |---|---|---|
+  | AdminApi | 96 | 39 |
+  | AdminBootstrap | 3 | 12 |
+  | Architecture | 16 | 0 |
+  | Branding | 11 | 0 |
+  | Catalog.Postgres | 8 | 17 |
+  | Catalog | 18 | 0 |
+  | CoreApi | 457 | 128 |
+  | Customers.Postgres | 51 | 144 |
+  | Customers | 46 | 0 |
+  | IdentityAccess.Postgres | 20 | 17 |
+  | IdentityAccess | 12 | 0 |
+  | Invoices | 25 | 0 |
+  | Orders.Postgres | 71 | 196 |
+  | Orders | 104 | 0 |
+  | PlatformAdministration | 4 | 0 |
+  | Pricing.Postgres | 11 | 32 |
+  | Pricing | 11 | 0 |
+  | Profiles | 18 | 0 |
+  | Tenancy.Postgres | 26 | 41 |
+  | Tenancy | 36 | 0 |
+  | **total** | **1044** | **628** |
+
+  An earlier CoreApi run failed two `OrderDraftBodyBoundsTests` cases with
+  `AddressInUseException`, then the same suite passed on a re-run. Those outcomes remain
+  historical; a passing retry does not prove the race absent. The incoming gate runs
+  project processes sequentially, but this does not itself prove cross-class host-port
+  races are eliminated. This qualification did not alter test parallelism.
+The declared non-retaining Customers, Catalog, Pricing and catalog-priced Orders
+runtime scopes are `PRODUCTION_HONEST` for this local receiving evidence.
+COM-004 local completion and its separate external-provider blocker are recorded below. Evidence and recurring guard details
+are recorded in `docs/development-tasks/TASK_STATUS.md`.
+Local evidence does not constitute product-owner/reviewer acceptance, remote CI,
+live identity-provider or deployment qualification.
+
+### Current COM-004 local qualification, 2026-10-07
+
+COM-004 implementation and local qualification are **COMPLETE** for the declared
+capability, CoreApi and PostgreSQL contracts. Raw-source lifecycle, expiry-aware
+reads, fenced retirement/recovery and hosted source-only tenant execution are
+locally `PRODUCTION_HONEST`. Production/provider qualification remains `BLOCKED`
+only on the live OPS-007/OPS-008 Hugging Face evidence; this is not an unresolved
+local retention or recovery implementation claim.
+
+The fresh exact `./eng/verify.sh` completed with **exit 0**, **1045 passed / 0 failed /
+0 skipped** across **20 test projects**, and a Release build with **0 warnings /
+0 errors**. The final gate includes CoreApi **458/458** and Customers PostgreSQL
+**51/51**. Standalone pre-upload-fix suites passed 457/457 and 51/51; they are
+supporting earlier evidence, not substitutes for the final gate. Post-fix standalone
+formatter verification and `git diff --check` passed. Complete local results, source
+hashes, original failures and the safety review are retained under
+`artifacts/verification/com004-current-20261007/` (`RESULTS.json`, `gate.log`,
+`gate-source.json`, `STATIC-REVIEW.md`).
+
+Live Hugging Face upload, download, delete, conditional write, redirects/timeouts, finite capacity, asymmetric provider/database failure and remote reconciliation remain unrun and NOT qualified. Checked-in `ObjectStorage.Enabled=false`; no nonempty relevant provider runtime configuration variables were visible. No private credential, substitute provider or fallback byte archive was introduced.
+
+This is local dirty-tree qualification, not commit/merge/PR integration, remote CI,
+coverage, live identity-provider qualification, deployment readiness or production
+acceptance. Incoming `eng/verify.sh` runs its unit/container project groups
+sequentially; this pass did not change that policy or serialize test cases to hide
+failures. Historical gate totals are preserved below only as historical evidence.
+
+Default raw-source retention remains seven days; archive is explicitly elected and
+has no expiry. Current tenant/import authority precedes metadata/provider access.
+Retirement recovery is generation/lease-ID fenced and excludes active/unknown
+reservations; stale/repeated completion cannot release usage twice. Metadata,
+manifest, plan, decisions and results remain after byte retirement. Nonempty
+lifecycle/accounting downgrade is refused rather than discarding facts.
+
+The current safety review reproduced and fixed an upload-stream digest disposal
+fault with one permanent controlled regression. The four adapter regressions now
+pass, including successful streamed PUT/read-back and caller stream ownership.
+The local provider substitute is not evidence of live Hugging Face behavior.
+
+Other absent scopes include numerical inventory, committed quotation/agreement
+authority, discount/approval workflows, invoice persistence, Web and Workstation.
+
+To exercise the implemented path: apply all registered migrations and
+`deploy/database/grant-core-api-runtime.sql`, publish/pin the updated authorization
+model and grant only intended capability tuples. Explicitly set
+`CustomerImports__Execution__Enabled=true` for autonomous import acceptance; it
+fails safe 503 while disabled/starting/unavailable/draining. Use the canonical
+`modules/customers/Application.Customers/customer-import-v1-template.csv`.
+Pricing requires a published tenant policy and active compatible Catalog identities.
 
 ### Retained draft history and order-entry boundaries, 2026-10-02
 

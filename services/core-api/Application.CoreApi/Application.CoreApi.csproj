@@ -1,5 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <ItemGroup>
+    <ProjectReference Include="../../../foundation/object-storage/Application.ObjectStorage/Application.ObjectStorage.csproj" />
+    <ProjectReference Include="../../../modules/catalog/Application.Catalog.Postgres/Application.Catalog.Postgres.csproj" />
+    <ProjectReference Include="../../../modules/catalog/Application.Catalog/Application.Catalog.csproj" />
     <ProjectReference Include="../../../modules/customers/Application.Customers.Postgres/Application.Customers.Postgres.csproj" />
     <ProjectReference Include="../../../modules/customers/Application.Customers/Application.Customers.csproj" />
     <PackageReference Include="Autofac" />
@@ -16,6 +19,8 @@
     <ProjectReference Include="../../../modules/identity-access/Application.IdentityAccess/Application.IdentityAccess.csproj" />
     <ProjectReference Include="../../../modules/orders/Application.Orders.Postgres/Application.Orders.Postgres.csproj" />
     <ProjectReference Include="../../../modules/orders/Application.Orders/Application.Orders.csproj" />
+    <ProjectReference Include="../../../modules/pricing/Application.Pricing.Postgres/Application.Pricing.Postgres.csproj" />
+    <ProjectReference Include="../../../modules/pricing/Application.Pricing/Application.Pricing.csproj" />
     <ProjectReference Include="../../../modules/tenancy/Application.Tenancy.Postgres/Application.Tenancy.Postgres.csproj" />
     <ProjectReference Include="../../../modules/tenancy/Application.Tenancy/Application.Tenancy.csproj" />
   </ItemGroup>

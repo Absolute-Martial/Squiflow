@@ -90,7 +90,8 @@ public sealed partial class PostgresOrderDraftStore
         OrderTenantDbSession session,
         Guid tenantId,
         Guid orderId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool validateCommercialFacts = true)
     {
         OrderDraftHeader? header;
         await using (var command = session.CreateCommand(OrderSql.FindOrder))
@@ -120,7 +121,7 @@ public sealed partial class PostgresOrderDraftStore
             }
         }
 
-        return new OrderDraftSnapshot(
+        var snapshot = new OrderDraftSnapshot(
             header.OrderId,
             header.TenantId,
             header.CreatedByAccountId,
@@ -136,6 +137,8 @@ public sealed partial class PostgresOrderDraftStore
             header.CustomerContext,
             header.CommittedAt,
             header.CommittedByAccountId);
+        if (validateCommercialFacts) OrderCommercialFactsValidation.RequireValid(snapshot);
+        return snapshot;
     }
 
     private static async Task<List<OrderDraftListItem>> ListOrderHeadersAsync(
@@ -200,7 +203,11 @@ public sealed partial class PostgresOrderDraftStore
         reader.GetDecimal(reader.GetOrdinal("quantity")),
         reader.GetString(reader.GetOrdinal("unit_code")),
         reader.GetDecimal(reader.GetOrdinal("unit_price")),
-        reader.GetDecimal(reader.GetOrdinal("line_total")));
+        reader.GetDecimal(reader.GetOrdinal("line_total")),
+        reader.IsDBNull(reader.GetOrdinal("commercial_facts")) ? null :
+            System.Text.Json.JsonSerializer.Deserialize<OrderCommercialLineFacts>(
+                reader.GetString(reader.GetOrdinal("commercial_facts")), SnapshotJsonOptions)
+            ?? throw new InvalidOperationException("An order line contains invalid retained commercial facts."));
 
     private static OrderDraftListItem ReadListItem(NpgsqlDataReader reader)
     {

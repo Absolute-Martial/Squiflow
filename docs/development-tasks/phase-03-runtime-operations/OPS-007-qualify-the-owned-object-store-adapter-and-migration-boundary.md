@@ -2,10 +2,27 @@
 
 Task ID: OPS-007
 Phase: 03-runtime-operations
-Status: READY_AFTER_DEPENDENCIES
+Status: BLOCKED
 Model: GPT-6.1 Sol
 Dependencies: GATE-001, COM-001
 Release requirement: REQUIRED
+
+Local implementation and qualification are complete for the declared neutral,
+CoreApi and PostgreSQL consumer contracts. The exact 1045-test gate passed with
+zero failures/skips and zero Release warnings/errors; CoreApi 458/458 and real
+Customers PostgreSQL 51/51 are current final-gate results. Expiry-aware reads,
+fenced retirement/recovery, safe stream disposal, metadata survival and runtime
+RLS/grant/migration guards are locally qualified where exercised. Controlled
+signing/streamed-PUT regressions passed 4/4 after the disposed-hasher correction.
+
+`OPS-007` remains `BLOCKED` only for its required real Hugging Face provider-backed
+qualification, not for a missing local COM-004 retention implementation.
+Live Hugging Face upload, download, delete, conditional write, redirects/timeouts, finite capacity, asymmetric provider/database failure and remote reconciliation remain unrun and NOT qualified. Checked-in `ObjectStorage.Enabled=false`; no nonempty relevant provider runtime configuration variables were visible. No private credential, substitute provider or fallback byte archive was introduced.
+
+Current evidence/guards are owned by
+[CUSTOMER_DUPLICATES_AND_IMPORTS_SLICE.md](../../implementation/CUSTOMER_DUPLICATES_AND_IMPORTS_SLICE.md).
+No repository integration or production acceptance is inferred.
+
 Cross-track prerequisites: COM-001
 
 ## Outcome
@@ -22,7 +39,7 @@ Allowed areas: infrastructure storage adapter/contracts, first real consumer/pro
 
 ## Decisions/prerequisites
 
-Hugging Face is accepted bootstrap direction, not proof of deployed capacity or suitability. Verify current primary provider terms/APIs/limits at implementation. A paying-customer profile requires an accepted paid provider selection and qualified cutover; do not select it silently.
+Hugging Face is accepted bootstrap direction, not proof of deployed capacity or suitability. The current Storage Bucket API is the S3-compatible gateway at `https://s3.hf.co/<namespace>` with path-style addressing, `us-east-1`, HFAK-derived credentials and mutable/non-versioned objects. The adapter uses only deployment-supplied configuration and keeps provider types out of `Application.ObjectStorage`. A paying-customer profile requires an accepted paid provider selection and qualified cutover; do not select it silently.
 
 ## Acceptance and edge cases
 
@@ -33,13 +50,25 @@ Hugging Face is accepted bootstrap direction, not proof of deployed capacity or 
 - Migration copies/verifies all retained references, reconciles failures and supports reviewed cutover/recovery.
 - Consumer contract tests pass against both selected adapters before production promotion.
 
+The current implementation adds `Application.ObjectStorage.IObjectStore` and the CoreApi
+Hugging Face adapter. It enforces SquiFlow key validation, bounded request timeouts,
+streamed expected-length/SHA-256 verification, conditional no-overwrite, safe typed
+provider outcomes and allow-listed HTTPS redirects. The adapter does not log provider
+response bodies, credentials or source content. The bootstrap configuration is disabled
+by default and fails closed when enabled without complete bounded configuration.
+
 ## Security/static review
 
 Review credential scope, private access, outbound destinations/redirects, key ownership and SDK/license containment. Inspect the complete changed dependency and authority path; redact credentials and sensitive content from errors, logs and artifacts.
 
 ## Dynamic verification and unavailable-environment handling
 
-Run provider sandbox contract tests and a staged migration/rollback drill using non-sensitive fixture bytes; record unavailable paid-provider evidence as a release blocker. Run applicable focused checks and the normal `./eng/verify.sh` without masking parallel failures. If required tooling/provider access is unavailable, report the exact missing evidence and keep introduced claims `BLOCKED`; never substitute mocks for the property.
+Local unit/host/PostgreSQL checks cover the neutral contract and database consumer, but
+no Hugging Face credentials or private bucket were available. Provider sandbox
+upload/download/conditional-put/delete, redirect, timeout and staged migration/rollback
+drills remain unrun and keep OPS-007 `BLOCKED`; no mock is treated as provider evidence.
+Run those checks with non-sensitive fixture bytes and then the normal `./eng/verify.sh`
+before changing this state.
 
 ## Handoff
 

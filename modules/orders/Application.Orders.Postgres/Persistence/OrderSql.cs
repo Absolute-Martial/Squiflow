@@ -2,6 +2,8 @@ namespace Application.Orders.Postgres;
 
 internal static class OrderSql
 {
+    internal static readonly string PinCommercialPublication = Load(nameof(PinCommercialPublication));
+    internal static readonly string LockOrderForCommit = Load(nameof(LockOrderForCommit));
     internal static readonly string TryCommitOrder = Load(nameof(TryCommitOrder));
     internal static readonly string TryAbandonOrder = Load(nameof(TryAbandonOrder));
     internal static readonly string TryReviseOrder = Load(nameof(TryReviseOrder));

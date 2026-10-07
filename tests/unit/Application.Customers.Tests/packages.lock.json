@@ -96,8 +96,12 @@
       "application.customers": {
         "type": "Project",
         "dependencies": {
-          "Application.Tenancy": "[0.1.0, )"
+          "Application.ObjectStorage": "[0.0.1, )",
+          "Application.Tenancy": "[0.0.1, )"
         }
+      },
+      "application.objectstorage": {
+        "type": "Project"
       },
       "application.tenancy": {
         "type": "Project"

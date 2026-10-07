@@ -64,9 +64,9 @@ internal sealed class OpenFgaTenantAuthorizationAdministrationProvider(
                     timeout.Token).ConfigureAwait(false);
             }
 
-            foreach (var expected in mutations.DirectTuples)
+            foreach (var revoked in mutations.RevokedTuples)
             {
-                if (await DirectTupleExistsAsync(expected, timeout.Token).ConfigureAwait(false) != expected.Allowed)
+                if (await RevokedTupleStillPresentAsync(revoked, timeout.Token).ConfigureAwait(false))
                 {
                     return new TenantAuthorizationProviderResult(
                         TenantAuthorizationProviderOutcome.Uncertain,
@@ -104,6 +104,12 @@ internal sealed class OpenFgaTenantAuthorizationAdministrationProvider(
                 TenantAuthorizationProviderOutcome.Failed,
                 "authorization_model_rejected");
         }
+        catch (Exception exception) when (IsCredentialDenied(exception))
+        {
+            return new TenantAuthorizationProviderResult(
+                TenantAuthorizationProviderOutcome.Uncertain,
+                "provider_denied_credential");
+        }
         catch (Exception exception) when (exception is ApiException or HttpRequestException)
         {
             return new TenantAuthorizationProviderResult(
@@ -135,14 +141,21 @@ internal sealed class OpenFgaTenantAuthorizationAdministrationProvider(
         return result.Allowed is true;
     }
 
-    private async Task<bool> DirectTupleExistsAsync(ExpectedTuple expected, CancellationToken cancellationToken)
+    // Proves a revoked direct grant is gone. Reading tuples is a distinct authorization from
+    // checking a permission, so a credential that may write and check but not read fails
+    // here. That is reported as its own outcome code rather than a generic outage, because
+    // the difference between "the provider is briefly unavailable" and "this credential can
+    // never revoke a direct grant" decides whether retrying can ever help.
+    private async Task<bool> RevokedTupleStillPresentAsync(
+        ExpectedTuple revoked,
+        CancellationToken cancellationToken)
     {
         var response = await client.Read(
             new ClientReadRequest
             {
-                User = expected.User,
-                Relation = expected.Relation,
-                Object = expected.Object,
+                User = revoked.User,
+                Relation = revoked.Relation,
+                Object = revoked.Object,
             },
             new ClientReadOptions
             {
@@ -160,7 +173,7 @@ internal sealed class OpenFgaTenantAuthorizationAdministrationProvider(
         var writes = new List<ClientTupleKey>();
         var deletes = new List<ClientTupleKeyWithoutCondition>();
         var expected = new List<ExpectedTuple>();
-        var directTuples = new List<ExpectedTuple>();
+        var revokedTuples = new List<ExpectedTuple>();
         var tenantObject = $"tenant:{proposal.TenantId:N}";
 
         switch (proposal.Kind)
@@ -171,12 +184,17 @@ internal sealed class OpenFgaTenantAuthorizationAdministrationProvider(
                     var definition = Permission(proposal.PermissionId!);
                     var user = $"user:{proposal.TargetAccountId!.Value:N}";
                     var allowed = proposal.Kind == TenantAuthorizationProposalKind.GrantPermission;
-                    // A direct grant is one tuple. Whether the account still holds the
-                    // permission afterwards is not the claim: the same permission can
-                    // legitimately arrive through a custom role, so an aggregate permission
-                    // check would keep reporting allowed after the direct tuple was removed
-                    // and strand the proposal as Uncertain. Write the tuple, then verify the
-                    // tuple rather than the aggregate permission.
+                    // Grant and revoke are verified differently, because the aggregate
+                    // permission answer is only meaningful in one direction.
+                    //
+                    // After a grant the account is expected to hold the permission, so the
+                    // ordinary permission check is the correct and sufficient verification.
+                    // Using it keeps the grant path dependent only on write and check.
+                    //
+                    // After a revoke the account may still hold the permission through a
+                    // custom role, so expecting the aggregate check to become false would
+                    // strand the proposal as Uncertain forever. Proving the direct tuple is
+                    // gone requires reading tuples, which is a different authorization.
                     if (allowed)
                     {
                         writes.Add(new ClientTupleKey
@@ -196,7 +214,8 @@ internal sealed class OpenFgaTenantAuthorizationAdministrationProvider(
                         });
                     }
 
-                    directTuples.Add(new ExpectedTuple(user, definition.Relation, tenantObject, allowed));
+                    (allowed ? expected : revokedTuples).Add(
+                        new ExpectedTuple(user, definition.Relation, tenantObject, allowed));
                     break;
                 }
             case TenantAuthorizationProposalKind.CreateRole:
@@ -252,7 +271,7 @@ internal sealed class OpenFgaTenantAuthorizationAdministrationProvider(
                 throw new ArgumentOutOfRangeException(nameof(proposal));
         }
 
-        return new MutationSet(writes, deletes, expected, directTuples);
+        return new MutationSet(writes, deletes, expected, revokedTuples);
     }
 
     private static TenantPermissionDefinition Permission(string permissionId) =>
@@ -284,11 +303,23 @@ internal sealed class OpenFgaTenantAuthorizationAdministrationProvider(
         expected.Add(new ExpectedTuple(user, relation, objectId, allowed));
     }
 
+    // A rejected credential is distinguishable from a transient outage, and it matters:
+    // a transient outage resolves on retry, while a credential that may write and check but
+    // not read tuples can never revoke a direct grant, so the proposal stays unresolved
+    // indefinitely no matter how often it is retried.
+    private static bool IsCredentialDenied(Exception exception) => exception switch
+    {
+        FgaApiAuthenticationError => true,
+        FgaApiError fga => fga.StatusCode is System.Net.HttpStatusCode.Unauthorized
+            or System.Net.HttpStatusCode.Forbidden,
+        _ => false,
+    };
+
     private sealed record MutationSet(
         List<ClientTupleKey> Writes,
         List<ClientTupleKeyWithoutCondition> Deletes,
         List<ExpectedTuple> Expected,
-        List<ExpectedTuple> DirectTuples);
+        List<ExpectedTuple> RevokedTuples);
 
     private sealed record ExpectedTuple(string User, string Relation, string Object, bool Allowed);
 }

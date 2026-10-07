@@ -38,6 +38,28 @@ internal interface ITenantCustomerAuthorization
     Task<bool> CanCreateIndividualAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
     Task<bool> CanViewIndividualsAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
     Task<bool> CanChangeIndividualAvailabilityAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
+    Task<bool> CanEditIndividualContactAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
+    Task<bool> CanViewRepresentativesAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
+    Task<bool> CanManageRepresentativesAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
+    Task<bool> CanResolveCustomerDuplicatesAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
+    Task<bool> CanConsolidateCustomerDuplicatesAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
+    Task<bool> CanImportCustomersAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
+}
+
+internal interface ITenantCatalogAuthorization
+{
+    Task<bool> CanViewAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
+    Task<bool> CanManageAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
+}
+
+internal interface ITenantPricingAuthorization
+{
+    Task<bool> CanViewAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
+    Task<bool> CanEditDraftAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
+    Task<bool> CanPublishAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
+    Task<bool> CanRetireAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
+    Task<bool> CanOverrideAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
+    Task<bool> CanOverrideBeyondPolicyAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
 }
 
 internal sealed class OpenFgaTenantAuthorization(
@@ -46,7 +68,9 @@ internal sealed class OpenFgaTenantAuthorization(
     ILogger<OpenFgaTenantAuthorization> logger) :
     ITenantWorkspaceAuthorization,
     ITenantOrderAuthorization,
-    ITenantCustomerAuthorization
+    ITenantCustomerAuthorization,
+    ITenantCatalogAuthorization,
+    ITenantPricingAuthorization
 {
     private const string MemberRelation = "member";
     private const string ViewWorkspaceRelation = "can_view_workspace";
@@ -63,6 +87,20 @@ internal sealed class OpenFgaTenantAuthorization(
     private const string CreateIndividualRelation = "can_create_individual";
     private const string ViewIndividualsRelation = "can_view_individuals";
     private const string ChangeIndividualAvailabilityRelation = "can_change_individual_availability";
+    private const string EditIndividualContactRelation = "can_edit_individual_contact";
+    private const string ViewRepresentativesRelation = "can_view_representatives";
+    private const string ManageRepresentativesRelation = "can_manage_representatives";
+    private const string ResolveCustomerDuplicatesRelation = "can_resolve_customer_duplicates";
+    private const string ConsolidateCustomerDuplicatesRelation = "can_consolidate_customer_duplicates";
+    private const string ImportCustomersRelation = "can_import_customers";
+    private const string ViewCatalogRelation = "can_view_catalog";
+    private const string ManageCatalogRelation = "can_manage_catalog";
+    private const string ViewPricingRelation = "can_view_pricing";
+    private const string EditPricingDraftRelation = "can_edit_pricing_draft";
+    private const string PublishPricingRelation = "can_publish_pricing";
+    private const string RetirePricingRelation = "can_retire_pricing";
+    private const string OverridePricingRelation = "can_override_pricing";
+    private const string OverrideBeyondPolicyPricingRelation = "can_override_pricing_beyond_policy";
     private static readonly Meter Meter = new("Application.CoreApi.Authorization", "0.1.0");
     private static readonly Counter<long> Decisions = Meter.CreateCounter<long>("application.authorization.decisions");
     private static readonly Histogram<double> Duration = Meter.CreateHistogram<double>(
@@ -151,6 +189,48 @@ internal sealed class OpenFgaTenantAuthorization(
 
     Task<bool> ITenantCustomerAuthorization.CanChangeIndividualAvailabilityAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken) =>
         CheckAsync(accountId, tenantId, ChangeIndividualAvailabilityRelation, cancellationToken);
+
+    Task<bool> ITenantCustomerAuthorization.CanEditIndividualContactAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, EditIndividualContactRelation, cancellationToken);
+
+    Task<bool> ITenantCustomerAuthorization.CanViewRepresentativesAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, ViewRepresentativesRelation, cancellationToken);
+
+    Task<bool> ITenantCustomerAuthorization.CanManageRepresentativesAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, ManageRepresentativesRelation, cancellationToken);
+
+    Task<bool> ITenantCustomerAuthorization.CanResolveCustomerDuplicatesAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, ResolveCustomerDuplicatesRelation, cancellationToken);
+
+    Task<bool> ITenantCustomerAuthorization.CanConsolidateCustomerDuplicatesAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, ConsolidateCustomerDuplicatesRelation, cancellationToken);
+
+    Task<bool> ITenantCustomerAuthorization.CanImportCustomersAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, ImportCustomersRelation, cancellationToken);
+
+    Task<bool> ITenantCatalogAuthorization.CanViewAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, ViewCatalogRelation, cancellationToken);
+
+    Task<bool> ITenantCatalogAuthorization.CanManageAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, ManageCatalogRelation, cancellationToken);
+
+    Task<bool> ITenantPricingAuthorization.CanViewAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, ViewPricingRelation, cancellationToken);
+
+    Task<bool> ITenantPricingAuthorization.CanEditDraftAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, EditPricingDraftRelation, cancellationToken);
+
+    Task<bool> ITenantPricingAuthorization.CanPublishAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, PublishPricingRelation, cancellationToken);
+
+    Task<bool> ITenantPricingAuthorization.CanRetireAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, RetirePricingRelation, cancellationToken);
+
+    Task<bool> ITenantPricingAuthorization.CanOverrideAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, OverridePricingRelation, cancellationToken);
+
+    Task<bool> ITenantPricingAuthorization.CanOverrideBeyondPolicyAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, OverrideBeyondPolicyPricingRelation, cancellationToken);
 
     private async Task<bool> CheckAsync(
         Guid accountId,

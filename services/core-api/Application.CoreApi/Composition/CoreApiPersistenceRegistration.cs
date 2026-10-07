@@ -1,6 +1,9 @@
 using Application.IdentityAccess.Postgres;
+using Application.Catalog.Postgres;
 using Application.Customers.Postgres;
 using Application.Orders.Postgres;
+using Application.Pricing;
+using Application.Pricing.Postgres;
 using Application.Tenancy.Postgres;
 using Npgsql;
 
@@ -18,7 +21,12 @@ internal static class CoreApiPersistenceRegistration
         services.AddIdentityAccessPostgres();
         services.AddTenancyPostgres();
         services.AddCustomersPostgres();
+        services.AddCatalogPostgres();
+        services.AddPricingPostgres();
+        services.AddScoped<IPricingReferenceReader, PricingReferenceReader>();
+        services.AddSingleton(TimeProvider.System);
         services.AddOrdersPostgres();
+        services.AddCatalogOrderIntegration();
 
         return services;
     }

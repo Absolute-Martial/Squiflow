@@ -67,6 +67,20 @@ public static class TenantPermissionCatalog
         new("customers.individuals.create", "individual_creator", "Create individual customers"),
         new("customers.individuals.view", "individual_viewer", "View individual customers"),
         new("customers.individuals.availability", "individual_availability_editor", "Change individual customer availability"),
+        new("customers.individuals.contact.edit", "individual_contact_editor", "Edit individual customer contact fields"),
+        new("customers.representatives.view", "representative_viewer", "View customer representative relationships"),
+        new("customers.representatives.manage", "representative_manager", "Manage customer representative relationships"),
+        new("customers.duplicates.resolve", "customer_duplicate_resolver", "Review and resolve customer duplicates"),
+        new("customers.duplicates.consolidate", "customer_duplicate_consolidator", "Consolidate customer identities"),
+        new("customers.import", "customer_importer", "Plan and accept customer imports"),
+        new("catalog.view", "catalog_viewer", "View catalog items and units"),
+        new("catalog.manage", "catalog_editor", "Manage catalog items and units"),
+        new("pricing.view", "pricing_viewer", "View published prices and policy"),
+        new("pricing.drafts.edit", "pricing_draft_editor", "Create pricing drafts"),
+        new("pricing.publish", "pricing_publisher", "Publish price revisions and policy"),
+        new("pricing.retire", "pricing_retirer", "Retire published price revisions"),
+        new("pricing.override", "pricing_overrider", "Override a selected price with a reason"),
+        new("pricing.override_beyond_policy", "pricing_exception_overrider", "Override outside the current policy envelope"),
     ];
 
     public static IReadOnlyList<TenantPermissionDefinition> All { get; } = Array.AsReadOnly(Definitions);

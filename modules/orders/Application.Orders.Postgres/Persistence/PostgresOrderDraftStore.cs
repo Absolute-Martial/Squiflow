@@ -5,8 +5,9 @@ namespace Application.Orders.Postgres;
 
 public sealed partial class PostgresOrderDraftStore(
     NpgsqlDataSource dataSource,
-    TimeProvider? timeProvider = null)
-    : IOrderDraftStore, IOrderDraftHistoryStore
+    TimeProvider? timeProvider = null,
+    IOrderCommercialCommitGuard? commercialCommitGuard = null)
+    : IOrderDraftStore, IOrderDraftHistoryStore, IOrderDraftReceiptReader
 {
     private const string CreateOperation = "create-order-draft";
     private const string AbandonOperation = "abandon-order-draft";
@@ -54,6 +55,8 @@ public sealed partial class PostgresOrderDraftStore(
             createdAt,
             intent.Lines,
             CustomerContext: intent.CustomerContext);
+
+        OrderCommercialFactsValidation.RequireValid(order);
 
         await InsertOrderAsync(session, order, cancellationToken).ConfigureAwait(false);
         await InsertLinesAsync(session, order, cancellationToken).ConfigureAwait(false);
@@ -228,6 +231,10 @@ public sealed partial class PostgresOrderDraftStore(
             command.Parameters.AddWithValue("unit_code", line.UnitCode);
             command.Parameters.AddWithValue("unit_price", line.UnitPrice);
             command.Parameters.AddWithValue("line_total", line.LineTotal);
+            command.Parameters.Add(new NpgsqlParameter("commercial_facts", NpgsqlTypes.NpgsqlDbType.Jsonb)
+            {
+                Value = line.CommercialFacts is null ? DBNull.Value : System.Text.Json.JsonSerializer.Serialize(line.CommercialFacts, SnapshotJsonOptions),
+            });
             batch.BatchCommands.Add(command);
         }
         await batch.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
