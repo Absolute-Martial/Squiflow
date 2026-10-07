@@ -24,6 +24,8 @@ Allowed areas: Web-administration-only authoring/publication APIs; one capabilit
 
 ## Decisions/prerequisites
 
+Owner selected the first case on 2026-10-08: **required program reference before Order commitment**. The focused [workflow owner](../../workflow/WORKFLOW_DESIGN.md) records the selection. Status remains `DECISION_REQUIRED`: clarify whether reference means existing program attribution or a supplementary external reference, then close typed shape, selection/precedence, publication authority and active-work version decisions. ADM-018–021 durable profile prerequisites remain unimplemented; a case selection is not their qualification.
+
 Choose the actual variation, permitted typed fields/operators/actions, inheritance conflict rule, bounds, publication authority and compatible version policy. Approval behavior is supplied by COM-012; deadlines need OPS-005 only when the chosen case requires scheduling.
 
 ## Acceptance and edge cases

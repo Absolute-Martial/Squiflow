@@ -49,10 +49,10 @@ have one revision-checked winner; no winning command overwrites issued history.
 | Concurrency and recovery | A second authorized conversion, even with another key/caller, returns the already linked Order. Response loss is resolved through retained receipts/link identity. Cancellation/crash before commit leaves neither Order nor conversion link; replay after commit preserves both. |
 
 Accepted quotation origin is a distinct authoritative pricing fact, not a
-price-book tier. COM-010 must deliberately extend Orders' current-source
-revalidation branch so conversion/commitment preserves the accepted offer. The
-trusted owning capability supplies this fact through a reviewed in-process
-contract; arbitrary client quotation IDs never grant a price or authority.
+price-book tier. COM-010 extends Orders' current-source revalidation branch so
+conversion/commitment preserves the accepted offer. The trusted owning
+capability supplies this fact through a reviewed in-process contract; arbitrary
+client quotation IDs never grant a price or authority.
 
 ## Implementation and qualification boundary
 
@@ -165,7 +165,7 @@ Quotation-origin and response migrations reject whole-chain downgrade without di
 
 ## COM-010 implementation state
 
-COM-010 is `PRODUCTION_HONEST` for this declared bounded scope, with `BLOCKED = none` for COM-010. The receiving [qualification receipt](../review/COM_010_IMPLEMENTATION_RECEIPT.md) records the exact normal `./eng/verify.sh` result, focused PostgreSQL/CoreApi suites and independent host publishes. COM-009 remains the qualified dependency. This does not claim remote CI, production deployment or whole-product qualification.
+COM-010 is `PRODUCTION_HONEST` for this declared bounded scope, with `BLOCKED = none` for COM-010. The [qualification receipt](../review/COM_010_IMPLEMENTATION_RECEIPT.md) records the receiving evidence: exact normal `./eng/verify.sh` exited 0 with 1,135/1,135 tests across 22 projects, zero failures/skips and zero Release warnings/errors (922 seconds); focused `QuotationPostgresTests` 35/35, Orders PostgreSQL 80/80 and CoreApi 489/489; and independent `./eng/build-host.sh core-api --publish` and `./eng/build-host.sh db-migrator --publish` commands, both exiting 0 with zero warnings/errors. COM-009 remains the qualified dependency. This does not claim remote CI, production deployment or whole-product qualification.
 
 CoreApi maps `POST /{quotationId}/accept`, `/reject`, `/expire` and `/convert`, plus exact historical response `GET /{quotationId}/issued/{revisionId}/response`, under `/api/v1/tenants/{tenantId}/quotations`. Response commands use `quotation_responder`; expiry uses `quotation_expirer`; conversion requires `quotation_converter` and current Orders-create. Historical response reads and quotation detail require quotation-view. Commands identify the exact issued revision and expected head version and require caller idempotency. The shared strict transport boundary rejects malformed, duplicate, unknown and oversized JSON. Response/convert command projections contain retained response evidence and, when linked, only Order identity and revision; they do not expose offer or Order prices/lines. Full quotation detail adds current response facts and a conversion reference, never the retained full Order snapshot.
 
