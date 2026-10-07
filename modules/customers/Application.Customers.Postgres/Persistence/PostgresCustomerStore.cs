@@ -6,7 +6,11 @@ using NpgsqlTypes;
 namespace Application.Customers.Postgres;
 
 public sealed partial class PostgresCustomerStore(NpgsqlDataSource dataSource, TimeProvider? timeProvider = null)
-    : ICustomerStore, ICustomerIndividualStore
+    : ICustomerStore, ICustomerIndividualStore, ICustomerIndividualContactStore, ICustomerRepresentativeStore,
+      ICustomerDuplicateDiscoveryStore, ICustomerDuplicateResolutionStore,
+      ICustomerDuplicateConsolidationStore, ICustomerImportStore, ICustomerImportWorkStore,
+       ICustomerImportWorkDiscovery, ICustomerCanonicalDirectory, ICustomerImportSourceStore,
+       ICustomerImportSourceMaintenanceStore
 {
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
 

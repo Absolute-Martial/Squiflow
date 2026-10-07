@@ -17,6 +17,8 @@ public static class OrdersPostgresRegistration
         services.AddScoped<PostgresOrderDraftStore>();
         services.AddScoped<IOrderDraftStore>(provider => provider.GetRequiredService<PostgresOrderDraftStore>());
         services.AddScoped<IOrderDraftHistoryStore>(provider => provider.GetRequiredService<PostgresOrderDraftStore>());
+        services.AddScoped<IOrderDraftReceiptReader>(provider => provider.GetRequiredService<PostgresOrderDraftStore>());
+        services.AddScoped<CatalogOrderDraftApplication>();
         services.AddScoped<GetOrderDraftHistory>();
         services.AddScoped<CreateOrderDraft>();
         services.AddScoped<GetOrderDraft>();

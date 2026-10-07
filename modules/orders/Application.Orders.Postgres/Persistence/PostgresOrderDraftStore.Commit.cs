@@ -29,6 +29,44 @@ public sealed partial class PostgresOrderDraftStore
             return ToExistingCommitResult(receipt, fingerprint);
         }
 
+        // Lock before reading lines: revision/abandon/commit cannot change the
+        // retained content while commercial facts are revalidated under the transaction's pin.
+        await using (var orderLock = session.CreateCommand(OrderSql.LockOrderForCommit))
+        {
+            orderLock.Parameters.AddWithValue("tenant_id", tenantContext.TenantId);
+            orderLock.Parameters.AddWithValue("order_id", request.OrderId);
+            await orderLock.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+        }
+        // Another same-key winner may have committed while this row lock waited.
+        receipt = await FindReceiptAsync(session, tenantContext.TenantId, tenantContext.AccountId,
+            CommitOperation, idempotencyKey, cancellationToken).ConfigureAwait(false);
+        if (receipt is not null)
+        {
+            await session.CommitAsync(cancellationToken).ConfigureAwait(false);
+            return ToExistingCommitResult(receipt, fingerprint);
+        }
+        var beforeCommit = await FindOrderAsync(session, tenantContext.TenantId, request.OrderId, cancellationToken).ConfigureAwait(false);
+        if (beforeCommit is { State: OrderDraftState.Draft } && beforeCommit.Revision == request.ExpectedRevision &&
+            beforeCommit.Lines.Any(line => line.CommercialFacts is not null))
+        {
+            // Missing composition fails closed; manual paths do not depend on this port.
+            if (commercialCommitGuard is null)
+                return new(CommitOrderDraftStatus.CommercialFactsConflict, null);
+
+            // Same backend/transaction as the effect and receipt: backend loss cannot
+            // release publication protection while leaving this commit alive.
+            // Catalog/Pricing writers pin exclusively before their own row locks and
+            // never lock Orders rows. Public comparison queries acquire no second pin.
+            await using (var pin = session.CreateCommand(OrderSql.PinCommercialPublication))
+            {
+                pin.Parameters.AddWithValue("tenant_id", tenantContext.TenantId);
+                await pin.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!await commercialCommitGuard.IsCompatibleAsync(tenantContext, beforeCommit, cancellationToken).ConfigureAwait(false))
+                return new(CommitOrderDraftStatus.CommercialFactsConflict, null);
+        }
+
         var committedAt = _timeProvider.GetUtcNow();
         var changed = await TryCommitOrderAsync(
             session, tenantContext, request, committedAt, cancellationToken)

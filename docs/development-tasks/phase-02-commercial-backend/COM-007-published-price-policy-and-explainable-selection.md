@@ -23,7 +23,7 @@ Allowed areas: pricing-owned bounded definitions, immutable publication revision
 
 ## Decisions/prerequisites
 
-COM-006 must settle precedence and validity. Cross-track prerequisites: qualified policy-publication grants and supported revision compatibility; OPS-021 applies when a new independently consumed contract earns it.
+COM-006 precedence/validity/publication decisions were closed on 2026-10-06. Current source implements the accepted book scopes and independent publication authority; receiving evidence lives in [PRICING_POLICY_AND_PUBLICATION.md](../../implementation/PRICING_POLICY_AND_PUBLICATION.md) and [ORDER_CATALOG_PRICED_DRAFTS.md](../../implementation/ORDER_CATALOG_PRICED_DRAFTS.md). Cross-track prerequisites remain real qualification of grants/revision compatibility, not new product decisions. COM-009 owning quotation/agreement facts and OPS-021 independent-client compatibility are separate scopes.
 
 ## Acceptance and edge cases
 

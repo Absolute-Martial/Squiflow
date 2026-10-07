@@ -2,13 +2,38 @@
 
 Task ID: COM-004
 Phase: 02-commercial-backend
-Status: CONDITIONAL
+Status: PRODUCTION_HONEST
 Model: GPT-6.1 Sol
 Dependencies: COM-003
 Conditional dependencies: OPS-008 when import bytes are retained; OPS-003 when the accepted import uses background execution
-Release requirement: CONDITIONAL
+Release requirement: REQUIRED
 
-Planned assignment only. Apply [agent rules](../AGENT_RULES.md) and [handoff rules](../HANDOFF_AND_INTEGRATION.md).
+COM-004 implementation and local qualification are **COMPLETE** for the declared
+capability, CoreApi and PostgreSQL contracts. Raw-source lifecycle, expiry-aware
+reads, fenced retirement/recovery and hosted source-only tenant execution are
+locally `PRODUCTION_HONEST`. Production/provider qualification remains `BLOCKED`
+only on the live OPS-007/OPS-008 Hugging Face evidence; this is not an unresolved
+local retention or recovery implementation claim.
+
+The fresh exact `./eng/verify.sh` completed with **exit 0**, **1045 passed / 0 failed /
+0 skipped** across **20 test projects**, and a Release build with **0 warnings /
+0 errors**. The final gate includes CoreApi **458/458** and Customers PostgreSQL
+**51/51**. Standalone pre-upload-fix suites passed 457/457 and 51/51; they are
+supporting earlier evidence, not substitutes for the final gate. Post-fix standalone
+formatter verification and `git diff --check` passed. Complete local results, source
+hashes, original failures and the safety review are retained under
+`artifacts/verification/com004-current-20261007/` (`RESULTS.json`, `gate.log`,
+`gate-source.json`, `STATIC-REVIEW.md`).
+
+Live Hugging Face upload, download, delete, conditional write, redirects/timeouts, finite capacity, asymmetric provider/database failure and remote reconciliation remain unrun and NOT qualified. Checked-in `ObjectStorage.Enabled=false`; no nonempty relevant provider runtime configuration variables were visible. No private credential, substitute provider or fallback byte archive was introduced.
+
+This is local dirty-tree qualification, not commit/merge/PR integration, remote CI,
+coverage, live identity-provider qualification, deployment readiness or production
+acceptance. Incoming `eng/verify.sh` runs its unit/container project groups
+sequentially; this pass did not change that policy or serialize test cases to hide
+failures. Historical gate totals are preserved below only as historical evidence.
+
+Implementation/local qualification complete; only the external provider qualification remains to be received. Apply [agent rules](../AGENT_RULES.md) and [handoff rules](../HANDOFF_AND_INTEGRATION.md).
 
 ## Outcome
 
@@ -24,7 +49,7 @@ Allowed areas: one bounded customer format and supported organization/program/co
 
 ## Decisions/prerequisites
 
-Activation requires a real input sample, encoding/column/version contract, row/byte bounds, duplicate policy and batch atomicity decision. Large durable jobs additionally require OPS-001 and OPS-002; do not force background processing for a small bounded synchronous import.
+Owner activation/format/limits/duplicates/atomicity/retention/execution decisions were closed on 2026-10-06. Ship the canonical `customer-import/v1` template; a third-party input sample is no longer an activation prerequisite. The Customers-owned durable row ledger, fencing and awaited hosted execution qualify only their explicit bounded workload, not the general OPS Worker runtime. Raw-source retention is implemented through OPS-007/OPS-008/OPS-011, and its local contracts are qualified. Production/provider qualification remains `BLOCKED` until the real private Hugging Face provider contract, asymmetric failures and capacity/retention evidence are qualified. Current scope/evidence: [CUSTOMER_DUPLICATES_AND_IMPORTS_SLICE.md](../../implementation/CUSTOMER_DUPLICATES_AND_IMPORTS_SLICE.md).
 
 Omission from full completion requires an explicit owner disposition, safe absence behavior and an activation trigger.
 
@@ -39,7 +64,7 @@ Omission from full completion requires an explicit owner disposition, safe absen
 
 ## Security/static review
 
-Review parser/formula injection, retained import-file access and all row-level tenant checks. File retention/upload requires OPS-008 when bytes are retained.
+Review parser/formula injection, retained import-file access and all row-level tenant checks. File retention/upload uses the selected OPS-008 boundary; live provider qualification remains required.
 
 ## Dynamic verification and unavailable-environment handling
 

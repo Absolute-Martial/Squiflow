@@ -1,0 +1,36 @@
+using Application.Customers;
+using Microsoft.Extensions.Options;
+
+namespace Application.CoreApi.ImportExecution;
+
+internal static class CustomerImportExecutionRegistration
+{
+    internal static IServiceCollection AddCustomerImportExecution(
+        this IServiceCollection services, IConfiguration configuration, RuntimeDatabaseConfiguration database)
+    {
+        var execution = CustomerImportExecutionConfiguration.From(configuration);
+        if (execution.Enabled && database.MaximumPoolSize < 2)
+            throw new InvalidOperationException("Customer import execution requires a shared database pool of at least two connections.");
+        services.AddSingleton(execution);
+        services.AddSingleton<CustomerImportExecutionState>();
+        services.AddScoped<ICustomerImportAuthority, CurrentCustomerImportAuthority>();
+        services.AddHostedService<CustomerImportHostedExecutor>();
+        // Reuse the standard host shutdown setting; no independent detached shutdown mechanism.
+        services.AddOptions<HostOptions>().Bind(configuration.GetSection("HostOptions")).ValidateOnStart();
+        services.AddSingleton<IValidateOptions<HostOptions>>(new ImportShutdownValidation(execution));
+        return services;
+    }
+
+    private sealed class ImportShutdownValidation(CustomerImportExecutionConfiguration execution) : IValidateOptions<HostOptions>
+    {
+        public ValidateOptionsResult Validate(string? name, HostOptions options)
+        {
+            if (!execution.Enabled) return ValidateOptionsResult.Success;
+            if (options.BackgroundServiceExceptionBehavior != BackgroundServiceExceptionBehavior.StopHost)
+                return ValidateOptionsResult.Fail("Enabled customer import execution requires HostOptions:BackgroundServiceExceptionBehavior=StopHost.");
+            return options.ShutdownTimeout < execution.OperationTimeout + TimeSpan.FromSeconds(5)
+                ? ValidateOptionsResult.Fail("HostOptions:ShutdownTimeout must cover the customer import operation deadline plus its five-second cleanup budget.")
+                : ValidateOptionsResult.Success;
+        }
+    }
+}

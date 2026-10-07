@@ -33,7 +33,7 @@ public sealed partial class CustomerPostgresTests : IAsyncLifetime
         await using var connection = new NpgsqlConnection(ConnectionString);
         await connection.OpenAsync();
         foreach (var table in new[] { "organizations", "programs", "organization_receipts", "program_receipts",
-            "individuals", "individual_command_receipts" })
+            "individuals", "individual_command_receipts", "representatives", "representative_command_receipts" })
         {
             await using var policy = connection.CreateCommand();
             policy.CommandText = """
@@ -411,9 +411,35 @@ public sealed partial class CustomerPostgresTests : IAsyncLifetime
             GRANT USAGE ON SCHEMA customers TO application_customers_runtime;
             GRANT SELECT, INSERT ON customers.organizations, customers.programs,
                 customers.organization_receipts, customers.program_receipts,
-                customers.individuals, customers.individual_command_receipts TO application_customers_runtime;
-            GRANT UPDATE (availability, revision, availability_changed_by_account_id, availability_changed_at)
+                customers.individuals, customers.individual_command_receipts,
+                customers.representatives, customers.representative_command_receipts,
+                customers.customer_redirects, customers.duplicate_cases, customers.duplicate_command_receipts,
+                customers.imports, customers.import_rows, customers.import_work TO application_customers_runtime;
+            GRANT UPDATE (display_name, email, phone, availability, revision,
+                normalized_name, normalized_email, normalized_phone, redirect_target_individual_id,
+                availability_changed_by_account_id, availability_changed_at,
+                contact_changed_by_account_id, contact_changed_at)
                 ON customers.individuals TO application_customers_runtime;
+            GRANT UPDATE (outcome, resolved_by_account_id, resolved_at, reason, evidence)
+                ON customers.duplicate_cases TO application_customers_runtime;
+            GRANT UPDATE (status, error_code, error_message, customer_id, processed_at)
+                ON customers.import_rows TO application_customers_runtime;
+            GRANT UPDATE (requires_decision, duplicate_evidence, decision, mapping_customer_id, attempts)
+                ON customers.import_rows TO application_customers_runtime;
+            GRANT UPDATE (status, completed_at, last_error, worker_id, generation, lease_expires_at, next_attempt_at, authorization_revision)
+                ON customers.import_work TO application_customers_runtime;
+            GRANT UPDATE (individual_id, availability, revision, changed_by_account_id, changed_at)
+                ON customers.representatives TO application_customers_runtime;
+            DO $grant_optional$
+            BEGIN
+              IF to_regclass('customers.object_storage_usage') IS NOT NULL THEN
+                EXECUTE 'GRANT SELECT, INSERT ON customers.object_storage_usage, customers.import_source_objects, customers.object_storage_reservations TO application_customers_runtime';
+                EXECUTE 'GRANT UPDATE (source_object_key) ON customers.imports TO application_customers_runtime';
+                EXECUTE 'GRANT UPDATE (reserved_bytes, retained_bytes, updated_at) ON customers.object_storage_usage TO application_customers_runtime';
+                 EXECUTE 'GRANT UPDATE (state, retention, expires_at, failure_code, retirement_generation, retirement_lease_id, retirement_lease_expires_at) ON customers.import_source_objects TO application_customers_runtime';
+                EXECUTE 'GRANT UPDATE (state, updated_at) ON customers.object_storage_reservations TO application_customers_runtime';
+              END IF;
+            END $grant_optional$;
             """;
         await command.ExecuteNonQueryAsync();
         return new NpgsqlConnectionStringBuilder(ConnectionString)

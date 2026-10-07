@@ -106,6 +106,7 @@ public sealed class RequestBudgetTests(AdminApiTestEnvironment environment)
             });
         });
         using var client = CreateClient(factory);
+        await WarmHostAsync(client);
         var diagnostics = new CapturedExceptionDiagnostics();
         using var subscription = factory.Services.GetRequiredService<DiagnosticListener>().Subscribe(diagnostics);
         using var request = AuthenticatedRequest(environment.CreateToken());

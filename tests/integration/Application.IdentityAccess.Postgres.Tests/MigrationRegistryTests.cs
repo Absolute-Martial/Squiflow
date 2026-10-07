@@ -1,9 +1,13 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Application.DatabaseMigrator;
 using Application.Customers.Postgres;
+using Application.Catalog.Postgres;
 using Application.IdentityAccess.Postgres;
 using Application.Orders.Postgres;
 using Application.PlatformAdministration.Postgres;
+using Application.Pricing.Postgres;
 using Application.Tenancy.Postgres;
 using Xunit;
 
@@ -29,17 +33,32 @@ public sealed class MigrationRegistryTests
 
         Assert.Equal(migrationProjects, registeredProjects);
         Assert.Equal(
-            [typeof(IdentityAccessDbContext), typeof(TenancyDbContext), typeof(PlatformAdministrationDbContext), typeof(CustomerDbContext), typeof(OrderDbContext)],
+            [typeof(IdentityAccessDbContext), typeof(TenancyDbContext), typeof(PlatformAdministrationDbContext), typeof(CustomerDbContext), typeof(CatalogDbContext), typeof(PricingDbContext), typeof(OrderDbContext)],
             MigrationModules.All.Select(module => module.DbContextType));
         Assert.Equal(
-            ["identity-access", "tenancy", "platform-administration", "customers", "orders"],
+            ["identity-access", "tenancy", "platform-administration", "customers", "catalog", "pricing", "orders"],
             MigrationModules.All.Select(module => module.Name));
-        Assert.Equal([100, 200, 225, 250, 300], MigrationModules.All.Select(module => module.Order));
+        Assert.Equal([100, 200, 225, 250, 260, 275, 300], MigrationModules.All.Select(module => module.Order));
 
         var solution = File.ReadAllText(Path.Combine(root, "Application.slnx"));
         foreach (var project in migrationProjects)
         {
             Assert.Contains($"{project}.csproj", solution, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void MigrationClassesHaveExactlyOneEffectiveOwningContextAttribute()
+    {
+        foreach (var module in MigrationModules.All)
+        {
+            var migrations = module.DbContextType.Assembly.GetTypes().Where(type =>
+                !type.IsAbstract && typeof(Migration).IsAssignableFrom(type));
+            foreach (var migration in migrations)
+            {
+                var attribute = Assert.Single(migration.GetCustomAttributes(typeof(DbContextAttribute), inherit: true).Cast<DbContextAttribute>());
+                Assert.Equal(module.DbContextType, attribute.ContextType);
+            }
         }
     }
 

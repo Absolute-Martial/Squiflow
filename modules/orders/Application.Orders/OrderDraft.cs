@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json.Serialization;
 using Application.Customers;
 using Application.Tenancy;
 
@@ -12,7 +13,8 @@ public sealed record OrderDraftLine(
     decimal Quantity,
     string UnitCode,
     decimal UnitPrice,
-    decimal LineTotal);
+    decimal LineTotal,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] OrderCommercialLineFacts? CommercialFacts = null);
 
 public enum OrderDraftState
 {
@@ -138,6 +140,7 @@ public enum CommitOrderDraftStatus
     AlreadyCommitted = 5,
     AlreadyAbandoned = 6,
     IdempotencyKeyConflict = 7,
+    CommercialFactsConflict = 8,
 }
 
 public sealed record CommitOrderDraftResult(
@@ -470,6 +473,9 @@ public sealed record OrderDraftIntent(
     CustomerOrderContext? CustomerContext = null)
 {
     public static OrderDraftIntent Create(CreateOrderDraftRequest request)
+        => Create(request, catalogUnitCodes: false);
+
+    internal static OrderDraftIntent Create(CreateOrderDraftRequest request, bool catalogUnitCodes)
     {
         ArgumentNullException.ThrowIfNull(request);
         var summary = OrderDraftRules.NormalizeRequiredText(
@@ -488,7 +494,7 @@ public sealed record OrderDraftIntent(
                 "Customer organization and program identities must be nonempty.");
         }
 
-        var (lines, total) = Pricing.OrderDraftPriceCalculator.Calculate(request.Lines);
+        var (lines, total) = Pricing.OrderDraftPriceCalculator.Calculate(request.Lines, catalogUnitCodes);
 
         return new OrderDraftIntent(
             summary,

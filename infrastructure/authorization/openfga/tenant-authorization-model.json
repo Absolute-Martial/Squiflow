@@ -298,6 +298,85 @@
               }
             ]
           }
+        },
+        "individual_contact_editor": {
+          "this": {}
+        },
+        "can_edit_individual_contact": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "individual_contact_editor"
+                }
+              }
+            ]
+          }
+        },
+        "representative_viewer": {
+          "this": {}
+        },
+        "can_view_representatives": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "representative_viewer"
+                }
+              }
+            ]
+          }
+        },
+        "customer_duplicate_resolver": { "this": {} },
+        "can_resolve_customer_duplicates": { "intersection": { "child": [ { "computedUserset": { "relation": "member" } }, { "computedUserset": { "relation": "customer_duplicate_resolver" } } ] } },
+        "customer_duplicate_consolidator": { "this": {} },
+        "can_consolidate_customer_duplicates": { "intersection": { "child": [ { "computedUserset": { "relation": "member" } }, { "computedUserset": { "relation": "customer_duplicate_consolidator" } } ] } },
+        "customer_importer": { "this": {} },
+        "can_import_customers": { "intersection": { "child": [ { "computedUserset": { "relation": "member" } }, { "computedUserset": { "relation": "customer_importer" } } ] } },
+        "catalog_viewer": { "this": {} },
+        "can_view_catalog": { "intersection": { "child": [ { "computedUserset": { "relation": "member" } }, { "computedUserset": { "relation": "catalog_viewer" } } ] } },
+        "catalog_editor": { "this": {} },
+        "can_manage_catalog": { "intersection": { "child": [ { "computedUserset": { "relation": "member" } }, { "computedUserset": { "relation": "catalog_editor" } } ] } },
+        "pricing_viewer": { "this": {} },
+        "can_view_pricing": { "intersection": { "child": [ { "computedUserset": { "relation": "member" } }, { "computedUserset": { "relation": "pricing_viewer" } } ] } },
+        "pricing_draft_editor": { "this": {} },
+        "can_edit_pricing_draft": { "intersection": { "child": [ { "computedUserset": { "relation": "member" } }, { "computedUserset": { "relation": "pricing_draft_editor" } } ] } },
+        "pricing_publisher": { "this": {} },
+        "can_publish_pricing": { "intersection": { "child": [ { "computedUserset": { "relation": "member" } }, { "computedUserset": { "relation": "pricing_publisher" } } ] } },
+        "pricing_retirer": { "this": {} },
+        "can_retire_pricing": { "intersection": { "child": [ { "computedUserset": { "relation": "member" } }, { "computedUserset": { "relation": "pricing_retirer" } } ] } },
+        "pricing_overrider": { "this": {} },
+        "can_override_pricing": { "intersection": { "child": [ { "computedUserset": { "relation": "member" } }, { "computedUserset": { "relation": "pricing_overrider" } } ] } },
+        "pricing_exception_overrider": { "this": {} },
+        "can_override_pricing_beyond_policy": { "intersection": { "child": [ { "computedUserset": { "relation": "member" } }, { "computedUserset": { "relation": "pricing_exception_overrider" } } ] } },
+        "representative_manager": {
+          "this": {}
+        },
+        "can_manage_representatives": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "representative_manager"
+                }
+              }
+            ]
+          }
         }
       },
       "metadata": {
@@ -503,6 +582,70 @@
             ]
           },
           "can_change_individual_availability": {
+            "directly_related_user_types": []
+          },
+          "individual_contact_editor": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_edit_individual_contact": {
+            "directly_related_user_types": []
+          },
+          "representative_viewer": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_view_representatives": {
+            "directly_related_user_types": []
+          },
+          "customer_duplicate_resolver": { "directly_related_user_types": [ { "type": "user" }, { "type": "role", "relation": "assignee" } ] },
+          "can_resolve_customer_duplicates": { "directly_related_user_types": [] },
+          "customer_duplicate_consolidator": { "directly_related_user_types": [ { "type": "user" }, { "type": "role", "relation": "assignee" } ] },
+          "can_consolidate_customer_duplicates": { "directly_related_user_types": [] },
+          "customer_importer": { "directly_related_user_types": [ { "type": "user" }, { "type": "role", "relation": "assignee" } ] },
+          "can_import_customers": { "directly_related_user_types": [] },
+          "catalog_viewer": { "directly_related_user_types": [ { "type": "user" }, { "type": "role", "relation": "assignee" } ] },
+          "can_view_catalog": { "directly_related_user_types": [] },
+          "catalog_editor": { "directly_related_user_types": [ { "type": "user" }, { "type": "role", "relation": "assignee" } ] },
+          "can_manage_catalog": { "directly_related_user_types": [] },
+          "pricing_viewer": { "directly_related_user_types": [ { "type": "user" }, { "type": "role", "relation": "assignee" } ] },
+          "can_view_pricing": { "directly_related_user_types": [] },
+          "pricing_draft_editor": { "directly_related_user_types": [ { "type": "user" }, { "type": "role", "relation": "assignee" } ] },
+          "can_edit_pricing_draft": { "directly_related_user_types": [] },
+          "pricing_publisher": { "directly_related_user_types": [ { "type": "user" }, { "type": "role", "relation": "assignee" } ] },
+          "can_publish_pricing": { "directly_related_user_types": [] },
+          "pricing_retirer": { "directly_related_user_types": [ { "type": "user" }, { "type": "role", "relation": "assignee" } ] },
+          "can_retire_pricing": { "directly_related_user_types": [] },
+          "pricing_overrider": { "directly_related_user_types": [ { "type": "user" }, { "type": "role", "relation": "assignee" } ] },
+          "can_override_pricing": { "directly_related_user_types": [] },
+          "pricing_exception_overrider": { "directly_related_user_types": [ { "type": "user" }, { "type": "role", "relation": "assignee" } ] },
+          "can_override_pricing_beyond_policy": { "directly_related_user_types": [] },
+          "representative_manager": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_manage_representatives": {
             "directly_related_user_types": []
           }
         }

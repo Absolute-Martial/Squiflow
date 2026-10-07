@@ -54,10 +54,12 @@ public sealed class DatabaseFailureResponseTests
             .WithPassword("local-integration-test-only")
             .Build();
         await database.StartAsync();
+        var connectionTimeoutSeconds = failure == "outage" ? 2 : 10;
+        var commandTimeoutSeconds = failure == "timeout" ? 1 : 10;
         var connection = new NpgsqlConnectionStringBuilder(database.GetConnectionString())
         {
-            Timeout = 2,
-            CommandTimeout = 1,
+            Timeout = connectionTimeoutSeconds,
+            CommandTimeout = commandTimeoutSeconds,
         };
         var logs = new CapturedLogs();
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
@@ -69,7 +71,8 @@ public sealed class DatabaseFailureResponseTests
             ["Database:ConnectionIdleLifetimeSeconds"] = "300",
             ["Database:ConnectionPruningIntervalSeconds"] = "10",
             ["Database:ConnectionLifetimeSeconds"] = "3600",
-            ["Database:CommandTimeoutSeconds"] = "1",
+            ["Database:CommandTimeoutSeconds"] = commandTimeoutSeconds.ToString(
+                System.Globalization.CultureInfo.InvariantCulture),
         }).Build();
         await using var source = RuntimeDatabaseConfiguration.From(configuration).CreateDataSource();
         var sql = failure == "schema"
