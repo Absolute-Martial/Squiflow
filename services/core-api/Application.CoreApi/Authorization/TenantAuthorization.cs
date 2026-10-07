@@ -79,6 +79,9 @@ internal sealed class OpenFgaTenantAuthorization(
             Application.Quotations.QuotationCapability.Edit => "can_edit_quotation",
             Application.Quotations.QuotationCapability.View => "can_view_quotations",
             Application.Quotations.QuotationCapability.Issue => "can_issue_quotation",
+            Application.Quotations.QuotationCapability.Respond => "can_respond_quotation",
+            Application.Quotations.QuotationCapability.Expire => "can_expire_quotation",
+            Application.Quotations.QuotationCapability.Convert => "can_convert_quotation",
             _ => throw new ArgumentOutOfRangeException(nameof(capability)),
         }, ct);
 

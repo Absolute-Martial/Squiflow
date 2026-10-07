@@ -2,6 +2,9 @@ namespace Application.Orders.Postgres;
 
 internal static class OrderSql
 {
+    internal static readonly string QuotationOriginsSchema = Load(nameof(QuotationOriginsSchema));
+    internal static readonly string InsertQuotationOrigin = Load(nameof(InsertQuotationOrigin));
+    internal static readonly string FindQuotationOrigin = Load(nameof(FindQuotationOrigin));
     internal static readonly string PinCommercialPublication = Load(nameof(PinCommercialPublication));
     internal static readonly string LockOrderForCommit = Load(nameof(LockOrderForCommit));
     internal static readonly string TryCommitOrder = Load(nameof(TryCommitOrder));

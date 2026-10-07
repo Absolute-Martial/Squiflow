@@ -279,6 +279,7 @@ internal static class TenantOrderEndpoint
         }
 
         if (result.Status is ReviseOrderDraftStatus.RevisionConflict or
+            ReviseOrderDraftStatus.QuotationBound or
             ReviseOrderDraftStatus.AlreadyAbandoned or
             ReviseOrderDraftStatus.AlreadyCommitted or
             ReviseOrderDraftStatus.IdempotencyKeyConflict)
@@ -291,6 +292,8 @@ internal static class TenantOrderEndpoint
                     ("order_already_abandoned", "The order draft has already been abandoned."),
                 ReviseOrderDraftStatus.AlreadyCommitted =>
                     ("order_already_committed", "The order has already been committed."),
+                ReviseOrderDraftStatus.QuotationBound =>
+                    ("order_quotation_bound", "This quotation-origin order cannot be replaced through the ordinary order route."),
                 _ => ("idempotency_key_conflict", "The Idempotency-Key has already been used for a different revision request."),
             };
             return TypedResults.Problem(
@@ -512,7 +515,8 @@ internal static class TenantOrderEndpoint
                 ToWireState(item.State),
                 item.AbandonedAt,
                 item.CustomerContext,
-                item.CommittedAt)).ToArray(),
+                item.CommittedAt,
+                item.QuotationOrigin)).ToArray(),
             page.NextCursor is null ? null : OrderDraftPageCursorCodec.Encode(tenantId, page.NextCursor)));
     }
 
@@ -749,7 +753,8 @@ internal static class TenantOrderEndpoint
             ToWireState(order.State),
             order.AbandonedAt,
             order.CustomerContext,
-            order.CommittedAt);
+            order.CommittedAt,
+            order.QuotationOrigin);
 
     private static OrderCommercialLineFactsResponse? ToCommercialFactsResponse(OrderCommercialLineFacts? facts) =>
         facts is null ? null : new(facts.Catalog,
@@ -902,7 +907,9 @@ internal sealed record OrderDraftResponse(
     string State,
     DateTimeOffset? AbandonedAt,
     CustomerOrderContext? CustomerContext = null,
-    DateTimeOffset? CommittedAt = null);
+    DateTimeOffset? CommittedAt = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    OrderQuotationOrigin? QuotationOrigin = null);
 
 internal sealed record OrderDraftLineResponse(
     int Position,
@@ -938,7 +945,9 @@ internal sealed record OrderDraftListItemResponse(
     string State,
     DateTimeOffset? AbandonedAt,
     CustomerOrderContext? CustomerContext = null,
-    DateTimeOffset? CommittedAt = null);
+    DateTimeOffset? CommittedAt = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    OrderQuotationOrigin? QuotationOrigin = null);
 
 internal static class OrderDraftPageCursorCodec
 {

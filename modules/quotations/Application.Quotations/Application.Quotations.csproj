@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <ProjectReference Include="../../orders/Application.Orders/Application.Orders.csproj" />
     <ProjectReference Include="../../catalog/Application.Catalog/Application.Catalog.csproj" />
     <ProjectReference Include="../../pricing/Application.Pricing/Application.Pricing.csproj" />
     <ProjectReference Include="../../customers/Application.Customers/Application.Customers.csproj" />

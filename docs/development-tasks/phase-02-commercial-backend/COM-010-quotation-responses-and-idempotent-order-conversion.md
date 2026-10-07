@@ -2,12 +2,12 @@
 
 Task ID: COM-010
 Phase: 02-commercial-backend
-Status: READY_AFTER_DEPENDENCIES
+Status: VERIFY_EXISTING
 Model: GPT-6.1 Sol
 Dependencies: COM-009
 Release requirement: REQUIRED
 
-Planned assignment only. Apply [agent rules](../AGENT_RULES.md) and [handoff rules](../HANDOFF_AND_INTEGRATION.md).
+Implementation and scoped receiving qualification are retained in [COM-010 receipt](../../review/COM_010_IMPLEMENTATION_RECEIPT.md), under [Quotations and conversion](../../implementation/QUOTATIONS_AND_CONVERSION.md). Scheduling status remains verification of existing source. Apply [agent rules](../AGENT_RULES.md) and [handoff rules](../HANDOFF_AND_INTEGRATION.md).
 
 ## Outcome
 
@@ -23,7 +23,7 @@ Allowed areas: quotation response/conversion ownership, Orders entry integration
 
 ## Decisions/prerequisites
 
-Select permitted accepting actor/evidence, expiry decision point, supersession rules and whether acceptance requires fresh price revalidation. No external customer identity is inferred from an operator login.
+Owner decisions are accepted under [Quotations and conversion](../../implementation/QUOTATIONS_AND_CONVERSION.md): operator-recorded bounded customer claim/evidence, explicit server-timed expiry, latest exact issued revision, acceptance within its validity window, and one atomic conversion preserving accepted prices without current-source reselection. The owner additionally allows rejection after expiry when no terminal response exists. Acceptance freezes the family; rejection/expiry allow replacement issues while preserving history. No external customer identity is inferred from an operator login.
 
 ## Acceptance and edge cases
 

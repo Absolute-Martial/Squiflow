@@ -66,6 +66,12 @@ public sealed class OpenFgaTenantAuthorizationTests : IAsyncLifetime
         var customerAccountId = Guid.NewGuid();
 
         var quoteAccountId = Guid.NewGuid();
+        ITenantOrderAuthorization quoteOrderAuthorization = authorization;
+        await WriteTenantRelationAsync(administrativeClient, storeId, pinnedModelId, quoteAccountId, tenantId, "member");
+        Assert.False(await authorization.CheckQuotationAsync(quoteAccountId, tenantId, Application.Quotations.QuotationCapability.Respond, CancellationToken.None));
+        Assert.False(await authorization.CheckQuotationAsync(quoteAccountId, tenantId, Application.Quotations.QuotationCapability.Expire, CancellationToken.None));
+        Assert.False(await authorization.CheckQuotationAsync(quoteAccountId, tenantId, Application.Quotations.QuotationCapability.Convert, CancellationToken.None));
+        Assert.False(await quoteOrderAuthorization.CanCreateAsync(quoteAccountId, tenantId, CancellationToken.None));
         Assert.False(await authorization.CheckQuotationAsync(quoteAccountId, tenantId, Application.Quotations.QuotationCapability.Create, CancellationToken.None));
         await WriteTenantRelationAsync(administrativeClient, storeId, pinnedModelId, quoteAccountId, tenantId, "quotation_creator");
         Assert.True(await authorization.CheckQuotationAsync(quoteAccountId, tenantId, Application.Quotations.QuotationCapability.Create, CancellationToken.None));
@@ -73,6 +79,25 @@ public sealed class OpenFgaTenantAuthorizationTests : IAsyncLifetime
         Assert.False(await authorization.CheckQuotationAsync(quoteAccountId, tenantId, Application.Quotations.QuotationCapability.View, CancellationToken.None));
         await WriteTenantRelationAsync(administrativeClient, storeId, pinnedModelId, quoteAccountId, tenantId, "quotation_issuer");
         Assert.True(await authorization.CheckQuotationAsync(quoteAccountId, tenantId, Application.Quotations.QuotationCapability.Issue, CancellationToken.None));
+        await WriteTenantRelationAsync(administrativeClient, storeId, pinnedModelId, quoteAccountId, tenantId, "quotation_responder");
+        Assert.True(await authorization.CheckQuotationAsync(quoteAccountId, tenantId, Application.Quotations.QuotationCapability.Respond, CancellationToken.None));
+        Assert.False(await authorization.CheckQuotationAsync(quoteAccountId, tenantId, Application.Quotations.QuotationCapability.Expire, CancellationToken.None));
+        Assert.False(await authorization.CheckQuotationAsync(quoteAccountId, tenantId, Application.Quotations.QuotationCapability.Convert, CancellationToken.None));
+        await WriteTenantRelationAsync(administrativeClient, storeId, pinnedModelId, quoteAccountId, tenantId, "quotation_expirer");
+        Assert.True(await authorization.CheckQuotationAsync(quoteAccountId, tenantId, Application.Quotations.QuotationCapability.Expire, CancellationToken.None));
+        Assert.False(await authorization.CheckQuotationAsync(quoteAccountId, tenantId, Application.Quotations.QuotationCapability.Convert, CancellationToken.None));
+        await WriteTenantRelationAsync(administrativeClient, storeId, pinnedModelId, quoteAccountId, tenantId, "quotation_converter");
+        Assert.True(await authorization.CheckQuotationAsync(quoteAccountId, tenantId, Application.Quotations.QuotationCapability.Convert, CancellationToken.None));
+        Assert.False(await quoteOrderAuthorization.CanCreateAsync(quoteAccountId, tenantId, CancellationToken.None));
+        await WriteTenantRelationAsync(administrativeClient, storeId, pinnedModelId, quoteAccountId, tenantId, "order_creator");
+        Assert.True(await quoteOrderAuthorization.CanCreateAsync(quoteAccountId, tenantId, CancellationToken.None));
+
+        Assert.True(TenantPermissionCatalog.TryGet("quotations.respond", out var responsePermission));
+        Assert.Equal("quotation_responder", responsePermission.Relation);
+        Assert.True(TenantPermissionCatalog.TryGet("quotations.expire", out var expiryPermission));
+        Assert.Equal("quotation_expirer", expiryPermission.Relation);
+        Assert.True(TenantPermissionCatalog.TryGet("quotations.convert", out var convertPermission));
+        Assert.Equal("quotation_converter", convertPermission.Relation);
 
 
         Assert.False(await customerAuthorization.CanCreateOrganizationAsync(customerAccountId, tenantId, CancellationToken.None));

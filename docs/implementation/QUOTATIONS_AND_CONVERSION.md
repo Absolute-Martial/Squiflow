@@ -6,8 +6,10 @@
 **Runtime state:** COM-009 drafting/issuance/history is `PRODUCTION_HONEST` for
 its declared bounded scope. Its exact normal gate passed 1,089/1,089 across 22
 projects on 2026-10-07, with no skips or Release warnings/errors. COM-010
-responses/conversion remains `NOT_INTRODUCED`; it may now be implemented against
-this qualified dependency. Accepted decisions and runtime qualification are separate.
+responses/conversion is `PRODUCTION_HONEST` for its declared bounded scope, with
+`BLOCKED = none` for COM-010. Its receiving evidence and exact normal gate are
+recorded in the [COM-010 qualification receipt](../review/COM_010_IMPLEMENTATION_RECEIPT.md).
+Accepted decisions and runtime qualification are separate.
 
 The next requested commercial sequence is COM-009 followed by COM-010. Existing
 COM-006/007 pricing and the COM-008 gap review are inputs, rather than features
@@ -134,11 +136,41 @@ shape/version, permissions/model/consistency, quote routes/budgets, time source,
 number allocation, migration/grants/RLS, receipt sequencing or publication
 locking. Focused suites and the exact normal repository gate passed. The retained
 [COM-009 receipt](../review/COM_009_IMPLEMENTATION_RECEIPT.md) identifies commands,
-evidence, independent review and known limits. COM-010 qualification will add
-response/conversion evidence separately.
+evidence, independent review and known limits. COM-010 receiving qualification
+is recorded separately below.
 
 The slow-body host regression now observes explicit body-read entry/exit before
 applying its completion watchdog. Its native one-second deadline, strict 504,
 no-store, cooperative cancellation and no-business-effect assertions remain
 unchanged; the correction avoids treating TestServer dispatch time as the body
 read completion bound. The receiving gate had exposed the earlier watchdog.
+
+## COM-010 receiving contract
+
+The operator records acceptance or rejection with an independent `quotation_responder` grant; explicit expiry uses `quotation_expirer`; conversion uses `quotation_converter` and current Orders-create authority. None requires historical pricing/override grants. Current membership and each action grant are checked before receipts on every retry. The claimed customer identity is normalized, control-free text of 1–300 characters; the evidence/reason is normalized, control-free text of 1–2,000 characters. Accept/reject require both. Expiry requires evidence and accepts no customer claim. Recorded time is server UTC at PostgreSQL microsecond precision, and the recording account is distinct from the customer's unverified claim. These fields never become telemetry/log labels.
+
+Each command names the exact issued revision GUID and expected quotation head version. One terminal response may be recorded per issued revision. All new responses require the latest unsuperseded revision; acceptance additionally requires `[issuedAt, validUntil)`. Owner clarification on 2026-10-07: rejection may be recorded after expiry if that latest revision has no terminal response yet. Expiry is available at or after `validUntil` and never arises from a read. Acceptance and a replacement issue serialize on the same head lock and expected version. Acceptance blocks further draft replacement or issue for that family, including a dormant newer draft; changed terms require a new family. Rejected/expired facts remain immutable when a later draft/replacement is issued.
+
+Protected command responses expose response evidence and linked Order identity/revision, without priced offer or Order line projections. Full quotation detail and exact historical response reads require quotation view; Order detail/history require Orders view. The immutable conversion link retains the original created Order snapshot for stable duplicate results after expiry, commitment or abandonment. Later distinct-key/caller conversions retain receipts and return that same original Order. They check the accepted revision/link before expected-version conflict; reused keys with changed intent still conflict.
+
+Orders owns the SQL for creating a draft and immutable quotation-origin association in a caller-supplied PostgreSQL transaction. A provider-specific quotation port and a SQL-free CoreApi composition bridge call that public Orders surface; neither capability adapter references the other's adapter. The stateless bridge avoids a composition cycle with the accepted-offer commit reader. The borrowed Orders session never commits, rolls back or disposes caller-owned connection/transaction resources. Order header, lines, origin, initial Order history receipt, quotation link/head revision and quotation receipt commit together.
+
+Quoted Order prices and attribution cannot be replaced. Their commitment checks trusted accepted-offer/link facts through the quotation-owned reader, including manual-priced lines, and compares complete frozen facts with canonical decimal value semantics. It preserves the accepted source even after Catalog/Pricing source retirement, expiry or policy changes. Direct unquoted Orders retain their existing current-source publication fence and revalidation. New quotation-origin receipt envelopes use version five; legacy literal and version-one through version-four Order receipts keep their supported meanings. Individual customer attribution and offer terms remain in the linked immutable quotation; no legal-debtor meaning is added to Orders.
+
+Quotation response/conversion receipts use version two (version-one draft/issue receipts remain supported). Version two allows at most 40 MiB for the combined retained draft, issued offer and original linked Order; offer rows remain 8 MiB, original Order links 16 MiB, and response evidence rows 32 KiB. Existing operations write version one when no response/link extension is present. Unsupported versions fail closed; deployment rollback must retain schema and drain writers whose receipts the target reader cannot support.
+
+Quoted Order detail, each retained history snapshot and matched-key commitment/abandonment replays also require the trusted accepted-offer/link reader and complete frozen-fact comparison. Fresh abandonment checks the returned quoted snapshot before its receipt; a failed check rolls back the transition. A missing reader, contradictory origin, damaged retained price or unsupported receipt version fails closed. Browse exposes bounded header/origin summaries rather than claiming to validate complete line facts.
+
+Quotation-origin and response migrations reject whole-chain downgrade without discarding retained accepted facts. Earlier commercial-price and commitment downgrade guards remain separately exercised using their actual EF-generated historical SQL against PostgreSQL, including the non-superuser schema identity. Those guards do not imply that COM-010 schema rollback is supported.
+
+## COM-010 implementation state
+
+COM-010 is `PRODUCTION_HONEST` for this declared bounded scope, with `BLOCKED = none` for COM-010. The receiving [qualification receipt](../review/COM_010_IMPLEMENTATION_RECEIPT.md) records the exact normal `./eng/verify.sh` result, focused PostgreSQL/CoreApi suites and independent host publishes. COM-009 remains the qualified dependency. This does not claim remote CI, production deployment or whole-product qualification.
+
+CoreApi maps `POST /{quotationId}/accept`, `/reject`, `/expire` and `/convert`, plus exact historical response `GET /{quotationId}/issued/{revisionId}/response`, under `/api/v1/tenants/{tenantId}/quotations`. Response commands use `quotation_responder`; expiry uses `quotation_expirer`; conversion requires `quotation_converter` and current Orders-create. Historical response reads and quotation detail require quotation-view. Commands identify the exact issued revision and expected head version and require caller idempotency. The shared strict transport boundary rejects malformed, duplicate, unknown and oversized JSON. Response/convert command projections contain retained response evidence and, when linked, only Order identity and revision; they do not expose offer or Order prices/lines. Full quotation detail adds current response facts and a conversion reference, never the retained full Order snapshot.
+
+The Orders surface accepts quote origin only through the trusted in-process conversion contract. It persists the original linked Order snapshot and authoritative `{ quotationId, issuedRevisionId, number, revisionNumber }` origin with the Order, lines and initial receipt in the caller-owned transaction. Normal manual and Catalog/Pricing replacement routes reject quotation-bound Orders with `409 order_quotation_bound`; action guidance reports the same reason without probing edit or manual-price permission. Order detail, browse and retained history expose the named origin to current Order viewers. Client Order payloads do not accept or establish quotation origin.
+
+Commitment of a quote-origin Order re-reads trusted accepted-offer/link facts through the quotation-owned contract and compares the complete frozen price and attribution facts, including manual-priced lines, with canonical decimal-value semantics. It preserves the accepted source after Catalog/Pricing retirement, expiry or policy changes. This changes neither the direct-order current-source publication fence nor the meaning of quotation acceptance as operator-recorded external evidence. Orders receipt version five distinguishes quoted Order facts; legacy literal and versions one through four retain their prior meanings. Quotation response/conversion receipts use quotation version two while version-one draft/issue receipts remain readable.
+
+Permanent receiving evidence is owned by `QuotationEndpointTests`, `OpenFgaTenantAuthorizationTests`, real PostgreSQL `QuotationPostgresTests` and conversion/commitment regressions, plus `OrderDraftHistoryEndpointTests`, `OrderDraftActionGuideTests` and Orders receipt-compatibility suites. Controlled CoreApi probes establish transport mapping; provider and exact normal-gate evidence is recorded in the qualification receipt. That evidence qualifies the local PostgreSQL/OpenFGA-backed implementation and does not claim production deployment or remote CI. Requalify on the transaction/link contract, trust boundary, commit price comparison, authorization relation/model, either receipt version, transport projection or Order-origin representation.

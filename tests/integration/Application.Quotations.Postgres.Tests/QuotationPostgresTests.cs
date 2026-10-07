@@ -7,7 +7,7 @@ using Xunit;
 
 namespace Application.Quotations.Postgres.Tests;
 
-public sealed class QuotationPostgresTests : IAsyncLifetime
+public sealed partial class QuotationPostgresTests : IAsyncLifetime
 {
     private readonly PostgreSqlContainer _database = new PostgreSqlBuilder(new DockerImage(repository: "postgres", tag: "17-alpine"))
         .WithDatabase("quotation_tests").WithUsername("postgres").WithPassword("local-quotation-integration-only").Build();
@@ -144,7 +144,7 @@ public sealed class QuotationPostgresTests : IAsyncLifetime
         await using var corrupt = new NpgsqlCommand("""
             ALTER TABLE quotations.receipts DROP CONSTRAINT receipts_version_check;
             ALTER TABLE quotations.receipts DISABLE TRIGGER immutable_receipt;
-            UPDATE quotations.receipts SET version=2 WHERE operation='create';
+            UPDATE quotations.receipts SET version=99 WHERE operation='create';
             ALTER TABLE quotations.issued DISABLE TRIGGER immutable_issued;
             UPDATE quotations.issued SET facts=jsonb_set(facts,'{RevisionId}',to_jsonb(@wrong::text));
             """, owner);
@@ -168,15 +168,25 @@ public sealed class QuotationPostgresTests : IAsyncLifetime
                 """, owner);
             prerequisites.Parameters.AddWithValue("tenant", _tenant); prerequisites.Parameters.AddWithValue("foreign", _foreign);
             prerequisites.Parameters.AddWithValue("actor", _account); await prerequisites.ExecuteNonQueryAsync(budget.Token);
+            await using var customers = Application.Customers.Postgres.CustomersPostgresMigrations.CreateContext(_database.GetConnectionString());
+            await customers.Database.MigrateAsync(budget.Token);
+            var orderOptions = new DbContextOptionsBuilder<Application.Orders.Postgres.OrderDbContext>();
+            Application.Orders.Postgres.PostgresOrderOptions.Configure(orderOptions, _database.GetConnectionString());
+            await using var orders = new Application.Orders.Postgres.OrderDbContext(orderOptions.Options);
+            await orders.Database.MigrateAsync(budget.Token);
+            Assert.False(orders.Database.HasPendingModelChanges());
             await using var context = QuotationsPostgresRegistration.CreateContext(_database.GetConnectionString());
             await context.Database.MigrateAsync(budget.Token);
             Assert.False(context.Database.HasPendingModelChanges());
             await using var grant = new NpgsqlCommand("""
                 CREATE ROLE quotation_runtime LOGIN PASSWORD 'local-runtime-only';
                 GRANT USAGE ON SCHEMA quotations TO quotation_runtime;
-                GRANT SELECT,INSERT ON quotations.heads,quotations.issued,quotations.numbers,quotations.receipts TO quotation_runtime;
+                GRANT SELECT,INSERT ON quotations.heads,quotations.issued,quotations.numbers,quotations.receipts,quotations.responses,quotations.conversions TO quotation_runtime;
                 GRANT UPDATE(version,number,draft,current_issued_id,last_issued_revision) ON quotations.heads TO quotation_runtime;
                 GRANT UPDATE(value) ON quotations.numbers TO quotation_runtime;
+                GRANT USAGE ON SCHEMA orders TO quotation_runtime;
+                GRANT SELECT,INSERT ON orders.order_drafts,orders.order_draft_lines,orders.command_receipts,orders.quotation_origins TO quotation_runtime;
+                GRANT UPDATE(state,revision,abandoned_at,abandoned_by_account_id,committed_at,committed_by_account_id) ON orders.order_drafts TO quotation_runtime;
                 """, owner);
             await grant.ExecuteNonQueryAsync(budget.Token);
             var settings = new NpgsqlConnectionStringBuilder(_database.GetConnectionString()) { Username = "quotation_runtime", Password = "local-runtime-only", MaxPoolSize = 8 };

@@ -188,14 +188,13 @@ public sealed partial class OrderMigrationAndRlsTests
         var schemaIdentity = new NpgsqlConnectionStringBuilder(ConnectionString)
         { Username = "application_orders_schema_owner", Password = "local-schema-test-only" };
         await using var schema = CreateContext(schemaIdentity.ConnectionString);
-        var error = await Assert.ThrowsAsync<PostgresException>(() => schema.GetService<IMigrator>().MigrateAsync("202609240002_OrderDraftRevision"));
+        // Execute the actual historical SQL with the restricted schema owner; COM-010's later guard is tested separately.
+        var script = schema.GetService<IMigrator>().GenerateScript("202610030001_OrderCommitment", "202609240002_OrderDraftRevision");
+        await using var connection = new NpgsqlConnection(schemaIdentity.ConnectionString); await connection.OpenAsync();
+        await using var downgrade = new NpgsqlCommand(script, connection);
+        var error = await Assert.ThrowsAsync<PostgresException>(() => downgrade.ExecuteNonQueryAsync());
         Assert.Contains("committed orders exist", error.MessageText, StringComparison.Ordinal);
         Assert.Contains("202610030001_OrderCommitment", await schema.Database.GetAppliedMigrationsAsync());
-        // EF executes each migration transaction independently. An empty additive
-        // commercial column may have been removed before the older commitment
-        // downgrade refuses; roll that safe additive schema forward before using
-        // the current binary's line reader. The retained commitment was not erased.
-        await schema.GetService<IMigrator>().MigrateAsync("202610070001_OrderCommercialFacts");
         Assert.Equal(OrderDraftState.Committed, (await store.FindAsync(context, original.OrderId, CancellationToken.None))!.State);
         Assert.Null(new OrderDraftRevision().TargetModel.FindEntityType("Application.Orders.Postgres.OrderDraftRow")!.FindProperty("CommittedAt"));
         Assert.NotNull(new OrderCommitment().TargetModel.FindEntityType("Application.Orders.Postgres.OrderDraftRow")!.FindProperty("CommittedAt"));

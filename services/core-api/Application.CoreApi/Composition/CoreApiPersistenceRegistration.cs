@@ -28,6 +28,7 @@ internal static class CoreApiPersistenceRegistration
         services.AddOrdersPostgres();
         services.AddCatalogOrderIntegration();
         Application.Quotations.Postgres.QuotationsPostgresRegistration.AddQuotationsPostgres(services);
+        services.AddScoped<Application.Quotations.Postgres.IQuotationOrderWriter, QuotationOrderWriter>();
 
         return services;
     }

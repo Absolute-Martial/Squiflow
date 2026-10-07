@@ -191,3 +191,27 @@ case reproduced a disposed IncrementalHash, the narrow cache-before-dispose chan
 fixed it, and the final full gate above qualifies that changed tree. Original red
 and initial test-request-count failure evidence are retained. No reset, staging,
 commit, push, merge or PR action was performed.
+
+## COM-008 through COM-010 scoped continuation — 2026-10-07
+
+The current worktree is `/home/lets-smile/.t3/worktrees/Squiflow/t3code-66ed0681`,
+on `t3code/continue-commercial-work`. Commit `c174470` preserved the incoming
+commercial source; `eff2157` completed the COM-008 gap review and elevated replay
+authority correction; `48c9bd7` qualified and committed COM-009. The existing
+reasoned overrides, policy envelopes and separate beyond-policy authority came
+from that preserved source, rather than an inferred historical implementation.
+
+COM-010 is locally `PRODUCTION_HONEST` for its bounded response/conversion and
+quoted Order integration scope. The owner explicitly permits rejection after
+expiry for the latest unresponded offer. The final exact normal gate passed
+**1,135/1,135 tests across 22 projects**, zero failures/skips and Release
+warnings/errors, in **922 seconds**. Both independent CoreApi/DbMigrator publish
+checks passed. [COM-010 receipt](../review/COM_010_IMPLEMENTATION_RECEIPT.md) owns
+the exact scope, evidence, recurring guards, requalification triggers and retained
+failed/interrupted checks. GPT-6 Luna with high reasoning effort handled bounded
+tasks and independent review; the root integrated and ran serialized checks.
+
+COM-011–013 remain separate: an owner-selected workflow and durable tenant-profile
+publication/activation prerequisites are still required. Local quotation receipts
+do not qualify OPS-013 general audit. Live storage/provider and other existing
+gate-owner blockers remain. Product version stays `v0.0.1`.

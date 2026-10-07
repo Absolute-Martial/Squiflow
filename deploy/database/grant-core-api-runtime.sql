@@ -40,7 +40,7 @@ BEGIN
         SELECT 1 FROM pg_class AS c
         JOIN pg_namespace AS n ON n.oid = c.relnamespace
         WHERE ((n.nspname = 'orders'
-                AND c.relname IN ('order_drafts', 'order_draft_lines', 'command_receipts'))
+                AND c.relname IN ('order_drafts', 'order_draft_lines', 'command_receipts', 'quotation_origins'))
             OR (n.nspname = 'customers'
                 AND c.relname IN ('organizations', 'programs', 'organization_receipts', 'program_receipts',
                                    'individuals', 'individual_command_receipts',
@@ -99,7 +99,7 @@ BEGIN
          'customers.object_storage_usage', 'customers.import_source_objects', 'customers.object_storage_reservations',
         'catalog.units', 'catalog.items', 'catalog.unit_conversions', 'catalog.command_receipts',
         'pricing.price_revisions', 'pricing.command_receipts', 'pricing.override_policies',
-        'orders.order_drafts', 'orders.order_draft_lines', 'orders.command_receipts'] LOOP
+        'orders.order_drafts', 'orders.order_draft_lines', 'orders.command_receipts', 'orders.quotation_origins'] LOOP
         EXECUTE format('GRANT SELECT, INSERT ON TABLE %s TO %I', target_table, runtime_role);
     END LOOP;
     EXECUTE format(
@@ -157,7 +157,7 @@ BEGIN
                 'individuals', 'individual_command_receipts',
                 'representatives', 'representative_command_receipts', 'imports',
                 'object_storage_usage', 'import_source_objects', 'object_storage_reservations'))
-            OR (n.nspname = 'orders' AND c.relname IN ('order_drafts', 'order_draft_lines', 'command_receipts')))
+            OR (n.nspname = 'orders' AND c.relname IN ('order_drafts', 'order_draft_lines', 'command_receipts', 'quotation_origins')))
           AND a.attnum > 0 AND NOT a.attisdropped
     LOOP
         target_table := format('%I.%I', target_column.schema_name, target_column.table_name);
@@ -215,7 +215,7 @@ BEGIN
         'customers.object_storage_usage', 'customers.import_source_objects', 'customers.object_storage_reservations',
         'catalog.units', 'catalog.items', 'catalog.unit_conversions', 'catalog.command_receipts',
         'pricing.price_revisions', 'pricing.command_receipts', 'pricing.override_policies',
-        'orders.order_drafts', 'orders.order_draft_lines', 'orders.command_receipts'] LOOP
+        'orders.order_drafts', 'orders.order_draft_lines', 'orders.command_receipts', 'orders.quotation_origins'] LOOP
         IF has_table_privilege(runtime_role, target_table, 'DELETE')
                <> (target_table = 'orders.order_draft_lines')
            OR has_table_privilege(runtime_role, target_table, 'TRUNCATE')
@@ -332,7 +332,7 @@ END
 $verify$;
 
 
--- Quotation facts and receipts are append-only; only owned header/counter columns may change.
+-- Quotation facts and links are append-only; only owned header/counter columns may change.
 DO $quotations$
 DECLARE runtime_role text := nullif(current_setting('app.provision_runtime_role', true), '');
     table_name text;
@@ -348,16 +348,20 @@ BEGIN
         WHERE n.nspname='quotations' AND c.relkind='r' AND (NOT c.relrowsecurity OR NOT c.relforcerowsecurity)
         AND c.relname <> '__EFMigrationsHistory') THEN RAISE EXCEPTION 'Quotation RLS is required'; END IF;
     EXECUTE format('GRANT USAGE ON SCHEMA quotations TO %I', runtime_role);
-    FOREACH table_name IN ARRAY ARRAY['heads','issued','numbers','receipts'] LOOP
+    FOREACH table_name IN ARRAY ARRAY['heads','issued','numbers','receipts','responses','conversions'] LOOP
         EXECUTE format('REVOKE ALL ON TABLE quotations.%I FROM %I', table_name, runtime_role);
         EXECUTE format('GRANT SELECT, INSERT ON TABLE quotations.%I TO %I', table_name, runtime_role);
     END LOOP;
     EXECUTE format('GRANT UPDATE (version, number, draft, current_issued_id, last_issued_revision) ON quotations.heads TO %I', runtime_role);
     EXECUTE format('GRANT UPDATE (value) ON quotations.numbers TO %I', runtime_role);
-    FOREACH table_name IN ARRAY ARRAY['heads','issued','numbers','receipts'] LOOP
-        IF has_table_privilege(runtime_role, format('quotations.%I', table_name), 'DELETE') OR
+    FOREACH table_name IN ARRAY ARRAY['heads','issued','numbers','receipts','responses','conversions'] LOOP
+        IF NOT has_table_privilege(runtime_role, format('quotations.%I', table_name), 'SELECT') OR
+           NOT has_table_privilege(runtime_role, format('quotations.%I', table_name), 'INSERT') OR
+           has_table_privilege(runtime_role, format('quotations.%I', table_name), 'DELETE') OR
            has_table_privilege(runtime_role, format('quotations.%I', table_name), 'TRUNCATE') OR
-           has_table_privilege(runtime_role, format('quotations.%I', table_name), 'UPDATE') THEN
+           has_table_privilege(runtime_role, format('quotations.%I', table_name), 'UPDATE') OR
+           has_table_privilege(runtime_role, format('quotations.%I', table_name), 'REFERENCES') OR
+           has_table_privilege(runtime_role, format('quotations.%I', table_name), 'TRIGGER') THEN
             RAISE EXCEPTION 'Unsafe quotation runtime table privileges on quotations.%', table_name;
         END IF;
     END LOOP;
@@ -366,7 +370,7 @@ BEGIN
         FROM pg_class AS c
         JOIN pg_namespace AS n ON n.oid = c.relnamespace
         JOIN pg_attribute AS a ON a.attrelid = c.oid
-        WHERE n.nspname = 'quotations' AND c.relname IN ('heads','issued','numbers','receipts')
+        WHERE n.nspname = 'quotations' AND c.relname IN ('heads','issued','numbers','receipts','responses','conversions')
           AND a.attnum > 0 AND NOT a.attisdropped
     LOOP
         IF has_column_privilege(runtime_role,

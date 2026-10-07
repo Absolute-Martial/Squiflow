@@ -135,6 +135,207 @@ public sealed class QuotationEndpointTests
         Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
     }
 
+    [Fact]
+    public async Task ResponseAndConversionRoutesUseIndependentRightsAndNeverReturnPricesOrLines()
+    {
+        using var fixture = new Fixture();
+        using var created = await fixture.SendAsync(HttpMethod.Post, "", Fixture.Body(), "create");
+        using var createdJson = JsonDocument.Parse(await created.Content.ReadAsStringAsync());
+        var id = createdJson.RootElement.GetProperty("quotationId").GetGuid();
+        using var issued = await fixture.SendAsync(HttpMethod.Post, $"/{id:D}/issue", "{\"expectedVersion\":1}", "issue");
+        using var issuedJson = JsonDocument.Parse(await issued.Content.ReadAsStringAsync());
+        var revision = issuedJson.RootElement.GetProperty("currentIssued").GetProperty("revisionId").GetGuid();
+
+        var responseBody = JsonSerializer.Serialize(new { issuedRevisionId = revision, expectedVersion = 2, evidence = "Approved by customer", customerClaim = "buyer@example.test" });
+        fixture.Authority.Denied.Add(QuotationCapability.Respond);
+        using var responseDenied = await fixture.SendAsync(HttpMethod.Post, $"/{id:D}/accept", responseBody, "accept");
+        Assert.Equal(HttpStatusCode.Forbidden, responseDenied.StatusCode);
+        Assert.Equal(0, fixture.Store.ResponseEffects);
+        fixture.Authority.Denied.Remove(QuotationCapability.Respond);
+
+        fixture.Authority.Denied.Add(QuotationCapability.ManualPricing);
+        fixture.Authority.Denied.Add(QuotationCapability.Issue);
+        fixture.Authority.Denied.Add(QuotationCapability.View);
+        using var accepted = await fixture.SendAsync(HttpMethod.Post, $"/{id:D}/accept", responseBody, "accept");
+        Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
+        var acceptedText = await accepted.Content.ReadAsStringAsync();
+        using var acceptedJson = JsonDocument.Parse(acceptedText);
+        Assert.Equal("accepted", acceptedJson.RootElement.GetProperty("response").GetProperty("kind").GetString());
+        Assert.Equal("buyer@example.test", acceptedJson.RootElement.GetProperty("response").GetProperty("customerClaim").GetString());
+        Assert.DoesNotContain("total", acceptedText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("unitPrice", acceptedText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("lines", acceptedText, StringComparison.OrdinalIgnoreCase);
+
+        using var acceptedReplay = await fixture.SendAsync(HttpMethod.Post, $"/{id:D}/accept", responseBody, "accept");
+        Assert.Equal(HttpStatusCode.OK, acceptedReplay.StatusCode);
+        Assert.Equal("true", acceptedReplay.Headers.GetValues("Idempotency-Replayed").Single());
+        Assert.Equal(1, fixture.Store.ResponseEffects);
+        fixture.Authority.Denied.Add(QuotationCapability.Respond);
+        using var revokedReplay = await fixture.SendAsync(HttpMethod.Post, $"/{id:D}/accept", responseBody, "accept");
+        Assert.Equal(HttpStatusCode.Forbidden, revokedReplay.StatusCode);
+        Assert.Equal(1, fixture.Store.ResponseEffects);
+        fixture.Authority.Denied.Remove(QuotationCapability.Respond);
+
+        using var historyDenied = await fixture.SendAsync(HttpMethod.Get, $"/{id:D}/issued/{revision:D}/response", "", "read-response");
+        Assert.Equal(HttpStatusCode.Forbidden, historyDenied.StatusCode);
+        fixture.Authority.Denied.Remove(QuotationCapability.View);
+        using var history = await fixture.SendAsync(HttpMethod.Get, $"/{id:D}/issued/{revision:D}/response", "", "read-response");
+        Assert.Equal(HttpStatusCode.OK, history.StatusCode);
+        Assert.DoesNotContain("total", await history.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
+
+        fixture.Authority.Denied.Add(QuotationCapability.Convert);
+        using var convertDenied = await fixture.SendAsync(HttpMethod.Post, $"/{id:D}/convert",
+            JsonSerializer.Serialize(new { issuedRevisionId = revision, expectedVersion = 3 }), "convert");
+        Assert.Equal(HttpStatusCode.Forbidden, convertDenied.StatusCode);
+        Assert.Equal(1, fixture.Store.ResponseEffects);
+
+        fixture.Authority.Denied.Clear();
+        fixture.Authority.Denied.Add(QuotationCapability.ManualPricing);
+        fixture.Authority.Denied.Add(QuotationCapability.Issue);
+        using var converted = await fixture.SendAsync(HttpMethod.Post, $"/{id:D}/convert",
+            JsonSerializer.Serialize(new { issuedRevisionId = revision, expectedVersion = 3 }), "convert");
+        Assert.Equal(HttpStatusCode.OK, converted.StatusCode);
+        var convertedText = await converted.Content.ReadAsStringAsync();
+        using var convertedJson = JsonDocument.Parse(convertedText);
+        Assert.True(convertedJson.RootElement.TryGetProperty("conversion", out var conversion));
+        Assert.True(conversion.TryGetProperty("originalOrder", out var order));
+        Assert.True(order.TryGetProperty("orderId", out _));
+        Assert.True(order.TryGetProperty("revision", out _));
+        Assert.DoesNotContain("total", convertedText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("unitPrice", convertedText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("lines", convertedText, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(1, fixture.Store.ConversionEffects);
+        using var convertedReplay = await fixture.SendAsync(HttpMethod.Post, $"/{id:D}/convert",
+            JsonSerializer.Serialize(new { issuedRevisionId = revision, expectedVersion = 3 }), "convert");
+        Assert.Equal(HttpStatusCode.OK, convertedReplay.StatusCode);
+        Assert.Equal("true", convertedReplay.Headers.GetValues("Idempotency-Replayed").Single());
+        Assert.Equal(1, fixture.Store.ConversionEffects);
+        fixture.Authority.Denied.Add(QuotationCapability.OrderCreate);
+        using var orderCreateRevokedReplay = await fixture.SendAsync(HttpMethod.Post, $"/{id:D}/convert",
+            JsonSerializer.Serialize(new { issuedRevisionId = revision, expectedVersion = 3 }), "convert");
+        Assert.Equal(HttpStatusCode.Forbidden, orderCreateRevokedReplay.StatusCode);
+        Assert.Equal(1, fixture.Store.ConversionEffects);
+    }
+
+    [Fact]
+    public async Task ResponseAuthorityOutageIsSafeAndPrecedesTheStore()
+    {
+        using var fixture = new Fixture();
+        fixture.Authority.Unavailable = true;
+        using var response = await fixture.SendAsync(HttpMethod.Post, "/00000000-0000-0000-0000-000000000001/accept",
+            "{\"issuedRevisionId\":\"00000000-0000-0000-0000-000000000002\",\"expectedVersion\":1,\"evidence\":\"ok\",\"customerClaim\":\"buyer\"}", "outage");
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        Assert.Equal("authorization_unavailable", await Code(response));
+        Assert.True(response.Headers.CacheControl?.NoStore);
+        Assert.DoesNotContain("Synthetic quotation outage", await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        Assert.Equal(0, fixture.Store.ResponseEffects);
+    }
+
+    [Fact]
+    public async Task ExpiryUsesItsOwnRightAndRejectsCustomerClaims()
+    {
+        using var fixture = new Fixture();
+        using var created = await fixture.SendAsync(HttpMethod.Post, "", Fixture.Body(), "create");
+        using var createdJson = JsonDocument.Parse(await created.Content.ReadAsStringAsync());
+        var id = createdJson.RootElement.GetProperty("quotationId").GetGuid();
+        using var issued = await fixture.SendAsync(HttpMethod.Post, $"/{id:D}/issue", "{\"expectedVersion\":1}", "issue");
+        using var issuedJson = JsonDocument.Parse(await issued.Content.ReadAsStringAsync());
+        var revision = issuedJson.RootElement.GetProperty("currentIssued").GetProperty("revisionId").GetGuid();
+        fixture.Authority.Denied.Add(QuotationCapability.Respond);
+        var withClaim = JsonSerializer.Serialize(new { issuedRevisionId = revision, expectedVersion = 2, evidence = "Expired notice", customerClaim = "buyer" });
+        using var rejectedClaim = await fixture.SendAsync(HttpMethod.Post, $"/{id:D}/expire", withClaim, "expire-claim");
+        Assert.Equal(HttpStatusCode.BadRequest, rejectedClaim.StatusCode);
+        Assert.Equal("response_invalid", await Code(rejectedClaim));
+        Assert.Equal(0, fixture.Store.ResponseEffects);
+        var withoutClaim = JsonSerializer.Serialize(new { issuedRevisionId = revision, expectedVersion = 2, evidence = "Expiry recorded" });
+        using var expired = await fixture.SendAsync(HttpMethod.Post, $"/{id:D}/expire", withoutClaim, "expire");
+        Assert.Equal(HttpStatusCode.OK, expired.StatusCode);
+        using var expiredJson = JsonDocument.Parse(await expired.Content.ReadAsStringAsync());
+        Assert.Equal("expired", expiredJson.RootElement.GetProperty("response").GetProperty("kind").GetString());
+        Assert.Equal(1, fixture.Store.ResponseEffects);
+    }
+
+    [Theory]
+    [InlineData("missing_evidence")]
+    [InlineData("null_evidence")]
+    [InlineData("null_claim")]
+    [InlineData("long_evidence")]
+    [InlineData("long_claim")]
+    public async Task ResponseEvidenceMustBePresentNonNullAndBounded(string invalid)
+    {
+        using var fixture = new Fixture();
+        var fields = new List<string>
+        {
+            "\"issuedRevisionId\":\"00000000-0000-0000-0000-000000000001\"",
+            "\"expectedVersion\":1",
+            "\"evidence\":\"ok\"",
+            "\"customerClaim\":\"buyer\"",
+        };
+        switch (invalid)
+        {
+            case "missing_evidence": fields.RemoveAt(2); break;
+            case "null_evidence": fields[2] = "\"evidence\":null"; break;
+            case "null_claim": fields[3] = "\"customerClaim\":null"; break;
+            case "long_evidence": fields[2] = JsonSerializer.Serialize(new { evidence = new string('e', 2001) })[1..^1]; break;
+            case "long_claim": fields[3] = JsonSerializer.Serialize(new { customerClaim = new string('c', 301) })[1..^1]; break;
+        }
+        var body = $"{{{string.Join(",", fields)}}}";
+        using var response = await fixture.SendAsync(HttpMethod.Post, "/00000000-0000-0000-0000-000000000002/accept", body, "bad-evidence");
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.True(response.Headers.CacheControl?.NoStore);
+        Assert.Equal(0, fixture.Store.ResponseEffects);
+    }
+
+    [Theory]
+    [InlineData(false, "revision_conflict", QuotationCommandStatus.RevisionConflict)]
+    [InlineData(true, "quotation_not_accepted", QuotationCommandStatus.NotAccepted)]
+    public async Task ResponseAndConversionConflictsUseStableSafeCodes(bool conversion, string code, QuotationCommandStatus status)
+    {
+        using var fixture = new Fixture();
+        using var created = await fixture.SendAsync(HttpMethod.Post, "", Fixture.Body(), "create");
+        using var createdJson = JsonDocument.Parse(await created.Content.ReadAsStringAsync());
+        var id = createdJson.RootElement.GetProperty("quotationId").GetGuid();
+        using var issued = await fixture.SendAsync(HttpMethod.Post, $"/{id:D}/issue", "{\"expectedVersion\":1}", "issue");
+        using var issuedJson = JsonDocument.Parse(await issued.Content.ReadAsStringAsync());
+        var revision = issuedJson.RootElement.GetProperty("currentIssued").GetProperty("revisionId").GetGuid();
+        var body = conversion
+            ? JsonSerializer.Serialize(new { issuedRevisionId = revision, expectedVersion = 2 })
+            : JsonSerializer.Serialize(new { issuedRevisionId = revision, expectedVersion = 2, evidence = "Rejected", customerClaim = "buyer" });
+        if (conversion) fixture.Store.ConvertStatusOverride = status;
+        else fixture.Store.RespondStatusOverride = status;
+        using var response = await fixture.SendAsync(HttpMethod.Post, $"/{id:D}/{(conversion ? "convert" : "reject")}", body, "conflict");
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal(code, await Code(response));
+        Assert.True(response.Headers.CacheControl?.NoStore);
+        Assert.Equal(0, conversion ? fixture.Store.ConversionEffects : fixture.Store.ResponseEffects);
+    }
+
+    [Theory]
+    [InlineData("{\"issuedRevisionId\":\"00000000-0000-0000-0000-000000000001\",\"expectedVersion\":2,\"evidence\":\"ok\",\"Evidence\":\"duplicate\",\"customerClaim\":\"buyer\"}")]
+    [InlineData("{\"issuedRevisionId\":\"00000000-0000-0000-0000-000000000001\",\"expectedVersion\":2,\"evidence\":\"ok\",\"admin\":true,\"customerClaim\":\"buyer\"}")]
+    public async Task ResponseRouteRejectsDuplicateAndUnknownFieldsBeforeStore(string body)
+    {
+        using var fixture = new Fixture();
+        using var response = await fixture.SendAsync(HttpMethod.Post, "/00000000-0000-0000-0000-000000000001/accept", body, "invalid-response");
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(0, fixture.Store.ResponseEffects);
+    }
+
+    [Fact]
+    public async Task ResponseRouteRejectsOversizedBodyBeforeStore()
+    {
+        using var fixture = new Fixture();
+        using var response = await fixture.SendAsync(HttpMethod.Post, "/00000000-0000-0000-0000-000000000001/accept", new string('x', 65537), "large-response");
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, response.StatusCode);
+        Assert.Equal(0, fixture.Store.ResponseEffects);
+    }
+
+    private static async Task<string?> Code(HttpResponseMessage response)
+    {
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        return json.RootElement.GetProperty("code").GetString();
+    }
+
     private sealed class Fixture : IDisposable
     {
         private readonly WhiteLabelApiFactory _base = new();
@@ -162,6 +363,7 @@ public sealed class QuotationEndpointTests
             {
                 services.RemoveAll<IQuotationAuthority>(); services.AddSingleton<IQuotationAuthority>(Authority);
                 services.RemoveAll<IQuotationStore>(); services.AddSingleton<IQuotationStore>(Store);
+                services.RemoveAll<IQuotationResponseStore>(); services.AddSingleton<IQuotationResponseStore>(Store);
                 services.RemoveAll<ICatalogStore>(); services.AddSingleton<ICatalogStore>(Catalog);
                 services.RemoveAll<IPricingPublicationStore>(); services.AddSingleton<IPricingPublicationStore>(Prices);
                 services.RemoveAll<IPricingCandidateReader>(); services.AddSingleton<IPricingCandidateReader>(Prices);
@@ -213,11 +415,16 @@ public sealed class QuotationEndpointTests
         public Task RequireContextAsync(PricingActorContext actor, PriceSelectionContext context, CancellationToken ct) => Task.CompletedTask;
     }
     // This probe proves host/authority flow, not PostgreSQL durability or issue semantics.
-    private sealed class ProbeStore : IQuotationStore
+    private sealed class ProbeStore : IQuotationStore, IQuotationResponseStore
     {
         private readonly Dictionary<string, QuotationSnapshot> _receipts = [];
+        private readonly Dictionary<(string Operation, string Key), (string Fingerprint, QuotationCommandResult Result)> _responseReceipts = [];
         internal int Effects { get; private set; }
         private QuotationSnapshot? _current;
+        internal int ResponseEffects { get; private set; }
+        internal int ConversionEffects { get; private set; }
+        internal QuotationCommandStatus? RespondStatusOverride { get; set; }
+        internal QuotationCommandStatus? ConvertStatusOverride { get; set; }
         internal QuotationSnapshot? Current => _current;
         public Task<QuotationCommandResult?> FindReceiptAsync(TenantContext context, string operation, string key, string fingerprint, CancellationToken ct) =>
             Task.FromResult(_receipts.TryGetValue(key, out var snapshot) ? new QuotationCommandResult(QuotationCommandStatus.Replayed, snapshot) : null);
@@ -243,5 +450,50 @@ public sealed class QuotationEndpointTests
         }
         public Task<QuotationSnapshot?> FindAsync(TenantContext context, Guid id, CancellationToken ct) => Task.FromResult(_current);
         public Task<QuotationIssuedPage> ListIssuedAsync(TenantContext context, Guid id, long afterRevision, int limit, CancellationToken ct) => Task.FromResult(new QuotationIssuedPage([_current!.CurrentIssued!], null));
+        public Task<QuotationCommandResult> RespondAsync(TenantContext context, Guid quotationId, QuotationResponseKind kind,
+            QuotationResponseRequest request, string key, string fingerprint, CancellationToken ct)
+        {
+            var operation = $"respond:{kind}";
+            if (_responseReceipts.TryGetValue((operation, key), out var receipt))
+                return Task.FromResult(receipt.Fingerprint == fingerprint
+                    ? new QuotationCommandResult(QuotationCommandStatus.Replayed, receipt.Result.Quotation)
+                    : new QuotationCommandResult(QuotationCommandStatus.IdempotencyKeyConflict, _current));
+            if (RespondStatusOverride is { } overridden)
+                return Task.FromResult(new QuotationCommandResult(overridden, _current));
+            var facts = new QuotationResponseFacts(quotationId, request.IssuedRevisionId, context.TenantId, kind,
+                context.AccountId, DateTimeOffset.UtcNow, request.Evidence, request.CustomerClaim);
+            _current = _current! with { Version = _current.Version + 1, CurrentResponse = facts };
+            ResponseEffects++;
+            var result = new QuotationCommandResult(kind switch
+            {
+                QuotationResponseKind.Accepted => QuotationCommandStatus.Accepted,
+                QuotationResponseKind.Rejected => QuotationCommandStatus.Rejected,
+                _ => QuotationCommandStatus.Expired,
+            }, _current);
+            _responseReceipts.Add((operation, key), (fingerprint, result));
+            return Task.FromResult(result);
+        }
+        public Task<QuotationCommandResult> ConvertAsync(TenantContext context, Guid quotationId, QuotationConvertRequest request,
+            string key, string fingerprint, CancellationToken ct)
+        {
+            const string operation = "convert";
+            if (_responseReceipts.TryGetValue((operation, key), out var receipt))
+                return Task.FromResult(receipt.Fingerprint == fingerprint
+                    ? new QuotationCommandResult(QuotationCommandStatus.Replayed, receipt.Result.Quotation)
+                    : new QuotationCommandResult(QuotationCommandStatus.IdempotencyKeyConflict, _current));
+            if (ConvertStatusOverride is { } overridden)
+                return Task.FromResult(new QuotationCommandResult(overridden, _current));
+            var order = new Application.Orders.OrderDraftSnapshot(Guid.NewGuid(), context.TenantId, context.AccountId,
+                "Private offer", "USD", 20, 1, DateTimeOffset.UtcNow, []);
+            var facts = new QuotationConversionFacts(quotationId, request.IssuedRevisionId, context.TenantId,
+                context.AccountId, DateTimeOffset.UtcNow, order);
+            _current = _current! with { Version = _current.Version + 1, Conversion = facts };
+            ConversionEffects++;
+            var result = new QuotationCommandResult(QuotationCommandStatus.Converted, _current);
+            _responseReceipts.Add((operation, key), (fingerprint, result));
+            return Task.FromResult(result);
+        }
+        public Task<QuotationResponseFacts?> FindResponseAsync(TenantContext context, Guid quotationId, Guid issuedRevisionId, CancellationToken ct) =>
+            Task.FromResult(_current?.CurrentResponse);
     }
 }

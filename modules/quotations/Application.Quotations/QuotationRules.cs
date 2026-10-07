@@ -75,6 +75,14 @@ public static class QuotationRules
     }
 
     public static string Key(string value) => Text(value, 128, "idempotency_key_invalid");
+    public static Application.Orders.AcceptedQuotationOrder OrderFacts(QuotationIssuedFacts issued)
+    {
+        Validate(issued.Offer, issued.TenantId);
+        return new(new(issued.QuotationId, issued.RevisionId, issued.Number, issued.RevisionNumber), issued.Offer.Summary,
+            issued.Offer.CurrencyCode, issued.Offer.Total, Array.AsReadOnly(issued.Offer.Lines.Select(line => new Application.Orders.OrderDraftLine(
+                line.Position, line.Description, line.Quantity, line.UnitCode, line.UnitPrice, line.LineTotal,
+                line.Catalog is null ? null : new(line.Catalog, line.PublishedPrice!, line.PriceSelection!))).ToArray()), issued.Offer.CustomerContext);
+    }
     public static string Fingerprint<T>(T value) => Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(value))).ToLowerInvariant();
     public static void RequireIdentity(Guid id, long version)
     { if (id == Guid.Empty || version < 1) Fail("revision_request_invalid"); }

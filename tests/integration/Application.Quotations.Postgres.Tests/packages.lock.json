@@ -296,8 +296,35 @@
           "Application.Tenancy": "[0.0.1, )"
         }
       },
+      "application.customers.postgres": {
+        "type": "Project",
+        "dependencies": {
+          "Application.Customers": "[0.0.1, )",
+          "Microsoft.EntityFrameworkCore": "[10.0.8, )",
+          "Npgsql": "[10.0.2, )",
+          "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.1, )"
+        }
+      },
       "application.objectstorage": {
         "type": "Project"
+      },
+      "application.orders": {
+        "type": "Project",
+        "dependencies": {
+          "Application.Catalog": "[0.0.1, )",
+          "Application.Customers": "[0.0.1, )",
+          "Application.Pricing": "[0.0.1, )",
+          "Application.Tenancy": "[0.0.1, )"
+        }
+      },
+      "application.orders.postgres": {
+        "type": "Project",
+        "dependencies": {
+          "Application.Orders": "[0.0.1, )",
+          "Microsoft.EntityFrameworkCore": "[10.0.8, )",
+          "Npgsql": "[10.0.2, )",
+          "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.1, )"
+        }
       },
       "application.pricing": {
         "type": "Project"
@@ -307,6 +334,7 @@
         "dependencies": {
           "Application.Catalog": "[0.0.1, )",
           "Application.Customers": "[0.0.1, )",
+          "Application.Orders": "[0.0.1, )",
           "Application.Pricing": "[0.0.1, )",
           "Application.Tenancy": "[0.0.1, )"
         }

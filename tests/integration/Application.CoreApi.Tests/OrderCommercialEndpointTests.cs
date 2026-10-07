@@ -64,6 +64,74 @@ public sealed class OrderCommercialEndpointTests
         Assert.Equal(2, fixture.Orders.Effects);
     }
 
+    [Fact]
+    public async Task QuotationOriginSurvivesOrderDetailAndBrowseResponses()
+    {
+        using var fixture = new OrderCommercialHostFixture();
+        var order = fixture.SeedQuotationBoundOrder();
+        var origin = fixture.Orders.Order!.QuotationOrigin!;
+        using var detail = await fixture.SendAsync(HttpMethod.Get, order.ToString("D"));
+        Assert.Equal(HttpStatusCode.OK, detail.StatusCode);
+        using var detailJson = JsonDocument.Parse(await detail.Content.ReadAsStringAsync());
+        AssertOrigin(detailJson.RootElement.GetProperty("quotationOrigin"), origin);
+
+        using var browse = await fixture.BrowseAsync();
+        Assert.Equal(HttpStatusCode.OK, browse.StatusCode);
+        using var browseJson = JsonDocument.Parse(await browse.Content.ReadAsStringAsync());
+        AssertOrigin(browseJson.RootElement.GetProperty("items")[0].GetProperty("quotationOrigin"), origin);
+    }
+
+    [Fact]
+    public async Task QuotationBoundGuidanceSkipsEditAndManualPricePermissionChecks()
+    {
+        using var fixture = new OrderCommercialHostFixture();
+        var order = fixture.SeedQuotationBoundOrder();
+        fixture.SetEditUnavailable();
+        fixture.SetManualPriceUnavailable();
+        using var response = await fixture.SendAsync(HttpMethod.Get, $"{order:D}/actions");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var revise = json.RootElement.GetProperty("actions").EnumerateArray()
+            .Single(action => action.GetProperty("action").GetString() == "revise");
+        Assert.False(revise.GetProperty("available").GetBoolean());
+        Assert.Equal("order_quotation_bound", revise.GetProperty("unavailabilityCode").GetString());
+        Assert.Equal(0, fixture.OrderEditChecks);
+        Assert.Equal(0, fixture.OrderManualPriceChecks);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ManualAndCatalogReplacementReturnSafeQuotationBoundConflict(bool catalog)
+    {
+        using var fixture = new OrderCommercialHostFixture();
+        var order = fixture.SeedQuotationBoundOrder();
+        var path = catalog ? $"{order:D}/catalog-priced-draft" : $"{order:D}/draft";
+        if (!catalog) fixture.AllowManualPrice();
+        var body = catalog
+            ? fixture.Body(expectedRevision: 1)
+            : new
+            {
+                expectedRevision = 1,
+                summary = "Replacement",
+                currencyCode = "USD",
+                lines = new[] { new { description = "Replacement", quantity = 1m, unitCode = "EA", unitPrice = 5m } }
+            };
+        using var response = await fixture.SendAsync(HttpMethod.Put, path, body, "bound-replacement");
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal("order_quotation_bound", json.RootElement.GetProperty("code").GetString());
+        Assert.Equal(0, fixture.Orders.Effects);
+    }
+
+    private static void AssertOrigin(JsonElement value, OrderQuotationOrigin origin)
+    {
+        Assert.Equal(origin.QuotationId, value.GetProperty("quotationId").GetGuid());
+        Assert.Equal(origin.IssuedRevisionId, value.GetProperty("issuedRevisionId").GetGuid());
+        Assert.Equal(origin.Number, value.GetProperty("number").GetInt64());
+        Assert.Equal(origin.RevisionNumber, value.GetProperty("revisionNumber").GetInt64());
+    }
+
     [Theory]
     [InlineData("unitPrice", "0")]
     [InlineData("commercialFacts", "{}")]
@@ -191,6 +259,8 @@ internal sealed class OrderCommercialHostFixture : IDisposable
     internal PricingHostPermissions Permissions { get; } = new() { View = true };
     internal PricingHostStore Prices { get; }
     internal CommercialOrderHostStore Orders { get; } = new();
+    internal int OrderEditChecks => _base.GetOrderEditCheckCount(_account, _tenant);
+    internal int OrderManualPriceChecks => _base.GetOrderManualPriceCheckCount(_account, _tenant);
     private static readonly DateTimeOffset Now = new(2026, 10, 7, 12, 0, 0, TimeSpan.Zero);
 
     internal OrderCommercialHostFixture()
@@ -224,6 +294,10 @@ internal sealed class OrderCommercialHostFixture : IDisposable
         _token = _base.CreateToken(subject); _client = _host.CreateClient();
     }
     internal void RevokeCreation() => _base.SetOrderCreateDecision(_account, _tenant, false);
+    internal void SetEditUnavailable() => _base.SetOrderEditUnavailable(_account, _tenant);
+    internal void SetManualPriceUnavailable() => _base.SetOrderManualPriceUnavailable(_account, _tenant);
+    internal void AllowManualPrice() => _base.SetOrderManualPriceDecision(_account, _tenant, true);
+    internal Guid SeedQuotationBoundOrder() => Orders.SeedQuotationBound(_tenant, _account);
     internal object Body(long? expectedRevision = null, decimal? overridePrice = null, string? reason = null) => new
     {
         summary = "Catalog order",
@@ -241,6 +315,12 @@ internal sealed class OrderCommercialHostFixture : IDisposable
     {
         using var request = Request(HttpMethod.Post, "catalog-priced", "test");
         request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+        return await _client.SendAsync(request);
+    }
+    internal async Task<HttpResponseMessage> BrowseAsync()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/tenants/{_tenant:D}/orders");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _token);
         return await _client.SendAsync(request);
     }
     private HttpRequestMessage Request(HttpMethod method, string path, string? key)
@@ -266,7 +346,16 @@ internal sealed class CommercialOrderHostStore : IOrderDraftStore, IOrderDraftRe
     private readonly Dictionary<string, (string Fingerprint, OrderDraftSnapshot Order)> _creates = [];
     private readonly Dictionary<string, (string Fingerprint, OrderDraftSnapshot Order)> _revisions = [];
     private OrderDraftSnapshot? _order;
+    internal OrderDraftSnapshot? Order => _order;
     internal int Effects { get; private set; }
+    internal Guid SeedQuotationBound(Guid tenant, Guid account)
+    {
+        _order = new OrderDraftSnapshot(Guid.NewGuid(), tenant, account, "Accepted offer", "USD", 40m, 1,
+            new DateTimeOffset(2026, 10, 7, 12, 0, 0, TimeSpan.Zero),
+            [new OrderDraftLine(1, "Accepted line", 2m, "EA", 20m, 40m)],
+            QuotationOrigin: new(Guid.NewGuid(), Guid.NewGuid(), 9, 2));
+        return _order.OrderId;
+    }
     public Task<CreateOrderDraftResult?> FindCreateReceiptAsync(TenantContext context, string key, string fingerprint, CancellationToken ct) =>
         Task.FromResult(_creates.TryGetValue(key, out var retained) ? new CreateOrderDraftResult(retained.Fingerprint == fingerprint ?
             CreateOrderDraftStatus.Replayed : CreateOrderDraftStatus.IdempotencyKeyConflict, retained.Fingerprint == fingerprint ? retained.Order : null) : null);
@@ -282,13 +371,18 @@ internal sealed class CommercialOrderHostStore : IOrderDraftStore, IOrderDraftRe
     }
     public Task<ReviseOrderDraftResult> ReviseAsync(TenantContext context, ReviseOrderDraftRequest request, OrderDraftIntent intent, string key, string fingerprint, CancellationToken ct)
     {
+        if (_order?.QuotationOrigin is not null)
+            return Task.FromResult(new ReviseOrderDraftResult(ReviseOrderDraftStatus.QuotationBound, null));
         if (_order!.Revision != request.ExpectedRevision) return Task.FromResult(new ReviseOrderDraftResult(ReviseOrderDraftStatus.RevisionConflict, null));
         _order = _order with { Summary = intent.Summary, Lines = intent.Lines, Total = intent.Total, Revision = _order.Revision + 1 };
         _revisions.Add(key, (fingerprint, _order)); Effects++;
         return Task.FromResult(new ReviseOrderDraftResult(ReviseOrderDraftStatus.Revised, _order));
     }
     public Task<OrderDraftSnapshot?> FindAsync(TenantContext context, Guid id, CancellationToken ct) => Task.FromResult(_order?.TenantId == context.TenantId && _order.OrderId == id ? _order : null);
-    public Task<OrderDraftPage> ListAsync(TenantContext context, ListOrderDraftsRequest request, CancellationToken ct) => throw new NotSupportedException();
+    public Task<OrderDraftPage> ListAsync(TenantContext context, ListOrderDraftsRequest request, CancellationToken ct) =>
+        Task.FromResult(new OrderDraftPage(_order?.TenantId == context.TenantId ?
+            [new(_order.OrderId,_order.Summary,_order.CurrencyCode,_order.Total,_order.Revision,_order.CreatedAt,
+                _order.State,_order.AbandonedAt,_order.CustomerContext,_order.CommittedAt,_order.QuotationOrigin)] : [], null));
     public Task<AbandonOrderDraftResult> AbandonAsync(TenantContext context, AbandonOrderDraftRequest request, string key, string fingerprint, CancellationToken ct) => throw new NotSupportedException();
     public Task<CommitOrderDraftResult> CommitAsync(TenantContext context, CommitOrderDraftRequest request, string key, string fingerprint, CancellationToken ct) => throw new NotSupportedException();
 }

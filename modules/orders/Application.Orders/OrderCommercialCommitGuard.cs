@@ -12,10 +12,19 @@ public interface IOrderPricingAuthorityReader
 }
 
 public sealed class OrderCommercialCommitGuard(SelectCatalogLineFacts catalog,
-    PriceContracts.PricingApplication pricing, IOrderPricingAuthorityReader authority) : IOrderCommercialCommitGuard
+    PriceContracts.PricingApplication pricing, IOrderPricingAuthorityReader authority,
+    IOrderAcceptedQuotationReader? acceptedQuotations = null) : IOrderCommercialCommitGuard
 {
     public async Task<bool> IsCompatibleAsync(TenantContext context, OrderDraftSnapshot order, CancellationToken ct)
     {
+        if (order.QuotationOrigin is { } origin)
+        {
+            if (acceptedQuotations is null) return false;
+            var accepted = await acceptedQuotations.ReadAsync(context, order.OrderId, origin, ct).ConfigureAwait(false);
+            if (accepted is null) return false;
+            accepted.RequireValid(context.TenantId);
+            return accepted.Matches(order);
+        }
         var currentAuthority = order.Lines.Any(line => line.CommercialFacts?.PriceSelection.Explanation.Override is not null)
             ? await authority.ReadAsync(context, ct).ConfigureAwait(false)
             : new OrderPricingAuthority(false, false);

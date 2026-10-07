@@ -9,4 +9,5 @@ WHERE tenant_id = @tenant_id
   AND id = @order_id
   AND state = 'draft'
   AND revision = @expected_revision
+  AND NOT EXISTS (SELECT 1 FROM orders.quotation_origins o WHERE o.tenant_id=@tenant_id AND o.order_id=@order_id)
 RETURNING 1

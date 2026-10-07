@@ -112,7 +112,7 @@ public sealed partial class PostgresOrderDraftStore(
         if (receipt is not null)
         {
             await session.CommitAsync(cancellationToken).ConfigureAwait(false);
-            return ToExistingAbandonResult(receipt, fingerprint);
+            return await ToExistingAbandonResultAsync(tenantContext, receipt, fingerprint, cancellationToken).ConfigureAwait(false);
         }
 
         var abandonedAt = _timeProvider.GetUtcNow();
@@ -128,7 +128,7 @@ public sealed partial class PostgresOrderDraftStore(
             if (receipt is not null)
             {
                 await session.CommitAsync(cancellationToken).ConfigureAwait(false);
-                return ToExistingAbandonResult(receipt, fingerprint);
+                return await ToExistingAbandonResultAsync(tenantContext, receipt, fingerprint, cancellationToken).ConfigureAwait(false);
             }
 
             var current = await FindOrderStateAsync(
@@ -152,6 +152,7 @@ public sealed partial class PostgresOrderDraftStore(
             session, tenantContext.TenantId, request.OrderId, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new InvalidOperationException("The abandoned order disappeared before receipt creation.");
+        await RequireAcceptedQuotationFactsAsync(tenantContext, order, cancellationToken).ConfigureAwait(false);
         if (await TryInsertReceiptAsync(
             session, tenantContext.AccountId, AbandonOperation,
             idempotencyKey, fingerprint, order, abandonedAt, cancellationToken).ConfigureAwait(false))
@@ -165,7 +166,7 @@ public sealed partial class PostgresOrderDraftStore(
             AbandonOperation, idempotencyKey, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("The order command receipt disappeared after a conflict.");
         await session.RollbackAsync(cancellationToken).ConfigureAwait(false);
-        return ToExistingAbandonResult(receipt, fingerprint);
+        return await ToExistingAbandonResultAsync(tenantContext, receipt, fingerprint, cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task<bool> TryAbandonOrderAsync(

@@ -59,6 +59,7 @@ internal static class TenantCatalogOrderEndpoint
                     return Conflict(result.Status switch
                     {
                         ReviseOrderDraftStatus.RevisionConflict => "revision_conflict",
+                        ReviseOrderDraftStatus.QuotationBound => "order_quotation_bound",
                         ReviseOrderDraftStatus.AlreadyCommitted => "order_already_committed",
                         ReviseOrderDraftStatus.AlreadyAbandoned => "order_already_abandoned",
                         _ => "idempotency_key_conflict",

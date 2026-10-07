@@ -128,6 +128,15 @@
       "application.objectstorage": {
         "type": "Project"
       },
+      "application.orders": {
+        "type": "Project",
+        "dependencies": {
+          "Application.Catalog": "[0.0.1, )",
+          "Application.Customers": "[0.0.1, )",
+          "Application.Pricing": "[0.0.1, )",
+          "Application.Tenancy": "[0.0.1, )"
+        }
+      },
       "application.pricing": {
         "type": "Project"
       },
@@ -136,6 +145,7 @@
         "dependencies": {
           "Application.Catalog": "[0.0.1, )",
           "Application.Customers": "[0.0.1, )",
+          "Application.Orders": "[0.0.1, )",
           "Application.Pricing": "[0.0.1, )",
           "Application.Tenancy": "[0.0.1, )"
         }

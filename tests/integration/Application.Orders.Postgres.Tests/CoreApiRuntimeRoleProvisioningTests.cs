@@ -202,7 +202,7 @@ public sealed class CoreApiRuntimeRoleProvisioningTests : PostgresTestDatabase
     }
 
     [Fact]
-    public async Task ProvisioningRejectsInheritedQuotationMutationPrivilegesWithoutApplyingPartialGrants()
+    public async Task ProvisioningRejectsInheritedCommercialHistoryMutationPrivilegesWithoutApplyingPartialGrants()
     {
         await ApplyOrderSchemaAsync();
         await CreateRoleAsync();
@@ -213,15 +213,25 @@ public sealed class CoreApiRuntimeRoleProvisioningTests : PostgresTestDatabase
             await AssertProvisioningRejectedAsync($"DELETE ON TABLE quotations.{table}");
         }
 
+        foreach (var table in new[] { "orders.quotation_origins", "quotations.responses", "quotations.conversions" })
+        {
+            await AssertProvisioningRejectedAsync($"TRUNCATE ON TABLE {table}");
+            await AssertProvisioningRejectedAsync($"DELETE ON TABLE {table}");
+        }
+        await AssertProvisioningRejectedAsync("UPDATE ON TABLE orders.quotation_origins");
+
         foreach (var (table, column) in new[]
                  {
-                     ("heads", "created_by"), ("issued", "facts"), ("numbers", "tenant_id"), ("receipts", "response"),
+                     ("quotations.heads", "created_by"), ("quotations.issued", "facts"),
+                     ("quotations.numbers", "tenant_id"), ("quotations.receipts", "response"),
+                     ("orders.quotation_origins", "quotation_id"), ("quotations.responses", "facts"),
+                     ("quotations.conversions", "facts"),
                  })
         {
-            await AssertProvisioningRejectedAsync($"UPDATE ({column}) ON TABLE quotations.{table}");
+            await AssertProvisioningRejectedAsync($"UPDATE ({column}) ON TABLE {table}");
         }
 
-        foreach (var table in new[] { "issued", "receipts" })
+        foreach (var table in new[] { "heads", "issued", "numbers", "receipts", "responses", "conversions" })
         {
             await AssertProvisioningRejectedAsync($"UPDATE ON TABLE quotations.{table}");
         }
@@ -247,6 +257,7 @@ public sealed class CoreApiRuntimeRoleProvisioningTests : PostgresTestDatabase
             await using var check = connection.CreateCommand();
             check.CommandText = """
                 SELECT has_table_privilege(@role, 'identity_access.accounts', 'SELECT'),
+                       has_schema_privilege(@role, 'orders', 'USAGE'),
                        has_schema_privilege(@role, 'quotations', 'USAGE')
                 """;
             check.Parameters.AddWithValue("role", RuntimeRole);
@@ -254,6 +265,7 @@ public sealed class CoreApiRuntimeRoleProvisioningTests : PostgresTestDatabase
             Assert.True(await reader.ReadAsync(CancellationToken.None));
             Assert.False(reader.GetBoolean(0));
             Assert.False(reader.GetBoolean(1));
+            Assert.False(reader.GetBoolean(2));
         }
         finally
         {

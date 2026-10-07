@@ -23,9 +23,10 @@ public sealed class OrderDraftHistoryEndpointTests : IClassFixture<WhiteLabelApi
         var (account, tenant, token) = GrantViewer();
         var order = Guid.NewGuid();
         var actor = Guid.NewGuid();
+        var origin = new OrderQuotationOrigin(Guid.NewGuid(), Guid.NewGuid(), 12, 3);
         var recordedAt = new DateTimeOffset(2026, 10, 2, 10, 0, 0, TimeSpan.Zero);
         var snapshot = new OrderDraftSnapshot(order, tenant, actor, "Historical draft", "USD", 20m, 2,
-            recordedAt, [new OrderDraftLine(1, "Historical line", 2m, "EA", 10m, 20m)]);
+            recordedAt, [new OrderDraftLine(1, "Historical line", 2m, "EA", 10m, 20m)], QuotationOrigin: origin);
         var store = new RecordingHistoryStore(new OrderDraftHistoryPage(3,
             [new OrderDraftHistoryEntry(OrderDraftChange.Revised, actor, recordedAt, snapshot)], 2));
         using var host = CreateHost(store);
@@ -42,6 +43,10 @@ public sealed class OrderDraftHistoryEndpointTests : IClassFixture<WhiteLabelApi
         Assert.Equal(actor, entry.GetProperty("changedByAccountId").GetGuid());
         Assert.Equal(recordedAt, entry.GetProperty("recordedAt").GetDateTimeOffset());
         Assert.Equal(10m, entry.GetProperty("order").GetProperty("lines")[0].GetProperty("unitPrice").GetDecimal());
+        Assert.Equal(origin.QuotationId, entry.GetProperty("order").GetProperty("quotationOrigin").GetProperty("quotationId").GetGuid());
+        Assert.Equal(origin.IssuedRevisionId, entry.GetProperty("order").GetProperty("quotationOrigin").GetProperty("issuedRevisionId").GetGuid());
+        Assert.Equal(origin.Number, entry.GetProperty("order").GetProperty("quotationOrigin").GetProperty("number").GetInt64());
+        Assert.Equal(origin.RevisionNumber, entry.GetProperty("order").GetProperty("quotationOrigin").GetProperty("revisionNumber").GetInt64());
         Assert.False(entry.TryGetProperty("fingerprint", out _));
         Assert.False(entry.TryGetProperty("idempotencyKey", out _));
         Assert.False(entry.TryGetProperty("responseJson", out _));

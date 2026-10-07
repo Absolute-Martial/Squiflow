@@ -4,7 +4,8 @@ using Npgsql;
 
 namespace Application.Quotations.Postgres;
 
-public sealed class PostgresQuotationStore(NpgsqlDataSource source, TimeProvider clock) : IQuotationStore
+public sealed partial class PostgresQuotationStore(NpgsqlDataSource source, TimeProvider clock, IQuotationOrderWriter? orders = null)
+    : IQuotationStore, IQuotationResponseStore, Application.Orders.IOrderAcceptedQuotationReader
 {
     public async Task<QuotationCommandResult?> FindReceiptAsync(TenantContext context, string operation, string key, string fingerprint, CancellationToken ct)
     {
@@ -44,6 +45,7 @@ public sealed class PostgresQuotationStore(NpgsqlDataSource source, TimeProvider
             previous = await ReadHeadAsync(connection, transaction, context, id, ct).ConfigureAwait(false);
             if (previous is null) return new(QuotationCommandStatus.NotFound, null);
             if (previous.Version != expectedVersion) return new(QuotationCommandStatus.RevisionConflict, null);
+            if (previous.CurrentResponse?.Kind == QuotationResponseKind.Accepted) return new(QuotationCommandStatus.AcceptedFamily, null);
         }
         if (operation == "issue")
         {
@@ -98,12 +100,10 @@ public sealed class PostgresQuotationStore(NpgsqlDataSource source, TimeProvider
             await using (var update = Command("IssueHead", connection, transaction, context, ("id", id), ("expected", expectedVersion),
                 ("number", number), ("revision_id", issued.RevisionId), ("revision", issued.RevisionNumber)))
                 if (await update.ExecuteNonQueryAsync(ct).ConfigureAwait(false) != 1) throw new InvalidOperationException("The locked quotation changed unexpectedly.");
-            snapshot = previous with { Version = checked(expectedVersion + 1), Number = number, Draft = null, CurrentIssued = issued };
+            snapshot = previous with { Version = checked(expectedVersion + 1), Number = number, Draft = null, CurrentIssued = issued, CurrentResponse = null, Conversion = null };
             status = QuotationCommandStatus.Issued;
         }
-        await using (var receipt = Command("InsertReceipt", connection, transaction, context, ("actor", context.AccountId),
-            ("operation", operation), ("key", key), ("fingerprint", fingerprint), ("response", Serialize(snapshot, 16 * 1024 * 1024))))
-            await receipt.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+        await InsertSnapshotReceiptAsync(connection, transaction, context, operation, key, fingerprint, snapshot, ct).ConfigureAwait(false);
         await transaction.CommitAsync(ct).ConfigureAwait(false);
         return new(status, snapshot);
     }
@@ -141,10 +141,17 @@ public sealed class PostgresQuotationStore(NpgsqlDataSource source, TimeProvider
         await using var command = Command("ReadReceipt", connection, transaction, context, ("actor", context.AccountId), ("operation", operation), ("key", key));
         await using var reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
         if (!await reader.ReadAsync(ct).ConfigureAwait(false)) return null;
-        if (reader.GetInt32(2) != 1) throw new InvalidOperationException("The quotation receipt version is unsupported.");
+        var version = reader.GetInt32(2);
+        if (version is not (1 or 2)) throw new InvalidOperationException("The quotation receipt version is unsupported.");
         if (reader.GetString(0) != fingerprint) return new(QuotationCommandStatus.IdempotencyKeyConflict, null);
         var snapshot = Deserialize<QuotationSnapshot>(reader.GetString(1));
         ValidateSnapshot(snapshot, context);
+        if (version == 1 && (snapshot.CurrentResponse is not null || snapshot.Conversion is not null) ||
+            operation is "accept" or "reject" or "expire" or "convert" && version != 2)
+            throw new InvalidOperationException("The quotation receipt facts do not match their version.");
+        if (operation is "accept" or "reject" or "expire" && snapshot.CurrentResponse?.Kind != ResponseKind(operation) ||
+            operation == "convert" && snapshot.Conversion is null)
+            throw new InvalidOperationException("The quotation receipt facts do not match their operation.");
         return new(QuotationCommandStatus.Replayed, snapshot);
     }
     private static async Task<QuotationSnapshot?> ReadHeadAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, TenantContext context, Guid id, CancellationToken ct)
@@ -155,12 +162,17 @@ public sealed class PostgresQuotationStore(NpgsqlDataSource source, TimeProvider
         var snapshot = new QuotationSnapshot(reader.GetGuid(0), context.TenantId, reader.GetGuid(1), reader.GetFieldValue<DateTimeOffset>(2),
             reader.GetInt64(3), reader.IsDBNull(4) ? null : reader.GetInt64(4),
             reader.IsDBNull(5) ? null : Deserialize<QuotationDraftFacts>(reader.GetString(5)),
-            reader.IsDBNull(6) ? null : Deserialize<QuotationIssuedFacts>(reader.GetString(6)));
+            reader.IsDBNull(6) ? null : Deserialize<QuotationIssuedFacts>(reader.GetString(6)),
+            reader.IsDBNull(11) ? null : Deserialize<QuotationResponseFacts>(reader.GetString(11)),
+            reader.IsDBNull(14) ? null : Deserialize<QuotationConversionFacts>(reader.GetString(14)));
         ValidateSnapshot(snapshot, context);
         if (snapshot.QuotationId != id || (snapshot.CurrentIssued?.RevisionNumber ?? 0) != reader.GetInt64(7) ||
             snapshot.CurrentIssued?.RevisionId != (reader.IsDBNull(8) ? null : reader.GetGuid(8)) || reader.GetInt32(9) != 1 ||
             !reader.IsDBNull(10) && reader.GetInt32(10) != 1)
             throw new InvalidOperationException("Stored quotation revision identities are inconsistent.");
+        if (snapshot.CurrentResponse is { } response && (reader.GetInt32(12) != 1 || reader.GetGuid(13) != response.IssuedRevisionId || reader.GetInt16(18) != (short)response.Kind) ||
+            snapshot.Conversion is { } conversion && (reader.GetInt32(15) != 1 || reader.GetGuid(16) != conversion.IssuedRevisionId || reader.GetGuid(17) != conversion.OriginalOrder.OrderId))
+            throw new InvalidOperationException("Stored quotation response or conversion identities are inconsistent.");
         return snapshot;
     }
     private static void ValidateSnapshot(QuotationSnapshot snapshot, TenantContext context)
@@ -176,6 +188,8 @@ public sealed class PostgresQuotationStore(NpgsqlDataSource source, TimeProvider
             ValidateIssued(issued, context, snapshot.QuotationId);
             if (issued.Number != snapshot.Number) throw new InvalidOperationException("Stored quotation numbering is inconsistent.");
         }
+        if (snapshot.CurrentResponse is { } response) ValidateResponse(response, snapshot.CurrentIssued!, context);
+        if (snapshot.Conversion is { } conversion) ValidateConversion(conversion, snapshot.CurrentIssued!, snapshot.CurrentResponse, context);
     }
     private static void ValidateIssued(QuotationIssuedFacts facts, TenantContext context, Guid id)
     {

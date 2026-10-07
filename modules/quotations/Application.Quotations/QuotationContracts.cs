@@ -2,12 +2,13 @@ using Application.Catalog;
 using Application.Customers;
 using Application.Pricing;
 using Application.Tenancy;
+using System.Text.Json.Serialization;
 
 namespace Application.Quotations;
 
 public enum QuotationPriceMode { Manual, Catalog }
-public enum QuotationCapability { Create, Edit, View, Issue, ManualPricing, CatalogView, PricingView, Override, OverrideBeyondPolicy }
-public enum QuotationCommandStatus { Created, Revised, Issued, Replayed, NotFound, RevisionConflict, IdempotencyKeyConflict, NoDraft, CommercialFactsConflict, ValidityConflict }
+public enum QuotationCapability { Create, Edit, View, Issue, ManualPricing, CatalogView, PricingView, Override, OverrideBeyondPolicy, Respond, Expire, Convert, OrderCreate }
+public enum QuotationCommandStatus { Created, Revised, Issued, Replayed, NotFound, RevisionConflict, IdempotencyKeyConflict, NoDraft, CommercialFactsConflict, ValidityConflict, Accepted, Rejected, Expired, Converted, AlreadyLinked, Superseded, AlreadyResponded, NotAccepted, AcceptedFamily }
 public sealed record QuotationLineInput(decimal Quantity, string? Description = null, string? UnitCode = null,
     decimal? UnitPrice = null, Guid? ItemId = null, Guid? UnitId = null, long? ConversionRevision = null,
     decimal? OverridePrice = null, string? OverrideReason = null);
@@ -23,7 +24,9 @@ public sealed record QuotationIssuedFacts(Guid QuotationId, Guid RevisionId, Gui
     long RevisionNumber, Guid IssuedByAccountId, DateTimeOffset IssuedAt, QuotationDraftFacts Offer);
 public sealed record QuotationSnapshot(Guid QuotationId, Guid TenantId, Guid CreatedByAccountId,
     DateTimeOffset CreatedAt, long Version, long? Number, QuotationDraftFacts? Draft,
-    QuotationIssuedFacts? CurrentIssued);
+    QuotationIssuedFacts? CurrentIssued,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] QuotationResponseFacts? CurrentResponse = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] QuotationConversionFacts? Conversion = null);
 public sealed record QuotationCommandResult(QuotationCommandStatus Status, QuotationSnapshot? Quotation);
 public sealed record QuotationIssuedPage(IReadOnlyList<QuotationIssuedFacts> Items, long? NextAfterRevision);
 public sealed class QuotationValidationException(string code, string message) : ArgumentException(message)

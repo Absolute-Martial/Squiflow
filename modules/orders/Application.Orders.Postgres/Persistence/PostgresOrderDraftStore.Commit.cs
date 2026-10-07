@@ -26,7 +26,7 @@ public sealed partial class PostgresOrderDraftStore
         if (receipt is not null)
         {
             await session.CommitAsync(cancellationToken).ConfigureAwait(false);
-            return ToExistingCommitResult(receipt, fingerprint);
+            return await ToExistingCommitResultAsync(tenantContext, receipt, fingerprint, cancellationToken).ConfigureAwait(false);
         }
 
         // Lock before reading lines: revision/abandon/commit cannot change the
@@ -43,11 +43,11 @@ public sealed partial class PostgresOrderDraftStore
         if (receipt is not null)
         {
             await session.CommitAsync(cancellationToken).ConfigureAwait(false);
-            return ToExistingCommitResult(receipt, fingerprint);
+            return await ToExistingCommitResultAsync(tenantContext, receipt, fingerprint, cancellationToken).ConfigureAwait(false);
         }
         var beforeCommit = await FindOrderAsync(session, tenantContext.TenantId, request.OrderId, cancellationToken).ConfigureAwait(false);
         if (beforeCommit is { State: OrderDraftState.Draft } && beforeCommit.Revision == request.ExpectedRevision &&
-            beforeCommit.Lines.Any(line => line.CommercialFacts is not null))
+            (beforeCommit.QuotationOrigin is not null || beforeCommit.Lines.Any(line => line.CommercialFacts is not null)))
         {
             // Missing composition fails closed; manual paths do not depend on this port.
             if (commercialCommitGuard is null)
@@ -57,11 +57,12 @@ public sealed partial class PostgresOrderDraftStore
             // release publication protection while leaving this commit alive.
             // Catalog/Pricing writers pin exclusively before their own row locks and
             // never lock Orders rows. Public comparison queries acquire no second pin.
-            await using (var pin = session.CreateCommand(OrderSql.PinCommercialPublication))
-            {
-                pin.Parameters.AddWithValue("tenant_id", tenantContext.TenantId);
-                await pin.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-            }
+            if (beforeCommit.QuotationOrigin is null)
+                await using (var pin = session.CreateCommand(OrderSql.PinCommercialPublication))
+                {
+                    pin.Parameters.AddWithValue("tenant_id", tenantContext.TenantId);
+                    await pin.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                }
             cancellationToken.ThrowIfCancellationRequested();
             if (!await commercialCommitGuard.IsCompatibleAsync(tenantContext, beforeCommit, cancellationToken).ConfigureAwait(false))
                 return new(CommitOrderDraftStatus.CommercialFactsConflict, null);
@@ -80,7 +81,7 @@ public sealed partial class PostgresOrderDraftStore
             if (receipt is not null)
             {
                 await session.CommitAsync(cancellationToken).ConfigureAwait(false);
-                return ToExistingCommitResult(receipt, fingerprint);
+                return await ToExistingCommitResultAsync(tenantContext, receipt, fingerprint, cancellationToken).ConfigureAwait(false);
             }
 
             var current = await FindOrderStateAsync(
@@ -117,7 +118,7 @@ public sealed partial class PostgresOrderDraftStore
             CommitOperation, idempotencyKey, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("The order command receipt disappeared after a conflict.");
         await session.RollbackAsync(cancellationToken).ConfigureAwait(false);
-        return ToExistingCommitResult(receipt, fingerprint);
+        return await ToExistingCommitResultAsync(tenantContext, receipt, fingerprint, cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task<bool> TryCommitOrderAsync(

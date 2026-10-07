@@ -11,6 +11,9 @@ internal sealed class QuotationAuthority(OpenFgaTenantAuthorization quotations, 
     {
         QuotationCapability.Create or QuotationCapability.Edit or QuotationCapability.View or QuotationCapability.Issue =>
             quotations.CheckQuotationAsync(context.AccountId, context.TenantId, capability, ct),
+        QuotationCapability.Respond or QuotationCapability.Expire or QuotationCapability.Convert =>
+            quotations.CheckQuotationAsync(context.AccountId, context.TenantId, capability, ct),
+        QuotationCapability.OrderCreate => orders.CanCreateAsync(context.AccountId, context.TenantId, ct),
         QuotationCapability.ManualPricing => orders.CanApplyManualPriceAsync(context.AccountId, context.TenantId, ct),
         QuotationCapability.CatalogView => catalog.CanViewAsync(context.AccountId, context.TenantId, ct),
         QuotationCapability.PricingView => pricing.CanViewAsync(context.AccountId, context.TenantId, ct),

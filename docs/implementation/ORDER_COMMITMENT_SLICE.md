@@ -23,6 +23,26 @@ viewing prices and history still requires `order_viewer`. Detail and browse incl
 `committed` and nullable `committedAt`. Action guidance explains commitment too;
 current command authorization is always independent of that possibly stale guide.
 
+### COM-010 accepted-offer Orders
+
+COM-010 introduces a quotation-origin draft through the trusted Quotation-to-Orders
+application contract. Its immutable origin names the quotation, exact issued
+revision, family number and quotation revision number. Ordinary manual and
+Catalog/Pricing full-replacement routes return `409 order_quotation_bound`, and
+detail, browse and history preserve the origin for current Order viewers. The
+ordinary Order HTTP payload cannot assign that origin.
+
+Commitment of a quotation-origin draft uses the Quotation-owned accepted-offer
+reader to verify the linked accepted revision and compare the complete frozen
+price and attribution facts, including manual-priced lines, using canonical
+decimal value semantics. It preserves the accepted source after Catalog/Pricing
+retirement, expiry or policy changes. The direct-order current-source publication
+fence and revalidation path remains unchanged. This is trusted operator-recorded
+acceptance evidence, not customer-portal authorization or a verified signature.
+COM-010 is `PRODUCTION_HONEST` for its declared bounded scope; see the [COM-010
+qualification receipt](../review/COM_010_IMPLEMENTATION_RECEIPT.md). The exact
+normal repository gate and focused PostgreSQL/OpenFGA evidence passed for that scope.
+
 Missing orders return tenant-safe 404; stale revisions, already terminal orders
 and reused keys with a different semantic command return distinct stable 409
 codes. Exact retries return the original retained result and
@@ -37,6 +57,10 @@ return one effect with retained replays; different keys cannot commit a terminal
 order again. Historical create/revise/abandon receipt versions retain their old
 meaning; commitment requires its own supported envelope version. History reads
 check revision continuity and commitment actor/time against the receipt facts.
+COM-010 quotation-origin Order receipts use envelope version five and retain the
+origin and frozen accepted prices; legacy literal and versions one through four
+keep their supported meanings. The COM-010 receiving qualification exercises
+origin across receipt decode, commitment and history; see its linked receipt.
 
 The new module migration retains all older target models. Its header trigger
 rejects changes to terminal facts and a commitment that changes priced attribution

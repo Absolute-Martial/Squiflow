@@ -38,7 +38,8 @@ public sealed record OrderDraftSnapshot(
     Guid? AbandonedByAccountId = null,
     CustomerOrderContext? CustomerContext = null,
     DateTimeOffset? CommittedAt = null,
-    Guid? CommittedByAccountId = null);
+    Guid? CommittedByAccountId = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] OrderQuotationOrigin? QuotationOrigin = null);
 
 public sealed record OrderDraftListItem(
     Guid OrderId,
@@ -50,7 +51,8 @@ public sealed record OrderDraftListItem(
     OrderDraftState State = OrderDraftState.Draft,
     DateTimeOffset? AbandonedAt = null,
     CustomerOrderContext? CustomerContext = null,
-    DateTimeOffset? CommittedAt = null);
+    DateTimeOffset? CommittedAt = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] OrderQuotationOrigin? QuotationOrigin = null);
 
 public sealed record OrderDraftPageCursor(
     DateTimeOffset CreatedAt,
@@ -123,6 +125,7 @@ public enum ReviseOrderDraftStatus
     AlreadyAbandoned = 5,
     IdempotencyKeyConflict = 6,
     AlreadyCommitted = 7,
+    QuotationBound = 8,
 }
 
 public sealed record ReviseOrderDraftResult(

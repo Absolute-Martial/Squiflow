@@ -367,6 +367,12 @@
         "can_view_quotations": {"intersection": {"child": [{"computedUserset": {"relation": "member"}}, {"computedUserset": {"relation": "quotation_viewer"}}]}},
         "quotation_issuer": {"this": {}},
         "can_issue_quotation": {"intersection": {"child": [{"computedUserset": {"relation": "member"}}, {"computedUserset": {"relation": "quotation_issuer"}}]}},
+        "quotation_responder": {"this": {}},
+        "can_respond_quotation": {"intersection": {"child": [{"computedUserset": {"relation": "member"}}, {"computedUserset": {"relation": "quotation_responder"}}]}},
+        "quotation_expirer": {"this": {}},
+        "can_expire_quotation": {"intersection": {"child": [{"computedUserset": {"relation": "member"}}, {"computedUserset": {"relation": "quotation_expirer"}}]}},
+        "quotation_converter": {"this": {}},
+        "can_convert_quotation": {"intersection": {"child": [{"computedUserset": {"relation": "member"}}, {"computedUserset": {"relation": "quotation_converter"}}]}},
         "representative_manager": {
           "this": {}
         },
@@ -650,6 +656,12 @@
           "can_view_quotations": {"directly_related_user_types": []},
           "quotation_issuer": {"directly_related_user_types": [{"type": "user"}, {"type": "role", "relation": "assignee"}]},
           "can_issue_quotation": {"directly_related_user_types": []},
+          "quotation_responder": {"directly_related_user_types": [{"type": "user"}, {"type": "role", "relation": "assignee"}]},
+          "can_respond_quotation": {"directly_related_user_types": []},
+          "quotation_expirer": {"directly_related_user_types": [{"type": "user"}, {"type": "role", "relation": "assignee"}]},
+          "can_expire_quotation": {"directly_related_user_types": []},
+          "quotation_converter": {"directly_related_user_types": [{"type": "user"}, {"type": "role", "relation": "assignee"}]},
+          "can_convert_quotation": {"directly_related_user_types": []},
           "representative_manager": {
             "directly_related_user_types": [
               {

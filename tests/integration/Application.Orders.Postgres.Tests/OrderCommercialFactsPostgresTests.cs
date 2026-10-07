@@ -221,7 +221,11 @@ public sealed partial class OrderMigrationAndRlsTests
         await store.ReviseAsync(context, new(created.OrderId, 1, manual.Summary, "USD", []), manual, "manual", manual.Fingerprint, default);
         Assert.Null((await store.FindAsync(context, created.OrderId, default))!.Lines[0].CommercialFacts);
         await using var migration = CreateContext();
-        var error = await Assert.ThrowsAsync<PostgresException>(() => migration.GetService<IMigrator>().MigrateAsync("202610030001_OrderCommitment"));
+        // Exercise this historical guard directly; COM-010 independently rejects whole-chain downgrade.
+        var script = migration.GetService<IMigrator>().GenerateScript("202610070001_OrderCommercialFacts", "202610030001_OrderCommitment");
+        await using var connection = new NpgsqlConnection(ConnectionString); await connection.OpenAsync();
+        await using var downgrade = new NpgsqlCommand(script, connection);
+        var error = await Assert.ThrowsAsync<PostgresException>(() => downgrade.ExecuteNonQueryAsync());
         Assert.Equal(PostgresErrorCodes.RaiseException, error.SqlState);
         Assert.Contains("202610070001_OrderCommercialFacts", await migration.Database.GetAppliedMigrationsAsync());
         Assert.Equal(2, await CountReceiptsAsync(tenant));

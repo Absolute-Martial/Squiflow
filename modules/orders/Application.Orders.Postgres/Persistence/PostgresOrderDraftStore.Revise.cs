@@ -33,6 +33,9 @@ public sealed partial class PostgresOrderDraftStore
             return ToExistingReviseResult(receipt, fingerprint);
         }
 
+        if (await ReadQuotationOriginAsync(session, tenantContext.TenantId, request.OrderId, cancellationToken).ConfigureAwait(false) is not null)
+            return new(ReviseOrderDraftStatus.QuotationBound, null);
+
         await using (var update = session.CreateCommand(OrderSql.TryReviseOrder))
         {
             update.Parameters.AddWithValue("tenant_id", tenantContext.TenantId);

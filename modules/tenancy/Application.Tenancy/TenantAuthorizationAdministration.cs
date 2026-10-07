@@ -84,6 +84,9 @@ public static class TenantPermissionCatalog
         new("quotations.edit", "quotation_editor", "Revise quotation drafts"),
         new("quotations.view", "quotation_viewer", "Read quotation facts and history"),
         new("quotations.issue", "quotation_issuer", "Issue immutable quotation revisions"),
+        new("quotations.respond", "quotation_responder", "Record quotation responses"),
+        new("quotations.expire", "quotation_expirer", "Record quotation expiry"),
+        new("quotations.convert", "quotation_converter", "Convert accepted quotations to orders"),
         new("pricing.override_beyond_policy", "pricing_exception_overrider", "Override outside the current policy envelope"),
     ];
 

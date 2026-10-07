@@ -1662,6 +1662,7 @@ public sealed partial class OrderMigrationAndRlsTests : PostgresTestDatabase
                 ON orders.order_drafts TO application_orders_runtime;
             GRANT SELECT, INSERT, DELETE ON orders.order_draft_lines TO application_orders_runtime;
             GRANT SELECT, INSERT ON orders.command_receipts TO application_orders_runtime;
+            GRANT SELECT, INSERT ON orders.quotation_origins TO application_orders_runtime;
             """;
         await command.ExecuteNonQueryAsync(CancellationToken.None);
 

@@ -1,10 +1,12 @@
 using System.Text.Json;
+using Application.Tenancy;
 
 namespace Application.Orders.Postgres;
 
 public sealed partial class PostgresOrderDraftStore
 {
     private const int CommercialReceiptSchemaVersion = 4;
+    private const int QuotationReceiptSchemaVersion = 5;
     public async Task<CreateOrderDraftResult?> FindCreateReceiptAsync(Application.Tenancy.TenantContext context,
         string key, string fingerprint, CancellationToken ct)
     {
@@ -50,6 +52,7 @@ public sealed partial class PostgresOrderDraftStore
         command.Parameters.AddWithValue("order_id", order.OrderId);
         command.Parameters.AddWithValue("response_json", JsonSerializer.Serialize(
             new OrderReceiptEnvelope(
+                order.QuotationOrigin is not null ? QuotationReceiptSchemaVersion :
                 order.Lines.Any(line => line.CommercialFacts is not null) ? CommercialReceiptSchemaVersion :
                 operation == CommitOperation ? CommitmentReceiptSchemaVersion : order.CustomerContext is null
                     ? LegacyReceiptSchemaVersion
@@ -101,9 +104,11 @@ public sealed partial class PostgresOrderDraftStore
         return new CreateOrderDraftResult(CreateOrderDraftStatus.Replayed, order);
     }
 
-    private static AbandonOrderDraftResult ToExistingAbandonResult(
+    private async Task<AbandonOrderDraftResult> ToExistingAbandonResultAsync(
+        TenantContext context,
         OrderCommandReceipt receipt,
-        string requestedFingerprint)
+        string requestedFingerprint,
+        CancellationToken ct)
     {
         if (!string.Equals(receipt.Fingerprint, requestedFingerprint, StringComparison.Ordinal))
         {
@@ -111,6 +116,7 @@ public sealed partial class PostgresOrderDraftStore
         }
 
         var order = ReadReceiptSnapshot(receipt, AbandonOperation);
+        await RequireAcceptedQuotationFactsAsync(context, order, ct).ConfigureAwait(false);
         return new AbandonOrderDraftResult(AbandonOrderDraftStatus.Replayed, order);
     }
 
@@ -128,10 +134,15 @@ public sealed partial class PostgresOrderDraftStore
             ReadReceiptSnapshot(receipt, ReviseOperation));
     }
 
-    private static CommitOrderDraftResult ToExistingCommitResult(OrderCommandReceipt receipt, string fingerprint) =>
-        !string.Equals(receipt.Fingerprint, fingerprint, StringComparison.Ordinal)
-            ? new CommitOrderDraftResult(CommitOrderDraftStatus.IdempotencyKeyConflict, null)
-            : new CommitOrderDraftResult(CommitOrderDraftStatus.Replayed, ReadReceiptSnapshot(receipt, CommitOperation));
+    private async Task<CommitOrderDraftResult> ToExistingCommitResultAsync(TenantContext context, OrderCommandReceipt receipt,
+        string fingerprint, CancellationToken ct)
+    {
+        if (!string.Equals(receipt.Fingerprint, fingerprint, StringComparison.Ordinal))
+            return new(CommitOrderDraftStatus.IdempotencyKeyConflict, null);
+        var order = ReadReceiptSnapshot(receipt, CommitOperation);
+        await RequireAcceptedQuotationFactsAsync(context, order, ct).ConfigureAwait(false);
+        return new(CommitOrderDraftStatus.Replayed, order);
+    }
 
     private static OrderDraftSnapshot ReadReceiptSnapshot(
         OrderCommandReceipt receipt,
@@ -157,8 +168,10 @@ public sealed partial class PostgresOrderDraftStore
             {
                 if (version.ValueKind != JsonValueKind.Number
                     || !version.TryGetInt32(out var schemaVersion)
-                    || schemaVersion is not (LegacyReceiptSchemaVersion or CustomerAttributionReceiptSchemaVersion or CommitmentReceiptSchemaVersion or CommercialReceiptSchemaVersion)
-                    || (schemaVersion != CommercialReceiptSchemaVersion && (schemaVersion == CommitmentReceiptSchemaVersion) != (expectedOperation == CommitOperation))
+                    || schemaVersion is not (LegacyReceiptSchemaVersion or CustomerAttributionReceiptSchemaVersion or CommitmentReceiptSchemaVersion or CommercialReceiptSchemaVersion or QuotationReceiptSchemaVersion)
+                    || (schemaVersion is not (CommercialReceiptSchemaVersion or QuotationReceiptSchemaVersion) && (schemaVersion == CommitmentReceiptSchemaVersion) != (expectedOperation == CommitOperation))
+                    || (expectedOperation == QuotationCreateOperation && schemaVersion != QuotationReceiptSchemaVersion)
+                    || (schemaVersion == QuotationReceiptSchemaVersion && expectedOperation is not (QuotationCreateOperation or CommitOperation or AbandonOperation))
                     || operation.ValueKind != JsonValueKind.String
                     || !string.Equals(operation.GetString(), expectedOperation, StringComparison.Ordinal)
                     || resultType.ValueKind != JsonValueKind.String
@@ -174,12 +187,13 @@ public sealed partial class PostgresOrderDraftStore
                     receipt,
                     expectedOperation,
                     requireLifecycleFields: true,
-                    requireCustomerContext: schemaVersion is CommitmentReceiptSchemaVersion or CommercialReceiptSchemaVersion
+                    requireCustomerContext: schemaVersion is CommitmentReceiptSchemaVersion or CommercialReceiptSchemaVersion or QuotationReceiptSchemaVersion
                         ? null : schemaVersion == CustomerAttributionReceiptSchemaVersion,
-                    requireCommercialFacts: schemaVersion == CommercialReceiptSchemaVersion);
+                    requireCommercialFacts: schemaVersion == QuotationReceiptSchemaVersion ? null : schemaVersion == CommercialReceiptSchemaVersion,
+                    requireQuotationOrigin: schemaVersion == QuotationReceiptSchemaVersion);
             }
 
-            if (expectedOperation == CommitOperation)
+            if (expectedOperation is CommitOperation or QuotationCreateOperation)
                 throw InvalidReceipt();
             return DeserializeSnapshot(
                 root,
@@ -201,7 +215,8 @@ public sealed partial class PostgresOrderDraftStore
         string expectedOperation,
         bool requireLifecycleFields,
         bool? requireCustomerContext,
-        bool requireCommercialFacts)
+        bool? requireCommercialFacts,
+        bool requireQuotationOrigin = false)
     {
         foreach (var property in new[]
                  {
@@ -232,6 +247,7 @@ public sealed partial class PostgresOrderDraftStore
         var expectedState = expectedOperation switch
         {
             CreateOperation => OrderDraftState.Draft,
+            QuotationCreateOperation => OrderDraftState.Draft,
             ReviseOperation => OrderDraftState.Draft,
             AbandonOperation => OrderDraftState.Abandoned,
             CommitOperation => OrderDraftState.Committed,
@@ -240,7 +256,7 @@ public sealed partial class PostgresOrderDraftStore
         if (order.OrderId != receipt.OrderId
             || order.TenantId != receipt.TenantId
             || order.CreatedByAccountId == Guid.Empty
-            || order.Lines is null
+            || order.Lines is null || order.Lines.Any(line => line is null)
             || order.Revision < 1
             || order.State != expectedState
             || (order.CustomerContext is { } customerContext
@@ -259,8 +275,12 @@ public sealed partial class PostgresOrderDraftStore
             throw InvalidReceipt();
         }
 
-        if (order.Lines.Any(line => line.CommercialFacts is not null) != requireCommercialFacts)
+        if (requireCommercialFacts is { } commercial && order.Lines.Any(line => line.CommercialFacts is not null) != commercial ||
+            (order.QuotationOrigin is not null) != requireQuotationOrigin)
             throw InvalidReceipt();
+
+        if (order.QuotationOrigin is { } origin)
+            new AcceptedQuotationOrder(origin, order.Summary, order.CurrencyCode, order.Total, order.Lines, order.CustomerContext).RequireValid(order.TenantId);
 
         OrderCommercialFactsValidation.RequireValid(order);
         return order;
@@ -272,6 +292,7 @@ public sealed partial class PostgresOrderDraftStore
     private static string ResultTypeForOperation(string operation) => operation switch
     {
         CreateOperation => CreateResultType,
+        QuotationCreateOperation => "order-draft-created-from-quotation",
         ReviseOperation => ReviseResultType,
         AbandonOperation => AbandonResultType,
         CommitOperation => CommitResultType,

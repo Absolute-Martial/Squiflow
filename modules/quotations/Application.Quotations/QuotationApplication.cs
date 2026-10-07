@@ -2,7 +2,7 @@ using Application.Tenancy;
 
 namespace Application.Quotations;
 
-public sealed class QuotationApplication(IQuotationStore store, QuotationPricing pricing)
+public sealed partial class QuotationApplication(IQuotationStore store, QuotationPricing pricing, IQuotationResponseStore? responses = null)
 {
     public async Task<QuotationCommandResult> CreateAsync(TenantContext context, QuotationDraftRequest input, string key, CancellationToken ct)
     {

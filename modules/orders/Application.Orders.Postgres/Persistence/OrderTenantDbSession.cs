@@ -9,11 +9,24 @@ internal sealed class OrderTenantDbSession : IAsyncDisposable
     private readonly NpgsqlConnection _connection;
     private readonly NpgsqlTransaction _transaction;
     private bool _completed;
+    private readonly bool _ownsResources;
 
-    private OrderTenantDbSession(NpgsqlConnection connection, NpgsqlTransaction transaction)
+    private OrderTenantDbSession(NpgsqlConnection connection, NpgsqlTransaction transaction, bool ownsResources = true)
     {
         _connection = connection;
         _transaction = transaction;
+        _ownsResources = ownsResources;
+    }
+
+    internal static async Task<OrderTenantDbSession> BorrowAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
+        Guid tenantId, CancellationToken ct)
+    {
+        if (tenantId == Guid.Empty || connection.State != ConnectionState.Open || transaction.Connection != connection)
+            throw new InvalidOperationException("An active caller-owned transaction is required.");
+        await using var command = new NpgsqlCommand(OrderSql.SetTenant, connection, transaction);
+        command.Parameters.AddWithValue("tenant_id", tenantId.ToString("D"));
+        await command.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+        return new(connection, transaction, ownsResources: false);
     }
 
     // Commands keep ReadCommitted: they rely on row-level conflict handling and atomic receipts.
@@ -85,6 +98,7 @@ internal sealed class OrderTenantDbSession : IAsyncDisposable
 
     internal async Task CommitAsync(CancellationToken cancellationToken)
     {
+        if (!_ownsResources) throw new InvalidOperationException("Only the caller may complete a borrowed transaction.");
         if (_completed)
         {
             throw new InvalidOperationException("The Orders tenant database session has completed.");
@@ -96,6 +110,7 @@ internal sealed class OrderTenantDbSession : IAsyncDisposable
 
     internal async Task RollbackAsync(CancellationToken cancellationToken)
     {
+        if (!_ownsResources) throw new InvalidOperationException("Only the caller may complete a borrowed transaction.");
         if (_completed)
         {
             throw new InvalidOperationException("The Orders tenant database session has completed.");
@@ -108,6 +123,7 @@ internal sealed class OrderTenantDbSession : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         _completed = true;
+        if (!_ownsResources) return;
         try
         {
             await _transaction.DisposeAsync().ConfigureAwait(false);

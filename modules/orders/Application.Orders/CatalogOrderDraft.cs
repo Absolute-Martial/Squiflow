@@ -81,6 +81,8 @@ public sealed class CatalogOrderDraftApplication(IOrderDraftStore store, IOrderD
                 await RequireReplayAuthorityAsync(context, replay.Order!, authority, ct).ConfigureAwait(false);
             return replay;
         }
+        if (await store.FindAsync(context, request.OrderId, ct).ConfigureAwait(false) is { QuotationOrigin: not null })
+            return new(ReviseOrderDraftStatus.QuotationBound, null);
         var intent = await SelectAsync(context, normalized, authority, intentFingerprint, ct).ConfigureAwait(false);
         var manualShape = new ReviseOrderDraftRequest(request.OrderId, request.ExpectedRevision, intent.Summary,
             intent.CurrencyCode, [], intent.CustomerContext);

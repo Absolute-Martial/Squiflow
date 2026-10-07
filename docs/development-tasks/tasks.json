@@ -748,7 +748,7 @@
       "task_id": "COM-010",
       "title": "Quotation responses and idempotent order conversion",
       "phase": "02-commercial-backend",
-      "status": "READY_AFTER_DEPENDENCIES",
+      "status": "VERIFY_EXISTING",
       "model": "GPT-6.1 Sol",
       "release_requirement": "REQUIRED",
       "dependencies": [

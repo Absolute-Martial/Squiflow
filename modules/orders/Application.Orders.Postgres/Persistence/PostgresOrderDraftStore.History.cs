@@ -24,7 +24,7 @@ public sealed partial class PostgresOrderDraftStore
         {
             command.Parameters.AddWithValue("tenant_id", tenantContext.TenantId);
             command.Parameters.AddWithValue("order_id", request.OrderId);
-            command.Parameters.AddWithValue("operations", new[] { CreateOperation, ReviseOperation, AbandonOperation, CommitOperation });
+            command.Parameters.AddWithValue("operations", new[] { CreateOperation, QuotationCreateOperation, ReviseOperation, AbandonOperation, CommitOperation });
             command.Parameters.Add(new NpgsqlParameter("before_revision", NpgsqlDbType.Bigint)
             {
                 Value = (object?)request.BeforeRevision ?? DBNull.Value,
@@ -41,6 +41,7 @@ public sealed partial class PostgresOrderDraftStore
                     reader.GetGuid(reader.GetOrdinal("tenant_id")), reader.GetGuid(reader.GetOrdinal("order_id")),
                     reader.GetString(reader.GetOrdinal("fingerprint")), reader.GetString(reader.GetOrdinal("response_json")));
                 var snapshot = ReadReceiptSnapshot(receipt, operation);
+                await RequireAcceptedQuotationFactsAsync(tenantContext, snapshot, cancellationToken).ConfigureAwait(false);
                 var actor = reader.GetGuid(reader.GetOrdinal("account_id"));
                 var recordedAt = reader.GetFieldValue<DateTimeOffset>(reader.GetOrdinal("created_at"));
                 var change = ToChange(operation);
@@ -85,6 +86,7 @@ public sealed partial class PostgresOrderDraftStore
     private static OrderDraftChange ToChange(string operation) => operation switch
     {
         CreateOperation => OrderDraftChange.Created,
+        QuotationCreateOperation => OrderDraftChange.Created,
         ReviseOperation => OrderDraftChange.Revised,
         AbandonOperation => OrderDraftChange.Abandoned,
         CommitOperation => OrderDraftChange.Committed,

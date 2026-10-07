@@ -22,6 +22,7 @@ internal static class QuotationRoutes
         Configure(app.MapPost(root + "/{quotationId:guid}/issue", IssueAsync), "IssueQuotationRevision", EndpointAccess.AuthorizedQuotationIssue).Accepts<QuotationIssuePayload>("application/json");
         Configure(app.MapGet(root + "/{quotationId:guid}", GetAsync), "ReadQuotation", EndpointAccess.AuthorizedQuotationView);
         Configure(app.MapGet(root + "/{quotationId:guid}/issued", HistoryAsync), "ReadIssuedQuotationHistory", EndpointAccess.AuthorizedQuotationView).Produces<QuotationHistoryResponse>(200);
+        app.MapQuotationResponseEndpoints();
     }
     private static RouteHandlerBuilder Configure(RouteHandlerBuilder route, string name, EndpointAccess access) => route.WithName(name)
         .WithTags("Quotations").WithCoreApiAccess(access).WithCoreApiApplicationAuthorization(access).RequireAuthorization()
@@ -133,7 +134,9 @@ internal static class QuotationRoutes
     }
     internal static QuotationResponse Response(QuotationSnapshot quote) => new(quote.QuotationId, quote.TenantId, quote.Version, quote.Number,
         quote.CreatedByAccountId, quote.CreatedAt, quote.Draft is null ? null : OfferResponse(quote.Draft),
-        quote.CurrentIssued is null ? null : IssuedResponse(quote.CurrentIssued));
+        quote.CurrentIssued is null ? null : IssuedResponse(quote.CurrentIssued),
+        quote.CurrentResponse is null ? null : QuotationResponseRoutes.Response(quote.CurrentResponse),
+        quote.Conversion is null ? null : QuotationResponseRoutes.Conversion(quote.Conversion));
     private static QuotationIssuedResponse IssuedResponse(QuotationIssuedFacts facts) => new(facts.RevisionId, facts.RevisionNumber,
         facts.IssuedByAccountId, facts.IssuedAt, OfferResponse(facts.Offer));
     private static QuotationOfferResponse OfferResponse(QuotationDraftFacts offer) => new(offer.Mode.ToString().ToLowerInvariant(), offer.Summary,
@@ -148,7 +151,7 @@ internal static class QuotationRoutes
             throw new QuotationValidationException("validity_invalid", "Expiry must be an ISO timestamp with an explicit timezone offset.");
         return JsonSerializer.Deserialize<DateTimeOffset>(JsonSerializer.Serialize(text));
     }
-    private static async Task<T> ReadAsync<T>(HttpRequest request, CancellationToken ct)
+    internal static async Task<T> ReadAsync<T>(HttpRequest request, CancellationToken ct)
     {
         if (!request.HasJsonContentType()) throw new JsonException();
         if (request.ContentLength > MaximumBodyBytes) throw new BadHttpRequestException("Quotation input is too large.", 413);
@@ -170,10 +173,10 @@ internal static class QuotationRoutes
             foreach (var item in value.EnumerateArray()) if (Duplicated(item)) return true;
         return false;
     }
-    private static bool IsExpected(Exception error) => error is JsonException or BadHttpRequestException or QuotationValidationException
+    internal static bool IsExpected(Exception error) => error is JsonException or BadHttpRequestException or QuotationValidationException
         or QuotationCapabilityDeniedException or AuthorizationProviderUnavailableException or Application.Pricing.PricingValidationException
         or Application.Catalog.CatalogValidationException;
-    private static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult Failure(Exception error) => error switch
+    internal static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult Failure(Exception error) => error switch
     {
         QuotationCapabilityDeniedException => TypedResults.Problem(statusCode: 403, title: "Quotation operation is not permitted.", extensions: new Dictionary<string, object?> { ["code"] = "quotation_forbidden" }),
         AuthorizationProviderUnavailableException => TypedResults.Problem(statusCode: 503, title: "Authorization is temporarily unavailable.", extensions: new Dictionary<string, object?> { ["code"] = "authorization_unavailable" }),
@@ -183,7 +186,7 @@ internal static class QuotationRoutes
         Application.Catalog.CatalogValidationException => TenantOrderEndpoint.InvalidRequest("catalog_invalid", "Quotation catalog context is invalid."),
         _ => Invalid(),
     };
-    private static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult Invalid() => TenantOrderEndpoint.InvalidRequest("request_invalid", "A strict bounded quotation request is required.");
+    internal static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult Invalid() => TenantOrderEndpoint.InvalidRequest("request_invalid", "A strict bounded quotation request is required.");
     private static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult NotFound() => TenantCustomerEndpoint.NotFound("quotation_not_found", "Quotation not found in this tenant.");
 }
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
@@ -199,7 +202,8 @@ internal sealed record QuotationCustomerPayload([property: JsonRequired] Guid Or
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 internal sealed record QuotationIssuePayload([property: JsonRequired] long ExpectedVersion);
 internal sealed record QuotationResponse(Guid QuotationId, Guid TenantId, long Version, long? Number, Guid CreatedByAccountId,
-    DateTimeOffset CreatedAt, QuotationOfferResponse? Draft, QuotationIssuedResponse? CurrentIssued);
+    DateTimeOffset CreatedAt, QuotationOfferResponse? Draft, QuotationIssuedResponse? CurrentIssued,
+    QuotationResponseFactResponse? CurrentResponse = null, QuotationConversionLinkResponse? Conversion = null);
 internal sealed record QuotationIssuedResponse(Guid RevisionId, long RevisionNumber, Guid IssuedByAccountId, DateTimeOffset IssuedAt, QuotationOfferResponse Offer);
 internal sealed record QuotationOfferResponse(string Mode, string Summary, string CurrencyCode, DateTimeOffset ValidUntil, decimal Total,
     string? Terms, Guid? CustomerId, Application.Customers.CustomerOrderContext? CustomerContext, bool WholesaleApplicable, IReadOnlyList<QuotationLineResponse> Lines);

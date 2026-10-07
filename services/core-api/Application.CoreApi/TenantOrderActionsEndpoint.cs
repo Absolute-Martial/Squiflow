@@ -47,8 +47,9 @@ internal static class TenantOrderActionsEndpoint
         if (order.OrderId != orderId || order.TenantId != access.TenantContext!.TenantId)
             throw new InvalidOperationException("The order query returned an inconsistent identity.");
 
+        var quotationBound = order.QuotationOrigin is not null;
         var lifecycle = OrderDraftActionGuide.Explain(
-            order.State, order.Revision, mayRevise: true, mayAbandon: true, mayCommit: true);
+            order.State, order.Revision, mayRevise: true, mayAbandon: true, mayCommit: true, quotationBound: quotationBound);
         var mayRevise = lifecycle.Actions.Single(action => action.Action == OrderDraftAction.Revise).Available;
         var mayAbandon = lifecycle.Actions.Single(action => action.Action == OrderDraftAction.Abandon).Available;
         var mayCommit = lifecycle.Actions.Single(action => action.Action == OrderDraftAction.Commit).Available;
@@ -73,7 +74,7 @@ internal static class TenantOrderActionsEndpoint
                 extensions: new Dictionary<string, object?> { ["code"] = "authorization_unavailable" });
         }
 
-        var guide = OrderDraftActionGuide.Explain(order.State, order.Revision, mayRevise, mayAbandon, mayCommit);
+        var guide = OrderDraftActionGuide.Explain(order.State, order.Revision, mayRevise, mayAbandon, mayCommit, quotationBound: quotationBound);
         return TypedResults.Ok(new OrderDraftActionsResponse(orderId, guide.ObservedRevision,
             guide.Actions.Select(action => new OrderDraftActionResponse(action.Action switch
             {
@@ -87,6 +88,7 @@ internal static class TenantOrderActionsEndpoint
                 OrderDraftActionUnavailability.PermissionRequired => "permission_required",
                 OrderDraftActionUnavailability.AlreadyAbandoned => "order_already_abandoned",
                 OrderDraftActionUnavailability.AlreadyCommitted => "order_already_committed",
+                OrderDraftActionUnavailability.QuotationBound => "order_quotation_bound",
                 _ => throw new InvalidOperationException("The order guide contains an unsupported reason."),
             })).ToArray()));
     }

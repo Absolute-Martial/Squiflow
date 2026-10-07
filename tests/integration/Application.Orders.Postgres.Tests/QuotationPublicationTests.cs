@@ -4,6 +4,7 @@ using Application.Customers;
 using Application.Customers.Postgres;
 using Application.Pricing;
 using Application.Pricing.Postgres;
+using Application.Orders;
 using Application.Quotations;
 using Application.Quotations.Postgres;
 using Application.Tenancy;
@@ -14,6 +15,49 @@ namespace Application.Orders.Postgres.Tests;
 
 public sealed partial class OrderMigrationAndRlsTests
 {
+    [Fact]
+    public async Task QuoteAcceptanceConversionAndCommitKeepFrozenPriceAfterActualSourcesAndAuthorityChange()
+    {
+        await ApplyOrderSchemaAsync();
+        var account = Guid.NewGuid(); var tenant = Guid.NewGuid(); await SeedAuthorityRowsAsync(account, tenant);
+        await using var source = CommercialSource(await CreateCommercialRuntimeAsync(), "quote-accepted-price", 5);
+        var context = await ResolveContextAsync(tenant, account); var fixture = await CreateCommercialFixtureAsync(source, context);
+        var (initial, _) = QuoteApplication(source);
+        var draft = (await initial.CreateAsync(context, new(QuotationPriceMode.Catalog, "Accepted override offer", "USD", new FixedTimeProvider().GetUtcNow().AddDays(1),
+            [new(2, ItemId: fixture.Item.ItemId, UnitId: fixture.Unit.UnitId, ConversionRevision: 1, OverridePrice: 150, OverrideReason: "Synthetic owner exception")]), "quote-create", default)).Quotation!;
+        var issued = (await initial.IssueAsync(context, draft.QuotationId, draft.Version, "quote-issue", default)).Quotation!;
+        Assert.True(issued.CurrentIssued!.Offer.Lines[0].PriceSelection!.Explanation.Override!.BeyondPolicy);
+        var catalog = new PostgresCatalogStore(source, new FixedTimeProvider()); var prices = new PostgresPricingStore(source, new FixedTimeProvider());
+        Assert.Equal(RetirePriceStatus.Retired, (await prices.RetireAsync(new(tenant, account), new(fixture.Published.RevisionId), "retire-quoted-price", default)).Status);
+        Assert.Equal(PublishPricingPolicyStatus.Published, (await prices.PublishPolicyAsync(new(tenant, account), new(1, 0, 1), "narrow-policy", default)).Status);
+        Assert.Equal(RetireCatalogItemStatus.Retired, (await new RetireCatalogItem(catalog).ExecuteAsync(context, new(fixture.Item.ItemId, 2), "retire-quoted-item", default)).Status);
+        var clock = new QuoteIssueClock(); var quotes = new PostgresQuotationStore(source, clock, new QuoteConversionWriter());
+        var customers = new PostgresCustomerStore(source);
+        var pricing = new PricingApplication(prices, new(prices), prices, new CommercialReferences(catalog, ResolveContextAsync), new FixedTimeProvider());
+        var limited = new QuotationApplication(quotes, new(new(catalog), pricing, new(customers), new ResponseOnlyQuoteAuthority(), customers));
+        var accepted = (await limited.AcceptAsync(context, issued.QuotationId, new(issued.CurrentIssued.RevisionId, issued.Version, "Synthetic customer response", "Synthetic customer"), "accept", default)).Quotation!;
+        clock.At = issued.CurrentIssued.Offer.ValidUntil.AddDays(10);
+        var converted = (await limited.ConvertAsync(context, issued.QuotationId, new(issued.CurrentIssued.RevisionId, accepted.Version), "convert", default)).Quotation!;
+        var original = converted.Conversion!.OriginalOrder; Assert.Equal(300, original.Total); Assert.Equal(150, original.Lines[0].UnitPrice);
+        var guard = new OrderCommercialCommitGuard(new(catalog), pricing, new NoOverrideAuthority(), quotes);
+        var orderStore = new PostgresOrderDraftStore(source, clock, guard);
+        var stored = (await orderStore.FindAsync(context, original.OrderId, default))!;
+        Assert.True(await guard.IsCompatibleAsync(context, stored, default));
+        Assert.False(await guard.IsCompatibleAsync(context, stored with { Summary = "Changed summary" }, default));
+        var line = stored.Lines[0]; var facts = line.CommercialFacts!;
+        Assert.False(await guard.IsCompatibleAsync(context, stored with
+        {
+            Lines = [line with { CommercialFacts=facts with {
+            Catalog=facts.Catalog with { ItemRevision=facts.Catalog.ItemRevision+1 } } }]
+        }, default));
+        Assert.False(await new OrderCommercialCommitGuard(new(catalog), pricing, new NoOverrideAuthority()).IsCompatibleAsync(context, stored, default));
+        var committed = await orderStore.CommitAsync(context, new(original.OrderId, 1), "commit-quoted", QuotationRules.Fingerprint("commit-quoted"), default);
+        Assert.Equal(CommitOrderDraftStatus.Committed, committed.Status); Assert.Equal(300, committed.Order!.Total);
+        Assert.Equivalent(original.Lines, committed.Order.Lines);
+        var history = await orderStore.ListHistoryAsync(context, new(original.OrderId), default);
+        Assert.Equal(2, history!.Items.Count); Assert.NotNull(history.Items[1].Order.QuotationOrigin);
+        Assert.Equivalent(original, (await limited.ConvertAsync(context, issued.QuotationId, new(issued.CurrentIssued.RevisionId, accepted.Version), "repeat", default)).Quotation!.Conversion!.OriginalOrder);
+    }
     [Fact]
     public async Task QuoteIssueUsesActualCurrentSourcesAndNeverRepricesAStaleDraft()
     {
@@ -172,4 +216,15 @@ public sealed partial class OrderMigrationAndRlsTests
     }
     private sealed class QuoteAuthority : IQuotationAuthority
     { public Task<bool> CheckAsync(TenantContext context, QuotationCapability capability, CancellationToken ct) => Task.FromResult(true); }
+    private sealed class ResponseOnlyQuoteAuthority : IQuotationAuthority
+    {
+        public Task<bool> CheckAsync(TenantContext context, QuotationCapability permission, CancellationToken ct) =>
+        Task.FromResult(permission is QuotationCapability.Respond or QuotationCapability.Convert or QuotationCapability.OrderCreate or QuotationCapability.View);
+    }
+    private sealed class QuoteConversionWriter : IQuotationOrderWriter
+    {
+        public Task<OrderDraftSnapshot> CreateAsync(TenantContext context, AcceptedQuotationOrder accepted, NpgsqlConnection connection,
+            NpgsqlTransaction transaction, DateTimeOffset createdAt, CancellationToken ct) =>
+            PostgresOrderDraftStore.CreateAcceptedQuotationAsync(context, accepted, connection, transaction, createdAt, ct);
+    }
 }

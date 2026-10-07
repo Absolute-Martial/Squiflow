@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Application.Quotations.Postgres;
@@ -11,12 +12,16 @@ public static class QuotationsPostgresRegistration
     {
         var options = new DbContextOptionsBuilder<QuotationDbContext>().UseNpgsql(connectionString,
             provider => provider.MigrationsHistoryTable("__EFMigrationsHistory", "quotations"));
+        options.ReplaceService<IMigrationsIdGenerator, QuotationMigrationIdentifierGenerator>();
         return new(options.Options);
     }
     public static IServiceCollection AddQuotationsPostgres(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
-        services.AddScoped<IQuotationStore, PostgresQuotationStore>();
+        services.AddScoped<PostgresQuotationStore>();
+        services.AddScoped<IQuotationStore>(provider => provider.GetRequiredService<PostgresQuotationStore>());
+        services.AddScoped<IQuotationResponseStore>(provider => provider.GetRequiredService<PostgresQuotationStore>());
+        services.AddScoped<Application.Orders.IOrderAcceptedQuotationReader>(provider => provider.GetRequiredService<PostgresQuotationStore>());
         services.AddScoped<QuotationPricing>();
         services.AddScoped<QuotationApplication>();
         return services;
