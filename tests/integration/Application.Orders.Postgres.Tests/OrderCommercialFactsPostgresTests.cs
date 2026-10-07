@@ -1,5 +1,9 @@
 using Application.Catalog;
+using Application.Catalog.Postgres;
+using Application.Customers;
+using Application.Customers.Postgres;
 using Application.Pricing;
+using Application.Pricing.Postgres;
 using Application.Tenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -11,6 +15,89 @@ namespace Application.Orders.Postgres.Tests;
 
 public sealed partial class OrderMigrationAndRlsTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LateDurableReplayRequiresRetainedElevatedAuthorityEvenAfterPolicyWidens(bool revision)
+    {
+        await ApplyOrderSchemaAsync();
+        var account = Guid.NewGuid(); var tenant = Guid.NewGuid();
+        await SeedAuthorityRowsAsync(account, tenant);
+        await using var source = CommercialSource(await CreateCommercialRuntimeAsync(), "elevated-replay", 2);
+        var context = await ResolveContextAsync(tenant, account);
+        var fixture = await CreateCommercialFixtureAsync(source, context);
+        var store = new PostgresOrderDraftStore(source, new FixedTimeProvider());
+        var catalog = new PostgresCatalogStore(source, new FixedTimeProvider());
+        var pricing = new PostgresPricingStore(source, new FixedTimeProvider());
+        var priceApplication = new PricingApplication(pricing, new(pricing), pricing,
+            new CommercialReferences(catalog, ResolveContextAsync), new FixedTimeProvider());
+        var authority = new ReplayOverrideAuthority();
+        var application = new CatalogOrderDraftApplication(store, store, new(catalog), priceApplication,
+            new ResolveCustomerOrderContext(new PostgresCustomerStore(source)), currentPricingAuthority: authority);
+        var request = new CatalogOrderDraftRequest("Elevated offer", "USD",
+            [new(fixture.Item.ItemId, fixture.Unit.UnitId, 2, 1, 200, "Commercial exception")]);
+        var created = (await application.CreateAsync(context, request, "create", new(true, false), default)).Order!;
+        var replacement = new ReviseCatalogOrderDraftRequest(created.OrderId, 1, request);
+        var retained = revision
+            ? (await application.ReviseAsync(context, replacement, "revise", new(true, false), default)).Order!
+            : created;
+        Assert.True(retained.Lines[0].CommercialFacts!.PriceSelection.Explanation.Override!.BeyondPolicy);
+        var receiptCount = await CountReceiptsAsync(tenant);
+        await pricing.PublishPolicyAsync(new(tenant, account), new(1, 0, 1000), "widened-policy", default);
+        authority.Beyond = false;
+        var checks = authority.Checks;
+
+        // Simulate a receipt becoming visible only inside the mutation transaction.
+        // Selection and the late replay still use the actual PostgreSQL stores.
+        var late = new CatalogOrderDraftApplication(store, new MissedCommercialReceipts(), new(catalog), priceApplication,
+            new ResolveCustomerOrderContext(new PostgresCustomerStore(source)), currentPricingAuthority: authority);
+        var denied = await Assert.ThrowsAsync<OrderCommercialSelectionException>(async () =>
+        {
+            if (revision) await late.ReviseAsync(context, replacement, "revise", new(true, false), default);
+            else await late.CreateAsync(context, request, "create", new(true, false), default);
+        });
+        Assert.Equal("pricing_override_forbidden", denied.Code);
+        Assert.Equal(checks + 1, authority.Checks);
+        Assert.Equal(receiptCount, await CountReceiptsAsync(tenant));
+        Assert.Equivalent(retained, await store.FindAsync(context, created.OrderId, default));
+
+        authority.Beyond = true;
+        OrderDraftSnapshot? recovered;
+        if (revision)
+        {
+            var replay = await late.ReviseAsync(context, replacement, "revise", new(true, false), default);
+            Assert.Equal(ReviseOrderDraftStatus.Replayed, replay.Status);
+            recovered = replay.Order;
+        }
+        else
+        {
+            var replay = await late.CreateAsync(context, request, "create", new(true, false), default);
+            Assert.Equal(CreateOrderDraftStatus.Replayed, replay.Status);
+            recovered = replay.Order;
+        }
+        Assert.Equivalent(retained, recovered);
+        Assert.Equal(1, recovered!.Lines[0].CommercialFacts!.PriceSelection.Explanation.PolicyRevision);
+        Assert.Equal(receiptCount, await CountReceiptsAsync(tenant));
+    }
+
+    private sealed class ReplayOverrideAuthority : IOrderPricingAuthorityReader
+    {
+        internal bool Beyond { get; set; } = true;
+        internal int Checks { get; private set; }
+        public Task<OrderPricingAuthority> ReadAsync(TenantContext context, CancellationToken ct) =>
+            Task.FromResult(new OrderPricingAuthority(true, false));
+        public Task<bool> CanOverrideBeyondPolicyAsync(TenantContext context, CancellationToken ct)
+        { Checks++; return Task.FromResult(Beyond); }
+    }
+
+    private sealed class MissedCommercialReceipts : IOrderDraftReceiptReader
+    {
+        public Task<CreateOrderDraftResult?> FindCreateReceiptAsync(TenantContext context, string key, string fingerprint, CancellationToken ct) =>
+            Task.FromResult<CreateOrderDraftResult?>(null);
+        public Task<ReviseOrderDraftResult?> FindRevisionReceiptAsync(TenantContext context, string key, string fingerprint, CancellationToken ct) =>
+            Task.FromResult<ReviseOrderDraftResult?>(null);
+    }
+
     [Fact]
     public async Task CommercialFactsRoundTripThroughDetailRevisionHistoryAbandonmentAndOriginalReceipts()
     {

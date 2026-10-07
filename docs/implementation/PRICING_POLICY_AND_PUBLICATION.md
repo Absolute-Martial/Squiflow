@@ -128,6 +128,14 @@ revision/publication conflict, never a half-superseded revision. Failed commands
 do not create receipt/economic effects. Permission checks precede receipt lookup,
 so revocation/provider outage can block replay without erasing its original fact.
 
+Catalog-priced Order create/revise replay additionally rechecks current elevated
+authority when its retained receipt contains a beyond-policy override. The
+retained evidence determines this requirement, even if the current policy has
+widened. A retry does not reselect/reprice the historical offer. Both the initial
+receipt read and a late receipt returned by the mutation store enforce this
+check; denial/outage returns the existing safe 403/503 and no replayed effect is
+changed. Ordinary in-envelope replay does not query elevated authority.
+
 Candidate SQL probes only the five applicable tenant/item/unit/currency scopes,
 filtering exact conversion-revision compatibility before applying any row bound,
 with at most two facts per active/expired/future category: at most 30 returned

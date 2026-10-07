@@ -165,6 +165,30 @@ public sealed class PriceSelectionEngineTests
         Assert.IsType<PriceResolved>(elevated);
     }
 
+    [Theory]
+    [InlineData(false, "18.0000", true)]
+    [InlineData(false, "24.0000", true)]
+    [InlineData(false, "17.9999", false)]
+    [InlineData(false, "24.0001", false)]
+    [InlineData(true, "19.0000", true)]
+    [InlineData(true, "23.0000", true)]
+    [InlineData(true, "18.9999", false)]
+    [InlineData(true, "23.0001", false)]
+    public void OverrideEnvelopeUsesInclusiveExactDecimalBoundaries(bool tighterAbsoluteBounds, string amount, bool permitted)
+    {
+        var value = decimal.Parse(amount, System.Globalization.CultureInfo.InvariantCulture);
+        var policy = tighterAbsoluteBounds ? new PricingOverridePolicy(1, 19, 23, 10, 20) : new(1, 0, 100, 10, 20);
+        var result = PriceSelectionEngine.Resolve(SelectionRequest(FullContext), [Revision(PriceScope.Default(), 20, 1)],
+            policy, new(value, "Bounded commercial exception", true, false));
+        if (permitted)
+        {
+            var resolved = Assert.IsType<PriceResolved>(result);
+            Assert.Equal(value, resolved.UnitPrice);
+            Assert.False(resolved.AppliedOverride!.BeyondPolicy);
+        }
+        else Assert.IsType<PriceOverrideRequired>(result);
+    }
+
     [Fact]
     public void BookIngressRejectsCommittedOrGuessedWholesaleIdentityAndRevalidationPreservesManualEntry()
     {

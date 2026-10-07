@@ -119,11 +119,61 @@ public sealed class OrderCommercialEndpointTests
         Assert.Equal(HttpStatusCode.BadRequest, missingReason.StatusCode);
         using var allowed = await fixture.SendAsync(HttpMethod.Post, "catalog-priced", fixture.Body(overridePrice: 22, reason: "special"), "override");
         Assert.Equal(HttpStatusCode.Created, allowed.StatusCode);
+        Assert.Equal(0, fixture.Permissions.BeyondChecks);
         Assert.Equal(1, fixture.Orders.Effects);
         fixture.Permissions.Override = false;
         using var revokedReplay = await fixture.SendAsync(HttpMethod.Post, "catalog-priced", fixture.Body(overridePrice: 22, reason: "special"), "override");
         Assert.Equal(HttpStatusCode.Forbidden, revokedReplay.StatusCode);
+        Assert.Equal(0, fixture.Permissions.BeyondChecks);
         Assert.Equal(1, fixture.Orders.Effects);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task ElevatedOverrideReplayRechecksCurrentAuthorityWithoutRefreshingHistoricalFacts(bool revision, bool unavailable)
+    {
+        using var fixture = new OrderCommercialHostFixture();
+        fixture.Permissions.Override = true;
+        fixture.Permissions.Beyond = true;
+        using var created = await fixture.SendAsync(HttpMethod.Post, "catalog-priced",
+            fixture.Body(overridePrice: 40, reason: "Commercial exception"), "create");
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        using var createdJson = JsonDocument.Parse(await created.Content.ReadAsStringAsync());
+        var id = createdJson.RootElement.GetProperty("orderId").GetGuid();
+        var method = revision ? HttpMethod.Put : HttpMethod.Post;
+        var path = revision ? $"{id:D}/catalog-priced-draft" : "catalog-priced";
+        var key = revision ? "revise" : "create";
+        var body = fixture.Body(expectedRevision: revision ? 1 : null, overridePrice: 40, reason: "Commercial exception");
+        using var original = await fixture.SendAsync(method, path, body, key);
+        Assert.Equal(HttpStatusCode.OK, original.StatusCode);
+        var retained = await original.Content.ReadAsStringAsync();
+        var effects = fixture.Orders.Effects;
+        fixture.Prices.Candidates.Clear();
+        fixture.Catalog.Selection = new(CatalogLineFactsStatus.ItemRetired, null);
+        var reads = fixture.Prices.CandidateReads;
+        var checks = fixture.Permissions.BeyondChecks;
+        fixture.Permissions.Beyond = false;
+        fixture.Permissions.BeyondUnavailable = unavailable;
+
+        using var denied = await fixture.SendAsync(method, path, body, key);
+        Assert.Equal(unavailable ? HttpStatusCode.ServiceUnavailable : HttpStatusCode.Forbidden, denied.StatusCode);
+        Assert.True(denied.Headers.CacheControl?.NoStore);
+        Assert.False(denied.Headers.Contains("Idempotency-Replayed"));
+        Assert.Equal(checks + 1, fixture.Permissions.BeyondChecks);
+        Assert.Equal(reads, fixture.Prices.CandidateReads);
+        Assert.Equal(effects, fixture.Orders.Effects);
+
+        fixture.Permissions.Beyond = true;
+        fixture.Permissions.BeyondUnavailable = false;
+        using var recovered = await fixture.SendAsync(method, path, body, key);
+        Assert.Equal(HttpStatusCode.OK, recovered.StatusCode);
+        Assert.Equal("true", recovered.Headers.GetValues("Idempotency-Replayed").Single());
+        Assert.Equal(retained, await recovered.Content.ReadAsStringAsync());
+        Assert.Equal(reads, fixture.Prices.CandidateReads);
+        Assert.Equal(effects, fixture.Orders.Effects);
     }
 }
 

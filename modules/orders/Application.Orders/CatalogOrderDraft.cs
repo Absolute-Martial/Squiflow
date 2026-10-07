@@ -51,9 +51,17 @@ public sealed class CatalogOrderDraftApplication(IOrderDraftStore store, IOrderD
         key = OrderDraftRules.NormalizeIdempotencyKey(key);
         var fingerprint = Fingerprint(normalized);
         var replay = await receipts.FindCreateReceiptAsync(context, key, fingerprint, ct).ConfigureAwait(false);
-        if (replay is not null) return replay;
+        if (replay is not null)
+        {
+            if (replay.Status == CreateOrderDraftStatus.Replayed)
+                await RequireReplayAuthorityAsync(context, replay.Order!, authority, ct).ConfigureAwait(false);
+            return replay;
+        }
         var intent = await SelectAsync(context, normalized, authority, fingerprint, ct).ConfigureAwait(false);
-        return await store.CreateAsync(context, intent, key, ct).ConfigureAwait(false);
+        var result = await store.CreateAsync(context, intent, key, ct).ConfigureAwait(false);
+        if (result.Status == CreateOrderDraftStatus.Replayed)
+            await RequireReplayAuthorityAsync(context, result.Order!, authority, ct).ConfigureAwait(false);
+        return result;
     }
 
     public async Task<ReviseOrderDraftResult> ReviseAsync(TenantContext context, ReviseCatalogOrderDraftRequest request,
@@ -67,11 +75,32 @@ public sealed class CatalogOrderDraftApplication(IOrderDraftStore store, IOrderD
         var intentFingerprint = Fingerprint(normalized);
         var fingerprint = Hash(FormattableString.Invariant($"catalog-revise-v1:{request.OrderId:N}:{request.ExpectedRevision}:{intentFingerprint}"));
         var replay = await receipts.FindRevisionReceiptAsync(context, key, fingerprint, ct).ConfigureAwait(false);
-        if (replay is not null) return replay;
+        if (replay is not null)
+        {
+            if (replay.Status == ReviseOrderDraftStatus.Replayed)
+                await RequireReplayAuthorityAsync(context, replay.Order!, authority, ct).ConfigureAwait(false);
+            return replay;
+        }
         var intent = await SelectAsync(context, normalized, authority, intentFingerprint, ct).ConfigureAwait(false);
         var manualShape = new ReviseOrderDraftRequest(request.OrderId, request.ExpectedRevision, intent.Summary,
             intent.CurrencyCode, [], intent.CustomerContext);
-        return await store.ReviseAsync(context, manualShape, intent, key, fingerprint, ct).ConfigureAwait(false);
+        var result = await store.ReviseAsync(context, manualShape, intent, key, fingerprint, ct).ConfigureAwait(false);
+        if (result.Status == ReviseOrderDraftStatus.Replayed)
+            await RequireReplayAuthorityAsync(context, result.Order!, authority, ct).ConfigureAwait(false);
+        return result;
+    }
+
+    private async Task RequireReplayAuthorityAsync(TenantContext context, OrderDraftSnapshot order,
+        OrderPricingAuthority authority, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(order);
+        // Replay preserves the original envelope/evidence, even after policy changes.
+        if (!order.Lines.Any(line => line.CommercialFacts?.PriceSelection.Explanation.Override is { BeyondPolicy: true }))
+            return;
+        var permitted = currentPricingAuthority is null
+            ? authority.CanOverrideBeyondPolicy
+            : await currentPricingAuthority.CanOverrideBeyondPolicyAsync(context, ct).ConfigureAwait(false);
+        if (!permitted) throw new OrderCommercialSelectionException("pricing_override_forbidden");
     }
 
     private async Task<OrderDraftIntent> SelectAsync(TenantContext context, CatalogOrderDraftRequest request,
