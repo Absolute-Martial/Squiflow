@@ -306,7 +306,8 @@ internal sealed class CommercialOrderHostStore : IOrderDraftStore, IOrderDraftRe
     }
     public Task<ReviseOrderDraftResult> ReviseAsync(TenantContext context, ReviseOrderDraftRequest request, OrderDraftIntent intent, string key, string fingerprint, CancellationToken ct)
     {
-        if (_order!.Revision != request.ExpectedRevision) return Task.FromResult(new ReviseOrderDraftResult(ReviseOrderDraftStatus.RevisionConflict, null));
+        if (_order is null || _order.OrderId != request.OrderId) return Task.FromResult(new ReviseOrderDraftResult(ReviseOrderDraftStatus.NotFound, null));
+        if (_order.Revision != request.ExpectedRevision) return Task.FromResult(new ReviseOrderDraftResult(ReviseOrderDraftStatus.RevisionConflict, null));
         _order = _order with { Summary = intent.Summary, Lines = intent.Lines, Total = intent.Total, Revision = _order.Revision + 1 };
         _revisions.Add(key, (fingerprint, _order)); Effects++;
         return Task.FromResult(new ReviseOrderDraftResult(ReviseOrderDraftStatus.Revised, _order));

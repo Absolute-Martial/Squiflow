@@ -27,7 +27,7 @@ internal static class TenantPricingEndpoint
             var request = new CreatePriceDraftRequest(body.ItemId, "UNIT", body.CurrencyCode ?? "", scope,
                 body.BaseUnitPrice, new PriceValidity(body.ValidFrom.ToUniversalTime(), body.ValidTo?.ToUniversalTime()), body.UnitId, body.PriceId, body.ConversionRevision);
             var result = await pricing.CreateDraftAsync(Actor(access.Context!), request, key!, ct);
-            if (result.Status == CreatePriceDraftStatus.IdempotencyKeyConflict) return TenantCustomerEndpoint.Conflict();
+            if (result.Status == CreatePriceDraftStatus.IdempotencyKeyConflict) return TenantCustomerEndpoint.Conflict("Idempotency key conflict.", "The Idempotency-Key was used for a different pricing request.");
             var price = result.Price ?? throw new InvalidOperationException("Pricing create returned no snapshot.");
             RequireTenant(price, tenantId);
             var response = ToResponse(price);
@@ -50,7 +50,7 @@ internal static class TenantPricingEndpoint
         {
             var result = await pricing.PublishAsync(Actor(access.Context!), new PublishPriceRequest(revisionId, payload.Value!.SupersedeRevisionId), key!, ct);
             if (result.Status == PublishPriceStatus.NotFound) return MissingRevision();
-            if (result.Status == PublishPriceStatus.IdempotencyKeyConflict) return TenantCustomerEndpoint.Conflict();
+            if (result.Status == PublishPriceStatus.IdempotencyKeyConflict) return TenantCustomerEndpoint.Conflict("Idempotency key conflict.", "The Idempotency-Key was used for a different pricing request.");
             if (result.Status is PublishPriceStatus.RevisionConflict or PublishPriceStatus.PublicationConflict)
                 return Conflict(result.Status == PublishPriceStatus.PublicationConflict ? "pricing_publication_conflict" : "pricing_revision_conflict");
             var price = result.Price ?? throw new InvalidOperationException("Pricing publication returned no snapshot.");
@@ -74,7 +74,7 @@ internal static class TenantPricingEndpoint
         {
             var result = await store.RetireAsync(Actor(access.Context!), new RetirePriceRequest(revisionId), key!, ct);
             if (result.Status == RetirePriceStatus.NotFound) return MissingRevision();
-            if (result.Status == RetirePriceStatus.IdempotencyKeyConflict) return TenantCustomerEndpoint.Conflict();
+            if (result.Status == RetirePriceStatus.IdempotencyKeyConflict) return TenantCustomerEndpoint.Conflict("Idempotency key conflict.", "The Idempotency-Key was used for a different pricing request.");
             if (result.Status == RetirePriceStatus.RevisionConflict) return Conflict("pricing_revision_conflict");
             var price = result.Price ?? throw new InvalidOperationException("Pricing retirement returned no snapshot.");
             RequireTenant(price, tenantId);
@@ -189,7 +189,7 @@ internal static class TenantPricingEndpoint
             var body = payload.Value!;
             var result = await policies.PublishPolicyAsync(Actor(access.Context!), new PublishPricingPolicyRequest(body.ExpectedRevision,
                 body.MinimumUnitPrice, body.MaximumUnitPrice, body.MaximumDecreasePercent, body.MaximumIncreasePercent), key!, ct);
-            if (result.Status == PublishPricingPolicyStatus.IdempotencyKeyConflict) return TenantCustomerEndpoint.Conflict();
+            if (result.Status == PublishPricingPolicyStatus.IdempotencyKeyConflict) return TenantCustomerEndpoint.Conflict("Idempotency key conflict.", "The Idempotency-Key was used for a different pricing request.");
             if (result.Status == PublishPricingPolicyStatus.RevisionConflict) return Conflict("pricing_policy_revision_conflict");
             if (result.Snapshot is null || result.Snapshot.TenantId != tenantId) throw new InvalidOperationException("Pricing policy publication returned inconsistent facts.");
             if (result.Status == PublishPricingPolicyStatus.Replayed) Replay(http);
@@ -215,7 +215,7 @@ internal static class TenantPricingEndpoint
         !string.IsNullOrWhiteSpace(key) && key.Length <= 128 && !key.Any(char.IsControl);
     private static ProblemHttpResult InvalidKey() => TenantCustomerEndpoint.Invalid("idempotency_key_invalid", "One bounded Idempotency-Key is required.");
     private static void Replay(HttpContext http) => http.Response.Headers.Append("Idempotency-Replayed", "true");
-    private static ProblemHttpResult MissingRevision() => TenantCustomerEndpoint.NotFound("pricing_revision_not_found", "Price revision not found in this tenant.");
+    private static ProblemHttpResult MissingRevision() => TenantCustomerEndpoint.NotFound("Price revision not found.", "pricing_revision_not_found", "Price revision not found in this tenant.");
     private static ProblemHttpResult Conflict(string code) => TypedResults.Problem(statusCode: 409, title: "Pricing command conflicts with current facts.",
         extensions: new Dictionary<string, object?> { ["code"] = code });
     private static ProblemHttpResult Unavailable() => TypedResults.Problem(statusCode: 503, title: "Authorization is temporarily unavailable.",

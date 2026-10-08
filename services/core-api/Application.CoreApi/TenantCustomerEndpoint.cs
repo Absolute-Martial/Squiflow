@@ -265,6 +265,20 @@ internal static class TenantCustomerEndpoint
     private static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult TooLarge() => TypedResults.Problem(statusCode: 413,
         title: "Customer request is too large.", detail: "The request exceeds the supported size.",
         extensions: new Dictionary<string, object?> { ["code"] = "request_too_large" });
+    // Each capability group reports its own Problem title. Sharing the Customers wording meant an
+    // order 404 said "Customer resource not found." and a pricing conflict said the key was reused
+    // for a different customer request. The machine-readable `code` values are unchanged.
+    internal static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult NotFound(string title, string code, string detail) =>
+        TypedResults.Problem(statusCode: 404, title: title, detail: detail, extensions: Extensions(code));
+
+    internal static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult Conflict(string title, string detail) =>
+        TypedResults.Problem(statusCode: 409, title: title, detail: detail, extensions: Extensions("idempotency_key_conflict"));
+
+    internal static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult Invalid(string title, string code, string detail) =>
+        TypedResults.Problem(statusCode: 400, title: title, detail: detail, extensions: Extensions(code));
+
+    internal static Dictionary<string, object?> Extensions(string code) => new() { ["code"] = code };
+
     internal static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult Conflict() => TypedResults.Problem(statusCode: 409,
         title: "Idempotency key conflict.", detail: "The Idempotency-Key was used for a different customer request.",
         extensions: new Dictionary<string, object?> { ["code"] = "idempotency_key_conflict" });

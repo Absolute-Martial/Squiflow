@@ -54,7 +54,7 @@ internal static class TenantCatalogOrderEndpoint
             {
                 var result = await orders.ReviseAsync(access.TenantContext!, new(id, body.ExpectedRevision!.Value, request), key!, authority, ct);
                 if (result.Status == ReviseOrderDraftStatus.NotFound)
-                    return TenantCustomerEndpoint.NotFound("order_not_found", "Order not found in this tenant.");
+                    return TenantCustomerEndpoint.NotFound("Order not found.", "order_not_found", "Order not found in this tenant.");
                 if (result.Status is not (ReviseOrderDraftStatus.Revised or ReviseOrderDraftStatus.Replayed))
                     return Conflict(result.Status switch
                     {
@@ -89,12 +89,12 @@ internal static class TenantCatalogOrderEndpoint
                     extensions: new Dictionary<string, object?> { ["code"] = error.Code })
                 : Conflict(error.Code);
         }
-        catch (OrderDraftValidationException error) { return TenantOrderEndpoint.InvalidRequest(error.Code, error.Message); }
-        catch (CatalogValidationException error) { return TenantOrderEndpoint.InvalidRequest(error.Code, error.Message); }
+        catch (OrderDraftValidationException error) { return TenantOrderEndpoint.InvalidRequest("Invalid catalog order request.", error.Code, error.Message); }
+        catch (CatalogValidationException error) { return TenantOrderEndpoint.InvalidRequest("Invalid catalog order request.", error.Code, error.Message); }
         catch (PricingValidationException error)
         {
             return error.Code == "pricing_policy_missing" ? Conflict(error.Code) :
-                TenantOrderEndpoint.InvalidRequest(error.Code, error.Message);
+                TenantOrderEndpoint.InvalidRequest("Invalid catalog order request.", error.Code, error.Message);
         }
         catch (CustomerOrderContextNotFoundException)
         { return TenantCustomerEndpoint.NotFound("customer_context_not_found", "Customer context not found in this tenant."); }
@@ -152,7 +152,7 @@ internal static class TenantCatalogOrderEndpoint
     }
 
     private static (CatalogOrderDraftRequest?, long?, IResult?) Invalid() =>
-        (null, null, TenantOrderEndpoint.InvalidRequest("request_invalid", "A strict catalog order JSON request is required."));
+        (null, null, TenantOrderEndpoint.InvalidRequest("Invalid catalog order request.", "request_invalid", "A strict catalog order JSON request is required."));
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 }
 
