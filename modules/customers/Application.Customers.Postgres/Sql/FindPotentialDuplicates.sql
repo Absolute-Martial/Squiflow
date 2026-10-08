@@ -25,6 +25,10 @@ LEFT JOIN LATERAL (SELECT receipt.* FROM customers.duplicate_command_receipts re
     ORDER BY receipt.resolved_at DESC,receipt.resolution_id DESC LIMIT 1) retained ON true
 WHERE i.tenant_id = @tenant_id
   AND (@exclude_id IS NULL OR i.id <> @exclude_id)
+  -- A consolidated source is not a candidate: the identity it matched has moved to its
+  -- successor, so offering it lets an operator select a target whose mutations are refused.
+  -- Its successor is itself a live candidate on the same signals.
+  AND i.redirect_target_individual_id IS NULL
   AND (
       (@email IS NOT NULL AND i.normalized_email = @email)
       OR (@phone IS NOT NULL AND i.normalized_phone = @phone)

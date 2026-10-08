@@ -38,6 +38,28 @@ number verification is claimed. Exact organization/program representative
 relationships are supporting evidence. Bounded fuzzy-name discovery is optional,
 not merge authority or an exhaustive search engine.
 
+Discovery offers **current canonical customers only**. A row whose
+`redirect_target_individual_id` is set is excluded: the identity that matched has
+moved to its successor, so presenting the source invites selecting a candidate
+whose every mutation is refused. The successor carries the same identity signals
+and is matched on its own, so the consolidated identity is not lost from the
+result set. This holds in the SQL discovery query and in the host-neutral
+`CustomerDuplicateMatcher.Discover` reference matcher, because the two own the
+same discovery meaning.
+
+A duplicate review decision also requires two current customers. If either side
+was consolidated after acceptance, `Customers.Duplicates.Resolve` returns
+`AlreadyRedirected` and records nothing, mirroring how consolidation reports
+`AlreadyRedirected`. Recording `KeepSeparate`/`Dismiss` about a consolidated row
+would assert a review outcome for an identity that no longer exists as a customer,
+and its retained receipt would then report `requiresManualReview=false` forever.
+Redirect is decided before the caller's expected revisions, so a stale revision is
+never mistaken for the reason a pair was refused; the caller deliberately
+resubmits against the current successor. First and post-lock receipt lookups still
+precede that check, so an exact-intent retry replays its original recorded outcome.
+The existing HTTP conflict mapper reports the `AlreadyRedirected` code; no new
+conflict-body wire field is introduced.
+
 Outcomes are `PotentialDuplicate`, `KeepSeparate`, `ConsolidateInto`, and `Dismiss`.
 `Customers.Duplicates.Resolve` cannot consolidate. The distinct
 `Customers.Duplicates.Consolidate` operation checks both customer revisions and
