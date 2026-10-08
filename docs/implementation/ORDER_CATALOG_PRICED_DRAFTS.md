@@ -64,6 +64,13 @@ new mutable content, after replay lookup. The original request fingerprint stays
 stable; retained price applicability contains the resolved current ID. Existing
 immutable receipts/history never redirect historical IDs. A later redirect may
 invalidate a draft's current pricing context and require explicit revision.
+A survivor that has since become inactive, or that has itself been forwarded to a
+further survivor, is an ordinary current business state: selection rejects it with
+the same `pricing_customer_invalid` business outcome the sibling Pricing context
+check uses, not as an internal fault. Only a returned fact whose tenant ownership
+or individual identity is impossible — a foreign `TenantId` or an empty identity —
+remains an `InvalidOperationException`, because the directory returning one is
+genuinely inconsistent rather than merely unfavourable.
 
 ## Replay and compatibility
 
@@ -100,17 +107,44 @@ Pricing private-table grant to Orders is needed.
 
 Orders locks its current header before reading lines and rechecks a waited-on
 same-key receipt. Draft revision/abandon/commit cannot alter those retained lines
-while revalidation runs. For an eligible commercial draft, Orders acquires the
-tenant shared PostgreSQL **transaction** advisory pin on the **same connection and
+while revalidation runs. For an eligible commercial draft, Orders resolves external
+current override authority **before** taking the tenant shared PostgreSQL
+**transaction** advisory pin, then takes that pin on the **same connection and
 transaction** that will update the header and insert its receipt, before invoking
-`IOrderCommercialCommitGuard.IsCompatibleAsync`. The neutral contract is comparison-only:
-its caller owns protection through effect/receipt COMMIT or ROLLBACK, and the guard
-returns a compatibility boolean rather than a lease. A missing guard or false
-comparison yields
+`IOrderCommercialCommitGuard.IsCompatibleAsync`. The neutral contract is
+comparison-only: its caller owns protection through effect/receipt COMMIT or
+ROLLBACK, and the guard returns a compatibility boolean rather than a lease. A
+missing guard or false comparison yields
 `CommercialFactsConflict`, mapped to HTTP 409 `order_commercial_facts_conflict`,
 without state/revision/receipt changes. It never silently refreshes or reprices.
 Same-key replay/conflict precedes pin acquisition and comparison. Manual lines and
 ineligible lifecycle/revision paths do not acquire this pin or invoke this port.
+
+**What the pin actually guarantees (and what it does not).** The shared pin is held
+by the Orders effect/receipt transaction, so PostgreSQL releases it at that same
+COMMIT/ROLLBACK: losing the backend cannot leave an effect alive without its
+publication protection. It does **not** make the comparison share that transaction
+or that connection. `IsCompatibleAsync` runs its Catalog/Pricing public queries on
+separate pooled connections in their own ordinary read transactions; only the pin
+is on the Orders session. What makes such a comparison result valid for the effect is
+**lock-mediated exclusion**, not a shared backend: while the Orders transaction holds
+the shared pin, no Catalog/Pricing publication can obtain the exclusive pin, so no
+selectable fact can change between the comparison and the commit. The revalidation
+and the effect therefore share the pinned transaction in the sense that both are
+inside the exclusion window that transaction owns; they do not share a connection,
+a snapshot or a transaction boundary.
+
+**External authority is outside the pin by construction.** External current
+authorization is not Catalog/Pricing state, so the publication pin does not protect
+it and cannot make it fresher. `IOrderCommercialCommitGuard` is therefore a two-port
+contract: `ResolveCurrentAuthorityAsync` runs before the pin and returns a
+point-in-time `OrderCommercialCommitAuthority`; `IsCompatibleAsync` performs
+database reads only and consumes that decision. A slow or degraded authorization
+provider can therefore never hold tenant-wide publication exclusion, and no
+provider call may ever be added inside `IsCompatibleAsync`. Orders still holds the
+order's own header row lock across that pre-pin call, so its blast radius is one
+order rather than one tenant; that call is bounded by the trusted reader's own
+provider timeout and fails closed.
 
 `OrderCommercialCommitGuard` reads Catalog compatibility and current published
 price/policy through their public contracts and uses `PricingRevalidation.Compare`.
@@ -119,6 +153,14 @@ conversion/precision/arithmetic incompatibility, missing/expired/conflicting pri
 changed selected revision/policy/context or revoked required override authority
 rejects commitment. Catalog label/revision changes alone remain compatible when
 the commercial conversion meaning is unchanged; frozen labels remain intact.
+
+Elevated override authority during commitment is resolved pre-pin from the retained
+`PriceOverrideEvidence.BeyondPolicy` flag, and is consumed only when the current
+policy actually places the retained override outside it. Reading it or not reading it
+can only move the outcome into a rejection: a changed policy revision, base price or
+selection context already fails the comparison, and an elevation requirement the
+retained facts do not record is rejected by that same comparison whether or not the
+provider was asked.
 
 **Implemented provider binding:** Orders.Postgres embeds `PinCommercialPublication.sql`
 and executes `pg_advisory_xact_lock_shared` inside its existing effect/receipt
@@ -132,8 +174,9 @@ is introduced.
 
 **Lock order (part of the contract):** Orders checks replay first, then locks its
 own header, rechecks replay and reads retained lines; only an eligible commercial
-draft acquires the shared publication pin, then compares public sources and writes
-the header/receipt before ending the transaction. Comparison queries may use
+draft resolves external current authority, then acquires the shared publication
+pin, then compares public sources and writes the header/receipt before ending the
+transaction. Comparison queries may use
 their own ordinary read transactions but must acquire **neither shared nor exclusive
 publication pins**. Never acquire a second shared pin on another backend while
 Orders holds one: PostgreSQL queues it behind a waiting exclusive publisher, which
@@ -212,14 +255,19 @@ an otherwise valid atomic commitment.
 
 ## Evidence and requalification
 
-Permanent guards: `CatalogOrderDraftTests` (selection/replay/authority/revalidation),
+Permanent guards: `CatalogOrderDraftTests` (selection/replay/authority/revalidation,
+the pre-pin/pinned two-port commit sequence, an inactive or redirected canonical
+customer as a business rejection, and genuinely impossible directory facts as an
+internal fault),
 `OrderCommercialFactsPostgresTests` (real PostgreSQL retained facts, receipt races,
 tenant isolation, row-lock binding and production comparisons),
 `OrderPublicationPinsPostgresTests` (actual full migrator and restricted runtime
 roles, all eleven writer paths blocked before row locks across independent data
 sources/backends, concurrent readers/shared commit pins, unrelated tenants,
 cancellation/pool cleanup, pin-and-effect backend termination before/after UPDATE,
-publisher-first rejection, replay/manual paths under a held exclusive pin, and real
+publisher-first rejection, replay/manual paths under a held exclusive pin, a stalled
+external authorization read proven not to hold the publication pin, an ineligible
+manual draft proven never to consult commit authority, and real
 commercial comparison/receipt insertion racing a real Pricing retirement), and
 `OrderCommercialEndpointTests` (real host pipeline and strict protected ingress).
 The scheduling decorator forwards to the production comparison and returns its
@@ -230,10 +278,15 @@ client OS-process crash/HA qualification is inferred. The local focused run on
 2026-10-07 passed Orders PostgreSQL **71/71**, including all **20** publication-pin
 cases and both backend-loss cases; Orders unit tests passed **104/104**,
 Catalog PostgreSQL **8/8**, and Pricing PostgreSQL **10/10**. These are focused
-receiving evidence, not a combined host/normal-gate qualification.
+receiving evidence, not a combined host/normal-gate qualification. The later
+pre-pin-authority correction added `ASlowAuthorizationProviderInTheCommitPathDoesNotHoldThePublicationPin`
+and `AnIneligibleManualDraftNeverConsultsCommitAuthorityAtAll`; it is falsifiable —
+restoring authority resolution inside the pin makes the first of them fail on an
+observed advisory lock, not on elapsed time.
 
 Requalify when Catalog/Pricing contracts, conversion arithmetic, precedence,
-policy/override semantics, pin participants, receipt serialization/migrations,
+policy/override semantics, pin participants, commit authority timing,
+receipt serialization/migrations,
 Orders transaction ordering or endpoint permissions change. No pricing tax,
 discount engine, inventory reservation/movement, fulfillment, invoice issuance,
 committed quotation/agreement authority or customer credit authority is introduced.
