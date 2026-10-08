@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Application.Customers;
+using Application.CoreApi.Authorization;
 using Application.CoreApi.ImportExecution;
 using Application.IdentityAccess;
 using Application.ObjectStorage;
@@ -140,9 +141,7 @@ internal static class TenantCustomerDuplicateImportEndpoint
     {
         var access = await TenantCustomerEndpoint.ResolveAsync(tenantId, http, principal, account, tenant, authorization, ct);
         if (access.Failure is not null) return access.Failure;
-        if (!execution.IsAcceptingWork)
-            return TypedResults.Problem(statusCode: 503, title: "Customer import execution is unavailable.",
-                extensions: new Dictionary<string, object?> { ["code"] = "import_executor_unavailable" });
+        if (!execution.IsAcceptingWork) return ExecutorUnavailable();
         if (!TenantCustomerEndpoint.TryKey(http.Request, out var key)) return MissingKey();
         var payload = await ReadDecisionsAsync(http.Request, ct);
         if (payload.Failure is not null) return payload.Failure;
@@ -159,6 +158,7 @@ internal static class TenantCustomerDuplicateImportEndpoint
             return TypedResults.Accepted($"/api/v1/tenants/{tenantId:D}/customers/imports/{importId:D}", result.Work);
         }
         catch (CustomerImportAuthorityException) { return TypedResults.Problem(statusCode: 403, title: "Current import authority denied."); }
+        catch (AuthorizationProviderUnavailableException) { return AuthorizationUnavailable(); }
         catch (CustomerValidationException error) when (error.Code == "idempotency_key_conflict") { return Conflict(error.Code); }
         catch (CustomerValidationException error) when (error.Code == "import_not_found") { return Missing(error.Code); }
         catch (CustomerValidationException error) { return Invalid(error); }
@@ -176,10 +176,13 @@ internal static class TenantCustomerDuplicateImportEndpoint
 
     internal static async Task<IResult> RunBatchAsync(Guid tenantId, HttpContext http, ClaimsPrincipal principal,
         ResolveAccountBinding account, ResolveTenantContext tenant, IAuthorizationService authorization,
-        RunCustomerImportBatch runner, CancellationToken ct)
+        RunCustomerImportBatch runner, CustomerImportExecutionState execution, CancellationToken ct)
     {
         var access = await TenantCustomerEndpoint.ResolveAsync(tenantId, http, principal, account, tenant, authorization, ct);
         if (access.Failure is not null) return access.Failure;
+        // Manual acceleration is only meaningful while the executor admits work. A disabled,
+        // starting, failed-discovery or draining executor must not become a second entry point.
+        if (!execution.IsAcceptingWork) return ExecutorUnavailable();
         var payload = await TenantCustomerEndpoint.ReadPayloadAsync<ImportBatchPayload>(http.Request, ct, strict: true);
         if (payload.Failure is not null) return payload.Failure;
         try
@@ -189,6 +192,7 @@ internal static class TenantCustomerDuplicateImportEndpoint
                 ? TypedResults.Problem(statusCode: 403, title: "The accepted import actor's current authority changed.")
                 : TypedResults.Ok(result);
         }
+        catch (AuthorizationProviderUnavailableException) { return AuthorizationUnavailable(); }
         catch (CustomerValidationException error) { return Invalid(error); }
     }
 
@@ -297,6 +301,10 @@ internal static class TenantCustomerDuplicateImportEndpoint
     private static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult Missing(string code) => TenantCustomerEndpoint.NotFound(code, "Customer resource not found in this tenant.");
     private static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult Conflict(string code) => TypedResults.Problem(statusCode: 409, title: "Customer operation conflict.", extensions: new Dictionary<string, object?> { ["code"] = code });
     private static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult TooLarge() => TypedResults.Problem(statusCode: 413, title: "Customer import request exceeds the supported size.");
+    private static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult ExecutorUnavailable() => TypedResults.Problem(statusCode: 503, title: "Customer import execution is unavailable.",
+        extensions: new Dictionary<string, object?> { ["code"] = "import_executor_unavailable" });
+    private static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult AuthorizationUnavailable() => TypedResults.Problem(statusCode: 503, title: "Authorization is temporarily unavailable.",
+        extensions: new Dictionary<string, object?> { ["code"] = "authorization_unavailable" });
 }
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]

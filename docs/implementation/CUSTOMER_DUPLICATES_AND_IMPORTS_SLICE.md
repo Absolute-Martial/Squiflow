@@ -198,7 +198,11 @@ consolidation; replay does not rebind historical row results to the new survivor
 at most 50 rows and a 2-minute lease. The separate protected
 `POST /api/v1/tenants/{tenantId}/customers/imports/run-batch` command awaits one
 bounded batch; it does not run inside acceptance and does not schedule background
-work. **It is not the autonomous scheduling mechanism**. The database persists
+work. **It is not the autonomous scheduling mechanism**. It is nevertheless gated by
+the same `CustomerImportExecutionState` admission check as acceptance, with the same
+`503` / `import_executor_unavailable` problem returned **before** any body parse or
+claim, so a disabled, starting, failed-discovery or draining executor cannot be
+reached through manual acceleration either. The database persists
 owner, generation, lease, status and retry delay.
 Each effect transaction locks/checks the current
 generation before its row and commits effect/result atomically. An expired claim
@@ -319,20 +323,47 @@ before each row, not an atomic lock spanning the external provider and row commi
 ### Startup, admission and resource policy
 
 Main composition calls `AddCustomerImportExecution(configuration,
-databaseConfiguration)` after the normal capability/authorization registrations.
+databaseConfiguration, objectStorageConfiguration)` after the normal
+capability/authorization registrations.
 It registers the scoped authority, hosted executor, execution configuration and
-`CustomerImportExecutionState`. **Acceptance must reject with a safe 503 before
-parsing/accepting if `IsAcceptingWork` is false.** Disabled, starting, failed
-discovery and draining executors cannot admit new work. The first successful
-privileged discovery opens admission; a subsequent discovery failure closes it.
-Drain is terminal for this process state and cannot be reopened by a late callback.
-Existing work remains durable and resumes on a correctly configured later host.
+`CustomerImportExecutionState`. **Acceptance and the protected run-batch command must
+both reject with a safe 503 before parsing/accepting if `IsAcceptingWork` is false.**
+Disabled, starting, failed discovery and draining executors cannot admit new work. The
+first successful privileged discovery opens admission; a subsequent discovery failure
+closes it. Drain is terminal for this process state and cannot be reopened by a late
+callback. Existing work remains durable and resumes on a correctly configured later host.
+
+### Retention has exactly one deleter, so its absence fails startup and readiness
+
+Retained raw customer PII has exactly one remover: `ReconcileCustomerImportSource`,
+which only the hosted executor invokes. Nothing in the request path, another process,
+a provider lifecycle rule or a schedule deletes raw bytes. Therefore:
+
+- `ObjectStorage:Enabled=true` with `CustomerImports:Execution:Enabled=false` **fails
+  startup** during composition with a bounded configuration error. That combination
+  uploads expiring `available` sources whose only deleter can never run, which is
+  unrecoverable PII retention, and it must not be reachable with a green probe. The
+  reverse direction (execution enabled, object storage disabled) stays valid: retirement
+  simply finds nothing to delete.
+- `CustomerImportExecutionReadinessCheck` is part of the `readiness` tag set. It reports
+  healthy when execution is disabled and reports the executor admission state when it is
+  enabled, so a host that lost discovery admission cannot stay ready while raw sources
+  stop being deleted. This is a deliberate trade-off: a freshly started host is
+  unhealthy for at most one discovery cycle until its first privileged discovery
+  succeeds. A ready host therefore also asserts that deletion is actually happening.
+  It does not probe the provider, the database or any stored byte.
+
+An authorization-provider outage during acceptance or run-batch is a dependency
+failure, not an internal error: both handlers catch
+`AuthorizationProviderUnavailableException` and return the same safe
+`503` / `authorization_unavailable` problem used by the other current endpoints,
+rather than falling through to the generic `500` / `internal_error` handler.
 
 Configuration uses `CustomerImports:Execution`:
 
 | Setting | Default | Allowed |
 |---|---|---|
-| `Enabled` | `false` (safe when absent) | Explicit boolean; enable only with shared wiring/schema/grants |
+| `Enabled` | `false` (safe when absent) | Explicit boolean; enable only with shared wiring/schema/grants, and it is **required** when `ObjectStorage:Enabled=true` |
 | `PollIntervalSeconds` | 5 | 1–300 |
 | `TenantPageSize` | 10 | 1–50 |
 | `BatchRows` | 25 | 1–50 |
@@ -356,8 +387,10 @@ custom shutdown timer/configuration or unbounded concurrency setting.
   `AuthorizedCustomerDuplicateConsolidate`, `AuthorizedCustomerImport` application
   authorization classifications. Endpoints resolve current account/membership and
   declared authority through `TenantCustomerEndpoint.ResolveAsync` **before parse**.
-- Call `AddCustomerImportExecution(builder.Configuration, databaseConfiguration)`
-  from Program and use the execution-state admission check above on acceptance.
+- Call `AddCustomerImportExecution(builder.Configuration, databaseConfiguration,
+  objectStorageConfiguration)` from Program and use the execution-state admission
+  check above on acceptance **and** on the protected run-batch command. That
+  registration also refuses `ObjectStorage:Enabled=true` with execution disabled.
   No permissive authority default is provided. Customers provider registration
   includes `ICustomerImportWorkStore`, `ICustomerImportWorkDiscovery`,
   `RunCustomerImportBatch` and `ICustomerCanonicalDirectory`. The protected
@@ -554,3 +587,31 @@ requalification trigger above requires rerunning these guards.
 Known non-claims: canonical uniqueness, automatic merge and cross-signal duplicate
 detection remain `NOT_INTRODUCED`, and trusted direct maintenance writers that
 bypass the adapter still bypass this application-level gate.
+### Admission and dependency-failure fixes
+
+Three defects in the accepted path were corrected together because each one left a
+declared guarantee unenforced at the host boundary:
+
+1. Real object storage could be enabled while the only deleter stayed at its safe
+   default, so expiring raw customer PII accumulated with no remover.
+2. The protected run-batch command was ungated by the executor admission state.
+3. An authorization-provider outage during acceptance or run-batch returned a
+   generic `500` on routes that declare `503`.
+
+Permanent focused guards are `ObjectStorageCompositionRequiresTheImportExecutorThatDeletesRawSources`,
+`ImportExecutionReadinessReportsTheDeleterAdmissionStateOnlyWhenEnabled`,
+`RunBatchRefusesWorkWhileTheExecutorDoesNotAdmitItBeforeParsingOrClaiming`,
+`RunBatchReportsAuthorityDeniedWithoutProcessingAnyRow`,
+`RunBatchRunsOneBoundedBatchWhileTheExecutorAdmitsWork`,
+`AuthorizationProviderOutageOnAcceptReturnsServiceUnavailableNotInternalError`,
+`AuthorizationProviderOutageOnRunBatchReturnsServiceUnavailableNotInternalError` and
+`ImportTemplateIsRefusedWithoutCurrentImportPermission`,
+`ImportTemplateReturnsTheCanonicalCsvToCurrentImportAuthority`, all in
+`CustomerDuplicateImportEndpointTests`, plus the retained executor/hosted-service
+suites for admission and drain semantics. Known non-claims: these guards prove host
+admission, failure mapping and composition; they do not prove live Hugging Face
+delete behavior, provider-side lifecycle or cross-replica deletion fairness, and the
+readiness check asserts the admission signal rather than a provider round trip.
+Requalify on any change to the object-storage/execution configuration link, the
+run-batch route mapping or ordering, the `import_executor_unavailable` /
+`authorization_unavailable` problem codes, or the readiness check set.
