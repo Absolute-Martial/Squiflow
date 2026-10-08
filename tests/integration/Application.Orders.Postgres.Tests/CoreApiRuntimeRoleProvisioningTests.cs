@@ -36,7 +36,11 @@ public sealed class CoreApiRuntimeRoleProvisioningTests : PostgresTestDatabase
                      "tenancy.custom_role_assignments",
                      "tenancy.owner_transfer_receipts",
                      "customers.organizations", "customers.programs",
-                     "customers.organization_receipts", "customers.program_receipts",
+                      "customers.organization_receipts", "customers.program_receipts",
+                      "customers.duplicate_cases", "customers.duplicate_command_receipts", "customers.customer_redirects",
+                      "customers.imports", "customers.import_rows", "customers.import_work",
+                      "catalog.units", "catalog.items", "catalog.unit_conversions", "catalog.command_receipts",
+                      "pricing.price_revisions", "pricing.command_receipts", "pricing.override_policies",
                      "orders.order_drafts",
                      "orders.order_draft_lines", "orders.command_receipts",
                  })
@@ -136,6 +140,23 @@ public sealed class CoreApiRuntimeRoleProvisioningTests : PostgresTestDatabase
         var roleFailure = await Assert.ThrowsAsync<PostgresException>(() =>
             forbiddenRoleCreate.ExecuteNonQueryAsync(CancellationToken.None));
         Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, roleFailure.SqlState);
+
+        foreach (var sql in new[]
+        {
+            "DELETE FROM pricing.price_revisions",
+            "DELETE FROM customers.import_rows",
+            "UPDATE pricing.price_revisions SET base_unit_price=base_unit_price WHERE false",
+            "UPDATE catalog.units SET precision=precision WHERE false",
+            "UPDATE catalog.items SET base_unit_id=base_unit_id WHERE false",
+            "UPDATE customers.import_rows SET source_row_hash=source_row_hash WHERE false",
+        })
+        {
+            await using var denied = new NpgsqlCommand(sql, runtime);
+            Assert.Equal(PostgresErrorCodes.InsufficientPrivilege,
+                (await Assert.ThrowsAsync<PostgresException>(() => denied.ExecuteNonQueryAsync())).SqlState);
+        }
+        await using var discover = new NpgsqlCommand("SELECT count(*) FROM customers.discover_runnable_import_tenants(NULL, 10)", runtime);
+        Assert.Equal(0L, await discover.ExecuteScalarAsync());
     }
 
     [Fact]

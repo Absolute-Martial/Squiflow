@@ -744,11 +744,21 @@ internal static class TenantOrderEndpoint
                 line.Quantity,
                 line.UnitCode,
                 line.UnitPrice,
-                line.LineTotal)).ToArray(),
+                line.LineTotal,
+                ToCommercialFactsResponse(line.CommercialFacts))).ToArray(),
             ToWireState(order.State),
             order.AbandonedAt,
             order.CustomerContext,
             order.CommittedAt);
+
+    private static OrderCommercialLineFactsResponse? ToCommercialFactsResponse(OrderCommercialLineFacts? facts) =>
+        facts is null ? null : new(facts.Catalog,
+            new(facts.PublishedPrice.PriceId, facts.PublishedPrice.RevisionId, facts.PublishedPrice.RevisionNumber,
+                facts.PublishedPrice.Key.ItemId, facts.PublishedPrice.Key.UnitId, facts.PublishedPrice.Key.UnitCode,
+                facts.PublishedPrice.Key.CurrencyCode, facts.PublishedPrice.Key.UnitConversionRevision,
+                facts.PublishedPrice.Key.Scope, facts.PublishedPrice.BaseUnitPrice,
+                facts.PublishedPrice.Validity.ValidFrom, facts.PublishedPrice.Validity.ValidTo,
+                facts.PublishedPrice.PublishedAt!.Value), facts.PriceSelection);
 
     internal static string ToWireState(OrderDraftState state) => state switch
     {
@@ -900,7 +910,19 @@ internal sealed record OrderDraftLineResponse(
     decimal Quantity,
     string UnitCode,
     decimal UnitPrice,
-    decimal LineTotal);
+    decimal LineTotal,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    OrderCommercialLineFactsResponse? CommercialFacts = null);
+
+internal sealed record OrderCommercialLineFactsResponse(
+    Application.Catalog.CatalogLineFacts Catalog,
+    OrderPublishedPriceResponse PublishedPrice,
+    Application.Pricing.RetainedPriceSelection PriceSelection);
+
+internal sealed record OrderPublishedPriceResponse(Guid PriceId, Guid RevisionId, long RevisionNumber,
+    Guid ItemId, Guid UnitId, string UnitCode, string CurrencyCode, long? ConversionRevision,
+    Application.Pricing.PriceScope Scope, decimal BaseUnitPrice, DateTimeOffset ValidFrom,
+    DateTimeOffset? ValidTo, DateTimeOffset PublishedAt);
 
 internal sealed record OrderDraftPageResponse(
     IReadOnlyList<OrderDraftListItemResponse> Items,

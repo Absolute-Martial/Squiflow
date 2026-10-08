@@ -98,6 +98,42 @@ Permission definitions are trusted versioned code/module metadata. The current r
 
 ## 3A. Current ADM-009–ADM-012 administration protocol
 
+### Commercial capability extension — 2026-10-06 decision / 2026-10-07 integration
+
+The compiled catalog and checked-in model now include these independent tenant
+business capabilities. These are permissions, not hardcoded Manager/Owner roles.
+No existing tuple, Staff default or initial-Owner business grant is automatically
+expanded. Each computed relation still intersects current contextual membership;
+direct grants and tenant-scoped custom-role assignees use the existing protocol.
+
+| Stable permission ID | Persisted relation | Computed permission |
+|---|---|---|
+| `customers.duplicates.resolve` | `customer_duplicate_resolver` | `can_resolve_customer_duplicates` |
+| `customers.duplicates.consolidate` | `customer_duplicate_consolidator` | `can_consolidate_customer_duplicates` |
+| `customers.import` | `customer_importer` | `can_import_customers` |
+| `catalog.view` | `catalog_viewer` | `can_view_catalog` |
+| `catalog.manage` | `catalog_editor` | `can_manage_catalog` |
+| `pricing.view` | `pricing_viewer` | `can_view_pricing` |
+| `pricing.drafts.edit` | `pricing_draft_editor` | `can_edit_pricing_draft` |
+| `pricing.publish` | `pricing_publisher` | `can_publish_pricing` |
+| `pricing.retire` | `pricing_retirer` | `can_retire_pricing` |
+| `pricing.override` | `pricing_overrider` | `can_override_pricing` |
+| `pricing.override_beyond_policy` | `pricing_exception_overrider` | `can_override_pricing_beyond_policy` |
+
+The focused owners' `Customers.Duplicates.*` and `Pricing.*` capability labels
+describe these stable IDs; casing is not an additional executable alias. Resolve
+does not consolidate; catalog editing does not publish prices; draft editing,
+publication, retirement and override are independently checked. Published-price
+Orders need create/edit plus Catalog/Pricing view, not legacy manual-price authority.
+Override still requires its own current capability, reason and policy evidence.
+Background import rechecks original actor availability, membership, provider grant
+and authoritative authorization revision before each row; acceptance is not a grant.
+
+Deploy the new immutable model and pin its explicit ID before enabling these
+surfaces. Older models lacking the new computed relations fail closed; the app
+does not upgrade models or fabricate business tuples at startup. Real OpenFGA
+regressions exercise independent grants, revocation, membership and tenant denial.
+
 Tenant authorization administration is a two-system operation with PostgreSQL as durable intent/evidence and OpenFGA as execution authority. A mutation first records one semantic proposal in PostgreSQL under the expected `TenantAuthorizationRevision`. At most one Pending/Uncertain proposal may be active per tenant. The caller may then invoke bounded reconciliation. Reconciliation rechecks that the original requester is still the current initial Owner, applies an idempotent tuple write/delete against the pinned model, observes the requested provider state at higher consistency, and only then marks the proposal Applied and advances the tenant authorization revision exactly once. Provider uncertainty remains `Uncertain`; it is never reported as success.
 
 Custom role definitions are SquiFlow metadata. A role has a stable tenant-scoped ID, bounded name/permission set and lifecycle revision. OpenFGA represents role membership as `role:<tenant>_<role>#assignee`; tenant business permission relations accept either direct users or that userset. Role revision reconciles the tuple diff. Retirement removes role permission tuples and active assignments while preserving durable historical evidence.

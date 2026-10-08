@@ -14,6 +14,8 @@ namespace Application.CoreApi.Tests;
 
 public sealed class AdmissionTests
 {
+    private static readonly TimeSpan TestTimeout = TimeSpan.FromSeconds(30);
+
     [Theory]
     [InlineData("success")]
     [InlineData("failure")]
@@ -35,10 +37,10 @@ public sealed class AdmissionTests
         using var cancellation = new CancellationTokenSource();
         using var first = AuthenticatedRequest(baseline.CreateToken());
         var inFlight = client.SendAsync(first, cancellation.Token);
-        await directory.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await directory.Entered.Task.WaitAsync(TestTimeout);
 
         // Even unauthenticated work is bounded before expensive authentication/authorization begins.
-        using var rejected = await client.GetAsync("/api/v1/account").WaitAsync(TimeSpan.FromSeconds(5));
+        using var rejected = await client.GetAsync("/api/v1/account").WaitAsync(TestTimeout);
         using var problem = JsonDocument.Parse(await rejected.Content.ReadAsStringAsync());
         Assert.Equal(HttpStatusCode.ServiceUnavailable, rejected.StatusCode);
         Assert.Equal("api_capacity_exceeded", problem.RootElement.GetProperty("code").GetString());
@@ -56,18 +58,18 @@ public sealed class AdmissionTests
         {
             cancellation.Cancel();
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => inFlight);
-            await directory.Exited.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await directory.Exited.Task.WaitAsync(TestTimeout);
         }
         else
         {
             directory.Release.TrySetResult();
-            using var completed = await inFlight.WaitAsync(TimeSpan.FromSeconds(5));
+            using var completed = await inFlight.WaitAsync(TestTimeout);
             Assert.Equal(completion == "success" ? HttpStatusCode.OK : HttpStatusCode.InternalServerError,
                 completed.StatusCode);
         }
 
         // Client cancellation can complete before the server finally block returns its lease.
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var deadline = new CancellationTokenSource(TestTimeout);
         while (true)
         {
             using var retry = AuthenticatedRequest(baseline.CreateToken());

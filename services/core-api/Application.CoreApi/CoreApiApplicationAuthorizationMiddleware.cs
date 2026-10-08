@@ -83,6 +83,8 @@ internal static class CoreApiApplicationAuthorizationMiddleware
             EndpointAccess.AuthorizedTenantOrderRevision or
             EndpointAccess.AuthorizedTenantOrderPricePreview or
             EndpointAccess.AuthorizedTenantOrderHistory or
+            EndpointAccess.AuthorizedTenantCatalogOrderCreation or
+            EndpointAccess.AuthorizedTenantCatalogOrderRevision or
             EndpointAccess.AuthorizedTenantOrderActions =>
                 new TenantOrderResource(tenantContext, cancellationToken),
 
@@ -94,7 +96,20 @@ internal static class CoreApiApplicationAuthorizationMiddleware
             EndpointAccess.AuthorizedCustomerProgramBrowse or
             EndpointAccess.AuthorizedCustomerIndividualCreation or
             EndpointAccess.AuthorizedCustomerIndividualRead or
-            EndpointAccess.AuthorizedCustomerIndividualAvailability =>
+            EndpointAccess.AuthorizedCustomerIndividualAvailability or
+            EndpointAccess.AuthorizedCustomerIndividualContactEdit or
+            EndpointAccess.AuthorizedCustomerRepresentativeRead or
+            EndpointAccess.AuthorizedCustomerRepresentativeManage or
+            EndpointAccess.AuthorizedCustomerDuplicateRead or
+            EndpointAccess.AuthorizedCustomerDuplicateResolve or
+            EndpointAccess.AuthorizedCustomerDuplicateConsolidate or
+            EndpointAccess.AuthorizedCustomerImport or
+            EndpointAccess.AuthorizedCatalogRead or
+            EndpointAccess.AuthorizedCatalogManage or
+            EndpointAccess.AuthorizedPricingRead or
+            EndpointAccess.AuthorizedPricingDraftEdit or
+            EndpointAccess.AuthorizedPricingPublish or
+            EndpointAccess.AuthorizedPricingRetire =>
                 new TenantCustomerResource(tenantContext, cancellationToken),
 
             EndpointAccess.AuthorizedTenantRoleAdministration =>

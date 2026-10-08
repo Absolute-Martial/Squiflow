@@ -597,10 +597,10 @@
       "application.adminapi": {
         "type": "Project",
         "dependencies": {
-          "Application.IdentityAccess.Postgres": "[0.1.0, )",
-          "Application.PlatformAdministration": "[0.1.0, )",
-          "Application.PlatformAdministration.Postgres": "[0.1.0, )",
-          "Application.Tenancy.Postgres": "[0.1.0, )",
+          "Application.IdentityAccess.Postgres": "[0.0.1, )",
+          "Application.PlatformAdministration": "[0.0.1, )",
+          "Application.PlatformAdministration.Postgres": "[0.0.1, )",
+          "Application.Tenancy.Postgres": "[0.0.1, )",
           "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.8, )",
           "Npgsql": "[10.0.2, )",
           "OpenFga.Sdk": "[0.10.4, )"
@@ -612,7 +612,7 @@
       "application.identityaccess.postgres": {
         "type": "Project",
         "dependencies": {
-          "Application.IdentityAccess": "[0.1.0, )",
+          "Application.IdentityAccess": "[0.0.1, )",
           "Microsoft.EntityFrameworkCore": "[10.0.8, )",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.1, )"
         }
@@ -620,13 +620,13 @@
       "application.platformadministration": {
         "type": "Project",
         "dependencies": {
-          "Application.IdentityAccess": "[0.1.0, )"
+          "Application.IdentityAccess": "[0.0.1, )"
         }
       },
       "application.platformadministration.postgres": {
         "type": "Project",
         "dependencies": {
-          "Application.PlatformAdministration": "[0.1.0, )",
+          "Application.PlatformAdministration": "[0.0.1, )",
           "Microsoft.EntityFrameworkCore": "[10.0.8, )",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.1, )"
         }
@@ -637,7 +637,7 @@
       "application.tenancy.postgres": {
         "type": "Project",
         "dependencies": {
-          "Application.Tenancy": "[0.1.0, )",
+          "Application.Tenancy": "[0.0.1, )",
           "Microsoft.EntityFrameworkCore": "[10.0.8, )",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.1, )"
         }

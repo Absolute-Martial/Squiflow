@@ -69,6 +69,12 @@ internal static class TenantOrderCommitEndpoint
         {
             return TenantOrderEndpoint.InvalidRequest(exception.Code, exception.Message);
         }
+        catch (AuthorizationProviderUnavailableException)
+        {
+            return TypedResults.Problem(statusCode: StatusCodes.Status503ServiceUnavailable,
+                title: "Authorization is temporarily unavailable.",
+                extensions: new Dictionary<string, object?> { ["code"] = "authorization_unavailable" });
+        }
 
         if (result.Status == CommitOrderDraftStatus.NotFound)
         {
@@ -82,6 +88,7 @@ internal static class TenantOrderCommitEndpoint
         if (result.Status is CommitOrderDraftStatus.RevisionConflict or
             CommitOrderDraftStatus.AlreadyCommitted or
             CommitOrderDraftStatus.AlreadyAbandoned or
+            CommitOrderDraftStatus.CommercialFactsConflict or
             CommitOrderDraftStatus.IdempotencyKeyConflict)
         {
             var (code, detail) = result.Status switch
@@ -92,6 +99,8 @@ internal static class TenantOrderCommitEndpoint
                     ("order_already_committed", "The order has already been committed."),
                 CommitOrderDraftStatus.AlreadyAbandoned =>
                     ("order_already_abandoned", "The order draft has already been abandoned."),
+                CommitOrderDraftStatus.CommercialFactsConflict =>
+                    ("order_commercial_facts_conflict", "The retained catalog price, policy or compatibility has changed. Explicitly revise the draft before commitment."),
                 _ =>
                     ("idempotency_key_conflict", "The Idempotency-Key has already been used for a different commit request."),
             };

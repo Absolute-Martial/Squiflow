@@ -135,6 +135,15 @@ def validate_redirects(inventory: Inventory) -> None:
             fail(f"Tenant redirect must use HTTPS or native loopback HTTP: {uri}")
 
 
+class CrossOriginRedirectRefused(Exception):
+    """Raised when a provider response redirects qualification off its origin.
+
+    This is deliberately not an urllib.error.HTTPError. get_json() catches HTTPError and
+    turns it into a status code, which would silently report the redirect status and let
+    the caller mistake it for a provider answer.
+    """
+
+
 class SameOriginRedirectHandler(urllib.request.HTTPRedirectHandler):
     """Refuses to follow a redirect that leaves the origin of the original request.
 
@@ -149,13 +158,9 @@ class SameOriginRedirectHandler(urllib.request.HTTPRedirectHandler):
         target = urllib.parse.urlsplit(newurl)
         if (original.scheme, original.hostname, original.port) != (
                 target.scheme, target.hostname, target.port):
-            raise urllib.error.HTTPError(
-                newurl,
-                code,
-                "refused cross-origin redirect during provider qualification",
-                headers,
-                fp,
-            )
+            raise CrossOriginRedirectRefused(
+                f"refused to send the verifier credential to {target.scheme}://{target.netloc}"
+                f" after a redirect from {original.scheme}://{original.netloc}")
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
@@ -171,10 +176,20 @@ def get_json(url: str, bearer: str | None = None) -> tuple[int, dict[str, object
         with QUALIFICATION_OPENER.open(request, timeout=TIMEOUT_SECONDS) as response:
             body = response.read(MAX_RESPONSE_BYTES + 1)
             status = response.status
+    except CrossOriginRedirectRefused:
+        raise
     except urllib.error.HTTPError as exc:
         body = exc.read(MAX_RESPONSE_BYTES + 1)
         status = exc.code
-    except (urllib.error.URLError, TimeoutError) as exc:
+    except urllib.error.URLError as exc:
+        # urllib wraps any non-HTTP opener failure, including our redirect refusal, in
+        # URLError. Report the underlying reason so the credential-disclosure guard is
+        # visible in the qualification result instead of a bare "URLError".
+        reason = exc.reason
+        if isinstance(reason, CrossOriginRedirectRefused):
+            fail(str(reason))
+        fail(f"provider request failed safely: {type(reason).__name__}")
+    except TimeoutError as exc:
         fail(f"provider request failed safely: {type(exc).__name__}")
     if len(body) > MAX_RESPONSE_BYTES:
         fail("provider response exceeded the 64 KiB qualification bound")
@@ -295,7 +310,7 @@ def main() -> int:
             }
         print(json.dumps(evidence, indent=2, sort_keys=True))
         return 0
-    except QualificationError as exc:
+    except (QualificationError, CrossOriginRedirectRefused) as exc:
         print(json.dumps({"qualification": "FAILED", "reason": str(exc)}, sort_keys=True), file=sys.stderr)
         return 1
 

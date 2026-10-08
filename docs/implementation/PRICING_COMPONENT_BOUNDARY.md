@@ -2,13 +2,17 @@
 
 **Current scope:** separate host-neutral calculation of supplied draft selling
 prices inside `Application.Orders/Pricing/OrderDraftPriceCalculator.cs`, exposed
-through a protected, non-persisting order-entry preview. A complete
-adaptive price-selection capability is `NOT_INTRODUCED`.
+through a protected, non-persisting order-entry preview. The accepted adaptive
+pricing contracts and provider adapter are owned by
+[`PRICING_POLICY_AND_PUBLICATION.md`](PRICING_POLICY_AND_PUBLICATION.md); their
+host integration is locally qualified; deployment acceptance remains separate.
 
 The separated calculation and protected preview are `PRODUCTION_HONEST` for
-their declared arithmetic/compatibility and API scopes. Separate manual-entry permission control is `PRODUCTION_HONEST` for the
-current CoreApi routes and replay scope described below; broader price-source
-policy, override reasons, ceilings and approvals remain `NOT_INTRODUCED`. `BLOCKED = none`.
+their declared arithmetic/compatibility and API scopes. Separate manual-entry
+permission control is `PRODUCTION_HONEST` for the current CoreApi routes and
+replay scope described below. Adaptive policy, protected HTTP exposure and
+catalog-priced Orders integration are `PRODUCTION_HONEST` for the narrow scopes
+and local receiving evidence in the focused Pricing/Orders owners.
 
 This owner separates pricing responsibilities for the end-to-end business map.
 Detailed business meaning remains in `docs/domain/BUSINESS_MODEL.md` section 5
@@ -19,7 +23,7 @@ and `docs/requirements/NON_FUNCTIONAL_REQUIREMENTS.md` NFR-BIZ-005.
 | Concern | Owned result / boundary |
 |---|---|
 | Price selection | Applicable standard, organization/program, wholesale, quotation, permitted manual-final or outsourced-resale price, with the source and effective revision |
-| Override authority | Current permission, allowed scope/ceiling and required approval; an entered unit price or hidden UI field does not prove authority |
+| Override authority | Current permission, reason and versioned envelope; out-of-envelope uses additional capability in v0.0.1, not an invented mandatory approval; an entered unit price or hidden UI field does not prove authority |
 | Selling-price calculation | Validated quantity/unit and applied price, rounded line amounts and document total |
 | Historical facts | Applied values, currency, source/revision and authorized override evidence retained by the issued quotation/invoice or other owning record |
 | Supplier cost/payable | Actual supplier work/cost and payable, owned by purchasing/outsourcing; customer selling price need not equal cost plus a fixed markup |
@@ -31,8 +35,8 @@ and `docs/requirements/NON_FUNCTIONAL_REQUIREMENTS.md` NFR-BIZ-005.
 validation, intent assembly and fingerprinting. Its dedicated pricing component
 owns priced-line validation, quantity-times-price multiplication, rounding and
 total calculation. The component performs no I/O, permission lookup, persistence
-or business mutation. There is no new package, executable or pricing-policy
-database pretending to provide customer-specific price selection.
+or business mutation. Adaptive source/policy selection lives separately in
+the focused Pricing owner; it does not replace this arithmetic component.
 
 Existing behavior stays compatible: 1–100 lines; positive quantity; nonnegative
 unit price; decimal 19,4 range/scale; each line rounded to four decimals using
@@ -72,7 +76,8 @@ This is useful guidance for entering a priced draft, not a binding quotation,
 stored customer/program policy, tax calculation, approval, stock reservation,
 debtor selection or charge. Creation still receives and validates the complete
 draft under current authority. Preview results are never trusted as commit evidence.
-Customer-specific price selection and workflow guidance remain `NOT_INTRODUCED`.
+Adaptive selection is separately introduced by the Pricing owner; this preview
+does not select or authorize it.
 
 ## Controlled manual price entry
 
@@ -117,34 +122,36 @@ check of create/preview/revise is still required. Model/tuple administration,
 reason capture, approval, floors/ceilings, stored adaptive price policy and issued
 documents are outside this permission-control scope.
 
-## Next adaptive pricing slice
+## Adaptive pricing owner
 
-A stored price list or negotiated-price lookup is not required for manual entry.
-Reason/evidence requirements beyond retained actors and priced revisions, approval
-and scope/ceilings must be settled before those richer controls are introduced.
+The decisions and bounded implementation for durable price publication,
+precedence, typed resolution, override evidence, revision retention and
+PostgreSQL persistence are now owned by
+[`PRICING_POLICY_AND_PUBLICATION.md`](PRICING_POLICY_AND_PUBLICATION.md).
+The current Orders calculator remains unchanged and is not a policy selector.
+That owner defines stable item/unit price identity, durable configurable policy,
+isolated CoreApi routes and neutral draft-revalidation comparison. Shared host,
+OpenFGA, DbMigrator/grants and Orders receiving integration remain main-owned;
+their exact current qualification state is stated there.
 
-Before durable price publication/selection is introduced, settle:
+### Phase 02 COM-005 through COM-007 disposition
 
-- The priced item/service identity, unit, currency, validity and applicable context.
-- The precedence/fallback when several default/customer/program/wholesale or
-  negotiated sources apply, including missing-price and conflicting-rule outcomes.
-- The authority to publish prices or apply a final override, its reason/evidence,
-  approval and any floor/ceiling; do not infer it from order creation permission.
-- Quantity breaks, discounts or other rules actually required by the selected case.
-- Revision pinning, concurrent publication behavior and required revalidation of
-  unissued drafts; issued facts must never be silently recomputed.
+- **COM-005** is owned by `CATALOG_AND_UNIT_BOUNDARY.md`; consult its current
+  accepted stable item/unit and stock-mode contract. Manual free-description entry
+  remains a supported compatibility path.
+- **COM-006 is owner-accepted and implemented for host-neutral contracts.** The
+  focused owner closes the priced identity/context, explicit precedence,
+  missing/expired/conflict outcomes, override reason/evidence, policy envelope,
+  additional-capability override branch and draft revalidation contract.
+- **COM-007 is implemented for the bounded provider adapter.** Publication is
+  immutable and revisioned, same-scope overlaps are rejected, and selection
+  explanations retain the selected fact and policy context. Public host
+  exposure is introduced but receiving qualification remains `BLOCKED` rather
+  than being inferred from focused provider tests.
 
-Price configuration belongs to the tenant and can support scoped customer/program
-variation. It must not be hardcoded in order endpoints or implemented by accepting
-arbitrary customer scripts. Resolve it through the owning application boundary
-before committing the operation that depends on it. Frontend guidance uses the
-same typed result/explanation, not an independent client price implementation.
-
-The current internal calculator remains in its first real owning module. A
-provider-neutral pricing capability/project is earned when independently owned
-price policy or a second active quotation/invoice consumer needs a shared contract;
-the component must then accept pricing-owned inputs rather than forcing those
-capabilities to depend on Orders-specific draft types.
+Requalify this boundary when a pricing host route, OpenFGA relation, migration
+registration, Orders revalidation caller or another price-bearing consumer is
+introduced.
 
 ## Regression and requalification
 

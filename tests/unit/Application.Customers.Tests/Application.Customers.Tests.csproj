@@ -13,6 +13,7 @@
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="../../../foundation/object-storage/Application.ObjectStorage/Application.ObjectStorage.csproj" />
     <ProjectReference Include="../../../modules/customers/Application.Customers/Application.Customers.csproj" />
   </ItemGroup>
 </Project>

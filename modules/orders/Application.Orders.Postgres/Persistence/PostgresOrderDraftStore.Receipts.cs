@@ -4,6 +4,24 @@ namespace Application.Orders.Postgres;
 
 public sealed partial class PostgresOrderDraftStore
 {
+    private const int CommercialReceiptSchemaVersion = 4;
+    public async Task<CreateOrderDraftResult?> FindCreateReceiptAsync(Application.Tenancy.TenantContext context,
+        string key, string fingerprint, CancellationToken ct)
+    {
+        await using var session = await OrderTenantDbSession.OpenAsync(dataSource, context.TenantId, ct).ConfigureAwait(false);
+        var receipt = await FindReceiptAsync(session, context.TenantId, context.AccountId, CreateOperation, key, ct).ConfigureAwait(false);
+        await session.CommitAsync(ct).ConfigureAwait(false);
+        return receipt is null ? null : ToExistingResult(receipt, fingerprint);
+    }
+
+    public async Task<ReviseOrderDraftResult?> FindRevisionReceiptAsync(Application.Tenancy.TenantContext context,
+        string key, string fingerprint, CancellationToken ct)
+    {
+        await using var session = await OrderTenantDbSession.OpenAsync(dataSource, context.TenantId, ct).ConfigureAwait(false);
+        var receipt = await FindReceiptAsync(session, context.TenantId, context.AccountId, ReviseOperation, key, ct).ConfigureAwait(false);
+        await session.CommitAsync(ct).ConfigureAwait(false);
+        return receipt is null ? null : ToExistingReviseResult(receipt, fingerprint);
+    }
     private const int CommitmentReceiptSchemaVersion = 3;
     private const string CommitResultType = "order-committed";
     private const int LegacyReceiptSchemaVersion = 1;
@@ -32,6 +50,7 @@ public sealed partial class PostgresOrderDraftStore
         command.Parameters.AddWithValue("order_id", order.OrderId);
         command.Parameters.AddWithValue("response_json", JsonSerializer.Serialize(
             new OrderReceiptEnvelope(
+                order.Lines.Any(line => line.CommercialFacts is not null) ? CommercialReceiptSchemaVersion :
                 operation == CommitOperation ? CommitmentReceiptSchemaVersion : order.CustomerContext is null
                     ? LegacyReceiptSchemaVersion
                     : CustomerAttributionReceiptSchemaVersion,
@@ -138,8 +157,8 @@ public sealed partial class PostgresOrderDraftStore
             {
                 if (version.ValueKind != JsonValueKind.Number
                     || !version.TryGetInt32(out var schemaVersion)
-                    || schemaVersion is not (LegacyReceiptSchemaVersion or CustomerAttributionReceiptSchemaVersion or CommitmentReceiptSchemaVersion)
-                    || (schemaVersion == CommitmentReceiptSchemaVersion) != (expectedOperation == CommitOperation)
+                    || schemaVersion is not (LegacyReceiptSchemaVersion or CustomerAttributionReceiptSchemaVersion or CommitmentReceiptSchemaVersion or CommercialReceiptSchemaVersion)
+                    || (schemaVersion != CommercialReceiptSchemaVersion && (schemaVersion == CommitmentReceiptSchemaVersion) != (expectedOperation == CommitOperation))
                     || operation.ValueKind != JsonValueKind.String
                     || !string.Equals(operation.GetString(), expectedOperation, StringComparison.Ordinal)
                     || resultType.ValueKind != JsonValueKind.String
@@ -155,8 +174,9 @@ public sealed partial class PostgresOrderDraftStore
                     receipt,
                     expectedOperation,
                     requireLifecycleFields: true,
-                    requireCustomerContext: schemaVersion == CommitmentReceiptSchemaVersion
-                        ? null : schemaVersion == CustomerAttributionReceiptSchemaVersion);
+                    requireCustomerContext: schemaVersion is CommitmentReceiptSchemaVersion or CommercialReceiptSchemaVersion
+                        ? null : schemaVersion == CustomerAttributionReceiptSchemaVersion,
+                    requireCommercialFacts: schemaVersion == CommercialReceiptSchemaVersion);
             }
 
             if (expectedOperation == CommitOperation)
@@ -166,7 +186,8 @@ public sealed partial class PostgresOrderDraftStore
                 receipt,
                 expectedOperation,
                 requireLifecycleFields: false,
-                requireCustomerContext: false);
+                requireCustomerContext: false,
+                requireCommercialFacts: false);
         }
         catch (JsonException)
         {
@@ -179,7 +200,8 @@ public sealed partial class PostgresOrderDraftStore
         OrderCommandReceipt receipt,
         string expectedOperation,
         bool requireLifecycleFields,
-        bool? requireCustomerContext)
+        bool? requireCustomerContext,
+        bool requireCommercialFacts)
     {
         foreach (var property in new[]
                  {
@@ -237,6 +259,10 @@ public sealed partial class PostgresOrderDraftStore
             throw InvalidReceipt();
         }
 
+        if (order.Lines.Any(line => line.CommercialFacts is not null) != requireCommercialFacts)
+            throw InvalidReceipt();
+
+        OrderCommercialFactsValidation.RequireValid(order);
         return order;
     }
 

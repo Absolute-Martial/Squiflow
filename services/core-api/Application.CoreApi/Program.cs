@@ -10,6 +10,8 @@ using Application.CoreApi.Authentication;
 using Application.CoreApi.Authorization;
 using Application.CoreApi.Composition;
 using Application.CoreApi.Health;
+using Application.CoreApi.ImportExecution;
+using Application.CoreApi.Storage;
 using Application.Tenancy;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -26,6 +28,7 @@ var authenticationConfiguration = OidcAuthenticationConfiguration.From(builder.C
 var openFgaAuthorizationConfiguration = OpenFgaAuthorizationConfiguration.From(builder.Configuration);
 var highRiskActionConfiguration = HighRiskActionAdmissionConfiguration.From(builder.Configuration);
 var databaseConfiguration = RuntimeDatabaseConfiguration.From(builder.Configuration);
+var objectStorageConfiguration = HuggingFaceObjectStoreConfiguration.From(builder.Configuration);
 RequestHostConfiguration.Validate(builder.Configuration);
 var brandProfile = brandingConfiguration.ToProfile();
 var bootstrapCacheMaxAgeSeconds = bootstrapCacheConfiguration.GetCacheMaxAgeSeconds();
@@ -33,6 +36,8 @@ var bootstrapCacheMaxAgeSeconds = bootstrapCacheConfiguration.GetCacheMaxAgeSeco
 builder.Services.AddSingleton(brandProfile);
 builder.Services.AddCoreApiAuthorization(openFgaAuthorizationConfiguration);
 builder.Services.AddCoreApiPersistence(databaseConfiguration);
+builder.Services.AddObjectStorage(objectStorageConfiguration);
+builder.Services.AddCustomerImportExecution(builder.Configuration, databaseConfiguration);
 builder.Services.AddCoreApiAuthentication(authenticationConfiguration);
 builder.Services.AddCoreApiAdmission(builder.Configuration);
 builder.Services.AddCoreApiRequestBudgets(builder.Configuration);
@@ -459,6 +464,11 @@ app.MapPost("/api/v1/tenants/{tenantId:guid}/orders/{orderId:guid}/commit", Tena
     .ProducesProblem(StatusCodes.Status504GatewayTimeout);
 
 app.MapCustomerIndividualEndpoints();
+app.MapCustomerDuplicateImportEndpoints();
+app.MapCatalogEndpoints();
+app.MapPricingEndpoints();
+app.MapCatalogOrderEndpoints();
+app.MapCustomerRepresentativeEndpoints();
 
 app.MapHealthChecks("/health/live", new HealthCheckOptions
 {

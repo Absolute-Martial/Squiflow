@@ -155,16 +155,32 @@
       "application.branding": {
         "type": "Project"
       },
+      "application.catalog": {
+        "type": "Project",
+        "dependencies": {
+          "Application.Tenancy": "[0.0.1, )"
+        }
+      },
+      "application.catalog.postgres": {
+        "type": "Project",
+        "dependencies": {
+          "Application.Catalog": "[0.0.1, )",
+          "Microsoft.EntityFrameworkCore": "[10.0.8, )",
+          "Npgsql": "[10.0.2, )",
+          "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.1, )"
+        }
+      },
       "application.customers": {
         "type": "Project",
         "dependencies": {
-          "Application.Tenancy": "[0.1.0, )"
+          "Application.ObjectStorage": "[0.0.1, )",
+          "Application.Tenancy": "[0.0.1, )"
         }
       },
       "application.customers.postgres": {
         "type": "Project",
         "dependencies": {
-          "Application.Customers": "[0.1.0, )",
+          "Application.Customers": "[0.0.1, )",
           "Microsoft.EntityFrameworkCore": "[10.0.8, )",
           "Npgsql": "[10.0.2, )",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.1, )"
@@ -176,22 +192,39 @@
       "application.identityaccess.postgres": {
         "type": "Project",
         "dependencies": {
-          "Application.IdentityAccess": "[0.1.0, )",
+          "Application.IdentityAccess": "[0.0.1, )",
           "Microsoft.EntityFrameworkCore": "[10.0.8, )",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.1, )"
         }
       },
+      "application.objectstorage": {
+        "type": "Project"
+      },
       "application.orders": {
         "type": "Project",
         "dependencies": {
-          "Application.Customers": "[0.1.0, )",
-          "Application.Tenancy": "[0.1.0, )"
+          "Application.Catalog": "[0.0.1, )",
+          "Application.Customers": "[0.0.1, )",
+          "Application.Pricing": "[0.0.1, )",
+          "Application.Tenancy": "[0.0.1, )"
         }
       },
       "application.orders.postgres": {
         "type": "Project",
         "dependencies": {
-          "Application.Orders": "[0.1.0, )",
+          "Application.Orders": "[0.0.1, )",
+          "Microsoft.EntityFrameworkCore": "[10.0.8, )",
+          "Npgsql": "[10.0.2, )",
+          "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.1, )"
+        }
+      },
+      "application.pricing": {
+        "type": "Project"
+      },
+      "application.pricing.postgres": {
+        "type": "Project",
+        "dependencies": {
+          "Application.Pricing": "[0.0.1, )",
           "Microsoft.EntityFrameworkCore": "[10.0.8, )",
           "Npgsql": "[10.0.2, )",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.1, )"
@@ -203,7 +236,7 @@
       "application.tenancy.postgres": {
         "type": "Project",
         "dependencies": {
-          "Application.Tenancy": "[0.1.0, )",
+          "Application.Tenancy": "[0.0.1, )",
           "Microsoft.EntityFrameworkCore": "[10.0.8, )",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.1, )"
         }

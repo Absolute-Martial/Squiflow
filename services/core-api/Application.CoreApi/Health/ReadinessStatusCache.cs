@@ -7,6 +7,7 @@ internal sealed class ReadinessStatusCache(
     HealthCheckService healthChecks,
     TimeProvider timeProvider) : IDisposable
 {
+    private static readonly TimeSpan ProbeTimeout = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan Retention = TimeSpan.FromSeconds(5);
     private readonly SemaphoreSlim _gate = new(1, 1);
     private Snapshot? _snapshot;
@@ -29,16 +30,22 @@ internal sealed class ReadinessStatusCache(
             }
 
             bool healthy;
+            using var probeCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            probeCancellation.CancelAfter(ProbeTimeout);
             try
             {
                 var report = await healthChecks.CheckHealthAsync(
                     static registration => registration.Tags.Contains("readiness"),
-                    cancellationToken);
+                    probeCancellation.Token);
                 healthy = report.Status == HealthStatus.Healthy;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 throw;
+            }
+            catch (OperationCanceledException)
+            {
+                healthy = false;
             }
             catch (Exception)
             {

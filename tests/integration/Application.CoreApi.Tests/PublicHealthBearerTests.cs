@@ -47,12 +47,12 @@ public sealed class PublicHealthBearerTests
         using var request = new HttpRequestMessage(HttpMethod.Get, path);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer",
             malformedBearer ? "malformed-public-bearer" : baseline.CreateToken());
-        using var caller = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var caller = new CancellationTokenSource(Watchdog);
         var pending = client.SendAsync(request, caller.Token);
         try
         {
             var completed = await Task.WhenAny(pending, discovery.Entered.Task)
-                .WaitAsync(TimeSpan.FromSeconds(10));
+                .WaitAsync(Watchdog);
             Assert.False(discovery.Entered.Task.IsCompleted, "Public health invoked identity-provider discovery.");
             Assert.Same(pending, completed);
             using var response = await pending;
@@ -107,7 +107,7 @@ public sealed class PublicHealthBearerTests
         });
         using var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/account");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", baseline.CreateToken());
-        using var caller = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var caller = new CancellationTokenSource(Watchdog);
         var pending = client.SendAsync(request, caller.Token);
         try
         {
@@ -140,7 +140,7 @@ public sealed class PublicHealthBearerTests
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer",
                 identity == "valid" ? factory.CreateToken() : "malformed-protected-bearer");
         }
-        using var response = await client.SendAsync(request).WaitAsync(TimeSpan.FromSeconds(10));
+        using var response = await client.SendAsync(request).WaitAsync(Watchdog);
         Assert.Equal(expected, response.StatusCode);
         Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
     }
@@ -152,7 +152,7 @@ public sealed class PublicHealthBearerTests
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
         using var request = new HttpRequestMessage(HttpMethod.Get, "/unknown-public-auth-review");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", factory.CreateToken());
-        using var response = await client.SendAsync(request).WaitAsync(TimeSpan.FromSeconds(10));
+        using var response = await client.SendAsync(request).WaitAsync(Watchdog);
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.Empty(await response.Content.ReadAsStringAsync());
     }

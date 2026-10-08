@@ -3,7 +3,7 @@ namespace Application.Orders.Pricing;
 // Calculates supplied draft selling prices; selecting or authorizing a price is a separate responsibility.
 internal static class OrderDraftPriceCalculator
 {
-    internal static (OrderDraftLine[] Lines, decimal Total) Calculate(IReadOnlyList<OrderDraftLineInput>? inputs)
+    internal static (OrderDraftLine[] Lines, decimal Total) Calculate(IReadOnlyList<OrderDraftLineInput>? inputs, bool catalogUnitCodes = false)
     {
         if (inputs is null || inputs.Count is < 1 or > 100)
         {
@@ -23,7 +23,7 @@ internal static class OrderDraftPriceCalculator
                 300,
                 "line_description_invalid",
                 "Line description is required and cannot exceed 300 characters.");
-            var unitCode = OrderDraftRules.NormalizeCode(
+            var unitCode = catalogUnitCodes ? NormalizeCatalogCode(input.UnitCode) : OrderDraftRules.NormalizeCode(
                 input.UnitCode,
                 1,
                 16,
@@ -60,5 +60,13 @@ internal static class OrderDraftPriceCalculator
         }
 
         return (lines, total);
+    }
+
+    private static string NormalizeCatalogCode(string code)
+    {
+        if (string.IsNullOrWhiteSpace(code) || code.Length is < 1 or > 64 ||
+            code.Any(character => !(char.IsAsciiLetterOrDigit(character) || character is '-' or '_')))
+            throw new OrderDraftValidationException("unit_code_invalid", "Catalog unit code must be bounded ASCII code text.");
+        return code.ToUpperInvariant();
     }
 }

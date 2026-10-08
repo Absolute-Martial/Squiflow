@@ -68,6 +68,48 @@ public sealed class CustomerIndividualEndpointTests : IClassFixture<WhiteLabelAp
     }
 
     [Fact]
+    public async Task ContactEditRequiresItsOwnPermissionAndIsRevisionCheckedAndReplaySafe()
+    {
+        var (actor, tenant, token) = Member();
+        var path = Path(tenant);
+        _factory.SetCustomerDecision(actor, tenant, "createIndividual", true);
+        using var created = await Send(path, token, "create-contact",
+            "{\"displayName\":\"Jane Doe\",\"email\":\"jane@example.test\",\"phone\":\"+977 12345\"}");
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        using var createdJson = JsonDocument.Parse(await created.Content.ReadAsStringAsync());
+        var id = createdJson.RootElement.GetProperty("individualId").GetGuid();
+        var contactPath = $"{path}/{id:D}/contact";
+        const string body = "{\"expectedRevision\":1,\"displayName\":\"Jane Updated\",\"email\":\"updated@example.test\",\"phone\":null}";
+
+        using var denied = await Send(contactPath, token, "edit-contact", body);
+        Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+
+        _factory.SetCustomerDecision(actor, tenant, "editIndividualContact", true);
+        using var changed = await Send(contactPath, token, "edit-contact", body);
+        Assert.Equal(HttpStatusCode.OK, changed.StatusCode);
+        var changedBody = await changed.Content.ReadAsStringAsync();
+        using var changedJson = JsonDocument.Parse(changedBody);
+        Assert.Equal("Jane Updated", changedJson.RootElement.GetProperty("displayName").GetString());
+        Assert.Equal("updated@example.test", changedJson.RootElement.GetProperty("email").GetString());
+        Assert.Equal(JsonValueKind.Null, changedJson.RootElement.GetProperty("phone").ValueKind);
+        Assert.Equal(2, changedJson.RootElement.GetProperty("revision").GetInt64());
+        Assert.Equal(JsonValueKind.String, changedJson.RootElement.GetProperty("contactChangedAt").ValueKind);
+
+        using var replay = await Send(contactPath, token, "edit-contact", body);
+        Assert.Equal(changedBody, await replay.Content.ReadAsStringAsync());
+        Assert.Equal("true", replay.Headers.GetValues("Idempotency-Replayed").Single());
+
+        using var stale = await Send(contactPath, token, "stale-contact",
+            "{\"expectedRevision\":1,\"displayName\":\"Jane Stale\",\"email\":null,\"phone\":null}");
+        Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+        Assert.Contains("revision_conflict", await stale.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+
+        _factory.SetCustomerDecision(actor, tenant, "editIndividualContact", false);
+        using var revokedReplay = await Send(contactPath, token, "edit-contact", body);
+        Assert.Equal(HttpStatusCode.Forbidden, revokedReplay.StatusCode);
+    }
+
+    [Fact]
     public async Task MembershipProviderFailureAndTenantBoundaryPrecedePersistence()
     {
         var actor = Guid.NewGuid(); var tenant = Guid.NewGuid(); var subject = Guid.NewGuid().ToString("N");
