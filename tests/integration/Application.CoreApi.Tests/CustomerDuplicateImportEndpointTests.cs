@@ -80,7 +80,8 @@ public sealed class CustomerDuplicateImportEndpointTests
             services.RemoveAll<ICustomerImportAuthority>(); services.AddSingleton<ICustomerImportAuthority>(new DeniedImportAuthority());
         }));
         using var client = configured.CreateClient(); client.DefaultRequestHeaders.Authorization = new("Bearer", factory.CreateToken(subject));
-        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/tenants/{tenant:D}/customers/imports")
+        var importPath = $"/api/v1/tenants/{tenant:D}/customers/imports";
+        using var request = new HttpRequestMessage(HttpMethod.Post, importPath)
         { Content = new StringContent("name\n" + string.Concat(Enumerable.Range(0, 80).Select(index => $"Synthetic Person {index}\n")), Encoding.UTF8, "text/csv") };
         request.Headers.Add("Idempotency-Key", "plan-only");
         using var response = await client.SendAsync(request); Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -88,6 +89,8 @@ public sealed class CustomerDuplicateImportEndpointTests
         Assert.Equal(80, metadata.RootElement.GetProperty("rowCount").GetInt32());
         Assert.False(metadata.RootElement.TryGetProperty("rows", out _));
         var id = metadata.RootElement.GetProperty("importId").GetGuid();
+        // The created import URL is the requested import resource plus the created identity.
+        Assert.Equal($"{request.RequestUri!.AbsolutePath}/{id:D}", response.Headers.Location!.OriginalString);
         using var invalidPage = await client.GetAsync($"/api/v1/tenants/{tenant:D}/customers/imports/{id:D}/rows?limit=10000");
         Assert.Equal(HttpStatusCode.BadRequest, invalidPage.StatusCode); Assert.Equal(0, store.ReadCalls);
         using var page = await client.GetAsync($"/api/v1/tenants/{tenant:D}/customers/imports/{id:D}/rows?limit=25");
@@ -333,6 +336,37 @@ public sealed class CustomerDuplicateImportEndpointTests
     }
 
     [Fact]
+    public async Task AcceptedWorkPointsAtTheAcceptedImportResource()
+    {
+        using var factory = new WhiteLabelApiFactory(); var actor = Guid.NewGuid(); var tenant = Guid.NewGuid(); var subject = Guid.NewGuid().ToString("N");
+        factory.Bind(subject, actor); factory.AddTenantMembership(actor, tenant, "Import tenant");
+        var store = new AcceptingImportStore();
+        var current = await factory.Server.Services.GetRequiredService<ResolveTenantContext>()
+            .ExecuteAsync(actor, tenant, CancellationToken.None);
+        using var configured = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<CustomerImportExecutionState>();
+            var execution = new CustomerImportExecutionState(); execution.SetAccepting(true);
+            services.AddSingleton(execution);
+            services.RemoveAll<ICustomerImportStore>(); services.AddSingleton<ICustomerImportStore>(store);
+            services.RemoveAll<ITenantCustomerAuthorization>(); services.AddSingleton<ITenantCustomerAuthorization>(new EndpointCustomerAuthority(importAllowed: true));
+            services.RemoveAll<ICustomerImportAuthority>(); services.AddSingleton<ICustomerImportAuthority>(new AllowedImportAuthority(current!));
+        }));
+        using var client = configured.CreateClient();
+        var importPath = $"/api/v1/tenants/{tenant:D}/customers/imports";
+        var importId = Guid.NewGuid();
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"{importPath}/{importId:D}/accept")
+        { Content = JsonContent.Create(new { decisions = Array.Empty<object>() }) };
+        request.Headers.Authorization = new("Bearer", factory.CreateToken(subject)); request.Headers.Add("Idempotency-Key", "accept-work");
+        using var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        // The accepted work URL is the requested import resource, not the accept action.
+        Assert.Equal($"{new Uri(request.RequestUri!, "../").AbsolutePath}{importId:D}",
+            response.Headers.Location!.OriginalString);
+        Assert.Equal(importId, store.Requests.Single().ImportId);
+    }
+
+    [Fact]
     public async Task AcceptanceRechecksNeutralCurrentAuthorityBeforeDurableWork()
     {
         using var factory = new WhiteLabelApiFactory(); var actor = Guid.NewGuid(); var tenant = Guid.NewGuid(); var subject = Guid.NewGuid().ToString("N");
@@ -399,6 +433,33 @@ public sealed class CustomerDuplicateImportEndpointTests
         public int Checks { get; private set; }
         public Task<CustomerImportAuthoritySnapshot?> CheckAsync(Guid tenantId, Guid accountId, CancellationToken cancellationToken)
         { Checks++; return Task.FromResult<CustomerImportAuthoritySnapshot?>(null); }
+    }
+
+    private sealed class AllowedImportAuthority(TenantContext current) : ICustomerImportAuthority
+    {
+        public Task<CustomerImportAuthoritySnapshot?> CheckAsync(Guid tenantId, Guid accountId, CancellationToken cancellationToken) =>
+            Task.FromResult<CustomerImportAuthoritySnapshot?>(
+                tenantId == current.TenantId && accountId == current.AccountId
+                    ? new(current, 1) : null);
+    }
+
+    private sealed class AcceptingImportStore : ICustomerImportStore
+    {
+        public List<ExecuteCustomerImportRequest> Requests { get; } = [];
+        public Task<ExecuteCustomerImportResult> ExecuteImportAsync(TenantContext context, ExecuteCustomerImportRequest request,
+            string idempotencyKey, long authorizationRevision, CancellationToken cancellationToken)
+        {
+            Requests.Add(request);
+            return Task.FromResult(new ExecuteCustomerImportResult(
+                new(Guid.NewGuid(), request.ImportId, CustomerImportWorkStatus.Accepted, 0, 0,
+                    new DateTimeOffset(2026, 10, 6, 12, 0, 0, TimeSpan.Zero), null, null), []));
+        }
+        private static T Fail<T>() => throw new InvalidOperationException("This import store double accepts work only.");
+        public Task<CreateCustomerImportResult> CreateImportPlanAsync(TenantContext context, CustomerImportPlan plan,
+            string idempotencyKey, CancellationToken cancellationToken) => Fail<Task<CreateCustomerImportResult>>();
+        public Task<CustomerImportSummary?> ReadImportSummaryAsync(TenantContext context, Guid importId, CancellationToken cancellationToken) => Fail<Task<CustomerImportSummary?>>();
+        public Task<CustomerImportRowPage> ReadImportRowsPageAsync(TenantContext context, Guid importId, int afterRowNumber,
+            int limit, CancellationToken cancellationToken) => Fail<Task<CustomerImportRowPage>>();
     }
 
     private sealed class EndpointCustomerAuthority(bool importAllowed = false, bool resolveAllowed = false) : ITenantCustomerAuthorization
