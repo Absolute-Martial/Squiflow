@@ -6,6 +6,14 @@ public sealed record CustomerImportAuthoritySnapshot(TenantContext Context, long
 public sealed class CustomerImportAuthorityException() : InvalidOperationException("Current customer import authority is unavailable or denied.");
 public sealed class CustomerImportClaimLostException() : InvalidOperationException("Import claim is no longer current.");
 
+// A retained import plan carries a contract version this deployment cannot interpret. No request
+// change resolves it, so it must not inherit ArgumentException and must never be mapped to a client result.
+public sealed class CustomerImportContractUnsupportedException(string contractVersion)
+    : InvalidOperationException($"Retained customer import contract '{contractVersion}' is not supported by this deployment.")
+{
+    public string ContractVersion { get; } = contractVersion;
+}
+
 // The host adapter must check active account, active membership, active tenant and current
 // Customers.Import permission. No token/saved acceptance alone grants future worker authority.
 public interface ICustomerImportAuthority
