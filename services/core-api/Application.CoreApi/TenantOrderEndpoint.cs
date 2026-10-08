@@ -751,14 +751,78 @@ internal static class TenantOrderEndpoint
             order.CustomerContext,
             order.CommittedAt);
 
+    // Retained commercial facts are owned by Catalog/Pricing/Orders; the host maps them
+    // into its own wire records so module enum ordinals and internal ranking never become
+    // part of the public v1 contract. Member names and JSON member order are unchanged.
     private static OrderCommercialLineFactsResponse? ToCommercialFactsResponse(OrderCommercialLineFacts? facts) =>
-        facts is null ? null : new(facts.Catalog,
+        facts is null ? null : new(ToCatalogFactsResponse(facts.Catalog),
             new(facts.PublishedPrice.PriceId, facts.PublishedPrice.RevisionId, facts.PublishedPrice.RevisionNumber,
                 facts.PublishedPrice.Key.ItemId, facts.PublishedPrice.Key.UnitId, facts.PublishedPrice.Key.UnitCode,
                 facts.PublishedPrice.Key.CurrencyCode, facts.PublishedPrice.Key.UnitConversionRevision,
-                facts.PublishedPrice.Key.Scope, facts.PublishedPrice.BaseUnitPrice,
+                ToPriceScopeResponse(facts.PublishedPrice.Key.Scope), facts.PublishedPrice.BaseUnitPrice,
                 facts.PublishedPrice.Validity.ValidFrom, facts.PublishedPrice.Validity.ValidTo,
-                facts.PublishedPrice.PublishedAt!.Value), facts.PriceSelection);
+                facts.PublishedPrice.PublishedAt!.Value), ToPriceSelectionResponse(facts.PriceSelection));
+
+    private static OrderCatalogLineFactsResponse ToCatalogFactsResponse(Application.Catalog.CatalogLineFacts facts) =>
+        new(facts.ItemId, facts.ItemCode, facts.UnitId, facts.ItemName, facts.UnitCode, facts.UnitName,
+            facts.Quantity, facts.UnitPrecision, facts.ItemRevision, facts.UnitRevision,
+            new(facts.Conversion.SourceUnitId, facts.Conversion.TargetUnitId, facts.Conversion.Revision,
+                facts.Conversion.Numerator, facts.Conversion.Denominator),
+            facts.BaseUnitCode, facts.BaseUnitName, facts.BaseUnitPrecision, facts.BaseUnitRevision,
+            facts.BaseQuantity, facts.QuantityArithmeticVersion, facts.QuantityRounding);
+
+    private static OrderPriceSelectionResponse ToPriceSelectionResponse(Application.Pricing.RetainedPriceSelection selection) =>
+        new(selection.ItemId, selection.UnitId, selection.CurrencyCode, selection.UnitPrice,
+            new(selection.Explanation.SelectedPrice, selection.Explanation.SelectedRevisionId,
+                selection.Explanation.SelectedRevision,
+                selection.Explanation.SelectedScope is { } selected
+                    ? ToPriceScopeResponse(selected) : null,
+                selection.Explanation.Candidates.Select(candidate => new OrderPriceCandidateResponse(
+                    candidate.RevisionId, candidate.RevisionNumber, ToPriceScopeResponse(candidate.Scope),
+                    ToWirePublicationState(candidate.State),
+                    new(candidate.Validity.ValidFrom, candidate.Validity.ValidTo),
+                    candidate.BaseUnitPrice)).ToArray(),
+                selection.Explanation.Override is { } priceOverride
+                    ? new(priceOverride.UnitPrice, priceOverride.Reason, priceOverride.BeyondPolicy,
+                        priceOverride.ApprovalReference, priceOverride.ApprovedByAccountId) : null,
+                selection.Explanation.Discount is { } discount
+                    ? new(discount.PolicyReference, discount.Revision, discount.Amount) : null,
+                selection.Explanation.PolicyRevision, selection.Explanation.EvaluatedAt,
+                new(selection.Explanation.Context.CustomerId, selection.Explanation.Context.ProgramId,
+                    selection.Explanation.Context.OrganizationId, selection.Explanation.Context.WholesaleTierId,
+                    selection.Explanation.Context.CommittedQuotationId,
+                    selection.Explanation.Context.CommittedAgreementId,
+                    selection.Explanation.Context.WholesaleApplicable,
+                    selection.Explanation.Context.UnitConversionRevision),
+                selection.Explanation.SelectedPriceId, selection.Explanation.Why,
+                selection.Explanation.Policy is { } policy
+                    ? new(policy.PolicyRevision, policy.MinimumUnitPrice, policy.MaximumUnitPrice,
+                        policy.MaximumDecreasePercent, policy.MaximumIncreasePercent) : null));
+
+    // PriceScope.Precedence is an internal selection ranking, not a published fact.
+    private static OrderPriceScopeResponse ToPriceScopeResponse(Application.Pricing.PriceScope scope) =>
+        new(ToWireScopeKind(scope.Kind), scope.TargetId);
+
+    private static string ToWireScopeKind(Application.Pricing.PriceScopeKind kind) => kind switch
+    {
+        Application.Pricing.PriceScopeKind.CommittedQuotation => "committedQuotation",
+        Application.Pricing.PriceScopeKind.CommittedAgreement => "committedAgreement",
+        Application.Pricing.PriceScopeKind.Customer => "customer",
+        Application.Pricing.PriceScopeKind.Program => "program",
+        Application.Pricing.PriceScopeKind.Organization => "organization",
+        Application.Pricing.PriceScopeKind.Wholesale => "wholesale",
+        Application.Pricing.PriceScopeKind.Default => "default",
+        _ => throw new InvalidOperationException("The order returned an unsupported price scope kind."),
+    };
+
+    private static string ToWirePublicationState(Application.Pricing.PricePublicationState state) => state switch
+    {
+        Application.Pricing.PricePublicationState.Draft => "draft",
+        Application.Pricing.PricePublicationState.Published => "published",
+        Application.Pricing.PricePublicationState.Superseded => "superseded",
+        Application.Pricing.PricePublicationState.Retired => "retired",
+        _ => throw new InvalidOperationException("The order returned an unsupported price publication state."),
+    };
 
     internal static string ToWireState(OrderDraftState state) => state switch
     {
@@ -915,14 +979,51 @@ internal sealed record OrderDraftLineResponse(
     OrderCommercialLineFactsResponse? CommercialFacts = null);
 
 internal sealed record OrderCommercialLineFactsResponse(
-    Application.Catalog.CatalogLineFacts Catalog,
+    OrderCatalogLineFactsResponse Catalog,
     OrderPublishedPriceResponse PublishedPrice,
-    Application.Pricing.RetainedPriceSelection PriceSelection);
+    OrderPriceSelectionResponse PriceSelection);
+
+internal sealed record OrderCatalogLineFactsResponse(Guid ItemId, string? ItemCode, Guid UnitId, string ItemName,
+    string UnitCode, string UnitName, decimal Quantity, int UnitPrecision, long ItemRevision, long UnitRevision,
+    OrderCatalogConversionResponse Conversion, string? BaseUnitCode = null, string? BaseUnitName = null,
+    int? BaseUnitPrecision = null, long? BaseUnitRevision = null, decimal? BaseQuantity = null,
+    int QuantityArithmeticVersion = 1, string QuantityRounding = "toEven");
+
+internal sealed record OrderCatalogConversionResponse(Guid SourceUnitId, Guid TargetUnitId, long Revision,
+    decimal Numerator, decimal Denominator);
 
 internal sealed record OrderPublishedPriceResponse(Guid PriceId, Guid RevisionId, long RevisionNumber,
     Guid ItemId, Guid UnitId, string UnitCode, string CurrencyCode, long? ConversionRevision,
-    Application.Pricing.PriceScope Scope, decimal BaseUnitPrice, DateTimeOffset ValidFrom,
+    OrderPriceScopeResponse Scope, decimal BaseUnitPrice, DateTimeOffset ValidFrom,
     DateTimeOffset? ValidTo, DateTimeOffset PublishedAt);
+
+internal sealed record OrderPriceScopeResponse(string Kind, Guid? TargetId);
+
+internal sealed record OrderPriceSelectionResponse(Guid ItemId, Guid UnitId, string CurrencyCode, decimal UnitPrice,
+    OrderPriceSelectionExplanationResponse Explanation);
+
+internal sealed record OrderPriceSelectionExplanationResponse(decimal? SelectedPrice, Guid? SelectedRevisionId,
+    long? SelectedRevision, OrderPriceScopeResponse? SelectedScope, IReadOnlyList<OrderPriceCandidateResponse> Candidates,
+    OrderPriceOverrideEvidenceResponse? Override, OrderPriceDiscountEvidenceResponse? Discount, long PolicyRevision,
+    DateTimeOffset EvaluatedAt, OrderPriceSelectionContextResponse Context, Guid? SelectedPriceId = null,
+    string Why = "", OrderPricingPolicyResponse? Policy = null);
+
+internal sealed record OrderPriceCandidateResponse(Guid RevisionId, long RevisionNumber, OrderPriceScopeResponse Scope,
+    string State, OrderPriceValidityResponse Validity, decimal? BaseUnitPrice);
+
+internal sealed record OrderPriceValidityResponse(DateTimeOffset ValidFrom, DateTimeOffset? ValidTo);
+
+internal sealed record OrderPriceOverrideEvidenceResponse(decimal UnitPrice, string Reason, bool BeyondPolicy,
+    string? ApprovalReference, Guid? ApprovedByAccountId);
+
+internal sealed record OrderPriceDiscountEvidenceResponse(string PolicyReference, long Revision, decimal Amount);
+
+internal sealed record OrderPriceSelectionContextResponse(Guid? CustomerId, Guid? ProgramId, Guid? OrganizationId,
+    Guid? WholesaleTierId, Guid? CommittedQuotationId, Guid? CommittedAgreementId, bool WholesaleApplicable,
+    long? UnitConversionRevision);
+
+internal sealed record OrderPricingPolicyResponse(long PolicyRevision, decimal MinimumUnitPrice,
+    decimal MaximumUnitPrice, decimal? MaximumDecreasePercent, decimal? MaximumIncreasePercent);
 
 internal sealed record OrderDraftPageResponse(
     IReadOnlyList<OrderDraftListItemResponse> Items,
