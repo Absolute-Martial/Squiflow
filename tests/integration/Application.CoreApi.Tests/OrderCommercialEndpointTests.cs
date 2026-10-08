@@ -65,6 +65,25 @@ public sealed class OrderCommercialEndpointTests
     }
 
     [Fact]
+    public async Task CatalogOrderProblemTitlesNameOrdersAndNeverCustomerResources()
+    {
+        using var fixture = new OrderCommercialHostFixture();
+        using var unknown = await fixture.SendAsync(HttpMethod.Put,
+            $"{Guid.NewGuid():D}/catalog-priced-draft", fixture.Body(expectedRevision: 1), "unknown-order");
+        Assert.Equal(HttpStatusCode.NotFound, unknown.StatusCode);
+        using var unknownProblem = JsonDocument.Parse(await unknown.Content.ReadAsStringAsync());
+        Assert.Equal("order_not_found", unknownProblem.RootElement.GetProperty("code").GetString());
+        Assert.Equal("Order not found.", unknownProblem.RootElement.GetProperty("title").GetString());
+
+        using var invalid = await fixture.SendJsonAsync("{\"summary\":\"Catalog\",\"currencyCode\":\"USD\",\"unknown\":true}");
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        using var invalidProblem = JsonDocument.Parse(await invalid.Content.ReadAsStringAsync());
+        Assert.Equal("request_invalid", invalidProblem.RootElement.GetProperty("code").GetString());
+        Assert.Equal("Invalid catalog order request.", invalidProblem.RootElement.GetProperty("title").GetString());
+        Assert.DoesNotContain("ustomer", invalidProblem.RootElement.GetProperty("title").GetString());
+    }
+
+    [Fact]
     public async Task CommercialFactsWireShapeCarriesNoModuleEnumOrdinalOrInternalPrecedence()
     {
         using var fixture = new OrderCommercialHostFixture();
@@ -281,7 +300,8 @@ internal sealed class CommercialOrderHostStore : IOrderDraftStore, IOrderDraftRe
     }
     public Task<ReviseOrderDraftResult> ReviseAsync(TenantContext context, ReviseOrderDraftRequest request, OrderDraftIntent intent, string key, string fingerprint, CancellationToken ct)
     {
-        if (_order!.Revision != request.ExpectedRevision) return Task.FromResult(new ReviseOrderDraftResult(ReviseOrderDraftStatus.RevisionConflict, null));
+        if (_order is null || _order.OrderId != request.OrderId) return Task.FromResult(new ReviseOrderDraftResult(ReviseOrderDraftStatus.NotFound, null));
+        if (_order.Revision != request.ExpectedRevision) return Task.FromResult(new ReviseOrderDraftResult(ReviseOrderDraftStatus.RevisionConflict, null));
         _order = _order with { Summary = intent.Summary, Lines = intent.Lines, Total = intent.Total, Revision = _order.Revision + 1 };
         _revisions.Add(key, (fingerprint, _order)); Effects++;
         return Task.FromResult(new ReviseOrderDraftResult(ReviseOrderDraftStatus.Revised, _order));
