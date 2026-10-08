@@ -140,6 +140,18 @@ Custom role definitions are SquiFlow metadata. A role has a stable tenant-scoped
 
 Owner handoff is not an OpenFGA role edit. It atomically moves the protected `is_initial_owner` marker to an active target membership, increments affected membership/tenant/authorization revisions and retains a semantic replay receipt. The CoreApi Owner-transfer route additionally requires recent configured Tenant Web authentication context (`azp`, `acr`, provider `auth_time`) before the transaction.
 
+### COM-011 tenant policy permissions
+
+The accepted first profile-policy editor uses three ordinary tenant business permissions, delegated through the existing current-Owner protocol and checked with current membership. They remain separate from Order command rights and from private Platform Admin authority:
+
+| Stable permission ID | Persisted relation | Computed permission |
+|---|---|---|
+| `profiles.policy.view` | `profile_policy_viewer` | `can_view_tenant_profile_policy` |
+| `profiles.policy.edit` | `profile_policy_editor` | `can_edit_tenant_profile_policy` |
+| `profiles.policy.publish` | `profile_policy_publisher` | `can_publish_tenant_profile_policy` |
+
+These permissions authorize viewing/editing/publishing the tenant-owned typed policy revision only. They do not publish or activate a Tenant Application Profile; those operations remain separately authorized through Platform Admin. `orders.edit` does not grant policy-edit authority, and policy authority does not grant Order commitment or editing. Focused profile behavior and the platform/tenant split are owned by `docs/implementation/ORDER_PROGRAM_REFERENCE_POLICY.md`.
+
 ## 4. Feature availability is not authorization
 
 Module/feature availability answers whether a capability exists for the deployment/tenant. Permission answers whether an actor may attempt it.

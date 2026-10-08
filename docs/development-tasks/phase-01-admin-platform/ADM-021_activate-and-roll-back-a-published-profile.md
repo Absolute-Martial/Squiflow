@@ -2,7 +2,7 @@
 
 Task ID: ADM-021
 Phase: 01-admin-platform
-Status: READY_AFTER_DEPENDENCIES
+Status: VERIFY_EXISTING
 Model: GPT-6.1 Sol
 Dependencies: ADM-020, ADM-011
 Release requirement: REQUIRED
@@ -21,6 +21,8 @@ Current requests do not acquire durable profile authority. Accepted lifecycle re
 Allowed areas: Profile authority activation pointer/receipt, verified tenant profile resolver, one real data-driven consumer and concurrent activation tests only. Exclude UI implementation, unrelated capabilities and purged Parties code.
 
 ## Decisions/prerequisites
+
+Owner accepted the [COM-011/profile contract](../../review/COM_011_PROFILE_PREREQUISITE_DECISION_PROPOSAL.md) on 2026-10-08. The bounded source now has local qualification in the [implementation receipt](../../review/COM_011_IMPLEMENTATION_RECEIPT.md). The [focused consumer owner](../../implementation/ORDER_PROGRAM_REFERENCE_POLICY.md) defines exact scope, retained legacy policy, authority separation and regression obligations. Planning status `VERIFY_EXISTING` means review current source/evidence, not production acceptance.
 
 Define consumer compatibility, dormant-grant confirmation and what existing work retains. Data-only variation must stay data-only; ADM-022 is not an activation prerequisite without an implementation graph change. Follow [shared rules](../AGENT_RULES.md) and [handoff/integration rules](../HANDOFF_AND_INTEGRATION.md).
 

@@ -25,8 +25,9 @@ public sealed partial class PostgresOrderDraftStore
             CommitOperation, idempotencyKey, cancellationToken).ConfigureAwait(false);
         if (receipt is not null)
         {
+            var replayResult = await ToExistingCommitResultAsync(session, tenantContext, receipt, fingerprint, cancellationToken).ConfigureAwait(false);
             await session.CommitAsync(cancellationToken).ConfigureAwait(false);
-            return await ToExistingCommitResultAsync(tenantContext, receipt, fingerprint, cancellationToken).ConfigureAwait(false);
+            return replayResult;
         }
 
         // Lock before reading lines: revision/abandon/commit cannot change the
@@ -42,8 +43,9 @@ public sealed partial class PostgresOrderDraftStore
             CommitOperation, idempotencyKey, cancellationToken).ConfigureAwait(false);
         if (receipt is not null)
         {
+            var replayResult = await ToExistingCommitResultAsync(session, tenantContext, receipt, fingerprint, cancellationToken).ConfigureAwait(false);
             await session.CommitAsync(cancellationToken).ConfigureAwait(false);
-            return await ToExistingCommitResultAsync(tenantContext, receipt, fingerprint, cancellationToken).ConfigureAwait(false);
+            return replayResult;
         }
         var beforeCommit = await FindOrderAsync(session, tenantContext.TenantId, request.OrderId, cancellationToken).ConfigureAwait(false);
         if (beforeCommit is { State: OrderDraftState.Draft } && beforeCommit.Revision == request.ExpectedRevision &&
@@ -68,6 +70,16 @@ public sealed partial class PostgresOrderDraftStore
                 return new(CommitOrderDraftStatus.CommercialFactsConflict, null);
         }
 
+        if (beforeCommit is { State: OrderDraftState.Draft } && beforeCommit.Revision == request.ExpectedRevision)
+        {
+            if (profilePolicySource is not null && (beforeCommit.ProgramPolicy is null ||
+                !await profilePolicySource.IsRetainedCompatibleAsync(session.Connection, session.Transaction,
+                    tenantContext.TenantId, beforeCommit.ProgramPolicy, cancellationToken).ConfigureAwait(false)))
+                return new(CommitOrderDraftStatus.ProfileUnavailable, null);
+            if (OrderProgramReference.IsMissing(beforeCommit))
+                return new(CommitOrderDraftStatus.ProgramReferenceRequired, null);
+        }
+
         var committedAt = _timeProvider.GetUtcNow();
         var changed = await TryCommitOrderAsync(
             session, tenantContext, request, committedAt, cancellationToken)
@@ -80,8 +92,9 @@ public sealed partial class PostgresOrderDraftStore
                 CommitOperation, idempotencyKey, cancellationToken).ConfigureAwait(false);
             if (receipt is not null)
             {
+                var replayResult = await ToExistingCommitResultAsync(session, tenantContext, receipt, fingerprint, cancellationToken).ConfigureAwait(false);
                 await session.CommitAsync(cancellationToken).ConfigureAwait(false);
-                return await ToExistingCommitResultAsync(tenantContext, receipt, fingerprint, cancellationToken).ConfigureAwait(false);
+                return replayResult;
             }
 
             var current = await FindOrderStateAsync(
@@ -117,8 +130,9 @@ public sealed partial class PostgresOrderDraftStore
             session, tenantContext.TenantId, tenantContext.AccountId,
             CommitOperation, idempotencyKey, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("The order command receipt disappeared after a conflict.");
+        var conflictResult = await ToExistingCommitResultAsync(session, tenantContext, receipt, fingerprint, cancellationToken).ConfigureAwait(false);
         await session.RollbackAsync(cancellationToken).ConfigureAwait(false);
-        return await ToExistingCommitResultAsync(tenantContext, receipt, fingerprint, cancellationToken).ConfigureAwait(false);
+        return conflictResult;
     }
 
     private static async Task<bool> TryCommitOrderAsync(

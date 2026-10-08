@@ -5,6 +5,7 @@ namespace Application.Orders.Postgres;
 
 public sealed partial class PostgresOrderDraftStore
 {
+    private const int ProgramPolicyReceiptSchemaVersion = 6;
     private const int CommercialReceiptSchemaVersion = 4;
     private const int QuotationReceiptSchemaVersion = 5;
     public async Task<CreateOrderDraftResult?> FindCreateReceiptAsync(Application.Tenancy.TenantContext context,
@@ -12,8 +13,9 @@ public sealed partial class PostgresOrderDraftStore
     {
         await using var session = await OrderTenantDbSession.OpenAsync(dataSource, context.TenantId, ct).ConfigureAwait(false);
         var receipt = await FindReceiptAsync(session, context.TenantId, context.AccountId, CreateOperation, key, ct).ConfigureAwait(false);
+        var result = receipt is null ? null : await ToExistingResultAsync(session, context, receipt, fingerprint, ct).ConfigureAwait(false);
         await session.CommitAsync(ct).ConfigureAwait(false);
-        return receipt is null ? null : ToExistingResult(receipt, fingerprint);
+        return result;
     }
 
     public async Task<ReviseOrderDraftResult?> FindRevisionReceiptAsync(Application.Tenancy.TenantContext context,
@@ -21,8 +23,9 @@ public sealed partial class PostgresOrderDraftStore
     {
         await using var session = await OrderTenantDbSession.OpenAsync(dataSource, context.TenantId, ct).ConfigureAwait(false);
         var receipt = await FindReceiptAsync(session, context.TenantId, context.AccountId, ReviseOperation, key, ct).ConfigureAwait(false);
+        var result = receipt is null ? null : await ToExistingReviseResultAsync(session, context, receipt, fingerprint, ct).ConfigureAwait(false);
         await session.CommitAsync(ct).ConfigureAwait(false);
-        return receipt is null ? null : ToExistingReviseResult(receipt, fingerprint);
+        return result;
     }
     private const int CommitmentReceiptSchemaVersion = 3;
     private const string CommitResultType = "order-committed";
@@ -52,6 +55,7 @@ public sealed partial class PostgresOrderDraftStore
         command.Parameters.AddWithValue("order_id", order.OrderId);
         command.Parameters.AddWithValue("response_json", JsonSerializer.Serialize(
             new OrderReceiptEnvelope(
+                order.ProgramPolicy is not null ? ProgramPolicyReceiptSchemaVersion :
                 order.QuotationOrigin is not null ? QuotationReceiptSchemaVersion :
                 order.Lines.Any(line => line.CommercialFacts is not null) ? CommercialReceiptSchemaVersion :
                 operation == CommitOperation ? CommitmentReceiptSchemaVersion : order.CustomerContext is null
@@ -91,9 +95,9 @@ public sealed partial class PostgresOrderDraftStore
             reader.GetString(reader.GetOrdinal("response_json")));
     }
 
-    private static CreateOrderDraftResult ToExistingResult(
-        OrderCommandReceipt receipt,
-        string requestedFingerprint)
+    private async Task<CreateOrderDraftResult> ToExistingResultAsync(
+        OrderTenantDbSession session, TenantContext context, OrderCommandReceipt receipt,
+        string requestedFingerprint, CancellationToken ct)
     {
         if (!string.Equals(receipt.Fingerprint, requestedFingerprint, StringComparison.Ordinal))
         {
@@ -101,11 +105,12 @@ public sealed partial class PostgresOrderDraftStore
         }
 
         var order = ReadReceiptSnapshot(receipt, CreateOperation);
+        await RequireRetainedProgramPolicyAsync(session, context.TenantId, order, ct).ConfigureAwait(false);
         return new CreateOrderDraftResult(CreateOrderDraftStatus.Replayed, order);
     }
 
     private async Task<AbandonOrderDraftResult> ToExistingAbandonResultAsync(
-        TenantContext context,
+        OrderTenantDbSession session, TenantContext context,
         OrderCommandReceipt receipt,
         string requestedFingerprint,
         CancellationToken ct)
@@ -116,30 +121,32 @@ public sealed partial class PostgresOrderDraftStore
         }
 
         var order = ReadReceiptSnapshot(receipt, AbandonOperation);
+        await RequireRetainedProgramPolicyAsync(session, context.TenantId, order, ct).ConfigureAwait(false);
         await RequireAcceptedQuotationFactsAsync(context, order, ct).ConfigureAwait(false);
         return new AbandonOrderDraftResult(AbandonOrderDraftStatus.Replayed, order);
     }
 
-    private static ReviseOrderDraftResult ToExistingReviseResult(
-        OrderCommandReceipt receipt,
-        string requestedFingerprint)
+    private async Task<ReviseOrderDraftResult> ToExistingReviseResultAsync(
+        OrderTenantDbSession session, TenantContext context, OrderCommandReceipt receipt,
+        string requestedFingerprint, CancellationToken ct)
     {
         if (!string.Equals(receipt.Fingerprint, requestedFingerprint, StringComparison.Ordinal))
         {
             return new ReviseOrderDraftResult(ReviseOrderDraftStatus.IdempotencyKeyConflict, null);
         }
 
-        return new ReviseOrderDraftResult(
-            ReviseOrderDraftStatus.Replayed,
-            ReadReceiptSnapshot(receipt, ReviseOperation));
+        var order = ReadReceiptSnapshot(receipt, ReviseOperation);
+        await RequireRetainedProgramPolicyAsync(session, context.TenantId, order, ct).ConfigureAwait(false);
+        return new ReviseOrderDraftResult(ReviseOrderDraftStatus.Replayed, order);
     }
 
-    private async Task<CommitOrderDraftResult> ToExistingCommitResultAsync(TenantContext context, OrderCommandReceipt receipt,
+    private async Task<CommitOrderDraftResult> ToExistingCommitResultAsync(OrderTenantDbSession session, TenantContext context, OrderCommandReceipt receipt,
         string fingerprint, CancellationToken ct)
     {
         if (!string.Equals(receipt.Fingerprint, fingerprint, StringComparison.Ordinal))
             return new(CommitOrderDraftStatus.IdempotencyKeyConflict, null);
         var order = ReadReceiptSnapshot(receipt, CommitOperation);
+        await RequireRetainedProgramPolicyAsync(session, context.TenantId, order, ct).ConfigureAwait(false);
         await RequireAcceptedQuotationFactsAsync(context, order, ct).ConfigureAwait(false);
         return new(CommitOrderDraftStatus.Replayed, order);
     }
@@ -168,9 +175,10 @@ public sealed partial class PostgresOrderDraftStore
             {
                 if (version.ValueKind != JsonValueKind.Number
                     || !version.TryGetInt32(out var schemaVersion)
-                    || schemaVersion is not (LegacyReceiptSchemaVersion or CustomerAttributionReceiptSchemaVersion or CommitmentReceiptSchemaVersion or CommercialReceiptSchemaVersion or QuotationReceiptSchemaVersion)
-                    || (schemaVersion is not (CommercialReceiptSchemaVersion or QuotationReceiptSchemaVersion) && (schemaVersion == CommitmentReceiptSchemaVersion) != (expectedOperation == CommitOperation))
-                    || (expectedOperation == QuotationCreateOperation && schemaVersion != QuotationReceiptSchemaVersion)
+                    || schemaVersion is not (LegacyReceiptSchemaVersion or CustomerAttributionReceiptSchemaVersion or CommitmentReceiptSchemaVersion or CommercialReceiptSchemaVersion or QuotationReceiptSchemaVersion or ProgramPolicyReceiptSchemaVersion)
+                    || (schemaVersion is not (CommercialReceiptSchemaVersion or QuotationReceiptSchemaVersion or ProgramPolicyReceiptSchemaVersion) && (schemaVersion == CommitmentReceiptSchemaVersion) != (expectedOperation == CommitOperation))
+                    || (expectedOperation == ProgramReferenceOperation && schemaVersion != ProgramPolicyReceiptSchemaVersion)
+                    || (expectedOperation == QuotationCreateOperation && schemaVersion is not (QuotationReceiptSchemaVersion or ProgramPolicyReceiptSchemaVersion))
                     || (schemaVersion == QuotationReceiptSchemaVersion && expectedOperation is not (QuotationCreateOperation or CommitOperation or AbandonOperation))
                     || operation.ValueKind != JsonValueKind.String
                     || !string.Equals(operation.GetString(), expectedOperation, StringComparison.Ordinal)
@@ -187,13 +195,14 @@ public sealed partial class PostgresOrderDraftStore
                     receipt,
                     expectedOperation,
                     requireLifecycleFields: true,
-                    requireCustomerContext: schemaVersion is CommitmentReceiptSchemaVersion or CommercialReceiptSchemaVersion or QuotationReceiptSchemaVersion
+                    requireCustomerContext: schemaVersion is CommitmentReceiptSchemaVersion or CommercialReceiptSchemaVersion or QuotationReceiptSchemaVersion or ProgramPolicyReceiptSchemaVersion
                         ? null : schemaVersion == CustomerAttributionReceiptSchemaVersion,
-                    requireCommercialFacts: schemaVersion == QuotationReceiptSchemaVersion ? null : schemaVersion == CommercialReceiptSchemaVersion,
-                    requireQuotationOrigin: schemaVersion == QuotationReceiptSchemaVersion);
+                    requireCommercialFacts: schemaVersion is QuotationReceiptSchemaVersion or ProgramPolicyReceiptSchemaVersion ? null : schemaVersion == CommercialReceiptSchemaVersion,
+                    requireQuotationOrigin: expectedOperation == QuotationCreateOperation ? true : schemaVersion == ProgramPolicyReceiptSchemaVersion ? null : schemaVersion == QuotationReceiptSchemaVersion,
+                    requireProgramPolicy: schemaVersion == ProgramPolicyReceiptSchemaVersion);
             }
 
-            if (expectedOperation is CommitOperation or QuotationCreateOperation)
+            if (expectedOperation is CommitOperation or QuotationCreateOperation or ProgramReferenceOperation)
                 throw InvalidReceipt();
             return DeserializeSnapshot(
                 root,
@@ -216,7 +225,8 @@ public sealed partial class PostgresOrderDraftStore
         bool requireLifecycleFields,
         bool? requireCustomerContext,
         bool? requireCommercialFacts,
-        bool requireQuotationOrigin = false)
+        bool? requireQuotationOrigin = false,
+        bool requireProgramPolicy = false)
     {
         foreach (var property in new[]
                  {
@@ -242,6 +252,12 @@ public sealed partial class PostgresOrderDraftStore
             throw InvalidReceipt();
         }
 
+        if (requireProgramPolicy && (!element.TryGetProperty("programPolicy", out var policyElement) ||
+            policyElement.ValueKind != JsonValueKind.Object ||
+            !policyElement.TryGetProperty("requireReferenceForProgramOrders", out var requiredReference) ||
+            requiredReference.ValueKind is not (JsonValueKind.True or JsonValueKind.False)))
+            throw InvalidReceipt();
+
         var order = element.Deserialize<OrderDraftSnapshot>(SnapshotJsonOptions)
             ?? throw InvalidReceipt();
         var expectedState = expectedOperation switch
@@ -249,6 +265,7 @@ public sealed partial class PostgresOrderDraftStore
             CreateOperation => OrderDraftState.Draft,
             QuotationCreateOperation => OrderDraftState.Draft,
             ReviseOperation => OrderDraftState.Draft,
+            ProgramReferenceOperation => OrderDraftState.Draft,
             AbandonOperation => OrderDraftState.Abandoned,
             CommitOperation => OrderDraftState.Committed,
             _ => throw InvalidReceipt(),
@@ -258,6 +275,7 @@ public sealed partial class PostgresOrderDraftStore
             || order.CreatedByAccountId == Guid.Empty
             || order.Lines is null || order.Lines.Any(line => line is null)
             || order.Revision < 1
+            || (expectedOperation == ProgramReferenceOperation && order.Revision < 2)
             || order.State != expectedState
             || (order.CustomerContext is { } customerContext
                 && (customerContext.OrganizationId == Guid.Empty
@@ -276,12 +294,14 @@ public sealed partial class PostgresOrderDraftStore
         }
 
         if (requireCommercialFacts is { } commercial && order.Lines.Any(line => line.CommercialFacts is not null) != commercial ||
-            (order.QuotationOrigin is not null) != requireQuotationOrigin)
+            (requireQuotationOrigin is { } quoted && (order.QuotationOrigin is not null) != quoted) ||
+            (order.ProgramPolicy is not null) != requireProgramPolicy || (!requireProgramPolicy && order.ExternalProgramReference is not null))
             throw InvalidReceipt();
 
         if (order.QuotationOrigin is { } origin)
             new AcceptedQuotationOrder(origin, order.Summary, order.CurrencyCode, order.Total, order.Lines, order.CustomerContext).RequireValid(order.TenantId);
 
+        if (order.ProgramPolicy is not null) OrderProgramReference.RequireValidStored(order.ProgramPolicy, order.ExternalProgramReference);
         OrderCommercialFactsValidation.RequireValid(order);
         return order;
     }
@@ -294,6 +314,7 @@ public sealed partial class PostgresOrderDraftStore
         CreateOperation => CreateResultType,
         QuotationCreateOperation => "order-draft-created-from-quotation",
         ReviseOperation => ReviseResultType,
+        ProgramReferenceOperation => "order-program-reference-updated",
         AbandonOperation => AbandonResultType,
         CommitOperation => CommitResultType,
         _ => throw InvalidReceipt(),

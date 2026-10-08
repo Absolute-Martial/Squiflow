@@ -20,6 +20,8 @@ internal sealed class CoreApiExceptionHandler(ILogger<CoreApiExceptionHandler> l
 
         var (status, code, title) = exception switch
         {
+            Application.Orders.OrderProfileUnavailableException =>
+                (503, "order_profile_unavailable", "A compatible authoritative Order profile is unavailable."),
             NpgsqlException { IsTransient: true } =>
                 (503, "database_unavailable", "The database operation could not be completed."),
             BadHttpRequestException request =>

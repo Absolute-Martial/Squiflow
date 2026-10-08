@@ -178,6 +178,22 @@
           "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.1, )"
         }
       },
+      "application.profiles": {
+        "type": "Project",
+        "dependencies": {
+          "Application.PlatformAdministration": "[0.0.1, )",
+          "Application.Tenancy": "[0.0.1, )"
+        }
+      },
+      "application.profiles.postgres": {
+        "type": "Project",
+        "dependencies": {
+          "Application.Profiles": "[0.0.1, )",
+          "Microsoft.EntityFrameworkCore": "[10.0.8, )",
+          "Npgsql": "[10.0.2, )",
+          "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.1, )"
+        }
+      },
       "application.quotations": {
         "type": "Project",
         "dependencies": {

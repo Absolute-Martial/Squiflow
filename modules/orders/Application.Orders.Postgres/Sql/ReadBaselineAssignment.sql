@@ -1,0 +1,3 @@
+SELECT order_id,baseline_fingerprint,baseline_device_id,baseline_observed_revision,profile_id,policy_revision_id,require_reference
+FROM orders.program_order_metadata
+WHERE tenant_id=@tenant_id AND baseline_principal_id=@principal_id AND baseline_key=@key;

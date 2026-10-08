@@ -75,6 +75,9 @@ internal sealed class OrderTenantDbSession : IAsyncDisposable
         }
     }
 
+    internal NpgsqlConnection Connection => _connection;
+    internal NpgsqlTransaction Transaction => _transaction;
+
     internal NpgsqlCommand CreateCommand(string sql)
     {
         if (_completed)

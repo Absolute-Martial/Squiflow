@@ -17,6 +17,8 @@ internal interface IPlatformAdminAuthorization
     Task<bool> CanReadTenantsAsync(Guid platformPrincipalId, CancellationToken cancellationToken);
     Task<bool> CanReadAccountsAsync(Guid platformPrincipalId, CancellationToken cancellationToken);
     Task<bool> CanReadMembershipsAsync(Guid platformPrincipalId, CancellationToken cancellationToken);
+    Task<bool> CanPublishTenantProfileAsync(Guid platformPrincipalId, CancellationToken cancellationToken);
+    Task<bool> CanActivateTenantProfileAsync(Guid platformPrincipalId, CancellationToken cancellationToken);
     Task<bool> IsReadyAsync(CancellationToken cancellationToken);
 }
 
@@ -35,6 +37,8 @@ internal sealed class OpenFgaPlatformAdminAuthorization(
     private const string ReadTenantsRelation = "can_read_tenants";
     private const string ReadAccountsRelation = "can_read_accounts";
     private const string ReadMembershipsRelation = "can_read_memberships";
+    private const string PublishTenantProfileRelation = "can_publish_tenant_profile";
+    private const string ActivateTenantProfileRelation = "can_activate_tenant_profile";
     private static readonly string[] RequiredPlatformRelations =
     [
         "administrator",
@@ -47,6 +51,8 @@ internal sealed class OpenFgaPlatformAdminAuthorization(
         ReadTenantsRelation,
         ReadAccountsRelation,
         ReadMembershipsRelation,
+        PublishTenantProfileRelation,
+        ActivateTenantProfileRelation,
     ];
     private static readonly Action<ILogger, string, Exception?> AuthorizationTimedOut =
         LoggerMessage.Define<string>(
@@ -128,6 +134,18 @@ internal sealed class OpenFgaPlatformAdminAuthorization(
     {
         ArgumentOutOfRangeException.ThrowIfEqual(platformPrincipalId, Guid.Empty);
         return CheckAsync($"user:{platformPrincipalId:N}", ReadMembershipsRelation, cancellationToken);
+    }
+
+    public Task<bool> CanPublishTenantProfileAsync(Guid platformPrincipalId, CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfEqual(platformPrincipalId, Guid.Empty);
+        return CheckAsync($"user:{platformPrincipalId:N}", PublishTenantProfileRelation, cancellationToken);
+    }
+
+    public Task<bool> CanActivateTenantProfileAsync(Guid platformPrincipalId, CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfEqual(platformPrincipalId, Guid.Empty);
+        return CheckAsync($"user:{platformPrincipalId:N}", ActivateTenantProfileRelation, cancellationToken);
     }
 
     public async Task<bool> IsReadyAsync(CancellationToken cancellationToken)

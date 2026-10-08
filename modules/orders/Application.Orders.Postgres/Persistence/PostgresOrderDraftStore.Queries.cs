@@ -87,7 +87,7 @@ public sealed partial class PostgresOrderDraftStore
         return new OrderDraftPage(items, nextCursor);
     }
 
-    private static async Task<OrderDraftSnapshot?> FindOrderAsync(
+    private async Task<OrderDraftSnapshot?> FindOrderAsync(
         OrderTenantDbSession session,
         Guid tenantId,
         Guid orderId,
@@ -139,6 +139,10 @@ public sealed partial class PostgresOrderDraftStore
             header.CommittedAt,
             header.CommittedByAccountId,
             header.QuotationOrigin);
+        var metadata = await ReadProgramPolicyAsync(session, tenantId, orderId, cancellationToken).ConfigureAwait(false);
+        snapshot = snapshot with { ProgramPolicy = metadata?.Policy, ExternalProgramReference = metadata?.Reference };
+        if (snapshot.ProgramPolicy is not null) OrderProgramReference.RequireValidStored(snapshot.ProgramPolicy, snapshot.ExternalProgramReference);
+        await RequireRetainedProgramPolicyAsync(session, tenantId, snapshot, cancellationToken).ConfigureAwait(false);
         if (validateCommercialFacts) OrderCommercialFactsValidation.RequireValid(snapshot);
         return snapshot;
     }

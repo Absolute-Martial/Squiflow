@@ -7,10 +7,13 @@ using System.Text;
 using System.Text.Json;
 using Application.AdminApi;
 using Application.AdminApi.IdentityProvisioning;
+using Application.Customers.Postgres;
 using Application.IdentityAccess;
 using Application.IdentityAccess.Postgres;
+using Application.Orders.Postgres;
 using Application.PlatformAdministration;
 using Application.PlatformAdministration.Postgres;
+using Application.Profiles.Postgres;
 using Application.Tenancy.Postgres;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
@@ -125,6 +128,21 @@ public sealed class AdminApiTestEnvironment : IAsyncLifetime
             DeviceId = completed.DeviceId;
         }
 
+        await using (var context = ProfilesPostgresRegistration.CreateContext(OwnerConnectionString))
+        {
+            await context.Database.MigrateAsync();
+        }
+
+        await using (var context = CustomersPostgresMigrations.CreateContext(OwnerConnectionString))
+        {
+            await context.Database.MigrateAsync();
+        }
+
+        await using (var context = OrdersPostgresMigrations.CreateContext(OwnerConnectionString))
+        {
+            await context.Database.MigrateAsync();
+        }
+
         await CreatePlatformAuthorizationAsync();
         await ProvisionRuntimeRoleAsync();
     }
@@ -187,14 +205,14 @@ public sealed class AdminApiTestEnvironment : IAsyncLifetime
         _ = await command.ExecuteNonQueryAsync();
     }
 
-    internal async Task<(short Outcome, string Reason, Guid? PrincipalId, Guid? DeviceId)>
+    internal async Task<(short Outcome, string Reason, Guid? PrincipalId, Guid? DeviceId, string Operation)>
         LatestAuditAsync()
     {
         await using var connection = new NpgsqlConnection(OwnerConnectionString);
         await connection.OpenAsync();
         await using var command = new NpgsqlCommand(
             """
-            SELECT outcome, reason, principal_id, device_id
+            SELECT outcome, reason, principal_id, device_id, operation
             FROM platform_administration.access_audit_events
             ORDER BY occurred_at DESC, id DESC
             LIMIT 1
@@ -206,7 +224,8 @@ public sealed class AdminApiTestEnvironment : IAsyncLifetime
             reader.GetInt16(0),
             reader.GetString(1),
             reader.IsDBNull(2) ? null : reader.GetGuid(2),
-            reader.IsDBNull(3) ? null : reader.GetGuid(3));
+            reader.IsDBNull(3) ? null : reader.GetGuid(3),
+            reader.GetString(4));
     }
 
     private async Task CreatePlatformAuthorizationAsync()
@@ -278,6 +297,13 @@ public sealed class AdminApiTestEnvironment : IAsyncLifetime
             await create.ExecuteNonQueryAsync();
         }
 
+        await ApplyRuntimeRoleGrantScriptAsync();
+    }
+
+    internal async Task ApplyRuntimeRoleGrantScriptAsync()
+    {
+        await using var connection = new NpgsqlConnection(OwnerConnectionString);
+        await connection.OpenAsync();
         await using (var setRole = new NpgsqlCommand(
             "SELECT set_config('app.provision_admin_api_role', @role, false)",
             connection))

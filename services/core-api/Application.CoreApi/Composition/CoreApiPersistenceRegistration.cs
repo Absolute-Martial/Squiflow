@@ -25,6 +25,8 @@ internal static class CoreApiPersistenceRegistration
         services.AddPricingPostgres();
         services.AddScoped<IPricingReferenceReader, PricingReferenceReader>();
         services.AddSingleton(TimeProvider.System);
+        Application.Profiles.Postgres.ProfilesPostgresRegistration.AddProfilesPostgres(services);
+        services.AddScoped<Application.Orders.Postgres.IOrderProfilePolicySource, OrderProfilePolicySource>();
         services.AddOrdersPostgres();
         services.AddCatalogOrderIntegration();
         Application.Quotations.Postgres.QuotationsPostgresRegistration.AddQuotationsPostgres(services);

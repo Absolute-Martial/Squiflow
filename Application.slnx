@@ -4,6 +4,7 @@
   </Folder>
   <Folder Name="/modules/">
     <Project Path="modules/application-profiles/Application.Profiles/Application.Profiles.csproj" />
+    <Project Path="modules/application-profiles/Application.Profiles.Postgres/Application.Profiles.Postgres.csproj" />
     <Project Path="modules/branding/Application.Branding/Application.Branding.csproj" />
     <Project Path="modules/catalog/Application.Catalog.Postgres/Application.Catalog.Postgres.csproj" />
     <Project Path="modules/catalog/Application.Catalog/Application.Catalog.csproj" />
@@ -39,6 +40,7 @@
     <Project Path="tests/integration/Application.IdentityAccess.Postgres.Tests/Application.IdentityAccess.Postgres.Tests.csproj" />
     <Project Path="tests/integration/Application.Orders.Postgres.Tests/Application.Orders.Postgres.Tests.csproj" />
     <Project Path="tests/integration/Application.Pricing.Postgres.Tests/Application.Pricing.Postgres.Tests.csproj" />
+    <Project Path="tests/integration/Application.Profiles.Postgres.Tests/Application.Profiles.Postgres.Tests.csproj" />
     <Project Path="tests/integration/Application.Tenancy.Postgres.Tests/Application.Tenancy.Postgres.Tests.csproj" />
     <Project Path="tests/unit/Application.Profiles.Tests/Application.Profiles.Tests.csproj" />
     <Project Path="tests/unit/Application.Branding.Tests/Application.Branding.Tests.csproj" />

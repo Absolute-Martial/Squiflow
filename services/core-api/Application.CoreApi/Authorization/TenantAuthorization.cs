@@ -62,6 +62,19 @@ internal interface ITenantPricingAuthorization
     Task<bool> CanOverrideBeyondPolicyAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
 }
 
+internal enum TenantProfilePolicyPermission
+{
+    View,
+    Edit,
+    Publish,
+}
+
+internal interface ITenantProfilePolicyAuthorization
+{
+    Task<bool> IsAllowedAsync(Guid accountId, Guid tenantId, TenantProfilePolicyPermission permission,
+        CancellationToken cancellationToken);
+}
+
 internal sealed class OpenFgaTenantAuthorization(
     IOpenFgaClient client,
     OpenFgaAuthorizationConfiguration configuration,
@@ -70,7 +83,8 @@ internal sealed class OpenFgaTenantAuthorization(
     ITenantOrderAuthorization,
     ITenantCustomerAuthorization,
     ITenantCatalogAuthorization,
-    ITenantPricingAuthorization
+    ITenantPricingAuthorization,
+    ITenantProfilePolicyAuthorization
 {
     internal Task<bool> CheckQuotationAsync(Guid account, Guid tenant, Application.Quotations.QuotationCapability capability, CancellationToken ct) =>
         CheckAsync(account, tenant, capability switch
@@ -114,6 +128,9 @@ internal sealed class OpenFgaTenantAuthorization(
     private const string RetirePricingRelation = "can_retire_pricing";
     private const string OverridePricingRelation = "can_override_pricing";
     private const string OverrideBeyondPolicyPricingRelation = "can_override_pricing_beyond_policy";
+    private const string ViewTenantProfilePolicyRelation = "can_view_tenant_profile_policy";
+    private const string EditTenantProfilePolicyRelation = "can_edit_tenant_profile_policy";
+    private const string PublishTenantProfilePolicyRelation = "can_publish_tenant_profile_policy";
     private static readonly Meter Meter = new("Application.CoreApi.Authorization", "0.1.0");
     private static readonly Counter<long> Decisions = Meter.CreateCounter<long>("application.authorization.decisions");
     private static readonly Histogram<double> Duration = Meter.CreateHistogram<double>(
@@ -244,6 +261,19 @@ internal sealed class OpenFgaTenantAuthorization(
 
     Task<bool> ITenantPricingAuthorization.CanOverrideBeyondPolicyAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken) =>
         CheckAsync(accountId, tenantId, OverrideBeyondPolicyPricingRelation, cancellationToken);
+
+    Task<bool> ITenantProfilePolicyAuthorization.IsAllowedAsync(
+        Guid accountId,
+        Guid tenantId,
+        TenantProfilePolicyPermission permission,
+        CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, permission switch
+        {
+            TenantProfilePolicyPermission.View => ViewTenantProfilePolicyRelation,
+            TenantProfilePolicyPermission.Edit => EditTenantProfilePolicyRelation,
+            TenantProfilePolicyPermission.Publish => PublishTenantProfilePolicyRelation,
+            _ => throw new ArgumentOutOfRangeException(nameof(permission)),
+        }, cancellationToken);
 
     private async Task<bool> CheckAsync(
         Guid accountId,

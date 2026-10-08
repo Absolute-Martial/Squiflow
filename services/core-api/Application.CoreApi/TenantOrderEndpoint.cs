@@ -754,7 +754,7 @@ internal static class TenantOrderEndpoint
             order.AbandonedAt,
             order.CustomerContext,
             order.CommittedAt,
-            order.QuotationOrigin);
+            order.QuotationOrigin, order.ProgramPolicy, order.ExternalProgramReference);
 
     private static OrderCommercialLineFactsResponse? ToCommercialFactsResponse(OrderCommercialLineFacts? facts) =>
         facts is null ? null : new(facts.Catalog,
@@ -909,7 +909,11 @@ internal sealed record OrderDraftResponse(
     CustomerOrderContext? CustomerContext = null,
     DateTimeOffset? CommittedAt = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    OrderQuotationOrigin? QuotationOrigin = null);
+    OrderQuotationOrigin? QuotationOrigin = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    OrderProgramPolicyFacts? ProgramPolicy = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    string? ExternalProgramReference = null);
 
 internal sealed record OrderDraftLineResponse(
     int Position,

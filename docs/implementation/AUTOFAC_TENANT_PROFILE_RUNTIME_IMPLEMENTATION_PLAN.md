@@ -1,6 +1,6 @@
 # Autofac Tenant Application Profile Runtime — Implementation Plan
 
-**Status:** Increment A is implemented and qualified; Increment B's internal mechanics are implemented and isolated from production requests. Durable profile authority and tenant-specific implementation resolution remain `NOT_INTRODUCED`; `BLOCKED = none`.
+**Status:** Increment A is implemented and qualified; Increment B's internal mechanics are implemented and isolated from production requests. The first durable profile authority is locally qualified for its bounded scope by [the COM-011 receipt](../review/COM_011_IMPLEMENTATION_RECEIPT.md). Tenant-specific implementation resolution remains `NOT_INTRODUCED`; this plan does not qualify profile authority.
 
 **Decision:** Autofac is the CoreApi root provider and is selected for the first Tenant Application Profile implementation-runtime path. DryIoc is not part of the baseline. Standard Microsoft DI registrations remain source-compatible through `IServiceCollection`, while SquiFlow owns profile authority, runtime keys, cache bounds, activation, draining and resource governance.
 
@@ -155,11 +155,11 @@ The current safe defaults are 64 retained runtimes, four concurrent builds, 30-m
 
 Never serialize an Autofac container, lifetime scope or compiled registration graph to disk. Those objects contain process-bound delegates, live disposable instances, connections and potentially secret-bearing clients. Their representation is neither a stable data contract nor safe authority.
 
-When Increment C introduces profile persistence, PostgreSQL stores the immutable profile definition, schema version, allow-listed selections, implementation fingerprint/revision and activation/audit evidence. Each process independently reconstructs the matching local runtime on first use or bounded warm-up. Concurrent first use is single-flight; warm acquisition creates only an operation scope. A restart or replica loss discards acceleration state and does not lose correctness, business state or profile authority.
+The first PostgreSQL-backed profile contract is now defined for the COM-011 typed Order policy. Its accepted schema, publication, activation, legacy baseline, and receiving evidence are owned by `docs/architecture/TENANT_APPLICATION_PROFILES_AND_EXTENSIBILITY.md` and `docs/implementation/ORDER_PROGRAM_REFERENCE_POLICY.md`. The bounded profile authority now has local receiving qualification in `docs/review/COM_011_IMPLEMENTATION_RECEIPT.md`; that does not activate this runtime plan. When a real implementation-variant slice later activates this runtime plan, each process independently reconstructs only its local acceleration state from qualified profile authority; a restart or replica loss must not lose correctness, business state, or authority.
 
 ## 6. Profile authority prerequisite
 
-The container is not the Tenant Application Profile store. Before production profile resolution is enabled, introduce one authoritative profile query contract that returns a validated immutable snapshot containing at least:
+The container is not the Tenant Application Profile store. Before production profile resolution is enabled, the first authoritative profile query and persistence contract must be qualified. Its accepted profile details are owned by `docs/architecture/TENANT_APPLICATION_PROFILES_AND_EXTENSIBILITY.md`; COM-011 consumer behavior is owned by `docs/implementation/ORDER_PROGRAM_REFERENCE_POLICY.md`. A later runtime-resolution scope that selects a trusted implementation graph must return a validated immutable snapshot containing at least:
 
 ```text
 TenantId
@@ -172,9 +172,9 @@ allow-listed ImplementationVariant selections
 publication/activation evidence
 ```
 
-The host-neutral contract belongs to a focused Application Profiles capability, not CoreApi and not Autofac. Its first persistence/publication scope must declare how profiles are created, validated, activated, rolled back and audited. Do not use an in-memory dictionary and present it as durable profile authority. Do not add profile tables before that exact lifecycle and its administration owner are accepted.
+The host-neutral contract belongs to Application.Profiles, not CoreApi and not Autofac. The accepted first persistence/publication scope is tenant-owned typed policy revisions plus immutable platform-published profiles, activation, and legacy-baseline assignment; it does not authorize runtime implementation switching. Do not use the process-local runtime registry as profile authority.
 
-Until durable profile authority exists, runtime construction may be exercised only by isolated tests/benchmarks or a clearly labeled non-production POC.
+Until durable profile authority is qualified, runtime construction may be exercised only by isolated tests/benchmarks or a clearly labeled non-production POC.
 
 ## 7. First real implementation-variant slice
 
@@ -216,7 +216,7 @@ Declared result: the internal mechanics prove single-flight construction, operat
 4. Produce deterministic dependency-first effective selections plus catalog/selection fingerprints.
 5. Keep settings, permissions, release targeting, persistence and runtime activation outside this compiler.
 
-Declared result: pure feature catalog/selection compilation is `PRODUCTION_HONEST`; a production catalog, durable profile authority and profile activation remain `NOT_INTRODUCED`.
+Declared result: pure feature catalog/selection compilation is `PRODUCTION_HONEST`; the fixed four-entry catalog and first durable profile authority are locally qualified within the COM-011 receipt. Tenant feature toggling and profile-specific runtime activation remain `NOT_INTRODUCED`.
 
 ### Increment C2 — authoritative profile snapshot and activation
 
@@ -309,11 +309,11 @@ If Autofac cannot meet lifecycle, compatibility or bounded-memory requirements, 
 | tenant identification and authorization | membership-derived `TenantContext` exists; no request acquires a profile runtime | first profile-aware capability must prove missing/unknown/non-member/suspended denial before acquisition |
 | data isolation | account and membership queries are scoped; no tenant-owned business table/cache/blob/search surface exists | owning capability plus PostgreSQL isolation/RLS and cross-tenant provider tests |
 | DI lifetime | Autofac root and ordinary scopes are active; internal profile runtimes are bounded and lease-drained | permanent CoreApi host/registry tests |
-| profile configuration and secrets | bounded feature selection compilation exists; no production catalog, durable profile or secret is stored in a container definition | immutable profile publication plus secret-provider boundary |
-| disk/durable storage | containers are never serialized; profile authority is `NOT_INTRODUCED` | immutable PostgreSQL profile schema/publication/rollback in Increment C |
+| profile configuration and secrets | fixed catalog and durable COM-011 profile authority are locally qualified; no secret is stored in a container definition | retain qualified immutable profile publication; add a secret-provider boundary only when a real setting needs one |
+| disk/durable storage | containers are never serialized; bounded profile authority is locally qualified | retain qualified PostgreSQL schema/publication/rollback and receiving-consumer guards |
 | request pipeline | authentication and membership endpoints exist; profile execution is absent | authority-ordering test in first profile-aware endpoint |
 | background work/messages | `NOT_INTRODUCED` | future Worker must receive and revalidate explicit tenant/profile context without `HttpContext` |
 | monitoring | registry meter and structured lifecycle logs exist; exporter/dashboard/SLOs are `NOT_INTRODUCED` | deployment observability owner and representative load envelope |
 | quotas/noisy-neighbor controls | retained/build bounds cover only runtime construction; tenant workload quotas are `NOT_INTRODUCED` | each real workload owns concurrency, queue, DB/provider and consumption limits |
-| tenant/profile lifecycle | account/membership read state exists; provisioning/suspension/deletion/profile publication are `NOT_INTRODUCED` | authoritative administration capability and drain/revocation/audit evidence |
-| multiple replicas | local runtime state is disposable and independently rebuildable by design; durable profile authority is absent | fresh-node reconstruction and revision-convergence tests in Increment C/D |
+| tenant/profile lifecycle | account/membership reads exist; bounded profile publication is locally qualified; runtime composition lifecycle is `NOT_INTRODUCED` | recurring profile authority tests; later runtime drain/revocation/audit evidence |
+| multiple replicas | local runtime state is disposable and independently rebuildable by design; bounded profile authority is locally qualified | fresh-node reconstruction and revision-convergence tests before runtime resolution ships |

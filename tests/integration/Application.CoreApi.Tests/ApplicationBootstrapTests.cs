@@ -17,6 +17,8 @@ using Application.CoreApi.Authorization;
 using Application.IdentityAccess.Postgres;
 using Application.IdentityAccess;
 using Application.Orders;
+using Application.Profiles;
+using Application.PlatformAdministration;
 using Application.Tenancy;
 using Application.Tenancy.Postgres;
 using System.Security.Claims;
@@ -144,8 +146,11 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
     private readonly TestTenantWorkspaceAuthorization _workspaceAuthorization = new();
     private readonly TestTenantOrderAuthorization _orderAuthorization = new();
     private readonly TestTenantCustomerAuthorization _customerAuthorization = new();
+    private readonly TestTenantProfilePolicyAuthorization _profilePolicyAuthorization = new();
     private readonly TestCustomerStore _customers = new();
     private readonly TestOrderDraftStore _orders = new();
+    private readonly TestOrderProgramReferenceStore _orderProgramReferences = new();
+    private readonly TestProfileStore _profiles = new();
 
     public WhiteLabelApiFactory()
     {
@@ -159,6 +164,9 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
 
     public void AddTenantMembership(Guid accountId, Guid tenantId, string displayName) =>
         _memberships.Add(accountId, new TenantMembership(tenantId, displayName));
+
+    public void RemoveTenantMembership(Guid accountId, Guid tenantId) =>
+        _memberships.Remove(accountId, tenantId);
 
     public void SetWorkspaceDecision(Guid accountId, Guid tenantId, bool allowed) =>
         _workspaceAuthorization.SetDecision(accountId, tenantId, allowed);
@@ -236,6 +244,11 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
     public int GetCustomerCheckCount(Guid accountId, Guid tenantId, string operation) =>
         _customerAuthorization.CheckCount(accountId, tenantId, operation);
 
+    internal void SetProfilePolicyDecision(Guid accountId, Guid tenantId, TenantProfilePolicyPermission permission, bool allowed) =>
+        _profilePolicyAuthorization.SetDecision(accountId, tenantId, permission, allowed);
+
+    public int GetProfilePolicyStoreCallCount => _profiles.CallCount;
+
     public int GetCustomerStoreCallCount(Guid tenantId) => _customers.CallCount(tenantId);
 
     public int GetOrderFindCount(Guid tenantId) => _orders.GetFindCount(tenantId);
@@ -245,6 +258,14 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
     public int GetOrderAbandonCount(Guid tenantId) => _orders.GetAbandonCount(tenantId);
 
     public int GetOrderReviseCount(Guid tenantId) => _orders.GetReviseCount(tenantId);
+
+    public void SetOrderProgramReferenceResult(SetOrderProgramReferenceResult result) =>
+        _orderProgramReferences.SetResult(result);
+
+    public int GetOrderProgramReferenceCallCount => _orderProgramReferences.CallCount;
+
+    public SetOrderProgramReferenceRequest? GetLastProgramReferenceRequest =>
+        _orderProgramReferences.LastRequest;
 
     public ListOrderDraftsRequest? GetLastOrderListRequest(Guid tenantId) => _orders.GetLastListRequest(tenantId);
 
@@ -305,6 +326,8 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
             services.AddSingleton<ITenantOrderAuthorization>(_orderAuthorization);
             services.RemoveAll<ITenantCustomerAuthorization>();
             services.AddSingleton<ITenantCustomerAuthorization>(_customerAuthorization);
+            services.RemoveAll<ITenantProfilePolicyAuthorization>();
+            services.AddSingleton<ITenantProfilePolicyAuthorization>(_profilePolicyAuthorization);
             services.RemoveAll<ICustomerStore>();
             services.AddSingleton<ICustomerStore>(_customers);
             services.RemoveAll<ICustomerIndividualStore>();
@@ -315,6 +338,10 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
             services.AddSingleton<ICustomerRepresentativeStore>(_customers);
             services.RemoveAll<IOrderDraftStore>();
             services.AddSingleton<IOrderDraftStore>(_orders);
+            services.RemoveAll<IOrderProgramReferenceStore>();
+            services.AddSingleton<IOrderProgramReferenceStore>(_orderProgramReferences);
+            services.RemoveAll<Application.Profiles.IProfileStore>();
+            services.AddSingleton<Application.Profiles.IProfileStore>(_profiles);
             services.PostConfigure<JwtBearerOptions>(
                 JwtBearerDefaults.AuthenticationScheme,
                 options =>
@@ -422,6 +449,72 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
                     values.Any(value => value.TenantId == tenantId));
             }
         }
+
+        public void Remove(Guid accountId, Guid tenantId)
+        {
+            lock (_gate)
+            {
+                if (_memberships.TryGetValue(accountId, out var values))
+                {
+                    values.RemoveAll(value => value.TenantId == tenantId);
+                }
+            }
+        }
+    }
+
+    private sealed class TestTenantProfilePolicyAuthorization : ITenantProfilePolicyAuthorization
+    {
+        private readonly Dictionary<(Guid AccountId, Guid TenantId, TenantProfilePolicyPermission Permission), bool> _decisions = [];
+        private readonly object _gate = new();
+
+        public void SetDecision(Guid accountId, Guid tenantId, TenantProfilePolicyPermission permission, bool allowed)
+        {
+            lock (_gate) _decisions[(accountId, tenantId, permission)] = allowed;
+        }
+
+        public Task<bool> IsAllowedAsync(Guid accountId, Guid tenantId, TenantProfilePolicyPermission permission,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (_gate) return Task.FromResult(_decisions.GetValueOrDefault((accountId, tenantId, permission)));
+        }
+    }
+
+    private sealed class TestProfileStore : IProfileStore
+    {
+        private int _callCount;
+        internal int CallCount => Volatile.Read(ref _callCount);
+
+        public Task<TenantPolicyState?> GetPolicyAsync(TenantContext context, CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref _callCount);
+            return Task.FromResult<TenantPolicyState?>(null);
+        }
+
+        public Task<PublishedTenantPolicy?> GetPublishedPolicyAsync(TenantContext context, Guid policyRevisionId,
+            CancellationToken cancellationToken) => Task.FromResult<PublishedTenantPolicy?>(null);
+
+        public Task<ProfileCommandResult> EditPolicyAsync(TenantContext context, EditTenantPolicyRequest request,
+            long observedAuthorizationRevision, string idempotencyKey, CancellationToken cancellationToken) =>
+            Task.FromResult(new ProfileCommandResult(ProfileCommandStatus.Edited));
+
+        public Task<ProfileCommandResult> PublishPolicyAsync(TenantContext context, PublishTenantPolicyRequest request,
+            long observedAuthorizationRevision, string idempotencyKey, CancellationToken cancellationToken) =>
+            Task.FromResult(new ProfileCommandResult(ProfileCommandStatus.PolicyPublished));
+
+        public Task<TenantProfileAuthority?> GetAuthorityAsync(Guid tenantId, CancellationToken cancellationToken) =>
+            Task.FromResult<TenantProfileAuthority?>(null);
+
+        public Task<TenantProfileSnapshot?> GetProfileAsync(Guid tenantId, Guid profileId, CancellationToken cancellationToken) =>
+            Task.FromResult<TenantProfileSnapshot?>(null);
+
+        public Task<ProfileCommandResult> PublishProfileAsync(PlatformAdminAccess access, PublishTenantProfileRequest request,
+            string idempotencyKey, CancellationToken cancellationToken) =>
+            Task.FromResult(new ProfileCommandResult(ProfileCommandStatus.ProfilePublished));
+
+        public Task<ProfileCommandResult> ActivateProfileAsync(PlatformAdminAccess access, ActivateTenantProfileRequest request,
+            string idempotencyKey, CancellationToken cancellationToken) =>
+            Task.FromResult(new ProfileCommandResult(ProfileCommandStatus.Activated));
     }
 
     private sealed class TestTenantWorkspaceAuthorization : ITenantWorkspaceAuthorization
@@ -1096,5 +1189,29 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
 
         private sealed record AbandonReceipt(string Fingerprint, OrderDraftSnapshot Order);
         private sealed record ReviseReceipt(string Fingerprint, OrderDraftSnapshot Order);
+    }
+
+    private sealed class TestOrderProgramReferenceStore : IOrderProgramReferenceStore
+    {
+        private SetOrderProgramReferenceResult _result = new(SetOrderProgramReferenceStatus.Updated, null);
+        private int _callCount;
+
+        internal int CallCount => Volatile.Read(ref _callCount);
+        internal SetOrderProgramReferenceRequest? LastRequest { get; private set; }
+
+        internal void SetResult(SetOrderProgramReferenceResult result) => _result = result;
+
+        public Task<SetOrderProgramReferenceResult> SetProgramReferenceAsync(
+            TenantContext tenantContext,
+            SetOrderProgramReferenceRequest request,
+            string idempotencyKey,
+            string fingerprint,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Interlocked.Increment(ref _callCount);
+            LastRequest = request;
+            return Task.FromResult(_result);
+        }
     }
 }

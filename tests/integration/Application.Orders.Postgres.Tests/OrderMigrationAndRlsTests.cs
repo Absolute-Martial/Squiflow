@@ -1663,6 +1663,11 @@ public sealed partial class OrderMigrationAndRlsTests : PostgresTestDatabase
             GRANT SELECT, INSERT, DELETE ON orders.order_draft_lines TO application_orders_runtime;
             GRANT SELECT, INSERT ON orders.command_receipts TO application_orders_runtime;
             GRANT SELECT, INSERT ON orders.quotation_origins TO application_orders_runtime;
+            GRANT SELECT ON orders.program_order_metadata TO application_orders_runtime;
+            GRANT USAGE ON SCHEMA profiles TO application_orders_runtime;
+            GRANT SELECT ON profiles.policy_heads,profiles.policy_revisions,profiles.publications,profiles.authority TO application_orders_runtime;
+            GRANT INSERT(tenant_id,order_id,profile_id,policy_revision_id,require_reference,external_reference,bound_at) ON orders.program_order_metadata TO application_orders_runtime;
+            GRANT UPDATE(external_reference) ON orders.program_order_metadata TO application_orders_runtime;
             """;
         await command.ExecuteNonQueryAsync(CancellationToken.None);
 

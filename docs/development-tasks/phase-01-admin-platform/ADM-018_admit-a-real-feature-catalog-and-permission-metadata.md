@@ -2,8 +2,8 @@
 
 Task ID: ADM-018
 Phase: 01-admin-platform
-Status: DECISION_REQUIRED
-Model: GPT-6.1 Sol
+Status: VERIFY_EXISTING
+Model: GPT-6 Luna (high)
 Dependencies: ADM-008, GATE-001
 Release requirement: REQUIRED
 Cross-track prerequisites: none
@@ -14,13 +14,15 @@ Select a smallest useful shipped feature vocabulary and stable permission metada
 
 ## Current basis and canonical inputs
 
-FeatureCatalog already validates bounded definitions, dependency cycles and deterministic fingerprints. README explicitly excludes a production catalog; current permission checks belong to real capability operations. Read [README.IMPLEMENTATION.md](../../../README.IMPLEMENTATION.md) and [FeatureCatalog.cs](../../../modules/application-profiles/Application.Profiles/FeatureCatalog.cs); [APPLICATION_KERNEL_AND_MODULES.md](../../architecture/APPLICATION_KERNEL_AND_MODULES.md); [FEATURE_RELEASE_AND_EXPERIMENTS.md](../../architecture/FEATURE_RELEASE_AND_EXPERIMENTS.md).
+FeatureCatalog already validates bounded definitions, dependency cycles and deterministic fingerprints. The admitted first-consumer catalog fixes four always-enabled nonselectable feature IDs; current permission checks belong to real capability operations. Read [README.IMPLEMENTATION.md](../../../README.IMPLEMENTATION.md) and [FeatureCatalog.cs](../../../modules/application-profiles/Application.Profiles/FeatureCatalog.cs); [APPLICATION_KERNEL_AND_MODULES.md](../../architecture/APPLICATION_KERNEL_AND_MODULES.md); [FEATURE_RELEASE_AND_EXPERIMENTS.md](../../architecture/FEATURE_RELEASE_AND_EXPERIMENTS.md).
 
 ## Scope and exclusions
 
 Allowed areas: Existing Application.Profiles definitions/tests, capability-owned descriptors for already implemented operations and reviewed catalog read contract only. Exclude UI implementation, unrelated capabilities and purged Parties code.
 
 ## Decisions/prerequisites
+
+Owner accepted the [COM-011/profile contract](../../review/COM_011_PROFILE_PREREQUISITE_DECISION_PROPOSAL.md) on 2026-10-08. The bounded source now has local qualification in the [implementation receipt](../../review/COM_011_IMPLEMENTATION_RECEIPT.md). The [focused consumer owner](../../implementation/ORDER_PROGRAM_REFERENCE_POLICY.md) defines exact scope, retained legacy policy, authority separation and regression obligations. Planning status `VERIFY_EXISTING` means review current source/evidence, not production acceptance.
 
 Approve capability identifiers, dependencies, platform ceiling, dormant-grant behavior and one real configuration use case. Release channels/experiments remain separate unless selected here. Follow [shared rules](../AGENT_RULES.md) and [handoff/integration rules](../HANDOFF_AND_INTEGRATION.md).
 

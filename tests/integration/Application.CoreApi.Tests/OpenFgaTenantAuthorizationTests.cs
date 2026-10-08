@@ -92,12 +92,46 @@ public sealed class OpenFgaTenantAuthorizationTests : IAsyncLifetime
         await WriteTenantRelationAsync(administrativeClient, storeId, pinnedModelId, quoteAccountId, tenantId, "order_creator");
         Assert.True(await quoteOrderAuthorization.CanCreateAsync(quoteAccountId, tenantId, CancellationToken.None));
 
+        ITenantProfilePolicyAuthorization policyAuthorization = authorization;
+        var policyAccountId = Guid.NewGuid();
+        Assert.False(await policyAuthorization.IsAllowedAsync(policyAccountId, tenantId, TenantProfilePolicyPermission.View, CancellationToken.None));
+        await WriteTenantRelationAsync(administrativeClient, storeId, pinnedModelId, policyAccountId, tenantId, "profile_policy_viewer");
+        Assert.False(await CheckRelationAsync(client, configuration, $"user:{policyAccountId:N}",
+            "can_view_tenant_profile_policy", $"tenant:{tenantId:N}"));
+        await WriteTenantRelationAsync(administrativeClient, storeId, pinnedModelId, policyAccountId, tenantId, "member");
+        Assert.True(await policyAuthorization.IsAllowedAsync(policyAccountId, tenantId, TenantProfilePolicyPermission.View, CancellationToken.None));
+        Assert.False(await policyAuthorization.IsAllowedAsync(policyAccountId, tenantId, TenantProfilePolicyPermission.Edit, CancellationToken.None));
+        await WriteTenantRelationAsync(administrativeClient, storeId, pinnedModelId, policyAccountId, tenantId, "profile_policy_editor");
+        Assert.True(await policyAuthorization.IsAllowedAsync(policyAccountId, tenantId, TenantProfilePolicyPermission.Edit, CancellationToken.None));
+        Assert.False(await policyAuthorization.IsAllowedAsync(policyAccountId, tenantId, TenantProfilePolicyPermission.Publish, CancellationToken.None));
+        await WriteTenantRelationAsync(administrativeClient, storeId, pinnedModelId, policyAccountId, tenantId, "profile_policy_publisher");
+        Assert.True(await policyAuthorization.IsAllowedAsync(policyAccountId, tenantId, TenantProfilePolicyPermission.Publish, CancellationToken.None));
+        await DeleteTenantRelationAsync(administrativeClient, storeId, pinnedModelId, policyAccountId, tenantId, "member");
+        // Raw model checks omit membership; the host adapter supplies only centrally verified membership as context.
+        foreach (var relation in new[] { "can_view_tenant_profile_policy", "can_edit_tenant_profile_policy", "can_publish_tenant_profile_policy" })
+            Assert.False(await CheckRelationAsync(client, configuration, $"user:{policyAccountId:N}", relation, $"tenant:{tenantId:N}"));
+        Assert.True(await policyAuthorization.IsAllowedAsync(policyAccountId, tenantId, TenantProfilePolicyPermission.View, CancellationToken.None));
+        await WriteTenantRelationAsync(administrativeClient, storeId, pinnedModelId, policyAccountId, tenantId, "member");
+        Assert.True(await policyAuthorization.IsAllowedAsync(policyAccountId, tenantId, TenantProfilePolicyPermission.View, CancellationToken.None));
+        Assert.True(await policyAuthorization.IsAllowedAsync(policyAccountId, tenantId, TenantProfilePolicyPermission.Edit, CancellationToken.None));
+        Assert.True(await policyAuthorization.IsAllowedAsync(policyAccountId, tenantId, TenantProfilePolicyPermission.Publish, CancellationToken.None));
+        await DeleteTenantRelationAsync(administrativeClient, storeId, pinnedModelId, policyAccountId, tenantId, "profile_policy_editor");
+        Assert.False(await policyAuthorization.IsAllowedAsync(policyAccountId, tenantId, TenantProfilePolicyPermission.Edit, CancellationToken.None));
+        await DeleteTenantRelationAsync(administrativeClient, storeId, pinnedModelId, policyAccountId, tenantId, "profile_policy_publisher");
+        Assert.False(await policyAuthorization.IsAllowedAsync(policyAccountId, tenantId, TenantProfilePolicyPermission.Publish, CancellationToken.None));
+
         Assert.True(TenantPermissionCatalog.TryGet("quotations.respond", out var responsePermission));
         Assert.Equal("quotation_responder", responsePermission.Relation);
         Assert.True(TenantPermissionCatalog.TryGet("quotations.expire", out var expiryPermission));
         Assert.Equal("quotation_expirer", expiryPermission.Relation);
         Assert.True(TenantPermissionCatalog.TryGet("quotations.convert", out var convertPermission));
         Assert.Equal("quotation_converter", convertPermission.Relation);
+        Assert.True(TenantPermissionCatalog.TryGet("profiles.policy.view", out var policyViewPermission));
+        Assert.Equal("profile_policy_viewer", policyViewPermission.Relation);
+        Assert.True(TenantPermissionCatalog.TryGet("profiles.policy.edit", out var policyEditPermission));
+        Assert.Equal("profile_policy_editor", policyEditPermission.Relation);
+        Assert.True(TenantPermissionCatalog.TryGet("profiles.policy.publish", out var policyPublishPermission));
+        Assert.Equal("profile_policy_publisher", policyPublishPermission.Relation);
 
 
         Assert.False(await customerAuthorization.CanCreateOrganizationAsync(customerAccountId, tenantId, CancellationToken.None));

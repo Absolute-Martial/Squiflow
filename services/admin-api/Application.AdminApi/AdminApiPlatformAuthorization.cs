@@ -19,6 +19,11 @@ internal enum AdminEndpointAuditOperation
     RegistryAccountDetail,
     RegistryMembershipsBrowse,
     RegistryMembershipDetail,
+    TenantProfileAuthorityRead,
+    TenantProfileRead,
+    TenantProfilePublish,
+    TenantProfileActivate,
+    LegacyOrderProfileAssignment,
 }
 
 internal sealed record AdminEndpointAuditMetadata(AdminEndpointAuditOperation Operation);
@@ -89,6 +94,14 @@ internal static class AdminApiPlatformAuthorization
         AdminEndpointAuditOperation.RegistryMembershipsBrowse => $"registry_memberships_browse:{RouteGuid(context, "tenantId"):N}",
         AdminEndpointAuditOperation.RegistryMembershipDetail =>
             $"registry_membership_detail:{RouteGuid(context, "tenantId"):N}:{RouteGuid(context, "accountId"):N}",
+        AdminEndpointAuditOperation.TenantProfileAuthorityRead =>
+            $"tenant_profile_authority_read:{RouteGuid(context, "tenantId"):N}",
+        AdminEndpointAuditOperation.TenantProfileRead =>
+            $"tenant_profile_read:{RouteGuid(context, "tenantId"):N}:{RouteGuid(context, "profileId"):N}",
+        AdminEndpointAuditOperation.TenantProfilePublish => $"tenant_profile_publish:{RouteGuid(context, "tenantId"):N}",
+        AdminEndpointAuditOperation.TenantProfileActivate => $"tenant_profile_activate:{RouteGuid(context, "tenantId"):N}",
+        AdminEndpointAuditOperation.LegacyOrderProfileAssignment =>
+            $"legacy_order_profile_assignment:{RouteGuid(context, "tenantId"):N}:{RouteGuid(context, "orderId"):N}",
         _ => throw new InvalidOperationException("Unknown Admin API audit operation declaration."),
     };
 

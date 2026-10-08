@@ -37,6 +37,29 @@ public sealed class PostgresTenantAuthorizationAdministrationStore(NpgsqlDataSou
     {
         ArgumentNullException.ThrowIfNull(actor);
         ArgumentNullException.ThrowIfNull(intent);
+        const int maximumTransactionAttempts = 3;
+        for (var attempt = 1; ; attempt++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                return await ProposeTransactionAsync(actor, intent, requestedAt, cancellationToken).ConfigureAwait(false);
+            }
+            catch (PostgresException exception) when (exception.SqlState == PostgresErrorCodes.SerializationFailure)
+            {
+                // PostgreSQL has aborted the entire transaction; no provider mutation occurs here.
+                if (attempt == maximumTransactionAttempts)
+                    return new TenantAuthorizationProposalResult(TenantAuthorizationProposalResultStatus.AuthorizationRevisionConflict, null);
+            }
+        }
+    }
+
+    private async Task<TenantAuthorizationProposalResult> ProposeTransactionAsync(
+        TenantAuthorizationActor actor,
+        TenantAuthorizationProposalIntent intent,
+        DateTimeOffset requestedAt,
+        CancellationToken cancellationToken)
+    {
         await using var connection = await dataSource.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
             .ConfigureAwait(false);
@@ -288,6 +311,27 @@ public sealed class PostgresTenantAuthorizationAdministrationStore(NpgsqlDataSou
     {
         ArgumentNullException.ThrowIfNull(actor);
         ArgumentNullException.ThrowIfNull(intent);
+        const int maximumTransactionAttempts = 3;
+        for (var attempt = 1; ; attempt++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                return await TransferInitialOwnerTransactionAsync(actor, intent, occurredAt, cancellationToken).ConfigureAwait(false);
+            }
+            catch (PostgresException exception) when (exception.SqlState == PostgresErrorCodes.SerializationFailure)
+            {
+                // This database-only handoff transaction was fully aborted; retry preserves the original receipt intent.
+                if (attempt == maximumTransactionAttempts)
+                    return new(TenantOwnerTransferStatus.TenantRevisionConflict, null, null, null, null);
+            }
+        }
+    }
+
+    private async Task<TenantOwnerTransferResult> TransferInitialOwnerTransactionAsync(
+        TenantAuthorizationActor actor, TenantOwnerTransferIntent intent, DateTimeOffset occurredAt,
+        CancellationToken cancellationToken)
+    {
         await using var connection = await dataSource.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
             .ConfigureAwait(false);

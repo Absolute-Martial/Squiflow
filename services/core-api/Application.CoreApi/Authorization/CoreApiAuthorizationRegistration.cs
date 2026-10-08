@@ -24,6 +24,8 @@ internal static class CoreApiAuthorizationRegistration
             serviceProvider.GetRequiredService<OpenFgaTenantAuthorization>());
         services.AddSingleton<ITenantPricingAuthorization>(serviceProvider =>
             serviceProvider.GetRequiredService<OpenFgaTenantAuthorization>());
+        services.AddSingleton<ITenantProfilePolicyAuthorization>(serviceProvider =>
+            serviceProvider.GetRequiredService<OpenFgaTenantAuthorization>());
         services.AddScoped<IAuthorizationHandler, ViewTenantWorkspaceAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, CreateOrderAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, ViewOrdersAuthorizationHandler>();
@@ -50,6 +52,7 @@ internal static class CoreApiAuthorizationRegistration
         services.AddScoped<IAuthorizationHandler, EditPricingDraftAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, PublishPricingAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, RetirePricingAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, TenantProfilePolicyAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, OverridePricingAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, OverrideBeyondPolicyPricingAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, ManageTenantRolesAuthorizationHandler>();

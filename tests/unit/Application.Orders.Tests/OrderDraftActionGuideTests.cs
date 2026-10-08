@@ -82,6 +82,16 @@ public sealed class OrderDraftActionGuideTests
         Assert.Throws<NotSupportedException>(() => actions.Clear());
     }
 
+    [Theory]
+    [InlineData(false, false, OrderDraftActionUnavailability.ProfileUnavailable)]
+    [InlineData(true, true, OrderDraftActionUnavailability.ProgramReferenceRequired)]
+    public void CommitmentExplainsUnmetPinnedPolicy(bool profileAvailable, bool referenceMissing, OrderDraftActionUnavailability reason)
+    {
+        var guide = OrderDraftActionGuide.Explain(OrderDraftState.Draft, 2, true, true, true,
+            profileAvailable: profileAvailable, programReferenceMissing: referenceMissing);
+        AssertAvailability(guide.Actions[2], OrderDraftAction.Commit, false, reason);
+    }
+
     private static void AssertAvailability(
         OrderDraftActionAvailability actual,
         OrderDraftAction action,

@@ -2,6 +2,16 @@ namespace Application.Orders.Postgres;
 
 internal static class OrderSql
 {
+    internal static readonly string ReadCreationPolicyPresence = Load(nameof(ReadCreationPolicyPresence));
+    internal static readonly string ReadCreationReceipt = Load(nameof(ReadCreationReceipt));
+    internal static readonly string ReadLegacyPolicyEligibility = Load(nameof(ReadLegacyPolicyEligibility));
+    internal static readonly string ReadBaselineAssignment = Load(nameof(ReadBaselineAssignment));
+    internal static readonly string InsertBaselineAssignment = Load(nameof(InsertBaselineAssignment));
+    internal static readonly string ProgramOrderPolicySchema = Load(nameof(ProgramOrderPolicySchema));
+    internal static readonly string ReadProgramOrderPolicy = Load(nameof(ReadProgramOrderPolicy));
+    internal static readonly string InsertProgramOrderPolicy = Load(nameof(InsertProgramOrderPolicy));
+    internal static readonly string UpdateProgramReference = Load(nameof(UpdateProgramReference));
+    internal static readonly string AdvanceReferenceRevision = Load(nameof(AdvanceReferenceRevision));
     internal static readonly string QuotationOriginsSchema = Load(nameof(QuotationOriginsSchema));
     internal static readonly string InsertQuotationOrigin = Load(nameof(InsertQuotationOrigin));
     internal static readonly string FindQuotationOrigin = Load(nameof(FindQuotationOrigin));

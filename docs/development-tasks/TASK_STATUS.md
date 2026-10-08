@@ -215,3 +215,20 @@ COM-011–013 remain separate: an owner-selected workflow and durable tenant-pro
 publication/activation prerequisites are still required. Local quotation receipts
 do not qualify OPS-013 general audit. Live storage/provider and other existing
 gate-owner blockers remain. Product version stays `v0.0.1`.
+
+## COM-011 and ADM-018–021 receiving continuation — 2026-10-08
+
+The owner accepted the required customer-supplied program-reference case and the
+complete typed profile contract, including retained policies for existing drafts.
+The fixed catalog, tenant policy edit/publication, separate private Admin profile
+publication/activation, explicit optional legacy baseline and pinned Order consumer
+are introduced under [the focused owner](../implementation/ORDER_PROGRAM_REFERENCE_POLICY.md).
+Their bounded local state is `PRODUCTION_HONEST`, with `BLOCKED = none` for
+this scope. The exact normal gate passed **1,220/1,220 across 23 projects**,
+zero failures/skips or Release warnings/errors, in 2,810 seconds. Independent
+CoreApi/AdminApi/DbMigrator publishes passed. The
+[qualification receipt](../review/COM_011_IMPLEMENTATION_RECEIPT.md) records
+permanent guards, source hashes and the retained failed receiving checks. This supersedes the preceding historical statement that
+COM-011 and its profile prerequisites were absent. COM-012/013 and general OPS-013
+audit remain separate absent responsibilities. Existing live-provider and
+gate-owner claims are unchanged. Product version remains `v0.0.1`.

@@ -40,9 +40,11 @@ public sealed class CoreApiRuntimeRoleProvisioningTests : PostgresTestDatabase
                       "customers.duplicate_cases", "customers.duplicate_command_receipts", "customers.customer_redirects",
                       "customers.imports", "customers.import_rows", "customers.import_work",
                       "catalog.units", "catalog.items", "catalog.unit_conversions", "catalog.command_receipts",
-                      "pricing.price_revisions", "pricing.command_receipts", "pricing.override_policies",
+                     "pricing.price_revisions", "pricing.command_receipts", "pricing.override_policies",
+                     "profiles.policy_heads", "profiles.policy_revisions", "profiles.publications",
+                     "profiles.authority", "profiles.command_receipts",
                      "orders.order_drafts",
-                     "orders.order_draft_lines", "orders.command_receipts",
+                     "orders.order_draft_lines", "orders.command_receipts", "orders.program_order_metadata",
                  })
         {
             await using var command = runtime.CreateCommand();
@@ -157,6 +159,24 @@ public sealed class CoreApiRuntimeRoleProvisioningTests : PostgresTestDatabase
         }
         await using var discover = new NpgsqlCommand("SELECT count(*) FROM customers.discover_runnable_import_tenants(NULL, 10)", runtime);
         Assert.Equal(0L, await discover.ExecuteScalarAsync());
+
+        await using var allowedPolicyHeadUpdate = new NpgsqlCommand(
+            "UPDATE profiles.policy_heads SET revision = revision WHERE false", runtime);
+        Assert.Equal(0, await allowedPolicyHeadUpdate.ExecuteNonQueryAsync());
+
+        foreach (var sql in new[]
+                 {
+                     "UPDATE profiles.authority SET active_profile_id = active_profile_id WHERE false",
+                     "INSERT INTO orders.program_order_metadata(baseline_principal_id) VALUES (NULL)",
+                     "INSERT INTO profiles.publications(tenant_id, profile_id, policy_id, legacy_baseline, version, facts) " +
+                     "VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002', " +
+                     "'00000000-0000-0000-0000-000000000003', false, 1, '{}'::jsonb)",
+                 })
+        {
+            await using var forbidden = new NpgsqlCommand(sql, runtime);
+            var failure = await Assert.ThrowsAsync<PostgresException>(() => forbidden.ExecuteNonQueryAsync());
+            Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, failure.SqlState);
+        }
     }
 
     [Fact]
@@ -235,6 +255,35 @@ public sealed class CoreApiRuntimeRoleProvisioningTests : PostgresTestDatabase
         {
             await AssertProvisioningRejectedAsync($"UPDATE ON TABLE quotations.{table}");
         }
+    }
+
+    [Fact]
+    public async Task ProvisioningRejectsPublicCoreBaselineMetadataInsertColumnPrivilege()
+    {
+        await ApplyOrderSchemaAsync();
+        await CreateRoleAsync();
+
+        await AssertProvisioningRejectedAsync(
+            "INSERT (baseline_principal_id) ON TABLE orders.program_order_metadata");
+    }
+
+    [Fact]
+    public async Task ProvisioningRejectsPublicProfileAuthorityUpdateColumnPrivilege()
+    {
+        await ApplyOrderSchemaAsync();
+        await CreateRoleAsync();
+
+        await AssertProvisioningRejectedAsync("UPDATE (active_profile_id) ON TABLE profiles.authority");
+    }
+
+    [Theory]
+    [InlineData("profiles.policy_revisions")]
+    [InlineData("profiles.publications")]
+    [InlineData("orders.program_order_metadata")]
+    public async Task ProvisioningRejectsPublicProfileAndOrderColumnReferences(string table)
+    {
+        await ApplyOrderSchemaAsync(); await CreateRoleAsync();
+        await AssertProvisioningRejectedAsync($"REFERENCES (tenant_id) ON TABLE {table}");
     }
 
     private async Task AssertProvisioningRejectedAsync(string privilege)

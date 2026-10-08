@@ -162,6 +162,156 @@ public sealed class TenantAuthorizationAdministrationPostgresTests : PostgresTes
     }
 
     [Fact]
+    public async Task PendingProposalAndAttemptStateRecoverThroughANewStoreAfterRestart()
+    {
+        var fixture = await SeedAsync();
+        TenantAuthorizationProposal created;
+        await using (var firstSource = NpgsqlDataSource.Create(ConnectionString))
+        {
+            var firstStore = new PostgresTenantAuthorizationAdministrationStore(firstSource);
+            var result = await firstStore.ProposeAsync(
+                TenantAuthorizationActor.Create(fixture.OwnerAccountId),
+                TenantAuthorizationProposalIntent.PermissionChange(
+                    TenantAuthorizationProposalKind.GrantPermission,
+                    fixture.TenantId,
+                    fixture.TargetAccountId,
+                    "orders.view",
+                    1,
+                    "restart-recovery"),
+                OccurredAt,
+                CancellationToken.None);
+            created = Assert.IsType<TenantAuthorizationProposal>(result.Proposal);
+            _ = await firstStore.MarkAttemptAsync(
+                fixture.TenantId, created.ProposalId, OccurredAt.AddSeconds(1), CancellationToken.None);
+            _ = await firstStore.MarkUncertainAsync(
+                fixture.TenantId, created.ProposalId, "provider_timeout", OccurredAt.AddSeconds(2), CancellationToken.None);
+        }
+
+        await using var restartedSource = NpgsqlDataSource.Create(ConnectionString);
+        var restartedStore = new PostgresTenantAuthorizationAdministrationStore(restartedSource);
+        var recovered = Assert.IsType<TenantAuthorizationProposal>(await restartedStore.FindProposalAsync(
+            fixture.TenantId, created.ProposalId, CancellationToken.None));
+        Assert.Equal(TenantAuthorizationProposalStatus.Uncertain, recovered.Status);
+        Assert.Equal(1, recovered.AttemptCount);
+        Assert.Equal("provider_timeout", recovered.FailureCode);
+
+        // The durable proposal remains reconcilable after the original store/client lifetime ends.
+        var completed = await restartedStore.CompleteAsync(
+            fixture.TenantId, recovered.ProposalId, OccurredAt.AddSeconds(3), CancellationToken.None);
+        Assert.Equal(TenantAuthorizationProposalStatus.Applied, completed!.Status);
+        Assert.True(await GrantIsActiveAsync(fixture.TenantId, fixture.TargetAccountId, "orders.view"));
+        Assert.Equal(2, await restartedStore.GetAuthorizationRevisionAsync(fixture.TenantId, CancellationToken.None));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ConcurrentProposalsAtOneAuthorizationRevisionCreateOnlyOnePendingProposal(bool sameKey)
+    {
+        var fixture = await SeedAsync();
+        await using var source = NpgsqlDataSource.Create(ConnectionString);
+        var store = new PostgresTenantAuthorizationAdministrationStore(source);
+        var actor = TenantAuthorizationActor.Create(fixture.OwnerAccountId);
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        async Task<TenantAuthorizationProposalResult> ProposeAsync(string key)
+        {
+            await start.Task;
+            return await store.ProposeAsync(
+                actor,
+                TenantAuthorizationProposalIntent.PermissionChange(
+                    TenantAuthorizationProposalKind.GrantPermission,
+                    fixture.TenantId,
+                    fixture.TargetAccountId,
+                    "orders.view",
+                    1,
+                    key),
+                OccurredAt,
+                CancellationToken.None);
+        }
+
+        var first = ProposeAsync("concurrent-first");
+        var second = ProposeAsync(sameKey ? "concurrent-first" : "concurrent-second");
+        start.SetResult();
+        var results = await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.Single(results, result => result.Status == TenantAuthorizationProposalResultStatus.Created);
+        Assert.Single(results, result => result.Status == (sameKey
+            ? TenantAuthorizationProposalResultStatus.Replayed
+            : TenantAuthorizationProposalResultStatus.AuthorizationRevisionConflict));
+        var retained = Assert.Single(results, result => result.Status == TenantAuthorizationProposalResultStatus.Created);
+        Assert.Equal(TenantAuthorizationProposalStatus.Pending, retained.Proposal!.Status);
+        Assert.Equal(1, await store.GetAuthorizationRevisionAsync(fixture.TenantId, CancellationToken.None));
+        Assert.Equal(1, await CountAsync(
+            "SELECT count(*) FROM tenancy.tenant_authorization_proposals WHERE tenant_id = @tenant;",
+            fixture.TenantId));
+        Assert.Equal(1, await CountAsync(
+            "SELECT count(*) FROM tenancy.tenant_authorization_events WHERE tenant_id = @tenant;",
+            fixture.TenantId));
+    }
+
+    [Fact]
+    public async Task FailedProposalEventInsertRollsBackProposalAndAllowsSameKeyRetry()
+    {
+        var fixture = await SeedAsync();
+        await using var source = NpgsqlDataSource.Create(ConnectionString);
+        var store = new PostgresTenantAuthorizationAdministrationStore(source);
+        var actor = TenantAuthorizationActor.Create(fixture.OwnerAccountId);
+        var intent = TenantAuthorizationProposalIntent.PermissionChange(
+            TenantAuthorizationProposalKind.GrantPermission,
+            fixture.TenantId,
+            fixture.TargetAccountId,
+            "orders.view",
+            1,
+            "event-insert-rollback");
+
+        await ExecuteSqlAsync("""
+            CREATE FUNCTION tenancy.reject_authorization_event_insert()
+            RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN
+                RAISE EXCEPTION 'injected authorization event failure' USING ERRCODE = '23514';
+            END;
+            $$;
+            CREATE TRIGGER reject_authorization_event_insert
+            BEFORE INSERT ON tenancy.tenant_authorization_events
+            FOR EACH ROW EXECUTE FUNCTION tenancy.reject_authorization_event_insert();
+            """);
+
+        try
+        {
+            var exception = await Assert.ThrowsAsync<PostgresException>(() =>
+                store.ProposeAsync(actor, intent, OccurredAt, CancellationToken.None));
+            Assert.Equal("23514", exception.SqlState);
+
+            Assert.Null(await store.GetAuthorizationRevisionAsync(fixture.TenantId, CancellationToken.None));
+            Assert.Equal(0, await CountAsync(
+                "SELECT count(*) FROM tenancy.tenant_authorization_proposals WHERE tenant_id = @tenant;",
+                fixture.TenantId));
+            Assert.Equal(0, await CountAsync(
+                "SELECT count(*) FROM tenancy.tenant_authorization_events WHERE tenant_id = @tenant;",
+                fixture.TenantId));
+        }
+        finally
+        {
+            await ExecuteSqlAsync("""
+                DROP TRIGGER reject_authorization_event_insert ON tenancy.tenant_authorization_events;
+                DROP FUNCTION tenancy.reject_authorization_event_insert();
+                """);
+        }
+
+        var retry = await store.ProposeAsync(actor, intent, OccurredAt.AddSeconds(1), CancellationToken.None);
+        Assert.Equal(TenantAuthorizationProposalResultStatus.Created, retry.Status);
+        Assert.Equal(TenantAuthorizationProposalStatus.Pending, retry.Proposal!.Status);
+        Assert.Equal(1, await store.GetAuthorizationRevisionAsync(fixture.TenantId, CancellationToken.None));
+        Assert.Equal(1, await CountAsync(
+            "SELECT count(*) FROM tenancy.tenant_authorization_proposals WHERE tenant_id = @tenant;",
+            fixture.TenantId));
+        Assert.Equal(1, await CountAsync(
+            "SELECT count(*) FROM tenancy.tenant_authorization_events WHERE tenant_id = @tenant;",
+            fixture.TenantId));
+    }
+
+    [Fact]
     public async Task RevocationAndCustomRoleLifecyclePreserveHistoryAndAdvanceOneRevisionPerObservedChange()
     {
         var fixture = await SeedAsync();
@@ -271,6 +421,21 @@ public sealed class TenantAuthorizationAdministrationPostgresTests : PostgresTes
     }
 
     [Fact]
+    public async Task TenantSuspensionRevokesCurrentDelegatorAdmission()
+    {
+        var fixture = await SeedAsync();
+        await using var source = NpgsqlDataSource.Create(ConnectionString);
+        var store = new PostgresTenantAuthorizationAdministrationStore(source);
+
+        Assert.True(await store.IsInitialOwnerAsync(fixture.TenantId, fixture.OwnerAccountId, CancellationToken.None));
+        await ExecuteSqlAsync(
+            "UPDATE tenancy.tenants SET availability = 2 WHERE id = @tenant;",
+            ("tenant", fixture.TenantId));
+
+        Assert.False(await store.IsInitialOwnerAsync(fixture.TenantId, fixture.OwnerAccountId, CancellationToken.None));
+    }
+
+    [Fact]
     public async Task MigrationRollbackRefusesToDiscardAuthorizationEvidence()
     {
         var fixture = await SeedAsync();
@@ -369,6 +534,53 @@ public sealed class TenantAuthorizationAdministrationPostgresTests : PostgresTes
                 OccurredAt.AddSeconds(3), CancellationToken.None)).Status);
     }
 
+    [Fact]
+    public async Task ConcurrentOwnerRecoveryTransfersLeaveExactlyOneCurrentOwner()
+    {
+        var fixture = await SeedAsync();
+        var alternateTarget = Guid.NewGuid();
+        await ExecuteSqlAsync("""
+            INSERT INTO identity_access.accounts(id, availability, created_at) VALUES (@account, 1, now());
+            INSERT INTO tenancy.memberships(
+                tenant_id, account_id, availability, created_at, revision, activated_at, suspended_at, removed_at, is_initial_owner)
+            VALUES (@tenant, @account, 1, now(), 1, now(), NULL, NULL, false);
+            """,
+            ("account", alternateTarget), ("tenant", fixture.TenantId));
+
+        await using var source = NpgsqlDataSource.Create(ConnectionString);
+        var store = new PostgresTenantAuthorizationAdministrationStore(source);
+        var actor = TenantAuthorizationActor.Create(fixture.OwnerAccountId);
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        async Task<TenantOwnerTransferResult> TransferAsync(Guid targetAccountId, string idempotencyKey)
+        {
+            await start.Task;
+            return await store.TransferInitialOwnerAsync(
+                actor,
+                TenantOwnerTransferIntent.Create(fixture.TenantId, targetAccountId, 1, idempotencyKey),
+                OccurredAt,
+                CancellationToken.None);
+        }
+
+        var first = TransferAsync(fixture.TargetAccountId, "owner-recovery-first");
+        var second = TransferAsync(alternateTarget, "owner-recovery-second");
+        start.SetResult();
+        var results = await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.Single(results, result => result.Status == TenantOwnerTransferStatus.Transferred);
+        Assert.Single(results, result => result.Status is TenantOwnerTransferStatus.ActorNotInitialOwner
+            or TenantOwnerTransferStatus.TenantRevisionConflict
+            or TenantOwnerTransferStatus.TargetMembershipUnavailable);
+        Assert.False(await store.IsInitialOwnerAsync(fixture.TenantId, fixture.OwnerAccountId, CancellationToken.None));
+        Assert.Equal(1, await CountAsync(
+            "SELECT count(*) FROM tenancy.memberships WHERE tenant_id = @tenant AND is_initial_owner AND availability = 1;",
+            fixture.TenantId));
+        Assert.Equal(1, await CountAsync(
+            "SELECT count(*) FROM tenancy.memberships WHERE tenant_id = @tenant AND is_initial_owner;",
+            fixture.TenantId));
+        Assert.Equal(2, await store.GetAuthorizationRevisionAsync(fixture.TenantId, CancellationToken.None));
+    }
+
     private static async Task<TenantAuthorizationProposal> CreateAndCompleteAsync(
         PostgresTenantAuthorizationAdministrationStore store,
         TenantAuthorizationActor actor,
@@ -417,6 +629,15 @@ public sealed class TenantAuthorizationAdministrationPostgresTests : PostgresTes
         command.Parameters.AddWithValue("account", accountId);
         command.Parameters.AddWithValue("permission", permissionId);
         return (bool)(await command.ExecuteScalarAsync() ?? false);
+    }
+
+    private async Task<long> CountAsync(string sql, Guid tenantId)
+    {
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand(sql, connection);
+        command.Parameters.AddWithValue("tenant", tenantId);
+        return (long)(await command.ExecuteScalarAsync())!;
     }
 
     private async Task ExecuteSqlAsync(string sql, params (string Name, object Value)[] parameters)

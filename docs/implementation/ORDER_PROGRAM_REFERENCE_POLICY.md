@@ -1,0 +1,71 @@
+# Order program reference policy
+
+**Status:** Accepted COM-011 contract. The fixed catalog, policy/profile authority and pinned Order-reference consumer are locally `PRODUCTION_HONEST`, with `BLOCKED = none` for that declared scope. The [qualification receipt](../review/COM_011_IMPLEMENTATION_RECEIPT.md) owns exact evidence and receiving history. This document is the focused owner for the first typed tenant policy consumed by Order commitment.
+
+## Accepted behavior
+
+An Order attributed to a validated tenant-owned program may require one customer-supplied reference before commitment. The stable Order field is `ExternalProgramReference`; its display label is “Program reference.” It is operator-entered text that records supplied information. It does not prove customer approval, payment, purchase-order validity, or an externally verified fact.
+
+The only setting in this slice is `RequireReferenceForProgramOrders`, a Boolean with default `false`. When `true`, it applies to every program-attributed Order. Orders without a program remain optional. There are no program exceptions, expression language, generic setting bag, new stage, or workflow engine. Selecting an internal `ProgramId` never supplies the external reference.
+
+Normalize the text by trimming outer Unicode whitespace, converting a blank result to absent, preserving case and internal whitespace, and rejecting Unicode Control runes or malformed UTF-16. The normalized value is limited to 128 Unicode scalar values. Errors use a fixed safe message and never include the supplied value. Persisted text must already equal its normalized form. Render it as text at the output boundary and exclude it from ordinary diagnostic logs.
+
+The reference may be absent while creating a draft, issuing or accepting a quotation, and converting an accepted quotation. Guidance can explain that it is needed. A reference-only edit is a separate draft-only command with current `orders.edit`, expected Order revision, and caller-scoped semantic idempotency. It does not require manual-price authority and cannot edit a committed or abandoned Order.
+
+A direct draft's program-attribution change is evaluated against the profile already pinned to that draft in the same revision-checked command. A quotation-origin Order retains the accepted attribution; ordinary revision cannot change it.
+
+For a quotation-origin Order, the reference edit changes only reference metadata, Order revision, and the new command receipt/history. It must preserve accepted quotation summary, currency, total, attribution, every priced line/source fact, origin, and the original immutable conversion snapshot. It must not alter the quotation or make the Order a route to modifying its commercial facts.
+
+Commitment uses current `orders.commit` authority before protected reads and idempotency replay. If the pinned policy requires a reference for the attributed program Order and the normalized reference is absent, return `409 order_program_reference_required` with no successful transition or receipt effect. Missing, invalid, incompatible, or unavailable profile authority fails closed with a safe compatibility/unavailability outcome; absence never means the optional (`false`) policy.
+
+## Tenant policy and platform profile authority
+
+Tenant policy administration is separate from Orders business permission and from platform profile control. Through tenant Web → CoreApi, the stable permissions are `profiles.policy.view`, `profiles.policy.edit`, and `profiles.policy.publish`. They are independent, explicitly delegated permissions under current tenant authorization; Owner status and `orders.edit`/`orders.commit` do not grant them automatically. Current membership and operation authority are checked on every request, including replay. There is no new Workstation authoring surface in this slice.
+
+Policy edits remain draft state until the authorized tenant policy publisher creates an immutable policy revision. A published tenant policy revision can be referenced by an immutable tenant profile but does not itself activate behavior. Private AdminApi profile publication and activation use their separate platform capabilities, `can_publish_tenant_profile` and `can_activate_tenant_profile`, in addition to the established Platform Admin identity, active device, private entry, and authorization checks. Platform Admin operations retain actor/device receipts. Tenant policy publication retains its account actor and observed authorization revision. Exact policy revisions are referenced in profile facts; they are never copied into a mutable profile setting or treated as a permission grant.
+
+The first durable snapshot version is `tenant-profile/v1`. It retains tenant identity, the fixed catalog fingerprint and effective feature selection, the exact published policy revision, profile publisher principal/device/time, and observed authorization revision. Unknown schema versions, unsupported catalog fingerprints, cross-tenant references, and inconsistent retained facts fail closed. Profile edit, publication, and activation use expected revisions, caller-scoped semantic idempotency, immutable receipts, and one atomic durable effect. Current authorization is rechecked before replay.
+
+ADM-018's first catalog is deliberately fixed: `customers.organizations`, `customers.programs` → `customers.organizations`, `orders.drafts`, and `orders.program-attribution` → `orders.drafts` + `customers.programs`. Each is always enabled and nonselectable. This is metadata for the existing operations and gives the platform ceiling no tenant feature-toggle behavior. In particular, direct Orders do not depend on Customers. Feature selection never grants permissions. Feature disablement, dormant grants, and reactivation are not introduced by this catalog.
+
+## Policy pinning and legacy drafts
+
+New direct drafts pin the active compatible profile when created. A quotation conversion pins the active compatible profile when conversion creates its Order. Publication or activation therefore changes the policy used by new work; it does not silently change policy for existing work. A draft already pinned to a profile keeps that revision through later publications and activation changes. Successful commitment freezes its reference and profile/policy evidence.
+
+Existing drafts with no profile pin cannot be treated as if they were created under `false`, and cannot be committed until authority is available. An authorized Platform Admin operation must explicitly assign the retained `false` baseline profile using compare-and-set on the draft's current Order revision. Selecting the retained legacy baseline is a separate one-time compare-and-set operation on the tenant profile authority revision. The operation records an immutable actor/device receipt and coordinates with Order creation so a concurrent new draft cannot be misclassified. Assignment changes only profile authority/pin metadata: it does not increment the Order revision, rewrite an Order, or alter old Order receipts. It never assigns the newer required policy to legacy work. If that explicit baseline cannot be established, the draft remains fail-closed.
+
+Protected Order detail/history retain the supplied reference, stable field meaning, and exact profile/policy revision. Historical payloads that predate the field remain readable without fabricating a value. Rollback activates a compatible retained profile for new work and preserves historical profile/policy facts, Orders, receipts, and issued business facts. Policy and profile history remain interpretable after retirement.
+
+## Operational sequence and HTTP contract
+
+Deploy the DbMigrator before either host and apply the checked-in CoreApi/AdminApi database grant scripts. Profiles uses its own migration history and precedes Orders. Both hosts require the admitted Profiles adapter; absent active authority cannot fall back to an optional policy. Publish the revised pinned OpenFGA models and explicitly delegate tenant policy permissions and the separate platform profile rights through their existing authority paths.
+
+Every mutation below requires one bounded `Idempotency-Key`. Expected revisions refer to the named authority, not an HTTP version or permission grant. Current account/membership or Platform Admin identity/device/entry/operation authority is checked before replay. Protected responses are `no-store`; command projections omit Order prices and lines.
+
+| Host and route | Authority | JSON body and effect |
+|---|---|---|
+| CoreApi `GET /api/v1/tenants/{tenantId}/profile-policy` | `profiles.policy.view` | Reads current draft policy; initial state is revision zero and optional. It does not establish active Order authority. |
+| CoreApi `PUT .../profile-policy` | `profiles.policy.edit` | `expectedRevision`, `requireReferenceForProgramOrders`; CAS replaces the typed draft setting. |
+| CoreApi `POST .../profile-policy/publish` | `profiles.policy.publish` | `expectedRevision`; retains an immutable published policy revision. |
+| AdminApi `GET /api/v1/platform/tenants/{tenantId}/profile-authority` and `GET .../profiles/{profileId}` | `can_read_tenants` | Reads routing revision or an exact retained profile. |
+| AdminApi `POST .../profiles` | `can_publish_tenant_profile` plus Admin entry | `expectedAuthorityRevision`, `publishedPolicyRevisionId`, optional `isLegacyBaseline`; publishes `tenant-profile/v1` with the fixed feature selection. Publication does not activate it. |
+| AdminApi `POST .../profiles/{profileId}/activate` | `can_activate_tenant_profile` plus Admin entry | `expectedAuthorityRevision`, optional `asLegacyBaseline`; changes the active pointer, or explicitly selects the one retained optional legacy baseline. |
+| AdminApi `POST .../profiles/legacy-orders/{orderId}/assign` | `can_activate_tenant_profile` plus Admin entry | `expectedRevision` of the Order head; binds an eligible pre-profile draft to the selected optional baseline without changing its business revision or receipts. Returns only status, Order ID and observed revision. |
+| CoreApi `PUT /api/v1/tenants/{tenantId}/orders/{orderId}/program-reference` | `orders.edit` | `expectedRevision`, `externalProgramReference` (string or null); advances the draft revision, metadata and receipt atomically. Does not require price authority. |
+| CoreApi `POST .../orders/{orderId}/commit` | `orders.commit` | Existing `expectedRevision` contract; enforces the retained pin and required reference before transition. |
+
+For a tenant's first activation, edit and publish the chosen policy, publish its profile, then activate that profile using the returned authority revision. A required-reference tenant may activate the required policy directly; optional activation is not an intermediate prerequisite. If legacy drafts exist, publish a separate optional profile marked `isLegacyBaseline`, select it with `asLegacyBaseline`, and assign each eligible draft explicitly at its current Order revision. Selecting that baseline preserves the active profile for new work. Publication and selection can advance the tenant authority revision; read or use the returned revision before each CAS. Later policies follow the same edit → policy publication → profile publication → activation sequence. Earlier pins remain intact. Rollback activates an already retained compatible profile for new work.
+
+Profile publication's observed authorization revision is retained evidence and is excluded from retry intent: the same publication key and business request replay the original evidence after a later observation. Publisher device identity remains part of that intent. Order reads and replays compare immutable creation evidence and retained profile facts; an unpinned historical receipt is interpreted as assigned legacy work only with valid retained baseline actor/device evidence. Missing creation evidence for a pinned Order fails closed.
+
+## Source admission and boundary ownership
+
+The accepted owner decision earns a PostgreSQL Profiles adapter because publication, routing, restart recovery and Order pinning require central transactional authority. It reuses the admitted Npgsql/EF Core, forced RLS, embedded parameterized SQL, migration and bounded host mechanisms; no new vendor, queue, database or process is selected. Host composition bridges public provider ports so Profiles and Orders adapters do not reference each other. Creation and conversion borrow the caller's connection/transaction and hold the same tenant routing fence as activation; they cannot commit or dispose another capability's transaction.
+
+The durability burden includes immutable facts and receipts, current-authority replay, typed CAS conflicts, cancellation/connection-loss rollback, resource bounds, and retained compatibility. The native provider regressions below guard those obligations. Destructive migration rollback is rejected for introduced retained facts. The adapter and four-entry catalog should be revisited when a new selected capability changes feature/policy semantics or requires an independently earned boundary.
+
+## Evidence and qualification
+
+The admitted compiler, catalog metadata, durable policy/profile lifecycle, baseline assignment, and Order consumer are separate responsibilities. Their local qualification is recorded in the [implementation receipt](../review/COM_011_IMPLEMENTATION_RECEIPT.md): exact normal gate 1,220/1,220 across 23 projects, real PostgreSQL/OpenFGA/host guards, and independent CoreApi/AdminApi/DbMigrator publish checks. This decision owner defines behavior; the receipt qualifies only that declared scope. The existing live object-storage/provider blocker remains independent and is not closed by this slice. Product version remains `v0.0.1`.
+
+Keep recurring tests for the stable catalog fingerprint/selection, typed policy revision and replay behavior, cross-tenant isolation, CAS races and baseline receipt, malformed/blank/oversized references, current authorization on edit/commit/replay, activation races with create/conversion/commit, restart and retained-history behavior, and quoted-Order commercial-fact preservation. Changes to catalog IDs/fingerprint, policy semantics/permissions, schema version, baseline assignment, pinning, failure outcomes, or quotation facts require requalification.

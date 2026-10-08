@@ -11,8 +11,8 @@
 The three count lines below are machine-read by `Application.Architecture.Tests` (`ReadCount` matches `^label: N$`). Keep each on its own line in exactly this form.
 
 ```text
-production projects: 24
-test projects:       22
+production projects: 25
+test projects:       23
 executable hosts:    4
 solution files:      1
 repository build/test contract: present
@@ -24,7 +24,7 @@ BLOCKED: COM-004 external Hugging Face provider qualification (OPS-007/OPS-008),
 | Area | Projects | Current responsibility (declared narrow scope) |
 |---|---|---|
 | Object storage | `Application.ObjectStorage` | Host-neutral `IObjectStore` request/result boundary for bounded retained objects; no provider SDK/API types or provider qualification claim. |
-| ApplicationProfiles | `Application.Profiles` | Bounded feature definition, dependency-graph validation and deterministic, dependency-closed effective-selection compilation with stable catalog/selection fingerprints. No production feature catalog and no durable tenant profile authority. |
+| ApplicationProfiles | `Application.Profiles`, `.Postgres` | Bounded feature compilation plus the accepted fixed four-feature catalog, immutable typed tenant policy revisions, separate private-Admin profile publication/activation and retained profile resolution. ADM-018–021 and COM-011 are locally `PRODUCTION_HONEST` for their bounded scope; [focused owner](docs/implementation/ORDER_PROGRAM_REFERENCE_POLICY.md). |
 | Branding | `Application.Branding` | Validated, deployment-supplied public identity (name, legal identity, theme, links). No codename fallback. |
 | IdentityAccess | `Application.IdentityAccess`, `.Postgres` | Durable binding of one or more exact OIDC `(issuer, subject)` identities to a stable application account, including caller-scoped onboarding/link receipts and concurrency-safe identity uniqueness. Stores no password, role or permission authority. |
 | Tenancy | `Application.Tenancy`, `.Postgres` | Tenant registry, revision-checked membership/tenant lifecycle, membership-derived immutable `TenantContext`, durable tenant-authorization revision/proposals/evidence, bounded direct business grants, custom-role metadata/assignments, and atomic initial-Owner handoff. Capability permission semantics remain a stable compiled catalog; provider-specific OpenFGA mutation stays in the CoreApi adapter. |
@@ -74,6 +74,8 @@ Unhandled transient PostgreSQL failures return safe `503` / `database_unavailabl
 | `POST /api/v1/tenants/{tenantId}/orders/{orderId}/abandon` | Current membership plus `order_abandoner`; requires `expectedRevision`; idempotent. |
 
 | `POST /api/v1/tenants/{tenantId}/orders/{orderId}/commit` | Current membership plus `order_committer`; expectedRevision and caller-scoped idempotency; freezes priced facts without billing or fulfillment effects. |
+| `GET /api/v1/tenants/{tenantId}/profile-policy`; `PUT .../profile-policy`; `POST .../profile-policy/publish` | COM-011 prerequisites: separate policy view/edit/publish rights, typed revision checks and immutable publication. Publication does not activate Order behavior. |
+| `PUT /api/v1/tenants/{tenantId}/orders/{orderId}/program-reference` | COM-011: `order_editor`, expected Order revision and idempotency; reference-only draft metadata. Commitment enforces the retained profile policy; earlier pins remain unchanged. [Contract](docs/implementation/ORDER_PROGRAM_REFERENCE_POLICY.md). |
 | `POST /api/v1/tenants/{tenantId}/quotations`; `PUT .../quotations/{quotationId}/draft`; `POST .../{quotationId}/issue` | Current membership plus distinct quotation create/edit/issue authority and applicable pricing authority. COM-009 locally qualified; see focused owner. |
 | `GET /api/v1/tenants/{tenantId}/quotations/{quotationId}`; `GET .../{quotationId}/issued` | Current membership plus `quotation_viewer`; immutable issued offers and bounded history. |
 | `POST .../quotations/{quotationId}/{accept\|reject\|expire\|convert}`; `GET .../{quotationId}/issued/{revisionId}/response` | COM-010: current membership plus `quotation_responder`, `quotation_expirer`, `quotation_converter` plus Orders-create, or quotation-view for history. `PRODUCTION_HONEST` for the declared bounded scope. Command projections omit offer/Order prices and lines; see the [qualification receipt](docs/review/COM_010_IMPLEMENTATION_RECEIPT.md). |
@@ -117,6 +119,9 @@ A required `AdminApi:ProtectedRequestTimeoutSeconds` value (1–120; checked in 
 | `POST /api/v1/platform/tenants/{tenantId}/memberships`; `POST .../memberships/initial-owner` | `can_manage_memberships`; invites an active account or creates the one protected initial-Owner membership with caller-scoped idempotency. |
 | `POST .../memberships/{accountId}/{activate\|suspend\|remove}` | `can_manage_memberships`; expected-revision membership transition with retained actor/device receipt. |
 | `POST /api/v1/platform/tenants/{tenantId}/lifecycle/{suspend\|reactivate}` | `can_manage_tenant_lifecycle`; expected-revision tenant transition. Suspension immediately blocks membership-derived tenant access. |
+| `GET .../tenants/{tenantId}/profile-authority`; `GET .../profiles/{profileId}` | COM-011 prerequisites: `can_read_tenants`; exact retained profile/routing reads. |
+| `POST .../tenants/{tenantId}/profiles`; `POST .../profiles/{profileId}/activate` | Independent `can_publish_tenant_profile` / `can_activate_tenant_profile` plus current Admin entry; publication and activation remain separate revision-checked commands. |
+| `POST .../profiles/legacy-orders/{orderId}/assign` | `can_activate_tenant_profile` plus current Admin entry; explicit optional-baseline binding at the Order's current revision, with immutable actor/device evidence and a price-free response. |
 
 The exact identity-import/linking scope, provider boundary, failure contract, evidence and non-claims are owned by `docs/implementation/ADMIN_API_IDENTITY_IMPORT_AND_LINKING.md`.
 
@@ -146,7 +151,7 @@ A deployment must provide the public Branding values, Authentication authority/a
 
 ## Explicitly `NOT_INTRODUCED`
 
-No production feature catalog; durable Tenant Application Profile authority; production profile-specific resolution (no production endpoint acquires the internal tenant-keyed profile-runtime registry); live ZITADEL-instance/service-account qualification; provider-side user creation or reconciliation; tenant-to-ZITADEL organization mapping; login/callback/session flows; general Owner/Staff permissions or custom-role modeling; ongoing platform/tenant role administration and tuple reconciliation; authorization revision; normal Admin-device registration/revocation/rotation lifecycle; tenant/Workstation device lifecycle; broader order/business lifecycle beyond the qualified COM-010 response/conversion slice (admission, fulfillment, durable invoice persistence/number allocation, payment, credit, return, refund); an external PostgreSQL pooler; Worker; Web UI; Workstation; a general ApplicationKernel/module runtime.
+Selectable production feature catalogs, dynamic workflow forms and production profile-specific runtime composition remain absent (no production endpoint acquires the internal tenant-keyed profile-runtime registry). The first fixed catalog, durable profile authority and pinned Order consumer are introduced under the [COM-011 focused owner](docs/implementation/ORDER_PROGRAM_REFERENCE_POLICY.md). Live ZITADEL-instance/service-account qualification, provider-side user creation or reconciliation, tenant-to-ZITADEL organization mapping, login/callback/session flows, general Owner/Staff authority beyond the bounded current delegation contract, normal Admin-device registration/revocation/rotation lifecycle, tenant/Workstation device lifecycle, broader order/business lifecycle (admission, fulfillment, durable invoice persistence/number allocation, payment, credit, return, refund), an external PostgreSQL pooler, Worker, Web UI, Workstation and a general ApplicationKernel/module runtime remain separate absent or pending responsibilities.
 
 ## Excluded from the inventory
 
@@ -460,3 +465,16 @@ Read in this order:
 5. the focused owner and current decision record for the responsibility being introduced.
 
 Historical implementation, phase, review, branch, and CI records remain evidence and context only when they conflict with this current inventory.
+
+## COM-011 and bounded profile authority — 2026-10-08
+
+The fixed catalog, typed policy publication, independent private profile
+publication/activation, explicit optional legacy baseline and pinned program-reference
+consumer are locally `PRODUCTION_HONEST`, `BLOCKED = none` for that scope.
+The [qualification receipt](docs/review/COM_011_IMPLEMENTATION_RECEIPT.md) records
+the exact normal **1,220/1,220** gate across **23 projects**, zero failures/skips
+or Release warnings/errors, and independent CoreApi/AdminApi/DbMigrator publishes.
+Existing drafts retain their prior policy, and quoted reference edits preserve
+accepted financial facts and the original conversion snapshot. COM-012/013,
+live providers, other gate-owner claims and complete-product qualification remain
+separate. Product version stays `v0.0.1`.

@@ -93,7 +93,23 @@
           "xunit.extensibility.core": "[2.9.3]"
         }
       },
+      "application.identityaccess": {
+        "type": "Project"
+      },
+      "application.platformadministration": {
+        "type": "Project",
+        "dependencies": {
+          "Application.IdentityAccess": "[0.0.1, )"
+        }
+      },
       "application.profiles": {
+        "type": "Project",
+        "dependencies": {
+          "Application.PlatformAdministration": "[0.0.1, )",
+          "Application.Tenancy": "[0.0.1, )"
+        }
+      },
+      "application.tenancy": {
         "type": "Project"
       }
     }

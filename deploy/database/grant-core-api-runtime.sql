@@ -28,11 +28,11 @@ BEGIN
     IF EXISTS (SELECT 1 FROM pg_database WHERE datname = current_database() AND datdba = role_record.oid)
        OR EXISTS (
            SELECT 1 FROM pg_namespace
-            WHERE nspname IN ('identity_access', 'tenancy', 'customers', 'catalog', 'pricing', 'orders') AND nspowner = role_record.oid)
+            WHERE nspname IN ('identity_access', 'tenancy', 'customers', 'catalog', 'pricing', 'orders', 'profiles') AND nspowner = role_record.oid)
        OR EXISTS (
            SELECT 1 FROM pg_class AS c
            JOIN pg_namespace AS n ON n.oid = c.relnamespace
-            WHERE n.nspname IN ('identity_access', 'tenancy', 'customers', 'catalog', 'pricing', 'orders')
+            WHERE n.nspname IN ('identity_access', 'tenancy', 'customers', 'catalog', 'pricing', 'orders', 'profiles')
              AND c.relowner = role_record.oid) THEN
         RAISE EXCEPTION 'CoreApi runtime role must not own the database, schemas or application tables';
     END IF;
@@ -40,7 +40,9 @@ BEGIN
         SELECT 1 FROM pg_class AS c
         JOIN pg_namespace AS n ON n.oid = c.relnamespace
         WHERE ((n.nspname = 'orders'
-                AND c.relname IN ('order_drafts', 'order_draft_lines', 'command_receipts', 'quotation_origins'))
+                AND c.relname IN ('order_drafts', 'order_draft_lines', 'command_receipts', 'quotation_origins', 'program_order_metadata'))
+            OR (n.nspname = 'profiles'
+                AND c.relname IN ('policy_heads', 'policy_revisions', 'publications', 'authority', 'command_receipts'))
             OR (n.nspname = 'customers'
                 AND c.relname IN ('organizations', 'programs', 'organization_receipts', 'program_receipts',
                                    'individuals', 'individual_command_receipts',
@@ -55,7 +57,7 @@ BEGIN
     END IF;
 
     EXECUTE format('GRANT CONNECT ON DATABASE %I TO %I', current_database(), runtime_role);
-    FOREACH target_schema IN ARRAY ARRAY['identity_access', 'tenancy', 'customers', 'catalog', 'pricing', 'orders'] LOOP
+    FOREACH target_schema IN ARRAY ARRAY['identity_access', 'tenancy', 'customers', 'catalog', 'pricing', 'orders', 'profiles'] LOOP
         EXECUTE format('GRANT USAGE ON SCHEMA %I TO %I', target_schema, runtime_role);
     END LOOP;
     FOREACH target_table IN ARRAY ARRAY[
@@ -102,6 +104,22 @@ BEGIN
         'orders.order_drafts', 'orders.order_draft_lines', 'orders.command_receipts', 'orders.quotation_origins'] LOOP
         EXECUTE format('GRANT SELECT, INSERT ON TABLE %s TO %I', target_table, runtime_role);
     END LOOP;
+    -- The policy aggregate is the only profile state CoreApi may write. The other
+    -- profile rows are read-only authority/facts; all profile writes stay tenant-RLS scoped.
+    EXECUTE format('GRANT INSERT ON TABLE profiles.policy_heads TO %I', runtime_role);
+    EXECUTE format('GRANT INSERT ON TABLE profiles.policy_revisions TO %I', runtime_role);
+    EXECUTE format('GRANT INSERT ON TABLE profiles.command_receipts TO %I', runtime_role);
+    EXECUTE format('GRANT UPDATE (revision, require_reference, published_policy_id) ON TABLE profiles.policy_heads TO %I', runtime_role);
+    FOREACH target_table IN ARRAY ARRAY[
+        'profiles.policy_heads', 'profiles.policy_revisions', 'profiles.publications',
+        'profiles.authority', 'profiles.command_receipts'] LOOP
+        EXECUTE format('GRANT SELECT ON TABLE %s TO %I', target_table, runtime_role);
+    END LOOP;
+    -- CoreApi binds a newly committed Order using only non-baseline fields and can
+    -- later edit only the customer-supplied reference.
+    EXECUTE format('GRANT SELECT ON TABLE orders.program_order_metadata TO %I', runtime_role);
+    EXECUTE format('GRANT INSERT (tenant_id, order_id, profile_id, policy_revision_id, require_reference, external_reference, bound_at) ON TABLE orders.program_order_metadata TO %I', runtime_role);
+    EXECUTE format('GRANT UPDATE (external_reference) ON TABLE orders.program_order_metadata TO %I', runtime_role);
     EXECUTE format(
         'GRANT UPDATE (summary, currency_code, total, customer_organization_id, customer_program_id, state, revision, abandoned_at, abandoned_by_account_id, committed_at, committed_by_account_id) ON TABLE orders.order_drafts TO %I',
         runtime_role);
@@ -138,7 +156,7 @@ BEGIN
        OR has_database_privilege(runtime_role, current_database(), 'CREATE') THEN
         RAISE EXCEPTION 'CoreApi runtime database privileges are unsafe';
     END IF;
-    FOREACH target_schema IN ARRAY ARRAY['identity_access', 'tenancy', 'customers', 'catalog', 'pricing', 'orders'] LOOP
+    FOREACH target_schema IN ARRAY ARRAY['identity_access', 'tenancy', 'customers', 'catalog', 'pricing', 'orders', 'profiles'] LOOP
         IF NOT has_schema_privilege(runtime_role, target_schema, 'USAGE')
            OR has_schema_privilege(runtime_role, target_schema, 'CREATE') THEN
             RAISE EXCEPTION 'CoreApi runtime schema privileges are unsafe';
@@ -220,6 +238,7 @@ BEGIN
                <> (target_table = 'orders.order_draft_lines')
            OR has_table_privilege(runtime_role, target_table, 'TRUNCATE')
            OR has_table_privilege(runtime_role, target_table, 'REFERENCES')
+           OR has_any_column_privilege(runtime_role, target_table, 'REFERENCES')
            OR has_table_privilege(runtime_role, target_table, 'TRIGGER') THEN
             RAISE EXCEPTION 'CoreApi runtime table privileges are unsafe on %', target_table;
         END IF;
@@ -237,6 +256,7 @@ BEGIN
            OR has_table_privilege(runtime_role, target_table, 'DELETE')
            OR has_table_privilege(runtime_role, target_table, 'TRUNCATE')
            OR has_table_privilege(runtime_role, target_table, 'REFERENCES')
+           OR has_any_column_privilege(runtime_role, target_table, 'REFERENCES')
            OR has_table_privilege(runtime_role, target_table, 'TRIGGER') THEN
             RAISE EXCEPTION 'CoreApi authorization-administration table privileges are unsafe on %', target_table;
         END IF;
@@ -330,6 +350,80 @@ BEGIN
     END IF;
 END
 $verify$;
+
+-- Profile policy state and Order policy metadata have narrower write surfaces than
+-- the existing table-level tenant stores. Verify effective table and column rights.
+DO $profile_order_privileges$
+DECLARE
+    runtime_role text := current_setting('app.provision_runtime_role');
+    target_table text;
+    target_column record;
+BEGIN
+    FOREACH target_table IN ARRAY ARRAY[
+        'profiles.policy_heads', 'profiles.policy_revisions', 'profiles.publications',
+        'profiles.authority', 'profiles.command_receipts'] LOOP
+        IF NOT has_table_privilege(runtime_role, target_table, 'SELECT')
+           OR has_table_privilege(runtime_role, target_table, 'DELETE')
+           OR has_table_privilege(runtime_role, target_table, 'TRUNCATE')
+           OR has_table_privilege(runtime_role, target_table, 'REFERENCES')
+           OR has_any_column_privilege(runtime_role, target_table, 'REFERENCES')
+           OR has_table_privilege(runtime_role, target_table, 'TRIGGER')
+           OR has_table_privilege(runtime_role, target_table, 'UPDATE')
+           OR has_table_privilege(runtime_role, target_table, 'INSERT')
+                <> (target_table IN ('profiles.policy_heads', 'profiles.policy_revisions', 'profiles.command_receipts')) THEN
+            RAISE EXCEPTION 'CoreApi profile table privileges are unsafe on %', target_table;
+        END IF;
+    END LOOP;
+
+    FOR target_column IN
+        SELECT c.relname AS table_name, a.attname AS column_name
+        FROM pg_class AS c
+        JOIN pg_namespace AS n ON n.oid = c.relnamespace
+        JOIN pg_attribute AS a ON a.attrelid = c.oid
+        WHERE n.nspname = 'profiles' AND c.relname IN
+            ('policy_heads', 'policy_revisions', 'publications', 'authority', 'command_receipts')
+          AND a.attnum > 0 AND NOT a.attisdropped
+    LOOP
+        target_table := format('profiles.%I', target_column.table_name);
+        IF NOT has_column_privilege(runtime_role, target_table, target_column.column_name, 'SELECT')
+           OR has_column_privilege(runtime_role, target_table, target_column.column_name, 'INSERT')
+                <> (target_column.table_name IN ('policy_heads', 'policy_revisions', 'command_receipts'))
+           OR has_column_privilege(runtime_role, target_table, target_column.column_name, 'UPDATE')
+                <> (target_column.table_name = 'policy_heads'
+                    AND target_column.column_name IN ('revision', 'require_reference', 'published_policy_id')) THEN
+            RAISE EXCEPTION 'CoreApi profile column privileges are unsafe on %.%', target_table, target_column.column_name;
+        END IF;
+    END LOOP;
+
+    IF NOT has_table_privilege(runtime_role, 'orders.program_order_metadata', 'SELECT')
+       OR has_table_privilege(runtime_role, 'orders.program_order_metadata', 'INSERT')
+       OR has_table_privilege(runtime_role, 'orders.program_order_metadata', 'UPDATE')
+       OR has_table_privilege(runtime_role, 'orders.program_order_metadata', 'DELETE')
+       OR has_table_privilege(runtime_role, 'orders.program_order_metadata', 'TRUNCATE')
+       OR has_table_privilege(runtime_role, 'orders.program_order_metadata', 'REFERENCES')
+       OR has_any_column_privilege(runtime_role, 'orders.program_order_metadata', 'REFERENCES')
+       OR has_table_privilege(runtime_role, 'orders.program_order_metadata', 'TRIGGER') THEN
+        RAISE EXCEPTION 'CoreApi program-order metadata table privileges are unsafe';
+    END IF;
+    FOR target_column IN
+        SELECT a.attname AS column_name
+        FROM pg_class AS c
+        JOIN pg_namespace AS n ON n.oid = c.relnamespace
+        JOIN pg_attribute AS a ON a.attrelid = c.oid
+        WHERE n.nspname = 'orders' AND c.relname = 'program_order_metadata'
+          AND a.attnum > 0 AND NOT a.attisdropped
+    LOOP
+        IF NOT has_column_privilege(runtime_role, 'orders.program_order_metadata', target_column.column_name, 'SELECT')
+           OR has_column_privilege(runtime_role, 'orders.program_order_metadata', target_column.column_name, 'INSERT')
+                <> (target_column.column_name IN
+                    ('tenant_id', 'order_id', 'profile_id', 'policy_revision_id', 'require_reference', 'external_reference', 'bound_at'))
+           OR has_column_privilege(runtime_role, 'orders.program_order_metadata', target_column.column_name, 'UPDATE')
+                <> (target_column.column_name = 'external_reference') THEN
+            RAISE EXCEPTION 'CoreApi program-order metadata column privileges are unsafe on %', target_column.column_name;
+        END IF;
+    END LOOP;
+END
+$profile_order_privileges$;
 
 
 -- Quotation facts and links are append-only; only owned header/counter columns may change.

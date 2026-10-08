@@ -21,10 +21,10 @@ Generated from full task metadata. Read the complete file and accepted dependenc
 | [ADM-015 — Enroll one principal-bound Admin device](ADM-015_enroll-one-principal-bound-admin-device.md) | READY_AFTER_DEPENDENCIES | GPT-6.1 Sol | REQUIRED | ADM-014, OPS-015, ADM-034 |
 | [ADM-016 — Rotate and revoke registered Admin certificates](ADM-016_rotate-and-revoke-registered-admin-certificates.md) | READY_AFTER_DEPENDENCIES | GPT-6.1 Sol | REQUIRED | ADM-015, ADM-017, OPS-018 |
 | [ADM-017 — Define and drill Admin access recovery ceremony](ADM-017_define-and-drill-admin-access-recovery-ceremony.md) | DECISION_REQUIRED | GPT-6.1 Sol | REQUIRED | ADM-014, OPS-015 |
-| [ADM-018 — Admit a real feature catalog and permission metadata](ADM-018_admit-a-real-feature-catalog-and-permission-metadata.md) | DECISION_REQUIRED | GPT-6.1 Sol | REQUIRED | ADM-008, GATE-001 |
-| [ADM-019 — Persist one typed setting revision](ADM-019_persist-one-typed-setting-revision.md) | READY_AFTER_DEPENDENCIES | GPT-6.1 Sol | REQUIRED | ADM-018 |
-| [ADM-020 — Publish one immutable tenant profile revision](ADM-020_publish-one-immutable-tenant-profile-revision.md) | READY_AFTER_DEPENDENCIES | GPT-6.1 Sol | REQUIRED | ADM-019, ADM-009 |
-| [ADM-021 — Activate and roll back a published profile](ADM-021_activate-and-roll-back-a-published-profile.md) | READY_AFTER_DEPENDENCIES | GPT-6.1 Sol | REQUIRED | ADM-020, ADM-011 |
+| [ADM-018 — Admit a real feature catalog and permission metadata](ADM-018_admit-a-real-feature-catalog-and-permission-metadata.md) | VERIFY_EXISTING | GPT-6 Luna (high) | REQUIRED | ADM-008, GATE-001 |
+| [ADM-019 — Persist one typed setting revision](ADM-019_persist-one-typed-setting-revision.md) | VERIFY_EXISTING | GPT-6.1 Sol | REQUIRED | ADM-018 |
+| [ADM-020 — Publish one immutable tenant profile revision](ADM-020_publish-one-immutable-tenant-profile-revision.md) | VERIFY_EXISTING | GPT-6.1 Sol | REQUIRED | ADM-019, ADM-009 |
+| [ADM-021 — Activate and roll back a published profile](ADM-021_activate-and-roll-back-a-published-profile.md) | VERIFY_EXISTING | GPT-6.1 Sol | REQUIRED | ADM-020, ADM-011 |
 | [ADM-022 — Acquire tenant runtime only for a proven variant](ADM-022_acquire-tenant-runtime-only-for-a-proven-variant.md) | CONDITIONAL | GPT-6.1 Sol | CONDITIONAL | ADM-021 |
 | [ADM-023 — Provide authoritative administrative audit reads](ADM-023_provide-authoritative-administrative-audit-reads.md) | READY_AFTER_DEPENDENCIES | GPT-6.1 Sol | REQUIRED | ADM-006, ADM-010, ADM-020, OPS-013 |
 | [ADM-024 — Publish bounded tenant branding overrides](ADM-024_publish-bounded-tenant-branding-overrides.md) | READY_AFTER_DEPENDENCIES | GPT-6.1 Sol | REQUIRED | ADM-021, WEB-001 |

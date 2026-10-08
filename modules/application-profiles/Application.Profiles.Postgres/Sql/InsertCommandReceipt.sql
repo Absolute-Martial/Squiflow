@@ -1,0 +1,1 @@
+INSERT INTO profiles.command_receipts(tenant_id,actor_id,actor_kind,device_id,operation,idempotency_key,fingerprint,version,recorded_at,observed_authorization_revision,result) VALUES(@tenant,@actor,@kind,@device,@operation,@key,@fingerprint,1,@at,@observed,@result::jsonb)

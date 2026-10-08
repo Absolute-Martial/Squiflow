@@ -592,6 +592,12 @@ public sealed class RequestBudgetTests(AdminApiTestEnvironment environment)
         public Task<bool> CanReadMembershipsAsync(Guid platformPrincipalId, CancellationToken cancellationToken) =>
             Task.FromResult(true);
 
+        public Task<bool> CanPublishTenantProfileAsync(Guid platformPrincipalId, CancellationToken cancellationToken) =>
+            Task.FromResult(true);
+
+        public Task<bool> CanActivateTenantProfileAsync(Guid platformPrincipalId, CancellationToken cancellationToken) =>
+            Task.FromResult(true);
+
         public Task<bool> IsReadyAsync(CancellationToken cancellationToken) => Task.FromResult(true);
     }
 
@@ -664,6 +670,12 @@ public sealed class RequestBudgetTests(AdminApiTestEnvironment environment)
         public Task<bool> CanReadMembershipsAsync(Guid platformPrincipalId, CancellationToken cancellationToken) =>
             Task.FromResult(true);
 
+        public Task<bool> CanPublishTenantProfileAsync(Guid platformPrincipalId, CancellationToken cancellationToken) =>
+            Task.FromResult(true);
+
+        public Task<bool> CanActivateTenantProfileAsync(Guid platformPrincipalId, CancellationToken cancellationToken) =>
+            Task.FromResult(true);
+
         public Task<bool> IsReadyAsync(CancellationToken cancellationToken) => Task.FromResult(true);
     }
 
@@ -722,6 +734,12 @@ public sealed class RequestBudgetTests(AdminApiTestEnvironment environment)
             Task.FromResult(true);
 
         public Task<bool> CanReadMembershipsAsync(Guid platformPrincipalId, CancellationToken cancellationToken) =>
+            Task.FromResult(true);
+
+        public Task<bool> CanPublishTenantProfileAsync(Guid platformPrincipalId, CancellationToken cancellationToken) =>
+            Task.FromResult(true);
+
+        public Task<bool> CanActivateTenantProfileAsync(Guid platformPrincipalId, CancellationToken cancellationToken) =>
             Task.FromResult(true);
 
         public async Task<bool> IsReadyAsync(CancellationToken cancellationToken)

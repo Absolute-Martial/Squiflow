@@ -24,7 +24,7 @@ public sealed partial class PostgresOrderDraftStore
         {
             command.Parameters.AddWithValue("tenant_id", tenantContext.TenantId);
             command.Parameters.AddWithValue("order_id", request.OrderId);
-            command.Parameters.AddWithValue("operations", new[] { CreateOperation, QuotationCreateOperation, ReviseOperation, AbandonOperation, CommitOperation });
+            command.Parameters.AddWithValue("operations", new[] { CreateOperation, QuotationCreateOperation, ReviseOperation, AbandonOperation, CommitOperation, ProgramReferenceOperation });
             command.Parameters.Add(new NpgsqlParameter("before_revision", NpgsqlDbType.Bigint)
             {
                 Value = (object?)request.BeforeRevision ?? DBNull.Value,
@@ -41,7 +41,6 @@ public sealed partial class PostgresOrderDraftStore
                     reader.GetGuid(reader.GetOrdinal("tenant_id")), reader.GetGuid(reader.GetOrdinal("order_id")),
                     reader.GetString(reader.GetOrdinal("fingerprint")), reader.GetString(reader.GetOrdinal("response_json")));
                 var snapshot = ReadReceiptSnapshot(receipt, operation);
-                await RequireAcceptedQuotationFactsAsync(tenantContext, snapshot, cancellationToken).ConfigureAwait(false);
                 var actor = reader.GetGuid(reader.GetOrdinal("account_id"));
                 var recordedAt = reader.GetFieldValue<DateTimeOffset>(reader.GetOrdinal("created_at"));
                 var change = ToChange(operation);
@@ -59,6 +58,12 @@ public sealed partial class PostgresOrderDraftStore
         {
             await session.CommitAsync(cancellationToken).ConfigureAwait(false);
             return null;
+        }
+        // Complete the statement reader before profile validation uses this same transaction.
+        foreach (var entry in entries)
+        {
+            await RequireRetainedProgramPolicyAsync(session, tenantContext.TenantId, entry.Order, cancellationToken).ConfigureAwait(false);
+            await RequireAcceptedQuotationFactsAsync(tenantContext, entry.Order, cancellationToken).ConfigureAwait(false);
         }
         // Every successful current command stores its effect and receipt together. Do not
         // invent missing historical revisions or silently present contradictory receipts.
@@ -88,6 +93,7 @@ public sealed partial class PostgresOrderDraftStore
         CreateOperation => OrderDraftChange.Created,
         QuotationCreateOperation => OrderDraftChange.Created,
         ReviseOperation => OrderDraftChange.Revised,
+        ProgramReferenceOperation => OrderDraftChange.ProgramReferenceUpdated,
         AbandonOperation => OrderDraftChange.Abandoned,
         CommitOperation => OrderDraftChange.Committed,
         _ => throw InvalidReceipt(),

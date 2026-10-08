@@ -88,6 +88,9 @@ public static class TenantPermissionCatalog
         new("quotations.expire", "quotation_expirer", "Record quotation expiry"),
         new("quotations.convert", "quotation_converter", "Convert accepted quotations to orders"),
         new("pricing.override_beyond_policy", "pricing_exception_overrider", "Override outside the current policy envelope"),
+        new("profiles.policy.view", "profile_policy_viewer", "View tenant profile policy"),
+        new("profiles.policy.edit", "profile_policy_editor", "Edit tenant profile policy"),
+        new("profiles.policy.publish", "profile_policy_publisher", "Publish tenant profile policy"),
     ];
 
     public static IReadOnlyList<TenantPermissionDefinition> All { get; } = Array.AsReadOnly(Definitions);

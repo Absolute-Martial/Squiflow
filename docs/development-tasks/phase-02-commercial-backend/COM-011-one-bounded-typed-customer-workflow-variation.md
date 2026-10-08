@@ -2,7 +2,7 @@
 
 Task ID: COM-011
 Phase: 02-commercial-backend
-Status: DECISION_REQUIRED
+Status: VERIFY_EXISTING
 Model: GPT-6.1 Sol
 Dependencies: COM-007, ADM-021
 Conditional dependencies: OPS-005 when the selected policy requires timed occurrences; OPS-010 when external notification is selected
@@ -20,17 +20,17 @@ Recheck `README.IMPLEMENTATION.md`, scoped `AGENTS.md`, [business model](../../d
 
 ## Scope and exclusions
 
-Allowed areas: Web-administration-only authoring/publication APIs; one capability-owned effective selection path, bounded typed form schema, pure evaluation and retained version evidence with focused tests. No tenant scripts, uploaded SQL, visual app builder or financial truth defined by custom stages.
+Allowed areas: Web-administration-only authoring/publication APIs; one capability-owned effective selection path, bounded reference field, pure evaluation and retained version evidence with focused tests. No tenant scripts, uploaded SQL, visual app builder or financial truth defined by custom stages.
 
 ## Decisions/prerequisites
 
-Owner selected and clarified the first case on 2026-10-08: **required customer-supplied reference text before commitment of an Order already attributed to a program**, separate from internal `ProgramId`. The focused [workflow owner](../../workflow/WORKFLOW_DESIGN.md) records the selection. Status remains `DECISION_REQUIRED`: close the [remaining contract proposal](../../review/COM_011_DECISION_PROPOSAL.md), including typed shape, applicability/precedence, publication authority and active-work version decisions. ADM-018–021 durable profile prerequisites remain unimplemented; the accepted case/meaning does not qualify them.
+Owner accepted the [COM-011/profile contract](../../review/COM_011_PROFILE_PREREQUISITE_DECISION_PROPOSAL.md) on 2026-10-08. The bounded source now has local qualification in the [implementation receipt](../../review/COM_011_IMPLEMENTATION_RECEIPT.md). The [focused consumer owner](../../implementation/ORDER_PROGRAM_REFERENCE_POLICY.md) defines exact scope, retained legacy policy, authority separation and regression obligations. Planning status `VERIFY_EXISTING` means review current source/evidence, not production acceptance.
 
-Choose the actual variation, permitted typed fields/operators/actions, inheritance conflict rule, bounds, publication authority and compatible version policy. Approval behavior is supplied by COM-012; deadlines need OPS-005 only when the chosen case requires scheduling.
+The selected case is customer-supplied reference text before commitment of a program-attributed Order, separate from internal `ProgramId`. The owner accepted the full profile contract and grandfathering: existing drafts retain their prior policy; unprofiled legacy drafts need explicit authorized optional-baseline assignment. The server exposes a bounded reference-only edit under `orders.edit`; commitment checks the immutable pinned policy under `orders.commit`. Policy/profile publication, activation and retained revisions are introduced with ADM-018–021. COM-012 approval behavior, timers, notifications, general forms/stages and per-program exceptions remain separate.
 
 ## Acceptance and edge cases
 
-- Validate, simulate and publish immutable compatible definition/form/rule versions.
+- Validate one Boolean policy and reference field, exercise default/required evaluation, and publish immutable compatible policy/profile revisions.
 - Guidance explains missing information, allowed next action, actor and prohibition reasons.
 - Unknown facts, conflicting outputs and complexity exhaustion fail explicitly with no partial effect.
 - Protected permissions, invoice, stock and payment facts cannot be overridden by configuration.

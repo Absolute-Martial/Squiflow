@@ -6,9 +6,11 @@ using Npgsql;
 
 namespace Application.CoreApi.Composition;
 
-internal sealed class QuotationOrderWriter : IQuotationOrderWriter
+internal sealed class QuotationOrderWriter(IOrderProfilePolicySource profilePolicySource) : IQuotationOrderWriter
 {
-    public Task<OrderDraftSnapshot> CreateAsync(TenantContext context, AcceptedQuotationOrder accepted,
+    public async Task<OrderDraftSnapshot> CreateAsync(TenantContext context, AcceptedQuotationOrder accepted,
         NpgsqlConnection connection, NpgsqlTransaction transaction, DateTimeOffset createdAt, CancellationToken ct) =>
-        PostgresOrderDraftStore.CreateAcceptedQuotationAsync(context, accepted, connection, transaction, createdAt, ct);
+        await PostgresOrderDraftStore.CreateAcceptedQuotationAsync(context, accepted, connection, transaction, createdAt, ct,
+            await profilePolicySource.ResolveActiveAsync(connection, transaction, context.TenantId, ct).ConfigureAwait(false)
+                ?? throw new OrderProfileUnavailableException()).ConfigureAwait(false);
 }

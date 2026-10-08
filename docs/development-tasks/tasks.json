@@ -321,8 +321,8 @@
       "task_id": "ADM-018",
       "title": "Admit a real feature catalog and permission metadata",
       "phase": "01-admin-platform",
-      "status": "DECISION_REQUIRED",
-      "model": "GPT-6.1 Sol",
+      "status": "VERIFY_EXISTING",
+      "model": "GPT-6 Luna (high)",
       "release_requirement": "REQUIRED",
       "dependencies": [
         "ADM-008",
@@ -336,7 +336,7 @@
       "task_id": "ADM-019",
       "title": "Persist one typed setting revision",
       "phase": "01-admin-platform",
-      "status": "READY_AFTER_DEPENDENCIES",
+      "status": "VERIFY_EXISTING",
       "model": "GPT-6.1 Sol",
       "release_requirement": "REQUIRED",
       "dependencies": [
@@ -350,7 +350,7 @@
       "task_id": "ADM-020",
       "title": "Publish one immutable tenant profile revision",
       "phase": "01-admin-platform",
-      "status": "READY_AFTER_DEPENDENCIES",
+      "status": "VERIFY_EXISTING",
       "model": "GPT-6.1 Sol",
       "release_requirement": "REQUIRED",
       "dependencies": [
@@ -365,7 +365,7 @@
       "task_id": "ADM-021",
       "title": "Activate and roll back a published profile",
       "phase": "01-admin-platform",
-      "status": "READY_AFTER_DEPENDENCIES",
+      "status": "VERIFY_EXISTING",
       "model": "GPT-6.1 Sol",
       "release_requirement": "REQUIRED",
       "dependencies": [
@@ -762,7 +762,7 @@
       "task_id": "COM-011",
       "title": "One bounded typed customer workflow variation",
       "phase": "02-commercial-backend",
-      "status": "DECISION_REQUIRED",
+      "status": "VERIFY_EXISTING",
       "model": "GPT-6.1 Sol",
       "release_requirement": "REQUIRED",
       "dependencies": [
@@ -779,7 +779,7 @@
           "condition": "OPS-010 when external notification is selected"
         }
       ],
-      "write_scope": "Allowed areas: Web-administration-only authoring/publication APIs; one capability-owned effective selection path, bounded typed form schema, pure evaluation and retained version evidence with focused tests. No tenant scripts, uploaded SQL, visual app builder or financial truth defined by custom stages.",
+      "write_scope": "Allowed areas: Web-administration-only authoring/publication APIs; one capability-owned effective selection path, bounded reference field, pure evaluation and retained version evidence with focused tests. No tenant scripts, uploaded SQL, visual app builder or financial truth defined by custom stages.",
       "file": "phase-02-commercial-backend/COM-011-one-bounded-typed-customer-workflow-variation.md"
     },
     {

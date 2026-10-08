@@ -2,11 +2,11 @@
 
 **Version:** v0.0.1
 
-**Status:** Accepted workflow semantics; workflow runtime and configurable workflow implementation remain `NOT_INTRODUCED`.
+**Status:** Accepted workflow semantics. A fixed typed COM-011 policy is accepted and its implementation is `BLOCKED` pending receiving qualification; a general workflow runtime remains `NOT_INTRODUCED`.
 
 Design workflows from the user's continuation journey, not from a diagram alone.
 
-The owner selected **required customer-supplied reference text before Order commitment for an Order already attributed to a program** as the first COM-011 customer/program variation on 2026-10-08. The text may identify a customer purchase order or job and is separate from the existing internal `ProgramId`; selecting a program alone does not satisfy the text requirement. Typed bounds, policy applicability/publication authority and active-work version behavior still require owner decisions; durable tenant-profile prerequisites remain absent. The [remaining contract proposal](../review/COM_011_DECISION_PROPOSAL.md) is review material, not an accepted runtime contract.
+The owner accepted **required customer-supplied reference text before commitment of an Order already attributed to a program** as the first COM-011 variation on 2026-10-08. It is separate from internal `ProgramId`. The fixed Boolean policy, 128-scalar reference bounds, tenant-policy permissions, profile publication/activation boundary, and legacy-draft false-baseline treatment are accepted; implementation and receiving evidence remain blocked. See the canonical [Order program reference policy](../implementation/ORDER_PROGRAM_REFERENCE_POLICY.md) and [accepted profile decision package](../review/COM_011_PROFILE_PREREQUISITE_DECISION_PROPOSAL.md).
 
 ## 1. Continuation-first questions
 

@@ -144,8 +144,10 @@ public sealed partial class PostgresQuotationStore
             order is null || order.OrderId == Guid.Empty || order.TenantId != context.TenantId || order.CreatedByAccountId != conversion.ConvertedByAccountId ||
             order.CreatedAt != conversion.ConvertedAt || order.State != OrderDraftState.Draft || order.Revision != 1 ||
             order.CommittedAt is not null || order.CommittedByAccountId is not null || order.AbandonedAt is not null || order.AbandonedByAccountId is not null ||
+            order.ExternalProgramReference is not null ||
             !QuotationRules.OrderFacts(issued).Matches(order))
             throw new InvalidOperationException("Stored quotation conversion facts are invalid.");
+        if (order.ProgramPolicy is not null) OrderProgramReference.RequireValidStored(order.ProgramPolicy, null);
     }
     private static QuotationResponseKind ResponseKind(string operation) => operation switch
     { "accept" => QuotationResponseKind.Accepted, "reject" => QuotationResponseKind.Rejected, "expire" => QuotationResponseKind.Expired, _ => throw new InvalidOperationException("Unknown quotation response operation.") };

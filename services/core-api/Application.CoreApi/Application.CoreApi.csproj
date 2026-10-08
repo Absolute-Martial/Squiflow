@@ -22,6 +22,7 @@
     <ProjectReference Include="../../../modules/orders/Application.Orders/Application.Orders.csproj" />
     <ProjectReference Include="../../../modules/pricing/Application.Pricing.Postgres/Application.Pricing.Postgres.csproj" />
     <ProjectReference Include="../../../modules/pricing/Application.Pricing/Application.Pricing.csproj" />
+    <ProjectReference Include="../../../modules/application-profiles/Application.Profiles.Postgres/Application.Profiles.Postgres.csproj" />
     <ProjectReference Include="../../../modules/tenancy/Application.Tenancy.Postgres/Application.Tenancy.Postgres.csproj" />
     <ProjectReference Include="../../../modules/tenancy/Application.Tenancy/Application.Tenancy.csproj" />
   </ItemGroup>

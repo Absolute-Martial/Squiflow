@@ -1,0 +1,1 @@
+SELECT revision,active_profile_id,legacy_baseline_profile_id FROM profiles.authority WHERE tenant_id=@tenant

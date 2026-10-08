@@ -74,7 +74,8 @@ internal static class TenantOrderActionsEndpoint
                 extensions: new Dictionary<string, object?> { ["code"] = "authorization_unavailable" });
         }
 
-        var guide = OrderDraftActionGuide.Explain(order.State, order.Revision, mayRevise, mayAbandon, mayCommit, quotationBound: quotationBound);
+        var guide = OrderDraftActionGuide.Explain(order.State, order.Revision, mayRevise, mayAbandon, mayCommit, quotationBound: quotationBound,
+            profileAvailable: order.ProgramPolicy is not null, programReferenceMissing: OrderProgramReference.IsMissing(order));
         return TypedResults.Ok(new OrderDraftActionsResponse(orderId, guide.ObservedRevision,
             guide.Actions.Select(action => new OrderDraftActionResponse(action.Action switch
             {
@@ -89,6 +90,8 @@ internal static class TenantOrderActionsEndpoint
                 OrderDraftActionUnavailability.AlreadyAbandoned => "order_already_abandoned",
                 OrderDraftActionUnavailability.AlreadyCommitted => "order_already_committed",
                 OrderDraftActionUnavailability.QuotationBound => "order_quotation_bound",
+                OrderDraftActionUnavailability.ProfileUnavailable => "order_profile_unavailable",
+                OrderDraftActionUnavailability.ProgramReferenceRequired => "order_program_reference_required",
                 _ => throw new InvalidOperationException("The order guide contains an unsupported reason."),
             })).ToArray()));
     }

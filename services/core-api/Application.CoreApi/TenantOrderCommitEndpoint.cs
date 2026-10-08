@@ -76,6 +76,10 @@ internal static class TenantOrderCommitEndpoint
                 extensions: new Dictionary<string, object?> { ["code"] = "authorization_unavailable" });
         }
 
+        if (result.Status == CommitOrderDraftStatus.ProfileUnavailable)
+            return TypedResults.Problem(statusCode: 503, title: "A compatible authoritative Order profile is unavailable.",
+                extensions: new Dictionary<string, object?> { ["code"] = "order_profile_unavailable" });
+
         if (result.Status == CommitOrderDraftStatus.NotFound)
         {
             return TypedResults.Problem(
@@ -89,6 +93,7 @@ internal static class TenantOrderCommitEndpoint
             CommitOrderDraftStatus.AlreadyCommitted or
             CommitOrderDraftStatus.AlreadyAbandoned or
             CommitOrderDraftStatus.CommercialFactsConflict or
+            CommitOrderDraftStatus.ProgramReferenceRequired or
             CommitOrderDraftStatus.IdempotencyKeyConflict)
         {
             var (code, detail) = result.Status switch
@@ -99,6 +104,8 @@ internal static class TenantOrderCommitEndpoint
                     ("order_already_committed", "The order has already been committed."),
                 CommitOrderDraftStatus.AlreadyAbandoned =>
                     ("order_already_abandoned", "The order draft has already been abandoned."),
+                CommitOrderDraftStatus.ProgramReferenceRequired =>
+                    ("order_program_reference_required", "Supply the customer program reference before commitment."),
                 CommitOrderDraftStatus.CommercialFactsConflict =>
                     ("order_commercial_facts_conflict", "The retained catalog price, policy or compatibility has changed. Explicitly revise the draft before commitment."),
                 _ =>

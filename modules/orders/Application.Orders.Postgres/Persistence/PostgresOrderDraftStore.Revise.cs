@@ -29,8 +29,9 @@ public sealed partial class PostgresOrderDraftStore
             ReviseOperation, idempotencyKey, cancellationToken).ConfigureAwait(false);
         if (receipt is not null)
         {
+            var replayResult = await ToExistingReviseResultAsync(session, tenantContext, receipt, fingerprint, cancellationToken).ConfigureAwait(false);
             await session.CommitAsync(cancellationToken).ConfigureAwait(false);
-            return ToExistingReviseResult(receipt, fingerprint);
+            return replayResult;
         }
 
         if (await ReadQuotationOriginAsync(session, tenantContext.TenantId, request.OrderId, cancellationToken).ConfigureAwait(false) is not null)
@@ -60,8 +61,9 @@ public sealed partial class PostgresOrderDraftStore
                     ReviseOperation, idempotencyKey, cancellationToken).ConfigureAwait(false);
                 if (receipt is not null)
                 {
+                    var replayResult = await ToExistingReviseResultAsync(session, tenantContext, receipt, fingerprint, cancellationToken).ConfigureAwait(false);
                     await session.CommitAsync(cancellationToken).ConfigureAwait(false);
-                    return ToExistingReviseResult(receipt, fingerprint);
+                    return replayResult;
                 }
 
                 var current = await FindOrderStateAsync(
@@ -107,7 +109,8 @@ public sealed partial class PostgresOrderDraftStore
             session, tenantContext.TenantId, tenantContext.AccountId,
             ReviseOperation, idempotencyKey, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("The order command receipt disappeared after a conflict.");
+        var conflictResult = await ToExistingReviseResultAsync(session, tenantContext, receipt, fingerprint, cancellationToken).ConfigureAwait(false);
         await session.RollbackAsync(cancellationToken).ConfigureAwait(false);
-        return ToExistingReviseResult(receipt, fingerprint);
+        return conflictResult;
     }
 }

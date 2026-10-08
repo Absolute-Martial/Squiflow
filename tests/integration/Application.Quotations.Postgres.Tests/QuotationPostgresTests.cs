@@ -170,6 +170,8 @@ public sealed partial class QuotationPostgresTests : IAsyncLifetime
             prerequisites.Parameters.AddWithValue("actor", _account); await prerequisites.ExecuteNonQueryAsync(budget.Token);
             await using var customers = Application.Customers.Postgres.CustomersPostgresMigrations.CreateContext(_database.GetConnectionString());
             await customers.Database.MigrateAsync(budget.Token);
+            await using var profiles = Application.Profiles.Postgres.ProfilesPostgresRegistration.CreateContext(_database.GetConnectionString());
+            await profiles.Database.MigrateAsync(budget.Token);
             var orderOptions = new DbContextOptionsBuilder<Application.Orders.Postgres.OrderDbContext>();
             Application.Orders.Postgres.PostgresOrderOptions.Configure(orderOptions, _database.GetConnectionString());
             await using var orders = new Application.Orders.Postgres.OrderDbContext(orderOptions.Options);
@@ -186,6 +188,11 @@ public sealed partial class QuotationPostgresTests : IAsyncLifetime
                 GRANT UPDATE(value) ON quotations.numbers TO quotation_runtime;
                 GRANT USAGE ON SCHEMA orders TO quotation_runtime;
                 GRANT SELECT,INSERT ON orders.order_drafts,orders.order_draft_lines,orders.command_receipts,orders.quotation_origins TO quotation_runtime;
+                GRANT SELECT ON orders.program_order_metadata TO quotation_runtime;
+                GRANT USAGE ON SCHEMA profiles TO quotation_runtime;
+                GRANT SELECT ON profiles.policy_heads,profiles.policy_revisions,profiles.publications,profiles.authority TO quotation_runtime;
+                GRANT INSERT(tenant_id,order_id,profile_id,policy_revision_id,require_reference,external_reference,bound_at) ON orders.program_order_metadata TO quotation_runtime;
+                GRANT UPDATE(external_reference) ON orders.program_order_metadata TO quotation_runtime;
                 GRANT UPDATE(state,revision,abandoned_at,abandoned_by_account_id,committed_at,committed_by_account_id) ON orders.order_drafts TO quotation_runtime;
                 """, owner);
             await grant.ExecuteNonQueryAsync(budget.Token);

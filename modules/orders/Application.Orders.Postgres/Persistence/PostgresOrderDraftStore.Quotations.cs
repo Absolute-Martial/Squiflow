@@ -8,16 +8,17 @@ public sealed partial class PostgresOrderDraftStore
     private const string QuotationCreateOperation = "create-quotation-order";
     // The quotation owner serializes conversion; this writer owns Order SQL in its caller's transaction.
     public static async Task<OrderDraftSnapshot> CreateAcceptedQuotationAsync(TenantContext context, AcceptedQuotationOrder accepted,
-        NpgsqlConnection connection, NpgsqlTransaction transaction, DateTimeOffset createdAt, CancellationToken ct)
+        NpgsqlConnection connection, NpgsqlTransaction transaction, DateTimeOffset createdAt, CancellationToken ct, OrderProgramPolicyFacts? programPolicy = null)
     {
         if (createdAt.Offset != TimeSpan.Zero || createdAt.Ticks % 10 != 0)
             throw new InvalidOperationException("The caller must supply a UTC Order creation instant at database precision.");
         accepted.RequireValid(context.TenantId);
         await using var session = await OrderTenantDbSession.BorrowAsync(connection, transaction, context.TenantId, ct).ConfigureAwait(false);
         var order = new OrderDraftSnapshot(Guid.CreateVersion7(), context.TenantId, context.AccountId, accepted.Summary, accepted.CurrencyCode,
-            accepted.Total, 1, createdAt, accepted.Lines, CustomerContext: accepted.CustomerContext, QuotationOrigin: accepted.Origin);
+            accepted.Total, 1, createdAt, accepted.Lines, CustomerContext: accepted.CustomerContext, QuotationOrigin: accepted.Origin, ProgramPolicy: programPolicy);
         await InsertOrderAsync(session, order, ct).ConfigureAwait(false);
         await InsertLinesAsync(session, order, ct).ConfigureAwait(false);
+        await InsertProgramPolicyAsync(session, order, ct).ConfigureAwait(false);
         await using (var command = session.CreateCommand(OrderSql.InsertQuotationOrigin))
         {
             command.Parameters.AddWithValue("tenant_id", context.TenantId); command.Parameters.AddWithValue("order_id", order.OrderId);

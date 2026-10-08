@@ -43,6 +43,9 @@ internal enum EndpointAccess
     AuthorizedPricingDraftEdit,
     AuthorizedPricingPublish,
     AuthorizedPricingRetire,
+    AuthorizedTenantProfilePolicyView,
+    AuthorizedTenantProfilePolicyEdit,
+    AuthorizedTenantProfilePolicyPublish,
     AuthorizedTenantCatalogOrderCreation,
     AuthorizedTenantCatalogOrderRevision,
     AuthorizedTenantRoleAdministration,
@@ -53,6 +56,7 @@ internal enum EndpointAccess
     AuthorizedQuotationRespond,
     AuthorizedQuotationExpire,
     AuthorizedQuotationConvert,
+    AuthorizedTenantOrderProgramReference,
 }
 
 internal sealed record EndpointAccessMetadata(EndpointAccess Access)
@@ -92,6 +96,7 @@ internal static class CoreApiApplicationAuthorizationContract
         EndpointAccess.AuthorizedTenantOrderAbandon => [AbandonOrderRequirement.Instance],
         EndpointAccess.AuthorizedTenantOrderCommit => [CommitOrderRequirement.Instance],
         EndpointAccess.AuthorizedTenantOrderRevision => [EditOrderRequirement.Instance, ApplyManualPriceRequirement.Instance],
+        EndpointAccess.AuthorizedTenantOrderProgramReference => [EditOrderRequirement.Instance],
         EndpointAccess.AuthorizedTenantOrderPricePreview => [CreateOrderRequirement.Instance, ApplyManualPriceRequirement.Instance],
         EndpointAccess.AuthorizedTenantOrderHistory => [ViewOrdersRequirement.Instance],
         EndpointAccess.AuthorizedTenantOrderActions => [ViewOrdersRequirement.Instance],
@@ -117,6 +122,12 @@ internal static class CoreApiApplicationAuthorizationContract
         EndpointAccess.AuthorizedPricingDraftEdit => [EditPricingDraftRequirement.Instance],
         EndpointAccess.AuthorizedPricingPublish => [PublishPricingRequirement.Instance],
         EndpointAccess.AuthorizedPricingRetire => [RetirePricingRequirement.Instance],
+        EndpointAccess.AuthorizedTenantProfilePolicyView =>
+            [new TenantProfilePolicyRequirement(TenantProfilePolicyPermission.View)],
+        EndpointAccess.AuthorizedTenantProfilePolicyEdit =>
+            [new TenantProfilePolicyRequirement(TenantProfilePolicyPermission.Edit)],
+        EndpointAccess.AuthorizedTenantProfilePolicyPublish =>
+            [new TenantProfilePolicyRequirement(TenantProfilePolicyPermission.Publish)],
         EndpointAccess.AuthorizedTenantCatalogOrderCreation => [CreateOrderRequirement.Instance, ViewCatalogRequirement.Instance, ViewPricingRequirement.Instance],
         EndpointAccess.AuthorizedTenantCatalogOrderRevision => [EditOrderRequirement.Instance, ViewCatalogRequirement.Instance, ViewPricingRequirement.Instance],
         EndpointAccess.AuthorizedTenantRoleAdministration => [ManageTenantRolesRequirement.Instance],

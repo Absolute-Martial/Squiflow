@@ -16,6 +16,8 @@ internal enum PlatformAdminPermission
     ReadTenants = 7,
     ReadAccounts = 8,
     ReadMemberships = 9,
+    PublishTenantProfile = 10,
+    ActivateTenantProfile = 11,
 }
 
 internal sealed record PlatformAdminRequestAccess(Guid PrincipalId, Guid DeviceId);
@@ -149,6 +151,12 @@ internal sealed class PlatformAdminRequestAuthorizer(
                     .ConfigureAwait(false),
                 PlatformAdminPermission.ReadMemberships => await authorization
                     .CanReadMembershipsAsync(access.PrincipalId, context.RequestAborted)
+                    .ConfigureAwait(false),
+                PlatformAdminPermission.PublishTenantProfile => await authorization
+                    .CanPublishTenantProfileAsync(access.PrincipalId, context.RequestAborted)
+                    .ConfigureAwait(false),
+                PlatformAdminPermission.ActivateTenantProfile => await authorization
+                    .CanActivateTenantProfileAsync(access.PrincipalId, context.RequestAborted)
                     .ConfigureAwait(false),
                 _ => throw new InvalidOperationException("Unknown Platform Admin permission."),
             };

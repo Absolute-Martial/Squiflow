@@ -469,7 +469,9 @@ app.MapCatalogEndpoints();
 app.MapPricingEndpoints();
 app.MapCatalogOrderEndpoints();
 app.MapQuotationEndpoints();
+app.MapOrderProgramReferenceRoutes();
 app.MapCustomerRepresentativeEndpoints();
+app.MapTenantProfilePolicyEndpoints();
 
 app.MapHealthChecks("/health/live", new HealthCheckOptions
 {

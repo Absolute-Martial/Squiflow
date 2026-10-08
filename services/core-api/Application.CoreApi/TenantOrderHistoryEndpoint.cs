@@ -65,6 +65,7 @@ internal static class TenantOrderHistoryEndpoint
                 OrderDraftChange.Revised => "revised",
                 OrderDraftChange.Abandoned => "abandoned",
                 OrderDraftChange.Committed => "committed",
+                OrderDraftChange.ProgramReferenceUpdated => "program-reference-updated",
                 _ => throw new InvalidOperationException("The order history contains an unsupported change."),
             }, entry.ChangedByAccountId, entry.RecordedAt, TenantOrderEndpoint.ToResponse(entry.Order))).ToArray(),
             page.NextBeforeRevision));

@@ -49,6 +49,23 @@ public sealed class TupleReadAuthorizationIsolationTests
         Assert.Equal(1, client.TupleReadCount);
     }
 
+    [Fact]
+    public async Task MismatchedProviderObservationStaysUncertainUntilAReconcileObservesTheGrant()
+    {
+        var client = new WriteAndCheckOnlyClient(checkResults: [false, true]);
+        var provider = new OpenFgaTenantAuthorizationAdministrationProvider(client, Configuration());
+        var proposal = Proposal(TenantAuthorizationProposalKind.GrantPermission);
+
+        var staleObservation = await provider.EnsureAsync(proposal, [], CancellationToken.None);
+        Assert.Equal(TenantAuthorizationProviderOutcome.Uncertain, staleObservation.Outcome);
+        Assert.Equal("provider_state_not_observed", staleObservation.FailureCode);
+        Assert.Equal(1, client.WriteCount);
+
+        var freshObservation = await provider.EnsureAsync(proposal, [], CancellationToken.None);
+        Assert.Equal(TenantAuthorizationProviderOutcome.Applied, freshObservation.Outcome);
+        Assert.Equal(2, client.WriteCount);
+    }
+
     private static OpenFgaAuthorizationConfiguration Configuration() =>
         OpenFgaAuthorizationConfiguration.From(new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -89,17 +106,32 @@ public sealed class TupleReadAuthorizationIsolationTests
 #nullable disable
     // Models a credential that may write tuples and check permissions but is not authorized to
     // read them, which is the deployment shape that previously wedged every direct grant.
-    private sealed class WriteAndCheckOnlyClient : IOpenFgaClient
+    private sealed class WriteAndCheckOnlyClient(IReadOnlyList<bool> checkResults = null) : IOpenFgaClient
     {
+        private int checkIndex;
+
         internal int TupleReadCount { get; private set; }
+
+        internal int WriteCount { get; private set; }
 
         public Task<ClientWriteResponse> Write(
             ClientWriteRequest body, IClientWriteOptions options, CancellationToken cancellationToken) =>
-            Task.FromResult(new ClientWriteResponse());
+            WriteAsync();
+
+        private Task<ClientWriteResponse> WriteAsync()
+        {
+            WriteCount++;
+            return Task.FromResult(new ClientWriteResponse());
+        }
 
         public Task<CheckResponse> Check(
             IClientCheckRequest body, IClientCheckOptions options, CancellationToken cancellationToken) =>
-            Task.FromResult(new CheckResponse { Allowed = true });
+            Task.FromResult(new CheckResponse
+            {
+                Allowed = checkResults is null || checkIndex >= checkResults.Count
+                    ? true
+                    : checkResults[checkIndex++],
+            });
 
         public Task<ReadResponse> Read(
             ClientReadRequest body, IClientReadOptions options, CancellationToken cancellationToken)

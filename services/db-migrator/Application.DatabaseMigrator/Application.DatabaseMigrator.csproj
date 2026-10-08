@@ -7,6 +7,7 @@
     <PackageReference Include="Npgsql" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="../../../modules/application-profiles/Application.Profiles.Postgres/Application.Profiles.Postgres.csproj" />
     <ProjectReference Include="../../../modules/quotations/Application.Quotations.Postgres/Application.Quotations.Postgres.csproj" />
     <ProjectReference Include="../../../modules/catalog/Application.Catalog.Postgres/Application.Catalog.Postgres.csproj" />
     <ProjectReference Include="../../../modules/customers/Application.Customers.Postgres/Application.Customers.Postgres.csproj" />

@@ -8,6 +8,7 @@ public enum OrderDraftChange
     Revised = 2,
     Abandoned = 3,
     Committed = 4,
+    ProgramReferenceUpdated = 5,
 }
 
 public sealed record OrderDraftHistoryEntry(
