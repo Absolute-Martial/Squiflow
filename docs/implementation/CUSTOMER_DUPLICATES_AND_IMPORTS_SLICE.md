@@ -193,6 +193,24 @@ Each effect transaction locks/checks the current
 generation before its row and commits effect/result atomically. An expired claim
 can be recovered by another process/instance; the old generation is fenced out.
 
+The row-completion `UPDATE` carries the same fencing predicate as the pre-row
+gate: work id, worker, generation, claimed status and an unexpired lease must all
+still hold, and exactly one row must be affected or the claim is lost. The
+pre-row lock is an ownership pre-check, not the commit authority; the commit
+point re-asserts ownership rather than relying on the `FOR UPDATE SKIP LOCKED`
+claim handoff, which is not part of any durable contract. A commit-side
+non-cancellation fault records the bounded row-failure attempt in its own fenced
+transaction, because a failed completion or commit cannot record its own
+outcome; a terminal row (the commit may have succeeded) matches nothing.
+Infrastructure-class SQLSTATEs (class 08 connection exception,
+`57P01`/`57P02`/`57P03`, `53300`, `40001`, `40P01`) are not attributable to the
+accepted row intent, so they never consume a row attempt: the transaction rolls
+back, the claim is released and the row stays claimable. Genuine business row
+failures still consume the bounded budget. A claim that expires mid-row cannot
+complete its row and loses the whole attempt; an unreachable database can still
+prevent recovery accounting, which remains an operator-visible
+`database_unavailable` deferral rather than a row success.
+
 Before **every row**, `ICustomerImportAuthority.CheckAsync` must verify active
 account, active tenant/current membership and current import permission, returning
 the membership-derived context and authoritative authorization revision. Missing,
@@ -203,7 +221,17 @@ claiming/processing and uses a bounded 5-second release budget; hard termination
 recovers by lease expiry, not a callback. Failed rows retry after 5 seconds, with
 at most **3 durable row attempts**; exhausted Failed rows require operator review
 and a new deliberate plan, not an infinite retry. Provider outages do not invent
-row success or erase already committed results.
+row success or erase already committed results, and they do not spend a still-valid
+row's bounded attempt budget either.
+
+The commit-point fence and its retry classification are guarded permanently by
+`StaleClaimGenerationAndWorkerCannotCompleteARowTheCurrentOwnerHolds`,
+`ExpiredClaimCannotCompleteItsRowAndTheRowKeepsItsWholeAttemptBudget`,
+`InfrastructureClassFaultsDoNotConsumeTheRowsBoundedAttemptBudget` and
+`CommitSideFaultRecordsABoundedRowFailureInsteadOfRetryingWithoutAnAttempt`.
+Changing the row-completion fencing predicate, the claim parameters it re-asserts
+or the SQLSTATE classification requires rerunning those four real PostgreSQL
+guards together with the fenced restart and bounded-attempt guards above them.
 
 The migration marks pre-fenced accepted work `legacy_work_requires_replan` rather
 than executing legacy mutable mapping intent. Its retained plans/results remain;

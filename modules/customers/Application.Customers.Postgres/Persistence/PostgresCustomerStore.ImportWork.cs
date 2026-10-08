@@ -79,7 +79,8 @@ public sealed partial class PostgresCustomerStore
                 default: throw new InvalidOperationException("Import decision is unsupported.");
             }
         }
-        catch (PostgresException exception) when (exception.SqlState is not (PostgresErrorCodes.QueryCanceled or PostgresErrorCodes.AdminShutdown))
+        catch (PostgresException exception) when (exception.SqlState is not (PostgresErrorCodes.QueryCanceled or PostgresErrorCodes.AdminShutdown)
+            && !IsImportInfrastructureFault(exception.SqlState))
         {
             await using var rollback = session.CreateCommand(CustomerSql.ImportRollbackSavepoint);
             await rollback.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
@@ -87,18 +88,64 @@ public sealed partial class PostgresCustomerStore
             customerId = null;
             errorCode = "row_processing_failed"; // Never persist the provider exception or source PII.
         }
-        await using (var complete = session.CreateCommand(CustomerSql.CompleteImportRow))
+        try
         {
-            ImportParameters(complete, claim.TenantId, claim.ImportId);
-            complete.Parameters.AddWithValue("row_number", row.RowNumber);
-            complete.Parameters.AddWithValue("status", (int)status);
-            AddNullableUuid(complete, "customer_id", customerId);
-            AddNullableText(complete, "error_code", errorCode);
-            AddNullableText(complete, "error_message", errorCode is null ? null : "Import row requires review.");
-            await complete.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            await using (var complete = session.CreateCommand(CustomerSql.CompleteImportRow))
+            {
+                ClaimParameters(complete, claim);
+                complete.Parameters.AddWithValue("import_id", claim.ImportId);
+                complete.Parameters.AddWithValue("row_number", row.RowNumber);
+                complete.Parameters.AddWithValue("status", (int)status);
+                AddNullableUuid(complete, "customer_id", customerId);
+                AddNullableText(complete, "error_code", errorCode);
+                AddNullableText(complete, "error_message", errorCode is null ? null : "Import row requires review.");
+                if (1 != await complete.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false))
+                    throw new CustomerImportClaimLostException();
+            }
+            await session.CommitAsync(cancellationToken).ConfigureAwait(false);
         }
-        await session.CommitAsync(cancellationToken).ConfigureAwait(false);
+        catch (PostgresException exception) when (exception.SqlState is not (PostgresErrorCodes.QueryCanceled or PostgresErrorCodes.AdminShutdown))
+        {
+            // A failed completion or commit cannot record its own outcome: the transaction is over.
+            // Record the bounded row-failure attempt in its own fenced transaction so a commit-side
+            // fault can never re-admit the same row forever without consuming an attempt.
+            await RecordCommitSideRowFailureAsync(claim, row.RowNumber).ConfigureAwait(false);
+            throw;
+        }
         return CustomerImportRowExecutionStatus.Processed;
+    }
+
+    // Class 08 connection exception plus the shutdown/serialization/deadlock/connection-slot states:
+    // the provider, not this row's accepted intent, caused the fault. Consuming the row's bounded
+    // attempt budget for them would permanently fail a still-valid row after a transient outage, so
+    // they leave the transaction rolled back with no attempt spent and stay claimable.
+    private static bool IsImportInfrastructureFault(string sqlState) =>
+        sqlState.StartsWith("08", StringComparison.Ordinal)
+        || sqlState is PostgresErrorCodes.AdminShutdown or PostgresErrorCodes.CrashShutdown
+            or PostgresErrorCodes.CannotConnectNow or PostgresErrorCodes.TooManyConnections
+            or PostgresErrorCodes.SerializationFailure or PostgresErrorCodes.DeadlockDetected;
+
+    // Best effort on its own short budget: the already-recorded or unreachable database must not
+    // replace the surfaced fault, and a terminal row (the commit may have succeeded) matches nothing.
+    private async Task RecordCommitSideRowFailureAsync(CustomerImportClaim claim, int rowNumber)
+    {
+        using var budget = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        try
+        {
+            await using var session = await CustomerTenantDbSession.OpenAsync(dataSource, claim.TenantId, budget.Token).ConfigureAwait(false);
+            await using var fail = session.CreateCommand(CustomerSql.CompleteImportRow);
+            ClaimParameters(fail, claim);
+            fail.Parameters.AddWithValue("import_id", claim.ImportId);
+            fail.Parameters.AddWithValue("row_number", rowNumber);
+            fail.Parameters.AddWithValue("status", (int)CustomerImportRowStatus.Failed);
+            AddNullableUuid(fail, "customer_id", null);
+            AddNullableText(fail, "error_code", "row_processing_failed"); // Never persist the provider exception or source PII.
+            AddNullableText(fail, "error_message", "Import row requires review.");
+            await fail.ExecuteNonQueryAsync(budget.Token).ConfigureAwait(false);
+            await session.CommitAsync(budget.Token).ConfigureAwait(false);
+        }
+        catch (NpgsqlException) { /* The surfaced fault stays the authoritative failure. */ }
+        catch (OperationCanceledException) { /* Only this recovery's own budget can cancel it. */ }
     }
 
     public async Task ReleaseImportClaimAsync(CustomerImportClaim claim, bool authorityDenied, CancellationToken cancellationToken)
