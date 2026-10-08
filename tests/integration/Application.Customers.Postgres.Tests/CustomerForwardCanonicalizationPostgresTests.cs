@@ -347,6 +347,47 @@ public sealed partial class CustomerPostgresTests
         await AssertCanonicalGraphAsync();
     }
 
+    [Fact]
+    public async Task RedirectSourceReadReportsItsSuccessorWithoutRewritingRetainedAvailability()
+    {
+        await MigrateAsync();
+        var (tenant, actor) = await SeedAsync();
+        var context = await ResolveContextAsync(tenant, actor);
+        await using var source = NpgsqlDataSource.Create(await CreateRestrictedRoleAsync());
+        var store = new PostgresCustomerStore(source);
+        var a = await CanonicalFixtureAsync(store, context, "Source");
+        var b = await CanonicalFixtureAsync(store, context, "Survivor");
+        await new ConsolidateCustomerDuplicate(store).ExecuteAsync(context,
+            new(a.IndividualId, b.IndividualId, 1, 1), "a-b", CancellationToken.None);
+
+        // The individual read is a physical/historical read, not the canonical directory:
+        // it must report the successor without rewriting what consolidation retained.
+        var read = await store.FindIndividualAsync(context, a.IndividualId, CancellationToken.None);
+        Assert.NotNull(read);
+        Assert.Equal(b.IndividualId, read!.RedirectTargetIndividualId);
+        Assert.Equal(CustomerIndividualAvailability.Active, read.Availability);
+        Assert.Equal("Source", read.DisplayName);
+        Assert.Equal(2, read.Revision);
+        Assert.Equal(b.IndividualId, (await store.ResolveCurrentCustomerAsync(context, a.IndividualId, CancellationToken.None))!.IndividualId);
+        var survivor = await store.FindIndividualAsync(context, b.IndividualId, CancellationToken.None);
+        Assert.NotNull(survivor);
+        Assert.Null(survivor!.RedirectTargetIndividualId);
+
+        // Availability alone cannot carry that meaning, so the read must keep it explicit:
+        // this row still reports Active yet every mutation against it is refused.
+        Assert.Equal(EditCustomerIndividualContactStatus.NotFound,
+            (await new EditCustomerIndividualContact(store).ExecuteAsync(context,
+                new(a.IndividualId, read.Revision, "Rewritten", "rewritten@example.test", null),
+                "edit-source", CancellationToken.None)).Status);
+        Assert.Equal(ChangeCustomerIndividualAvailabilityStatus.NotFound,
+            (await new ChangeCustomerIndividualAvailability(store).ExecuteAsync(context,
+                new(a.IndividualId, read.Revision, CustomerIndividualAvailability.Inactive),
+                "availability-source", CancellationToken.None)).Status);
+        Assert.Equal(a.IndividualId,
+            (await store.FindIndividualAsync(context, a.IndividualId, CancellationToken.None))!.IndividualId);
+        await AssertCanonicalGraphAsync();
+    }
+
     private static async Task<CustomerIndividualSnapshot> CanonicalFixtureAsync(PostgresCustomerStore store, TenantContext context, string name) =>
         (await new CreateCustomerIndividual(store).ExecuteAsync(context, new(name, null, null), name, CancellationToken.None)).Individual!;
 
