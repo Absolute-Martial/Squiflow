@@ -51,6 +51,19 @@ consulting current Catalog/Pricing. Label renames do not rewrite history.
 The HTTP source-price DTO projects retained economic fields and publication time;
 it does not expose the price author's account identity or a provider entity.
 
+The host owns the commercial-facts wire records and maps Catalog/Pricing/Orders
+records explicitly; module enum types are never part of the public v1 contract.
+Price scope kind and price publication state serialize as explicit lowercase
+strings, so inserting a new module enum member cannot silently renumber an
+existing stored draft's response. `PriceScope.Precedence` is an internal selection
+ranking and is not published; it stays visible only through selection behavior and
+the ordering tests. Member names and member order of the commercial facts are
+unchanged; only the enum representation and the removal of `precedence` differ.
+The permanent guard is
+`OrderCommercialEndpointTests.CommercialFactsWireShapeCarriesNoModuleEnumOrdinalOrInternalPrecedence`,
+which asserts string `kind`/`state` values and the absence of any `precedence`
+member in the served commercial-facts subtree.
+
 Optional `ICustomerCanonicalDirectory` redirects customer IDs only while resolving
 new mutable content, after replay lookup. The original request fingerprint stays
 stable; retained price applicability contains the resolved current ID. Existing
