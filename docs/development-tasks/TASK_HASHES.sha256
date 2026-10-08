@@ -66,7 +66,7 @@ a439c02e8c1424cf994414062682c979400b30fa624d95fb6d094f33744114ff  phase-02-comme
 31006bb5c82c6baa50f8d6b86c0ed4e5dd002afe3e4f57cb5ab985f098056f00  phase-02-commercial-backend/COM-008-controlled-manual-final-price-overrides.md
 b910893f3ff3bbc8d7db5540100bc4a71a874f38f28ad25513e016cd40d49b23  phase-02-commercial-backend/COM-009-optional-quotations-and-immutable-issued-revisions.md
 aa626fecd85269c83ab3c9779ce44a0e54ef9c3a33a1ec55abee0cb95b69e8d4  phase-02-commercial-backend/COM-010-quotation-responses-and-idempotent-order-conversion.md
-5c950baf31dcdcd34e8aa9730c27db6c1bd2c508e92f785e626aaa93e3d744ac  phase-02-commercial-backend/COM-011-one-bounded-typed-customer-workflow-variation.md
+40046b48f6b52d13e770e6edf3ea6184bff1281e8aab2e25ab88693389aff8ac  phase-02-commercial-backend/COM-011-one-bounded-typed-customer-workflow-variation.md
 463bca056baf3b5ff6cda75dfdfe9f6ffa041f4ba32ecc37ac038991591e5efd  phase-02-commercial-backend/COM-012-approval-decisions-and-human-continuation.md
 f60af080ee58c8343dd7fd05ff23f70e55989941e395f0f43c01f45ac8721719  phase-02-commercial-backend/COM-013-current-policy-admission-for-committed-orders.md
 38c26b4572fb9bb72cf2be956160d9ed9ac8ff7224a59824fb05ed824d6e5638  phase-02-commercial-backend/COM-014-partial-fulfillment-and-actual-work-stages.md

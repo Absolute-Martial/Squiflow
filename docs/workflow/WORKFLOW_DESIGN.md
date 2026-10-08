@@ -6,7 +6,7 @@
 
 Design workflows from the user's continuation journey, not from a diagram alone.
 
-The owner selected **required program reference before Order commitment** as the first COM-011 customer/program variation on 2026-10-08. This selects the design case only: exact reference meaning, typed contract, publication authority and active-work version behavior still require owner decisions; durable tenant-profile prerequisites remain absent. Existing optional organization/program attribution does not by itself implement this requirement.
+The owner selected **required customer-supplied reference text before Order commitment for an Order already attributed to a program** as the first COM-011 customer/program variation on 2026-10-08. The text may identify a customer purchase order or job and is separate from the existing internal `ProgramId`; selecting a program alone does not satisfy the text requirement. Typed bounds, policy applicability/publication authority and active-work version behavior still require owner decisions; durable tenant-profile prerequisites remain absent. The [remaining contract proposal](../review/COM_011_DECISION_PROPOSAL.md) is review material, not an accepted runtime contract.
 
 ## 1. Continuation-first questions
 
