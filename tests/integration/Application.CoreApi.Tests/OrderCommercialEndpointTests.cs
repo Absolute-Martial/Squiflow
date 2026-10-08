@@ -146,7 +146,8 @@ internal sealed class OrderCommercialHostFixture : IDisposable
     internal OrderCommercialHostFixture()
     {
         Catalog.Selection = new(CatalogLineFactsStatus.Available, new(Item, "SKU", Unit, "Catalog item", "EA", "Each", 2m, 4,
-            1, 1, new(Unit, Unit, 1, 1, 1), "EA", "Each", 4, 1, 2m));
+            1, 1, new(Unit, Unit, 1, 1, 1), QuantityArithmetic.Version1, QuantityArithmetic.Version1Rounding,
+            "EA", "Each", 4, 1, 2m));
         Prices = new(_tenant, _account, Now);
         Prices.Candidates.Add(new(_tenant, Guid.NewGuid(), 1, new(Item, "EA", "USD", PriceScope.Default(), Unit), 20,
             new(Now.AddDays(-1)), PricePublicationState.Published, _account, Now.AddDays(-1), Now.AddDays(-1)));
