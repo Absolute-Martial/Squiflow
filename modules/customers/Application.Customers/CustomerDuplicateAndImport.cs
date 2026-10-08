@@ -343,6 +343,10 @@ public sealed class ConsolidateCustomerDuplicate(ICustomerDuplicateConsolidation
     }
 }
 
+// The retained row is this import's decision record, so the statuses distinguish who
+// decided what. `Rejected` is a deliberate refusal that will not be retried; `Failed`
+// is a system-caused outcome that may be retried and then requires operator review. An
+// operator `Reject` decision is the only cause recorded as a deliberate rejection.
 public enum CustomerImportRowStatus
 {
     Pending = 1,

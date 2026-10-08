@@ -97,6 +97,80 @@ public sealed partial class CustomerPostgresTests
     }
 
     [Fact]
+    public async Task ConsolidatedMappingTargetIsRecordedAsASystemFailureNotAnOperatorRejection()
+    {
+        await MigrateAsync();
+        var (tenant, actor) = await SeedAsync();
+        var context = await ResolveContextAsync(tenant, actor);
+        await using var source = NpgsqlDataSource.Create(await CreateRestrictedRoleAsync());
+        var store = new PostgresCustomerStore(source);
+        var target = (await new CreateCustomerIndividual(store).ExecuteAsync(context,
+            new("Mapped Target", null, null), "target", CancellationToken.None)).Individual!;
+        var survivor = (await new CreateCustomerIndividual(store).ExecuteAsync(context,
+            new("Later Survivor", null, null), "survivor", CancellationToken.None)).Individual!;
+        const string csv = "name,email\n" +
+                           "Mapped Row,mapped@example.test\n" +
+                           "Rejected Row,rejected@example.test\n" +
+                           "New Row,new@example.test\n";
+        var planned = await new CreateCustomerImport(store).ExecuteAsync(context,
+            new MemoryStream(System.Text.Encoding.UTF8.GetBytes(csv)), Guid.NewGuid(), "import-plan-consolidated", CancellationToken.None);
+        var authority = new ImportAuthority(context);
+        await new ExecuteCustomerImport(store, authority).ExecuteAsync(context, new(planned.ImportId,
+            new Dictionary<int, Guid> { [2] = target.IndividualId },
+            [new CustomerImportDecision(3, planned.Plan.Rows.Single(row => row.RowNumber == 3).SourceRowHash,
+                CustomerImportDecisionKind.Reject)]), "import-work-consolidated", CancellationToken.None);
+
+        // The mapped target is consolidated after acceptance, so a system-side merge made
+        // the accepted decision unprocessable. No operator rejected this row.
+        await new ConsolidateCustomerDuplicate(store).ExecuteAsync(context,
+            new(target.IndividualId, survivor.IndividualId, 1, 1), "target-survivor", CancellationToken.None);
+
+        var runner = new RunCustomerImportBatch(store, authority);
+        await runner.ExecuteAsync(tenant, Guid.NewGuid(), 50, CancellationToken.None);
+        var rows = (await store.ReadImportRowsPageAsync(context, planned.ImportId, 0, 25, CancellationToken.None)).Items;
+        var mapped = rows.Single(row => row.RowNumber == 2);
+        var rejected = rows.Single(row => row.RowNumber == 3);
+        var created = rows.Single(row => row.RowNumber == 4);
+        Assert.Equal(CustomerImportRowStatus.Failed, mapped.Status);
+        Assert.Equal("mapping_target_unavailable", mapped.ErrorCode);
+        Assert.Null(mapped.CustomerId);
+        Assert.Equal(CustomerImportRowStatus.Rejected, rejected.Status);
+        Assert.Equal("operator_rejected", rejected.ErrorCode);
+        Assert.Equal(CustomerImportRowStatus.Imported, created.Status);
+        // The two causes must remain distinguishable in the retained receipt.
+        Assert.NotEqual(rejected.Status, mapped.Status);
+        Assert.NotEqual(rejected.ErrorCode, mapped.ErrorCode);
+        var summary = await store.ReadImportSummaryAsync(context, planned.ImportId, CancellationToken.None);
+        Assert.Equal(1, summary!.Rejected);
+        Assert.Equal(1, summary.Failed);
+        Assert.Equal(1, summary.Imported);
+        Assert.Equal(CustomerImportWorkStatus.Accepted, summary.Work!.Status);
+        Assert.Equal("row_processing_failed", summary.Work.LastError);
+        // Only the deliberately created row exists; the consolidated target was never mapped to.
+        Assert.Equal(3L, await CountAsync("customers.individuals"));
+
+        // A consolidated target is not transient: the attempt budget terminates the work
+        // in operator review instead of retrying forever or inventing a mapped result.
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            await FixtureSqlAsync("""
+                UPDATE customers.import_rows SET processed_at=clock_timestamp()-interval '10 seconds';
+                UPDATE customers.import_work SET next_attempt_at=clock_timestamp()-interval '10 seconds';
+                """);
+            await runner.ExecuteAsync(tenant, Guid.NewGuid(), 50, CancellationToken.None);
+        }
+        var exhausted = await store.ReadImportSummaryAsync(context, planned.ImportId, CancellationToken.None);
+        Assert.Equal(CustomerImportWorkStatus.Failed, exhausted!.Work!.Status);
+        Assert.Equal(3, (await store.ReadImportRowsPageAsync(context, planned.ImportId, 0, 25, CancellationToken.None))
+            .Items.Single(row => row.RowNumber == 2).Attempts);
+        Assert.Equal(CustomerImportBatchStatus.Idle, (await runner.ExecuteAsync(tenant, Guid.NewGuid(), 50, CancellationToken.None)).Status);
+        Assert.Equal("mapping_target_unavailable",
+            (await store.ReadImportRowsPageAsync(context, planned.ImportId, 0, 25, CancellationToken.None))
+            .Items.Single(row => row.RowNumber == 2).ErrorCode);
+        Assert.Equal(3L, await CountAsync("customers.individuals"));
+    }
+
+    [Fact]
     public async Task ImportSourceRetirementClaimsAreFencedRecoverableAndReleaseUsageOnce()
     {
         await MigrateAsync();
