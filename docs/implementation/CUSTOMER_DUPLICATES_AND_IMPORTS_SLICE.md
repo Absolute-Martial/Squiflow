@@ -23,9 +23,12 @@ Live Hugging Face upload, download, delete, conditional write, redirects/timeout
 
 This is local dirty-tree qualification, not commit/merge/PR integration, remote CI,
 coverage, live identity-provider qualification, deployment readiness or production
-acceptance. Incoming `eng/verify.sh` runs its unit/container project groups
-sequentially; this pass did not change that policy or serialize test cases to hide
-failures. Historical gate totals are preserved below only as historical evidence.
+acceptance. This pass also changed the gate's execution policy: `eng/verify.sh` now
+classifies test projects by their own Testcontainers dependency and runs the unit
+group and then the container group, one `dotnet test` per project, where the
+preceding script issued a single solution-wide `dotnet test`. No test case is
+serialized within a project. Historical gate totals are preserved below only as
+historical evidence.
 
 ## COM-003
 
@@ -323,8 +326,14 @@ custom shutdown timer/configuration or unbounded concurrency setting.
   includes `ICustomerImportWorkStore`, `ICustomerImportWorkDiscovery`,
   `RunCustomerImportBatch` and `ICustomerCanonicalDirectory`. The protected
   run-batch API is optional manual acceleration, not the autonomous executor.
-- Apply `20261006170321_CustomerImportFencedExecution` and then
-  `20261007080000_CustomerImportAutonomousDiscovery` through the existing migrator.
+- Apply every registered Customers migration in timestamp order through the
+  existing migrator. The ones this slice depends on are
+  `20261006170321_CustomerImportFencedExecution`, then
+  `20261007080000_CustomerImportAutonomousDiscovery`, then
+  `20261007110000_CustomerForwardCanonicalization`, then the additive
+  `20261007180000_CustomerImportRawSourceLifecycle`, which creates the
+  `object_storage_usage`, `import_source_objects` and
+  `object_storage_reservations` objects the deployment grant below depends on.
 - Apply the additive `20261007110000_CustomerForwardCanonicalization` after those
   migrations. It changes trigger/function semantics only, retaining their previous
   immutable EF target model and the current snapshot. No runtime UPDATE/DELETE on

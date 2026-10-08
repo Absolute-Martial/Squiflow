@@ -1,7 +1,8 @@
 # Catalog-priced Orders: COM-005/006/007 integration
 
 **Current state:** `PRODUCTION_HONEST` for the declared local scope after integrated
-host checks and the **1011-test** normal receiving gate. The transaction-bound publication pin and backend-loss
+host checks and the exact normal receiving gate recorded in `README.IMPLEMENTATION.md`.
+The transaction-bound publication pin and backend-loss
 regressions below are locally verified; no independent pin session remains.
 Manual-entry Orders retain their existing contract. Product version remains v0.0.1.
 
@@ -221,7 +222,7 @@ deadlock. Independent backend instances prove database-owned exclusion; no separ
 client OS-process crash/HA qualification is inferred. The local focused run on
 2026-10-07 passed Orders PostgreSQL **71/71**, including all **20** publication-pin
 cases and both backend-loss cases; Orders unit tests passed **104/104**,
-Catalog PostgreSQL **8/8**, and Pricing PostgreSQL **10/10**. These are focused
+Catalog PostgreSQL **8/8**, and Pricing PostgreSQL **11/11**. These are focused
 receiving evidence, not a combined host/normal-gate qualification.
 
 Requalify when Catalog/Pricing contracts, conversion arithmetic, precedence,

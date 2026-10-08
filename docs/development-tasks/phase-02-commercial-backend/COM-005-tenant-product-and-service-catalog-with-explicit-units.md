@@ -2,12 +2,15 @@
 
 Task ID: COM-005
 Phase: 02-commercial-backend
-Status: READY_AFTER_DEPENDENCIES
+Status: VERIFY_EXISTING
+Runtime state: PRODUCTION_HONEST for the declared local scope
 Model: GPT-6.1 Sol
 Dependencies: COM-001, GATE-001
 Release requirement: REQUIRED
 
-Planned assignment only. Apply [agent rules](../AGENT_RULES.md) and [handoff rules](../HANDOFF_AND_INTEGRATION.md).
+`Status` above is the scheduling value defined by [`ORCHESTRATOR.md`](../ORCHESTRATOR.md): this task is no longer an undispatched planned assignment, because its implementation exists in the current receiving tree and awaits accountable owner review/acceptance. The runtime gate state is recorded separately above and is owned by [`CATALOG_AND_UNIT_BOUNDARY.md`](../../implementation/CATALOG_AND_UNIT_BOUNDARY.md). Exact local evidence is recorded in [`README.IMPLEMENTATION.md`](../../../README.IMPLEMENTATION.md) and [`TASK_STATUS.md`](../TASK_STATUS.md).
+
+Apply [agent rules](../AGENT_RULES.md) and [handoff rules](../HANDOFF_AND_INTEGRATION.md) before any further work.
 
 ## Outcome
 
