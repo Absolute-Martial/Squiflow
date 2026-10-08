@@ -64,6 +64,79 @@ public sealed class OrderCommercialEndpointTests
         Assert.Equal(2, fixture.Orders.Effects);
     }
 
+    [Fact]
+    public async Task CatalogOrderProblemTitlesNameOrdersAndNeverCustomerResources()
+    {
+        using var fixture = new OrderCommercialHostFixture();
+        using var unknown = await fixture.SendAsync(HttpMethod.Put,
+            $"{Guid.NewGuid():D}/catalog-priced-draft", fixture.Body(expectedRevision: 1), "unknown-order");
+        Assert.Equal(HttpStatusCode.NotFound, unknown.StatusCode);
+        using var unknownProblem = JsonDocument.Parse(await unknown.Content.ReadAsStringAsync());
+        Assert.Equal("order_not_found", unknownProblem.RootElement.GetProperty("code").GetString());
+        Assert.Equal("Order not found.", unknownProblem.RootElement.GetProperty("title").GetString());
+
+        using var invalid = await fixture.SendJsonAsync("{\"summary\":\"Catalog\",\"currencyCode\":\"USD\",\"unknown\":true}");
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        using var invalidProblem = JsonDocument.Parse(await invalid.Content.ReadAsStringAsync());
+        Assert.Equal("request_invalid", invalidProblem.RootElement.GetProperty("code").GetString());
+        Assert.Equal("Invalid catalog order request.", invalidProblem.RootElement.GetProperty("title").GetString());
+        Assert.DoesNotContain("ustomer", invalidProblem.RootElement.GetProperty("title").GetString());
+    }
+
+    [Fact]
+    public async Task CommercialFactsWireShapeCarriesNoModuleEnumOrdinalOrInternalPrecedence()
+    {
+        using var fixture = new OrderCommercialHostFixture();
+        using var created = await fixture.SendAsync(HttpMethod.Post, "catalog-priced", fixture.Body(), "create");
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        using var json = JsonDocument.Parse(await created.Content.ReadAsStringAsync());
+        var facts = json.RootElement.GetProperty("lines")[0].GetProperty("commercialFacts");
+        // The created draft URL is the orders collection, not the catalog-priced action.
+        Assert.Equal(
+            new Uri(created.RequestMessage!.RequestUri!,
+                $"catalog-priced/../{json.RootElement.GetProperty("orderId").GetGuid():D}").AbsolutePath,
+            created.Headers.Location!.OriginalString);
+
+        // A numeric module enum ordinal or the internal precedence ranking anywhere in this
+        // subtree means the public v1 contract is frozen to module-internal representation.
+        AssertWireShape(facts, "commercialFacts");
+
+        var publishedPrice = facts.GetProperty("publishedPrice");
+        var scope = publishedPrice.GetProperty("scope");
+        Assert.Equal("default", scope.GetProperty("kind").GetString());
+        Assert.Equal(JsonValueKind.Null, scope.GetProperty("targetId").ValueKind);
+        Assert.False(scope.TryGetProperty("precedence", out _));
+
+        var explanation = facts.GetProperty("priceSelection").GetProperty("explanation");
+        Assert.Equal("default", explanation.GetProperty("selectedScope").GetProperty("kind").GetString());
+        var candidate = explanation.GetProperty("candidates")[0];
+        Assert.Equal("default", candidate.GetProperty("scope").GetProperty("kind").GetString());
+        Assert.Equal("published", candidate.GetProperty("state").GetString());
+        Assert.Equal(publishedPrice.GetProperty("revisionId").GetGuid(), candidate.GetProperty("revisionId").GetGuid());
+    }
+
+    private static void AssertWireShape(JsonElement value, string path)
+    {
+        switch (value.ValueKind)
+        {
+            case JsonValueKind.Object:
+                foreach (var member in value.EnumerateObject())
+                {
+                    Assert.False(string.Equals(member.Name, "precedence", StringComparison.OrdinalIgnoreCase),
+                        $"{path}.{member.Name} exposes the internal Pricing precedence ranking.");
+                    if (member.Name is "kind" or "state" or "status")
+                        Assert.True(member.Value.ValueKind == JsonValueKind.String,
+                            $"{path}.{member.Name} serialized a numeric module enum ordinal.");
+                    AssertWireShape(member.Value, $"{path}.{member.Name}");
+                }
+                break;
+            case JsonValueKind.Array:
+                foreach (var item in value.EnumerateArray())
+                    AssertWireShape(item, path);
+                break;
+        }
+    }
+
     [Theory]
     [InlineData("unitPrice", "0")]
     [InlineData("commercialFacts", "{}")]
