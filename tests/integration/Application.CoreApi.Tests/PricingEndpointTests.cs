@@ -29,6 +29,10 @@ public sealed class PricingEndpointTests
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         using var draftJson = JsonDocument.Parse(await created.Content.ReadAsStringAsync());
         var revision = draftJson.RootElement.GetProperty("revisionId").GetGuid();
+        // The created revision URL is the request pricing root plus the created revision identity.
+        Assert.Equal(
+            new Uri(created.RequestMessage!.RequestUri!, $"drafts/../revisions/{revision:D}").AbsolutePath,
+            created.Headers.Location!.OriginalString);
         using var publishDenied = await fixture.PostAsync($"revisions/{revision:D}/publish", new { }, "publish");
         Assert.Equal(HttpStatusCode.Forbidden, publishDenied.StatusCode);
         fixture.Permissions.Publish = true;

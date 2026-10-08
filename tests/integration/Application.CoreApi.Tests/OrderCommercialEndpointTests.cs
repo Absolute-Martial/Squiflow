@@ -91,6 +91,11 @@ public sealed class OrderCommercialEndpointTests
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         using var json = JsonDocument.Parse(await created.Content.ReadAsStringAsync());
         var facts = json.RootElement.GetProperty("lines")[0].GetProperty("commercialFacts");
+        // The created draft URL is the orders collection, not the catalog-priced action.
+        Assert.Equal(
+            new Uri(created.RequestMessage!.RequestUri!,
+                $"catalog-priced/../{json.RootElement.GetProperty("orderId").GetGuid():D}").AbsolutePath,
+            created.Headers.Location!.OriginalString);
 
         // A numeric module enum ordinal or the internal precedence ranking anywhere in this
         // subtree means the public v1 contract is frozen to module-internal representation.
