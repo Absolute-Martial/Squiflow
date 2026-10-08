@@ -51,6 +51,14 @@ consulting current Catalog/Pricing. Label renames do not rewrite history.
 The HTTP source-price DTO projects retained economic fields and publication time;
 it does not expose the price author's account identity or a provider entity.
 
+Orders revalidates retained facts against the owning capabilities' published
+constants, `Application.Catalog.QuantityArithmetic.Version1`/`Version1Rounding` and
+`Application.Pricing.PriceSelectionBounds.MaximumCandidates`, rather than repeating
+their values. Only arithmetic version 1 is understood today: Orders asserts that
+exact version rather than comparing against a moving "current version", so a later
+Catalog arithmetic revision must be added to the understood set deliberately instead
+of silently changing what retained facts mean.
+
 Optional `ICustomerCanonicalDirectory` redirects customer IDs only while resolving
 new mutable content, after replay lookup. The original request fingerprint stays
 stable; retained price applicability contains the resolved current ID. Existing
