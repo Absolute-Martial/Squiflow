@@ -509,6 +509,135 @@ public sealed partial class CustomerPostgresTests
     }
 
     [Fact]
+    public async Task DuplicateAppearingAfterAcceptanceRejectsTheImplicitlyNewRowInsteadOfInsertingASecondOne()
+    {
+        await MigrateAsync(); var (tenant, actor) = await SeedAsync(); var context = await ResolveContextAsync(tenant, actor);
+        await using var source = NpgsqlDataSource.Create(await CreateRestrictedRoleAsync()); var store = new PostgresCustomerStore(source);
+        var plan = await PlanFixtureAsync(store, context, "name,email\nConcurrent Imported Fixture,serialized@example.test\n");
+        Assert.False(plan.Plan.Rows[0].RequiresDecision);
+        await new ExecuteCustomerImport(store, new ImportAuthority(context)).ExecuteAsync(context, new(plan.ImportId), "accept", CancellationToken.None);
+        var claim = await store.ClaimImportAsync(tenant, Guid.NewGuid(), RunCustomerImportBatch.ClaimLease, CancellationToken.None);
+
+        // The concurrent manual creator is paused inside its insert while it holds the
+        // tenant canonicalization gate, so the import can only reach its duplicate check
+        // after that creator commits. With the gate shared, the import queues behind it;
+        // without it the import would read a snapshot with no duplicate and insert a second
+        // customer carrying the same normalized email.
+        await using var gate = new NpgsqlConnection(ConnectionString); await gate.OpenAsync();
+        await using (var hold = gate.CreateCommand())
+        {
+            hold.CommandText = "SELECT pg_advisory_lock(814700403)";
+            await hold.ExecuteNonQueryAsync();
+        }
+        await FixtureSqlAsync("""
+            CREATE FUNCTION customers.import_canonical_gate_fixture() RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN PERFORM pg_advisory_xact_lock(814700403); RETURN NEW; END $$;
+            CREATE TRIGGER import_canonical_gate_fixture BEFORE INSERT ON customers.individuals
+              FOR EACH ROW EXECUTE FUNCTION customers.import_canonical_gate_fixture();
+            """);
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var manualCreate = new CreateCustomerIndividual(store).ExecuteAsync(context,
+            new("Concurrent Manual Fixture", "serialized@example.test", null), "manual-serialized", deadline.Token);
+        Assert.True(await WaitForPausedRuntimeStatementAsync("INSERT INTO customers.individuals%", deadline.Token));
+        var importRow = store.ProcessNextImportRowAsync(claim!, context, deadline.Token);
+        // Best effort ordering evidence: the held gate already forces this interleaving, so
+        // the committed outcome below stays the assertion that must hold either way.
+        using var orderingProbe = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        _ = await WaitForPausedRuntimeStatementAsync("%pg_advisory_xact_lock(hashtextextended%", orderingProbe.Token);
+        Assert.Equal(0L, await CountAsync("customers.individuals"));
+
+        await using (var release = gate.CreateCommand())
+        {
+            release.CommandText = "SELECT pg_advisory_unlock(814700403)";
+            await release.ExecuteNonQueryAsync();
+        }
+        var manual = await manualCreate;
+        Assert.Equal(CreateCustomerIndividualStatus.Created, manual.Status);
+        Assert.Equal(CustomerImportRowExecutionStatus.Processed, await importRow);
+        var row = Assert.Single((await store.ReadImportRowsPageAsync(context, plan.ImportId, 0, 25, CancellationToken.None)).Items);
+        Assert.Equal(CustomerImportRowStatus.Rejected, row.Status);
+        Assert.Equal("new_duplicate_requires_new_plan", row.ErrorCode);
+        Assert.Null(row.CustomerId);
+        Assert.Equal(1L, await CountAsync("customers.individuals"));
+        Assert.Equal(1L, await CountWithNormalizedEmailAsync("serialized@example.test"));
+        Assert.Equal(1, (await store.ReadImportSummaryAsync(context, plan.ImportId, CancellationToken.None))!.Rejected);
+    }
+
+    [Fact]
+    public async Task ManualCreateWaitsBehindImportAcceptanceGateWithoutImposingNormalizedEmailUniqueness()
+    {
+        await MigrateAsync(); var (tenant, actor) = await SeedAsync(); var context = await ResolveContextAsync(tenant, actor);
+        await using var source = NpgsqlDataSource.Create(await CreateRestrictedRoleAsync()); var store = new PostgresCustomerStore(source);
+        var plan = await PlanFixtureAsync(store, context, "name,email\nAccepted First Fixture,ordered@example.test\n");
+        Assert.False(plan.Plan.Rows[0].RequiresDecision);
+        await new ExecuteCustomerImport(store, new ImportAuthority(context)).ExecuteAsync(context, new(plan.ImportId), "accept", CancellationToken.None);
+        var claim = await store.ClaimImportAsync(tenant, Guid.NewGuid(), RunCustomerImportBatch.ClaimLease, CancellationToken.None);
+
+        // Reverse ordering: the import holds the tenant canonicalization gate and is paused
+        // inside its insert, so the concurrent manual create must queue on the same gate
+        // rather than publish its normalized signals inside the import's effect window.
+        await using var gate = new NpgsqlConnection(ConnectionString); await gate.OpenAsync();
+        await using (var hold = gate.CreateCommand())
+        {
+            hold.CommandText = "SELECT pg_advisory_lock(814700404)";
+            await hold.ExecuteNonQueryAsync();
+        }
+        await FixtureSqlAsync("""
+            CREATE FUNCTION customers.import_gate_order_fixture() RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN PERFORM pg_advisory_xact_lock(814700404); RETURN NEW; END $$;
+            CREATE TRIGGER import_gate_order_fixture BEFORE INSERT ON customers.individuals
+              FOR EACH ROW EXECUTE FUNCTION customers.import_gate_order_fixture();
+            """);
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var importRow = store.ProcessNextImportRowAsync(claim!, context, deadline.Token);
+        Assert.True(await WaitForPausedRuntimeStatementAsync("INSERT INTO customers.individuals%", deadline.Token));
+        var manualCreate = new CreateCustomerIndividual(store).ExecuteAsync(context,
+            new("Queued Manual Fixture", "ordered@example.test", null), "manual-ordered", deadline.Token);
+        // The ordering itself is the claim here: this backend can only be waiting on the
+        // tenant canonicalization gate, because the import still holds it.
+        Assert.True(await WaitForPausedRuntimeStatementAsync("%pg_advisory_xact_lock(hashtextextended%", deadline.Token));
+        Assert.Equal(0L, await CountAsync("customers.individuals"));
+
+        await using (var release = gate.CreateCommand())
+        {
+            release.CommandText = "SELECT pg_advisory_unlock(814700404)";
+            await release.ExecuteNonQueryAsync();
+        }
+        Assert.Equal(CustomerImportRowExecutionStatus.Processed, await importRow);
+        Assert.Equal(CreateCustomerIndividualStatus.Created, (await manualCreate).Status);
+        var row = Assert.Single((await store.ReadImportRowsPageAsync(context, plan.ImportId, 0, 25, CancellationToken.None)).Items);
+        Assert.Equal(CustomerImportRowStatus.Imported, row.Status);
+        Assert.Equal(row.RowId, row.CustomerId);
+        // Ordering is not uniqueness: the domain does not claim one customer per email.
+        Assert.Equal(2L, await CountWithNormalizedEmailAsync("ordered@example.test"));
+        Assert.Equal(2L, await CountAsync("customers.individuals"));
+    }
+
+    private async Task<long> CountWithNormalizedEmailAsync(string email)
+    {
+        await using var connection = new NpgsqlConnection(ConnectionString); await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT count(*) FROM customers.individuals WHERE normalized_email=@normalized_email";
+        command.Parameters.AddWithValue("normalized_email", CustomerIdentityNormalization.Email(email));
+        return (long)(await command.ExecuteScalarAsync() ?? throw new InvalidOperationException());
+    }
+
+    private async Task<bool> WaitForPausedRuntimeStatementAsync(string statementPattern, CancellationToken cancellationToken)
+    {
+        await using var monitor = new NpgsqlConnection(ConnectionString);
+        await monitor.OpenAsync(cancellationToken);
+        while (true)
+        {
+            await using var observe = monitor.CreateCommand();
+            observe.CommandText = "SELECT count(*) FROM pg_stat_activity WHERE usename='application_customers_runtime' AND wait_event='advisory' AND query LIKE @pattern";
+            observe.Parameters.AddWithValue("pattern", statementPattern);
+            if ((long)(await observe.ExecuteScalarAsync(cancellationToken) ?? throw new InvalidOperationException()) > 0) return true;
+            if (cancellationToken.IsCancellationRequested) return false;
+            await Task.Yield();
+        }
+    }
+
+    [Fact]
     public async Task DeniedOrOutdatedAuthorityStopsBeforeCustomerEffectsAndGracefulDrainReleasesClaim()
     {
         await MigrateAsync(); var (tenant, actor) = await SeedAsync(); var context = await ResolveContextAsync(tenant, actor);

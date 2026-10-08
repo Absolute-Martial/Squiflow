@@ -66,6 +66,13 @@ public sealed partial class PostgresCustomerStore
                     break;
                 case CustomerImportDecisionKind.CreateNew:
                     var signals = CustomerDuplicateSignals.Create(row.Intent.DisplayName, row.Intent.Email, row.Intent.Phone, row.Intent.ExternalRegistrationId);
+                    // The duplicate check and this insert are one serialized unit. The
+                    // tenant canonicalization gate is the same advisory lock consolidation,
+                    // duplicate resolution and representative mutation take, so a manual
+                    // create cannot commit the same normalized signals between this check and
+                    // this insert. It is held inside the row's existing transaction and
+                    // released with that transaction/savepoint; no extra transaction boundary.
+                    await LockCustomerCanonicalizationAsync(session, claim.TenantId, cancellationToken).ConfigureAwait(false);
                     if (!row.RequiresDecision && await HasImportDuplicateAsync(session, claim.TenantId, signals, cancellationToken).ConfigureAwait(false))
                         errorCode = "new_duplicate_requires_new_plan";
                     else
