@@ -112,6 +112,17 @@ integration hook for current mutable attribution. Historical readers use the
 original identity/frozen facts. Other capabilities must not update Customers
 tables or rewrite their own committed facts to implement canonicalization.
 
+A physical individual read reports the current successor pointer as its own
+`RedirectTargetIndividualId` field, and the individual read HTTP response exposes
+it as `redirectTargetIndividualId`. It is **not** conflated into
+`availability`: consolidation retains the source's own availability, so rewriting
+it would assert a retirement that never happened, and reporting `active` without
+the successor would present a row whose every mutation is refused as an editable
+current customer. Where a caller only needs "not linkable", the existing
+conflation is retained — representative link refuses a redirected source through
+`LinkCustomerRepresentativeStatus.IndividualInactive` — because that decision
+needs no successor. Redirect is not a new availability value.
+
 ## COM-004 format, retention and validation
 
 `customer-import/v1` is UTF-8, comma-delimited CSV with a required header and

@@ -165,9 +165,15 @@ internal static class TenantCustomerIndividualEndpoint
         _ => throw new InvalidOperationException("The individual operation returned an unsupported availability."),
     };
 
+    // Redirect is its own state, not an availability. `availability` keeps its retained
+    // value so the audit trail stays truthful, while `redirectTargetIndividualId` is the
+    // only honest signal that this row is a historical source whose every mutation is
+    // refused. Conflating the two would tell an operator a consolidated identity was
+    // retired on purpose.
     private static CustomerIndividualResponse ToResponse(CustomerIndividualSnapshot value) =>
         new(value.IndividualId, value.DisplayName, value.Email, value.Phone, WireAvailability(value.Availability),
-            value.Revision, value.CreatedAt, value.AvailabilityChangedAt, value.ContactChangedAt);
+            value.Revision, value.CreatedAt, value.AvailabilityChangedAt, value.ContactChangedAt,
+            value.RedirectTargetIndividualId);
 }
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
@@ -177,5 +183,6 @@ internal sealed record EditIndividualContactPayload(long ExpectedRevision, strin
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 internal sealed record IndividualAvailabilityPayload(long ExpectedRevision, string? Availability);
 internal sealed record CustomerIndividualResponse(Guid IndividualId, string DisplayName, string? Email, string? Phone,
-    string Availability, long Revision, DateTimeOffset CreatedAt, DateTimeOffset? AvailabilityChangedAt, DateTimeOffset? ContactChangedAt);
+    string Availability, long Revision, DateTimeOffset CreatedAt, DateTimeOffset? AvailabilityChangedAt,
+    DateTimeOffset? ContactChangedAt, Guid? RedirectTargetIndividualId);
 internal sealed record IndividualAvailabilityResponse(Guid IndividualId, string Availability, long Revision, DateTimeOffset AvailabilityChangedAt);
