@@ -76,6 +76,46 @@ features.manage
 
 These are product capabilities, not Web screen names or HTTP route names.
 
+Only some of them are implemented today. The stable permission IDs actually
+compiled and currently checkable are:
+
+```text
+workspace.view
+orders.create
+orders.view
+orders.abandon
+orders.edit
+orders.commit
+orders.manual_price
+customers.organizations.create
+customers.organizations.view
+customers.programs.create
+customers.programs.view
+customers.individuals.create
+customers.individuals.view
+customers.individuals.availability
+customers.individuals.contact.edit
+customers.representatives.view
+customers.representatives.manage
+customers.duplicates.resolve
+customers.duplicates.consolidate
+customers.import
+catalog.view
+catalog.manage
+pricing.view
+pricing.drafts.edit
+pricing.publish
+pricing.retire
+pricing.override
+pricing.override_beyond_policy
+```
+
+Everything else in the aspirational list above — cancellation, approval,
+inventory, payments/refunds, quotations, documents, team administration, domains,
+rules, workflow, settings and features — remains `NOT_INTRODUCED`; `roles.manage`
+is intentionally outside the delegatable catalog, because only the protected
+initial Owner administers roles.
+
 Tenant users may create custom role **instances** and choose which supported capabilities they contain. They do not invent arbitrary executable permission semantics.
 
 ## 3. Module-owned permission definitions
@@ -111,6 +151,9 @@ direct grants and tenant-scoped custom-role assignees use the existing protocol.
 | `customers.duplicates.resolve` | `customer_duplicate_resolver` | `can_resolve_customer_duplicates` |
 | `customers.duplicates.consolidate` | `customer_duplicate_consolidator` | `can_consolidate_customer_duplicates` |
 | `customers.import` | `customer_importer` | `can_import_customers` |
+| `customers.individuals.contact.edit` | `individual_contact_editor` | `can_edit_individual_contact` |
+| `customers.representatives.view` | `representative_viewer` | `can_view_representatives` |
+| `customers.representatives.manage` | `representative_manager` | `can_manage_representatives` |
 | `catalog.view` | `catalog_viewer` | `can_view_catalog` |
 | `catalog.manage` | `catalog_editor` | `can_manage_catalog` |
 | `pricing.view` | `pricing_viewer` | `can_view_pricing` |
@@ -119,6 +162,12 @@ direct grants and tenant-scoped custom-role assignees use the existing protocol.
 | `pricing.retire` | `pricing_retirer` | `can_retire_pricing` |
 | `pricing.override` | `pricing_overrider` | `can_override_pricing` |
 | `pricing.override_beyond_policy` | `pricing_exception_overrider` | `can_override_pricing_beyond_policy` |
+
+The compiled catalog is `TenantPermissionCatalog` in
+`modules/tenancy/Application.Tenancy/TenantAuthorizationAdministration.cs`; that
+source, not this table, is the complete list. It currently defines 28 tenant
+business permissions; the table above is the customer-contact/representative and
+commercial subset introduced with COM-002 and COM-003–COM-007.
 
 The focused owners' `Customers.Duplicates.*` and `Pricing.*` capability labels
 describe these stable IDs; casing is not an additional executable alias. Resolve
@@ -200,7 +249,49 @@ type tenant
   can_create_program = member AND program_creator
   program_viewer       [user] persisted OpenFGA permission relation
   can_view_programs = member AND program_viewer
+  individual_creator  [user] persisted OpenFGA permission relation
+  can_create_individual = member AND individual_creator
+  individual_viewer   [user] persisted OpenFGA permission relation
+  can_view_individuals = member AND individual_viewer
+  individual_availability_editor [user] persisted OpenFGA permission relation
+  can_change_individual_availability = member AND individual_availability_editor
+  individual_contact_editor [user] persisted OpenFGA permission relation
+  can_edit_individual_contact = member AND individual_contact_editor
+  representative_viewer [user] persisted OpenFGA permission relation
+  can_view_representatives = member AND representative_viewer
+  representative_manager [user] persisted OpenFGA permission relation
+  can_manage_representatives = member AND representative_manager
+  customer_duplicate_resolver [user] persisted OpenFGA permission relation
+  can_resolve_customer_duplicates = member AND customer_duplicate_resolver
+  customer_duplicate_consolidator [user] persisted OpenFGA permission relation
+  can_consolidate_customer_duplicates = member AND customer_duplicate_consolidator
+  customer_importer  [user] persisted OpenFGA permission relation
+  can_import_customers = member AND customer_importer
+  catalog_viewer      [user] persisted OpenFGA permission relation
+  can_view_catalog    = member AND catalog_viewer
+  catalog_editor      [user] persisted OpenFGA permission relation
+  can_manage_catalog  = member AND catalog_editor
+  pricing_viewer      [user] persisted OpenFGA permission relation
+  can_view_pricing    = member AND pricing_viewer
+  pricing_draft_editor [user] persisted OpenFGA permission relation
+  can_edit_pricing_draft = member AND pricing_draft_editor
+  pricing_publisher   [user] persisted OpenFGA permission relation
+  can_publish_pricing = member AND pricing_publisher
+  pricing_retirer     [user] persisted OpenFGA permission relation
+  can_retire_pricing  = member AND pricing_retirer
+  pricing_overrider   [user] persisted OpenFGA permission relation
+  can_override_pricing = member AND pricing_overrider
+  pricing_exception_overrider [user] persisted OpenFGA permission relation
+  can_override_pricing_beyond_policy = member AND pricing_exception_overrider
+  order_committer     [user] persisted OpenFGA permission relation
+  can_commit_order    = member AND order_committer
 ```
+
+Every persisted tenant relation above accepts either a direct `user` or the
+tenant-scoped userset `role:<tenantId>_<roleId>#assignee`, and is intersected
+with `member`; none is granted by membership alone and none is implied by
+another. The complete set is the checked-in model plus `TenantPermissionCatalog`;
+this excerpt is not the authority for what exists.
 
 These are real authorization decisions, not a second membership store: membership remains SquiFlow authority and cannot be created by an OpenFGA tuple. Conversely, membership alone does not fabricate a permission relation. Creation/view grants are separate for organizations and programs, and do not imply Orders permissions. Order creation, editing, viewing and abandonment each require their own relation; none implies the others. Create and price preview additionally require `can_apply_manual_price`; full priced revision requires edit plus pricing even when resubmitted prices are unchanged. Pricing alone grants no order operation. Read/history and abandonment do not require it. A successful edit returns the revised priced draft to its authorized editor/pricer, while the abandon response exposes only transition metadata. The application adapter performs `Check` only and holds no tuple-administration API. The checked-in model contract lives at `infrastructure/authorization/openfga/tenant-authorization-model.json`. A deployment must write the new immutable model, configure its explicit ID, and provision intended permission tuples before the corresponding routes can be used; the application does not mutate models or tuples on startup. Publish the updated model with `manual_pricer`, grant only intended pricing accounts, pin its ID and deploy the corresponding API. Older models lacking `can_apply_manual_price` fail closed with safe 503; a readable model is not proof of the complete permission contract. See `docs/implementation/PRICING_COMPONENT_BOUNDARY.md` for revocation/replay and historical non-claims.
 
@@ -254,7 +345,15 @@ A tenant Owner editing a role normally changes tuples, not the model ID.
 
 ## 8. Permission assignment surfaces and authority
 
-Role and grant administration is `NOT_INTRODUCED`. When introduced, changes use an authenticated server-authoritative tenant administration operation. Web is the primary administration surface; an explicitly supported online Workstation action may invoke the same operation, as described in `docs/admin/ADMIN_SURFACES.md`. The following flow is illustrative, not a current API route:
+Tenant role and grant administration now exists as a CoreApi operation: the
+`/api/v1/tenants/{tenantId}/authorization/*` routes described in section 3A, owned
+by `docs/implementation/TENANT_AUTHORIZATION_ADMINISTRATION.md`. Changes use an
+authenticated server-authoritative tenant administration operation, and only the
+protected initial Owner may invoke it. The **Web and Workstation administration
+surfaces are still `NOT_INTRODUCED`**; when introduced, Web is the primary
+administration surface and an explicitly supported online Workstation action may
+invoke the same operation, as described in `docs/admin/ADMIN_SURFACES.md`. The
+following flow is illustrative of the not-yet-present surfaces:
 
 ```text
 Tenant Web or approved online Workstation action
