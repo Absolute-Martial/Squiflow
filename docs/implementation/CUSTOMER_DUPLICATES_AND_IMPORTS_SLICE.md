@@ -219,7 +219,20 @@ uniqueness stays operator/consolidation meaning. Accepted decisions cannot be
 changed by a new request key.
 
 Row statuses are `Pending`, `Imported`, `MappedToExisting`, `Rejected`, and
-`Failed`. Each retained row exposes a stable RowId, RowNumber and SourceRowHash
+`Failed`. The retained row is this import's decision record, so the status is
+chosen by **cause**, not by a shared default. `Rejected` is a deliberate refusal
+that is not retried; `Failed` is a system-caused outcome that may be retried and
+then requires operator review. Only an operator `Reject` decision is recorded as
+`operator_rejected`. A `MapToExisting` row whose target is no longer an active
+canonical customer — because it was consolidated after the decision was
+accepted, and accepted decisions are immutable — is recorded as `Failed` with
+`mapping_target_unavailable`, never as a rejection. A consolidated target is not
+transient, so the existing bounded attempt budget terminates that work in
+operator review requiring a new deliberate plan, rather than retrying forever or
+inventing a mapped result. A post-acceptance duplicate on an implicitly-new row
+keeps its documented terminal `Rejected` refusal with
+`new_duplicate_requires_new_plan`; it is refused deliberately, not faulted, and
+is never silently merged or guessed. Each retained row exposes a stable RowId, RowNumber and SourceRowHash
 (ImportId is the owning plan/page identity),
 decision, result customer ID, attempts and bounded error codes. Created customer
 ID is the stable row ID. Customer creation and the committed row result share one
