@@ -169,8 +169,20 @@ internal sealed class HuggingFaceObjectStore(
             });
         }
 
-        var buffer = new byte[81920];
-        while (await existing.Content.ReadAsync(buffer, cancellationToken).ConfigureAwait(false) > 0) { }
+        // VerifyingReadStream raises when the stored bytes disagree with the expected
+        // length or digest. Without this the exception escapes the outcome contract, the
+        // caller's reservation is never released and a modelled provider outcome becomes
+        // an unhandled 500.
+        try
+        {
+            var buffer = new byte[81920];
+            while (await existing.Content.ReadAsync(buffer, cancellationToken).ConfigureAwait(false) > 0) { }
+        }
+        catch (InvalidDataException)
+        {
+            return new(ObjectStorePutOutcome.Corrupt);
+        }
+
         return new(ObjectStorePutOutcome.AlreadyExists, existing.Metadata);
     }
 
