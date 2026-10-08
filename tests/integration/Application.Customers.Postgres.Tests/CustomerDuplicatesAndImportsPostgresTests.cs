@@ -266,17 +266,133 @@ public sealed partial class CustomerPostgresTests
         await store.CompleteSourceRetirementAsync(context, retirement, true, null, CancellationToken.None);
         var stillPending = await store.ReadSourceAsync(context, completed.ImportId, CancellationToken.None);
         Assert.Equal(CustomerImportSourceState.RetirementPending, stillPending!.State);
-        Assert.Equal(plan.ByteLength, await ReadRetainedBytesAsync(tenantId, policy.ProviderScope));
+        Assert.Equal(plan.ByteLength, (await ReadStorageUsageAsync(tenantId, policy.ProviderScope)).Retained);
 
         await store.CompleteSourceRetirementAsync(context, recovered, true, null, CancellationToken.None);
         var retired = await store.ReadSourceAsync(context, completed.ImportId, CancellationToken.None);
         Assert.Equal(CustomerImportSourceState.Retired, retired!.State);
-        Assert.Equal(0L, await ReadRetainedBytesAsync(tenantId, policy.ProviderScope));
+        Assert.Equal(0L, (await ReadStorageUsageAsync(tenantId, policy.ProviderScope)).Retained);
         await store.CompleteSourceRetirementAsync(context, recovered, true, null, CancellationToken.None);
-        Assert.Equal(0L, await ReadRetainedBytesAsync(tenantId, policy.ProviderScope));
+        Assert.Equal(0L, (await ReadStorageUsageAsync(tenantId, policy.ProviderScope)).Retained);
         await Assert.ThrowsAsync<CustomerValidationException>(() => store.BeginSourceAsync(context, plan, "source-1",
             CustomerImportRetention.DefaultSevenDays, policy, CancellationToken.None));
         Assert.NotNull(await store.ReadImportSummaryAsync(context, completed.ImportId, CancellationToken.None));
+    }
+
+    // customers.object_storage_reservations.state is the persisted integer domain fixed by the
+    // Customers migration (state IN (1, 2, 3, 4)). It has no published enum, so the lifecycle
+    // values are named here rather than asserted as bare integers.
+    private const int ReservationHeld = 1;
+    private const int ReservationCommitted = 2;
+    private const int ReservationReleased = 3;
+    private const int ReservationOutcomeUnknown = 4;
+
+    [Fact]
+    public async Task ImportSourceAllowanceIsReservedThenRetainedRefusedWhenExhaustedAndOnlyReleasedByAProvenAbsentUpload()
+    {
+        await MigrateAsync();
+        var (tenantId, accountId) = await SeedAsync();
+        var context = await ResolveContextAsync(tenantId, accountId);
+        await using var source = NpgsqlDataSource.Create(await CreateRestrictedRoleAsync());
+        var store = new PostgresCustomerStore(source);
+
+        // The allowance is a small multiple of one source so an exhausted allowance can be probed
+        // with a plan whose single CSV field stays inside the accepted raw field length.
+        const int AllowanceInSources = 20;
+        var retained = await PlanOfByteLengthAsync(21);
+        var policy = CustomerImportSourcePolicy.Create(
+            "test/source-allowance", retained.ByteLength * AllowanceInSources);
+
+        var retainedLease = await store.BeginSourceAsync(context, retained, "allowance-retained",
+            CustomerImportRetention.DefaultSevenDays, policy, CancellationToken.None);
+        Assert.True(retainedLease.UploadRequired);
+        Assert.NotEqual(Guid.Empty, retainedLease.ReservationId);
+
+        // A staged source has already consumed its bytes from the tenant's allowance even though
+        // nothing is retained, because a crashed uploader must not be able to re-spend the same
+        // allowance on a second source.
+        var staged = await ReadStorageUsageAsync(tenantId, policy.ProviderScope);
+        Assert.Equal(retained.ByteLength, staged.Reserved);
+        Assert.Equal(0L, staged.Retained);
+        var stagedReservations = await ReadReservationStatesAsync(tenantId, policy.ProviderScope);
+        Assert.Equal(ReservationHeld, stagedReservations[retainedLease.ObjectKey]);
+
+        var completed = await store.CompleteSourceAsync(context, retained, "allowance-retained",
+            CustomerImportRetention.DefaultSevenDays, policy, retainedLease, CancellationToken.None);
+        Assert.True(completed.Created);
+
+        // A published source moves the reservation out of the pending allowance and into the
+        // retained bytes instead of releasing it, so the same bytes are charged exactly once.
+        var published = await ReadStorageUsageAsync(tenantId, policy.ProviderScope);
+        Assert.Equal(0L, published.Reserved);
+        Assert.Equal(retained.ByteLength, published.Retained);
+        Assert.Equal(ReservationCommitted,
+            (await ReadReservationStatesAsync(tenantId, policy.ProviderScope))[retainedLease.ObjectKey]);
+
+        var remaining = policy.MaximumRetainedBytes - published.Retained - published.Reserved;
+        var refused = await PlanOfByteLengthAsync(remaining + 1);
+        Assert.True(refused.ByteLength <= policy.MaximumRetainedBytes,
+            "The refusal must come from accumulated usage, not from a single oversized plan.");
+        var capacity = await Assert.ThrowsAsync<CustomerValidationException>(() => store.BeginSourceAsync(
+            context, refused, "allowance-refused", CustomerImportRetention.DefaultSevenDays, policy, CancellationToken.None));
+        Assert.Equal("import_storage_capacity", capacity.Code);
+        var afterRefusal = await ReadStorageUsageAsync(tenantId, policy.ProviderScope);
+        Assert.Equal(published.Reserved, afterRefusal.Reserved);
+        Assert.Equal(published.Retained, afterRefusal.Retained);
+        var refusedReservations = await ReadReservationStatesAsync(tenantId, policy.ProviderScope);
+        Assert.Single(refusedReservations);
+        Assert.DoesNotContain("allowance-refused", refusedReservations.Keys, StringComparer.Ordinal);
+
+        var absent = await PlanOfByteLengthAsync(remaining);
+        var absentLease = await store.BeginSourceAsync(context, absent, "allowance-proven-absent",
+            CustomerImportRetention.DefaultSevenDays, policy, CancellationToken.None);
+        Assert.Equal(remaining, (await ReadStorageUsageAsync(tenantId, policy.ProviderScope)).Reserved);
+        await store.MarkSourceFailureAsync(context, absentLease, CustomerImportSourceFailureKind.ProvenAbsent,
+            "object_absent", CancellationToken.None);
+
+        // A proven-absent upload never happened, so its bytes return to the allowance instead of
+        // being charged as retained.
+        var released = await ReadStorageUsageAsync(tenantId, policy.ProviderScope);
+        Assert.Equal(0L, released.Reserved);
+        Assert.Equal(published.Retained, released.Retained);
+        Assert.Equal(ReservationReleased,
+            (await ReadReservationStatesAsync(tenantId, policy.ProviderScope))[absentLease.ObjectKey]);
+        Assert.Equal(CustomerImportSourceState.Unavailable,
+            await ReadSourceStateAsync(tenantId, absentLease.ObjectKey));
+
+        var unknown = await PlanOfByteLengthAsync(remaining);
+        var unknownLease = await store.BeginSourceAsync(context, unknown, "allowance-outcome-unknown",
+            CustomerImportRetention.DefaultSevenDays, policy, CancellationToken.None);
+        Assert.Equal(remaining, (await ReadStorageUsageAsync(tenantId, policy.ProviderScope)).Reserved);
+        await store.MarkSourceFailureAsync(context, unknownLease, CustomerImportSourceFailureKind.OutcomeUnknown,
+            "provider_response_lost", CancellationToken.None);
+
+        // An unknown outcome may have left bytes in the bucket, so the allowance stays consumed
+        // until retirement reconciles the object; only the reservation is marked for reconciliation.
+        var unresolved = await ReadStorageUsageAsync(tenantId, policy.ProviderScope);
+        Assert.Equal(remaining, unresolved.Reserved);
+        Assert.Equal(published.Retained, unresolved.Retained);
+        Assert.Equal(ReservationOutcomeUnknown,
+            (await ReadReservationStatesAsync(tenantId, policy.ProviderScope))[unknownLease.ObjectKey]);
+        Assert.Equal(CustomerImportSourceState.Orphaned,
+            await ReadSourceStateAsync(tenantId, unknownLease.ObjectKey));
+        var stillRefused = await PlanOfByteLengthAsync(remaining);
+        var consumed = await Assert.ThrowsAsync<CustomerValidationException>(() => store.BeginSourceAsync(
+            context, stillRefused, "allowance-unknown-consumed", CustomerImportRetention.DefaultSevenDays,
+            policy, CancellationToken.None));
+        Assert.Equal("import_storage_capacity", consumed.Code);
+        Assert.Equal(unresolved.Reserved, (await ReadStorageUsageAsync(tenantId, policy.ProviderScope)).Reserved);
+        Assert.Equal(unresolved.Retained, (await ReadStorageUsageAsync(tenantId, policy.ProviderScope)).Retained);
+    }
+
+    private static async Task<CustomerImportPlan> PlanOfByteLengthAsync(long byteLength)
+    {
+        // "name\n" header, one field, one row terminator.
+        var nameLength = (int)byteLength - "name\n".Length - "\n".Length;
+        Assert.InRange(nameLength, 1, 4096);
+        var content = $"name\n{new string('C', nameLength)}\n";
+        return await CustomerImportCsv.PlanAsync(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(content)),
+            Guid.NewGuid(), CancellationToken.None);
     }
 
     [Fact]
@@ -1231,12 +1347,36 @@ public sealed partial class CustomerPostgresTests
         await command.ExecuteNonQueryAsync();
     }
 
-    private async Task<long> ReadRetainedBytesAsync(Guid tenantId, string providerScope)
+    private async Task<(long Reserved, long Retained)> ReadStorageUsageAsync(Guid tenantId, string providerScope)
     {
         await using var connection = new NpgsqlConnection(ConnectionString); await connection.OpenAsync();
         await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT retained_bytes FROM customers.object_storage_usage WHERE tenant_id=@tenant AND provider_scope=@provider";
+        command.CommandText = "SELECT reserved_bytes, retained_bytes FROM customers.object_storage_usage WHERE tenant_id=@tenant AND provider_scope=@provider";
         command.Parameters.AddWithValue("tenant", tenantId); command.Parameters.AddWithValue("provider", providerScope);
-        return (long)(await command.ExecuteScalarAsync() ?? throw new InvalidOperationException("Usage row is missing."));
+        await using var reader = await command.ExecuteReaderAsync();
+        Assert.True(await reader.ReadAsync());
+        return (reader.GetInt64(0), reader.GetInt64(1));
+    }
+
+    private async Task<IReadOnlyDictionary<string, int>> ReadReservationStatesAsync(Guid tenantId, string providerScope)
+    {
+        await using var connection = new NpgsqlConnection(ConnectionString); await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT object_key, state FROM customers.object_storage_reservations WHERE tenant_id=@tenant AND provider_scope=@provider ORDER BY object_key";
+        command.Parameters.AddWithValue("tenant", tenantId); command.Parameters.AddWithValue("provider", providerScope);
+        var states = new Dictionary<string, int>(StringComparer.Ordinal);
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync()) states.Add(reader.GetString(0), reader.GetInt32(1));
+        return states;
+    }
+
+    private async Task<CustomerImportSourceState> ReadSourceStateAsync(Guid tenantId, string objectKey)
+    {
+        await using var connection = new NpgsqlConnection(ConnectionString); await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT state FROM customers.import_source_objects WHERE tenant_id=@tenant AND object_key=@key";
+        command.Parameters.AddWithValue("tenant", tenantId); command.Parameters.AddWithValue("key", objectKey);
+        return (CustomerImportSourceState)(int)(await command.ExecuteScalarAsync()
+            ?? throw new InvalidOperationException("The import source row is missing."));
     }
 }

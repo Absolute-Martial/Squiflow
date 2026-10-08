@@ -1,7 +1,9 @@
 using System.Net;
 using System.Security.Claims;
+using System.Reflection;
 using Application.CoreApi.Authorization;
 using Application.CoreApi;
+using Application.Tenancy;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -124,6 +126,48 @@ public sealed class EndpointAccessValidationTests : IClassFixture<WhiteLabelApiF
                 Assert.True(response.Headers.CacheControl?.NoStore);
             }
         }
+    }
+
+    [Fact]
+    public void EveryApplicationAuthorizedEndpointAccessIsMappedInBothTheRequirementAndResourceSwitches()
+    {
+        // The requirement table and the middleware's resource table are two independent switches
+        // over EndpointAccess. CoreApiEndpointAccessValidation compares the requirement table with
+        // the declared metadata, so it cannot observe a classification the resource table never
+        // handles; that gap would otherwise surface only as a runtime failure on the endpoint
+        // that owns the classification. Public and merely authenticated classifications are
+        // excluded because they never reach application authorization.
+        var createResource = typeof(CoreApiApplicationAuthorizationMiddleware)
+            .GetMethod("CreateResource", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(createResource);
+        var tenantContext = ResolveTenantContext();
+        var authorized = Enum.GetValues<EndpointAccess>()
+            .Where(access => new EndpointAccessMetadata(access).RequiresApplicationAuthorization)
+            .ToArray();
+        Assert.NotEmpty(authorized);
+
+        foreach (var access in authorized)
+        {
+            Assert.NotEmpty(CoreApiApplicationAuthorizationContract.RequirementsFor(access));
+            Assert.NotNull(createResource.Invoke(null, [access, tenantContext, CancellationToken.None]));
+        }
+    }
+
+    private static TenantContext ResolveTenantContext() =>
+        new ResolveTenantContext(new ActiveMembershipDirectory())
+            .ExecuteAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None)
+            .GetAwaiter()
+            .GetResult()!;
+
+    private sealed class ActiveMembershipDirectory : ITenantMembershipDirectory
+    {
+        public Task<IReadOnlyList<TenantMembership>> ListActiveAsync(
+            Guid requestedAccountId, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<TenantMembership>>([]);
+
+        public Task<bool> IsActiveAsync(
+            Guid requestedAccountId, Guid requestedTenantId, CancellationToken cancellationToken) =>
+            Task.FromResult(true);
     }
 
     private static void Validate(params object[] metadata)
