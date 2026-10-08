@@ -36,7 +36,8 @@ public static class CatalogLineFactSelection
                 target.Precision, facts.Numerator, facts.Denominator);
             return new(CatalogLineFactsStatus.Available, new CatalogLineFacts(item.ItemId, item.Code, source.UnitId,
                 item.Name, source.Code, source.Name, selection.Quantity, source.Precision, item.Revision, source.Revision,
-                facts, target.Code, target.Name, target.Precision, target.Revision, baseQuantity));
+                facts, QuantityArithmetic.Version1, QuantityArithmetic.Version1Rounding,
+                target.Code, target.Name, target.Precision, target.Revision, baseQuantity));
         }
         catch (CatalogValidationException)
         {

@@ -19,7 +19,8 @@ public static class OrderCommercialFactsValidation
                 catalog.Quantity != line.Quantity || catalog.UnitCode != line.UnitCode || catalog.ItemName != line.Description ||
                 catalog.UnitId != catalog.Conversion.SourceUnitId || catalog.Conversion.TargetUnitId == Guid.Empty ||
                 catalog.Conversion.Revision < 1 || catalog.BaseUnitPrecision is null || catalog.BaseUnitRevision is null ||
-                catalog.BaseQuantity is null || catalog.QuantityArithmeticVersion != 1 || catalog.QuantityRounding != "toEven" ||
+                catalog.BaseQuantity is null || catalog.QuantityArithmeticVersion != QuantityArithmetic.Version1 ||
+                catalog.QuantityRounding != QuantityArithmetic.Version1Rounding ||
                 source.TenantId != order.TenantId || source.Key.ItemId != catalog.ItemId || source.Key.UnitId != catalog.UnitId ||
                 source.Key.CurrencyCode != order.CurrencyCode || source.State != Application.Pricing.PricePublicationState.Published ||
                 price.ItemId != catalog.ItemId || price.UnitId != catalog.UnitId || price.CurrencyCode != order.CurrencyCode ||
@@ -27,7 +28,7 @@ public static class OrderCommercialFactsValidation
                 explanation.SelectedRevisionId != source.RevisionId || explanation.SelectedRevision != source.RevisionNumber ||
                 explanation.SelectedPriceId != source.PriceId || explanation.SelectedScope != source.Key.Scope ||
                 explanation.Policy is null || explanation.PolicyRevision != explanation.Policy.PolicyRevision ||
-                explanation.Candidates is null || explanation.Candidates.Count > 64 || explanation.Context is null ||
+                explanation.Candidates is null || explanation.Candidates.Count > Application.Pricing.PriceSelectionBounds.MaximumCandidates || explanation.Context is null ||
                 source.Key.UnitConversionRevision != explanation.Context.UnitConversionRevision ||
                 explanation.Context.UnitConversionRevision != (catalog.Conversion.SourceUnitId == catalog.Conversion.TargetUnitId ? null : (long?)catalog.Conversion.Revision) ||
                 !source.Validity.Contains(explanation.EvaluatedAt)) throw Invalid();

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Application.Catalog;
 using Application.Customers;
 using Application.Pricing;
@@ -8,6 +9,9 @@ namespace Application.Orders.Tests;
 
 public sealed class CatalogOrderDraftTests
 {
+    // The durable commercial-facts JSON shape the Orders store reads back.
+    private static readonly JsonSerializerOptions SnapshotJsonOptions = new(JsonSerializerDefaults.Web);
+
     [Fact]
     public async Task PublishedSelectionUsesOrdersArithmeticAndRetainsCompleteFrozenFacts()
     {
@@ -196,6 +200,30 @@ public sealed class CatalogOrderDraftTests
         Assert.Equal(price, created.Lines[0].UnitPrice);
     }
 
+    [Theory]
+    [InlineData("quantityArithmeticVersion")]
+    [InlineData("quantityRounding")]
+    public async Task RetainedFactsMissingDurableQuantityArithmeticAreRejectedInsteadOfReadAsVersionOne(string absentField)
+    {
+        var fixture = await Fixture.CreateAsync();
+        var created = (await fixture.Application.CreateAsync(fixture.Context, fixture.Request, "create", new(false, false), default)).Order!;
+        OrderCommercialFactsValidation.RequireValid(created);
+
+        // Reproduce a durable payload that lost an arithmetic field. Catalog requires
+        // both, so an absent one must not read back as the value the engine produced.
+        var payload = JsonSerializer.SerializeToNode(created, SnapshotJsonOptions)!;
+        payload["lines"]![0]!["commercialFacts"]!["catalog"]!.AsObject().Remove(absentField);
+        var truncated = JsonSerializer.Deserialize<OrderDraftSnapshot>(
+            payload.ToJsonString(SnapshotJsonOptions), SnapshotJsonOptions)!;
+        var retained = created.Lines[0].CommercialFacts!.Catalog;
+        var catalog = truncated.Lines[0].CommercialFacts!.Catalog;
+        if (absentField == "quantityArithmeticVersion")
+            Assert.NotEqual(retained.QuantityArithmeticVersion, catalog.QuantityArithmeticVersion);
+        else
+            Assert.NotEqual(retained.QuantityRounding, catalog.QuantityRounding);
+        Assert.Throws<InvalidOperationException>(() => OrderCommercialFactsValidation.RequireValid(truncated));
+    }
+
     private sealed class Fixture
     {
         internal static readonly DateTimeOffset Now = new(2026, 10, 7, 12, 0, 0, TimeSpan.Zero);
@@ -214,7 +242,8 @@ public sealed class CatalogOrderDraftTests
             var catalog = new CatalogPort
             {
                 Facts = new(item, "ITEM", unit, "Original catalog name", "EA", "Each", 2, 4, 1, 1,
-                    new(unit, unit, 1, 1m, 1m), "EA", "Each", 4, 1, 2m)
+                    new(unit, unit, 1, 1m, 1m), QuantityArithmetic.Version1, QuantityArithmetic.Version1Rounding,
+                    "EA", "Each", 4, 1, 2m)
             };
             var price = new PriceRevision(context.TenantId, Guid.NewGuid(), 1, new(item, "EA", "USD", PriceScope.Default(), unit),
                 1.2345m, new(Now.AddDays(-1)), PricePublicationState.Published, context.AccountId, Now.AddDays(-1), Now.AddDays(-1));

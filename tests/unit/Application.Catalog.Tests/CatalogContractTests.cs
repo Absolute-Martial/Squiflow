@@ -74,7 +74,8 @@ public sealed class CatalogContractTests
         var unitId = Guid.NewGuid();
         var facts = new CatalogLineFacts(
             itemId, "PANEL", unitId, "Printed panel", "EA", "Each", 1.25m, 2, 7, 9,
-            new CatalogConversionFacts(unitId, unitId, 9, 1m, 1m));
+            new CatalogConversionFacts(unitId, unitId, 9, 1m, 1m),
+            QuantityArithmetic.Version1, QuantityArithmetic.Version1Rounding);
 
         Assert.Equal(itemId, facts.ItemId);
         Assert.Equal("PANEL", facts.ItemCode);
