@@ -378,8 +378,8 @@ public sealed class HuggingFaceObjectStoreSignatureTests
         // Same length as the payload, so the length check passes and only the digest disagrees.
         // This is the case the verifying stream detects while the response body is drained.
         // Same length as the payload, so the length check passes and only the digest disagrees.
-// This is the case the verifying stream detects while the response body is drained.
-var stored = payload.Select(value => value == (byte)'o' ? (byte)'O' : value).ToArray();
+        // This is the case the verifying stream detects while the response body is drained.
+        var stored = payload.Select(value => value == (byte)'o' ? (byte)'O' : value).ToArray();
         Assert.Equal(payload.Length, stored.Length);
         Assert.NotEqual(Sha256Hex(payload), Sha256Hex(stored));
         var captured = new List<CapturedRequest>();

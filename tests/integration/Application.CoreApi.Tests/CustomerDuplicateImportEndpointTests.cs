@@ -773,6 +773,8 @@ public sealed class CustomerDuplicateImportEndpointTests
             Released++;
             return Task.CompletedTask;
         }
+    }
+
     private sealed class AllowedImportAuthority(TenantContext current) : ICustomerImportAuthority
     {
         public Task<CustomerImportAuthoritySnapshot?> CheckAsync(Guid tenantId, Guid accountId, CancellationToken cancellationToken) =>
