@@ -115,6 +115,9 @@ public static class CustomerDuplicateMatcher
         foreach (var record in records)
         {
             if (excludeCustomerId == record.Customer.IndividualId || record.Customer.TenantId != tenantId) continue;
+            // A consolidated source no longer exists as a candidate identity; its successor
+            // carries the same signals and is matched on its own.
+            if (record.Customer.RedirectTargetIndividualId.HasValue) continue;
             var evidence = Evidence(target, record.Signals, includeFuzzyNameDiscovery);
             if (evidence.Count == 0) continue;
             matches.Add(new(
@@ -219,6 +222,10 @@ public enum ResolveCustomerDuplicateStatus
     AlreadyResolved = 5,
     InvalidOutcome = 6,
     IdempotencyKeyConflict = 7,
+    // Either side was consolidated away from being a current customer. A review decision
+    // cannot be recorded about an identity that no longer exists, so the caller must
+    // deliberately resubmit against the current successor; retained receipts still replay.
+    AlreadyRedirected = 8,
 }
 
 public enum ConsolidateCustomerDuplicateStatus

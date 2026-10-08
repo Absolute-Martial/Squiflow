@@ -128,6 +128,11 @@ public sealed partial class PostgresCustomerStore
         var first = await FindIndividualAsync(session, context.TenantId, pair.First, cancellationToken).ConfigureAwait(false);
         var second = await FindIndividualAsync(session, context.TenantId, pair.Second, cancellationToken).ConfigureAwait(false);
         if (first is null || second is null) return new(ResolveCustomerDuplicateStatus.NotFound, null);
+        // Recording a review decision asserts two things about two current customers.
+        // A consolidated side has moved to its successor, so the decision belongs to the
+        // survivor and the caller's expected revisions, not to this physical pair.
+        if (first.RedirectTargetIndividualId.HasValue || second.RedirectTargetIndividualId.HasValue)
+            return new(ResolveCustomerDuplicateStatus.AlreadyRedirected, null);
         if (first.Revision != (request.CustomerId == pair.First ? request.ExpectedCustomerRevision : request.ExpectedOtherRevision)
             || second.Revision != (request.CustomerId == pair.Second ? request.ExpectedCustomerRevision : request.ExpectedOtherRevision))
             return new(ResolveCustomerDuplicateStatus.RevisionConflict, null);
