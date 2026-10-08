@@ -37,7 +37,7 @@ builder.Services.AddSingleton(brandProfile);
 builder.Services.AddCoreApiAuthorization(openFgaAuthorizationConfiguration);
 builder.Services.AddCoreApiPersistence(databaseConfiguration);
 builder.Services.AddObjectStorage(objectStorageConfiguration);
-builder.Services.AddCustomerImportExecution(builder.Configuration, databaseConfiguration);
+builder.Services.AddCustomerImportExecution(builder.Configuration, databaseConfiguration, objectStorageConfiguration);
 builder.Services.AddCoreApiAuthentication(authenticationConfiguration);
 builder.Services.AddCoreApiAdmission(builder.Configuration);
 builder.Services.AddCoreApiRequestBudgets(builder.Configuration);
@@ -56,7 +56,9 @@ builder.Services.AddHealthChecks()
     .AddCheck<PrimaryDatabaseReadinessCheck>(
         "primary_database", tags: ["readiness"], timeout: TimeSpan.FromSeconds(5))
     .AddCheck<OpenFgaReadinessCheck>(
-        "openfga", tags: ["readiness"], timeout: TimeSpan.FromSeconds(5));
+        "openfga", tags: ["readiness"], timeout: TimeSpan.FromSeconds(5))
+    .AddCheck<CustomerImportExecutionReadinessCheck>(
+        "customer_import_execution", tags: ["readiness"], timeout: TimeSpan.FromSeconds(5));
 builder.Services.AddSingleton<ReadinessStatusCache>();
 builder.Services.AddCoreApiOpenApi();
 builder.Services.AddProfileRuntimeComposition(builder.Configuration);

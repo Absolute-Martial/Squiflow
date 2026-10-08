@@ -1,3 +1,4 @@
+using Application.CoreApi.Storage;
 using Application.Customers;
 using Microsoft.Extensions.Options;
 
@@ -6,11 +7,18 @@ namespace Application.CoreApi.ImportExecution;
 internal static class CustomerImportExecutionRegistration
 {
     internal static IServiceCollection AddCustomerImportExecution(
-        this IServiceCollection services, IConfiguration configuration, RuntimeDatabaseConfiguration database)
+        this IServiceCollection services, IConfiguration configuration, RuntimeDatabaseConfiguration database,
+        HuggingFaceObjectStoreConfiguration objectStorage)
     {
         var execution = CustomerImportExecutionConfiguration.From(configuration);
         if (execution.Enabled && database.MaximumPoolSize < 2)
             throw new InvalidOperationException("Customer import execution requires a shared database pool of at least two connections.");
+        // Retained raw customer PII has exactly one deleter: the hosted executor's source retirement.
+        // Enabling real object storage without it uploads expiring bytes that nothing ever
+        // removes, so the unrecoverable retention exposure fails startup instead of waiting.
+        if (objectStorage.Enabled && !execution.Enabled)
+            throw new InvalidOperationException(
+                "Object storage requires CustomerImports:Execution:Enabled=true; raw import sources are only ever deleted by the customer import executor.");
         services.AddSingleton(execution);
         services.AddSingleton<CustomerImportExecutionState>();
         services.AddScoped<ICustomerImportAuthority, CurrentCustomerImportAuthority>();
