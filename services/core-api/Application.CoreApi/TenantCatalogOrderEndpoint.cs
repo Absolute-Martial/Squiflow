@@ -38,7 +38,7 @@ internal static class TenantCatalogOrderEndpoint
             "The account is not permitted to select catalog-priced orders in this tenant.", ct);
         if (denied is not null) return denied;
         if (!TenantOrderEndpoint.TryGetIdempotencyKey(http.Request.Headers, out var key))
-            return TenantOrderEndpoint.InvalidRequest("idempotency_key_invalid", "One Idempotency-Key is required.");
+            return Invalid("idempotency_key_invalid", "One Idempotency-Key is required.");
 
         var body = await ReadAsync(http.Request, orderId.HasValue, ct);
         if (body.Failure is not null) return body.Failure;
@@ -54,7 +54,7 @@ internal static class TenantCatalogOrderEndpoint
             {
                 var result = await orders.ReviseAsync(access.TenantContext!, new(id, body.ExpectedRevision!.Value, request), key!, authority, ct);
                 if (result.Status == ReviseOrderDraftStatus.NotFound)
-                    return TenantCustomerEndpoint.NotFound("order_not_found", "Order not found in this tenant.");
+                    return TenantOrderEndpoint.OrderNotFound("order_not_found", "Order not found in this tenant.");
                 if (result.Status is not (ReviseOrderDraftStatus.Revised or ReviseOrderDraftStatus.Replayed))
                     return Conflict(result.Status switch
                     {
@@ -89,21 +89,24 @@ internal static class TenantCatalogOrderEndpoint
                     extensions: new Dictionary<string, object?> { ["code"] = error.Code })
                 : Conflict(error.Code);
         }
-        catch (OrderDraftValidationException error) { return TenantOrderEndpoint.InvalidRequest(error.Code, error.Message); }
-        catch (CatalogValidationException error) { return TenantOrderEndpoint.InvalidRequest(error.Code, error.Message); }
+        catch (OrderDraftValidationException error) { return Invalid(error.Code, error.Message); }
+        catch (CatalogValidationException error) { return Invalid(error.Code, error.Message); }
         catch (PricingValidationException error)
         {
             return error.Code == "pricing_policy_missing" ? Conflict(error.Code) :
-                TenantOrderEndpoint.InvalidRequest(error.Code, error.Message);
+                Invalid(error.Code, error.Message);
         }
         catch (CustomerOrderContextNotFoundException)
-        { return TenantCustomerEndpoint.NotFound("customer_context_not_found", "Customer context not found in this tenant."); }
+        { return TenantCustomerEndpoint.CustomerContextNotFound("Customer context not found in this tenant."); }
         catch (AuthorizationProviderUnavailableException)
         {
             return TypedResults.Problem(statusCode: 503, title: "Authorization is temporarily unavailable.",
                 extensions: new Dictionary<string, object?> { ["code"] = "authorization_unavailable" });
         }
     }
+
+    private static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult Invalid(string code, string detail) =>
+        TenantCustomerEndpoint.Invalid(CapabilityProblemTitles.CatalogOrder, code, detail);
 
     private static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult Conflict(string code) => TypedResults.Problem(statusCode: 409,
         title: "Order selection conflicts with current commercial facts.",
@@ -114,7 +117,7 @@ internal static class TenantCatalogOrderEndpoint
     {
         if (request.ContentLength > TenantOrderEndpoint.MaximumCreateRequestBodyBytes)
             return (null, null, TenantOrderEndpoint.RequestTooLarge());
-        if (!request.HasJsonContentType()) return Invalid();
+        if (!request.HasJsonContentType()) return InvalidPayload();
         try
         {
             var bytes = new byte[checked((int)TenantOrderEndpoint.MaximumCreateRequestBodyBytes + 1)];
@@ -122,10 +125,10 @@ internal static class TenantCatalogOrderEndpoint
             if (count > TenantOrderEndpoint.MaximumCreateRequestBodyBytes)
                 return (null, null, TenantOrderEndpoint.RequestTooLarge());
             using var json = JsonDocument.Parse(bytes.AsMemory(0, count), new JsonDocumentOptions { MaxDepth = 8 });
-            if (json.RootElement.ValueKind != JsonValueKind.Object || HasDuplicateMembers(json.RootElement)) return Invalid();
+            if (json.RootElement.ValueKind != JsonValueKind.Object || HasDuplicateMembers(json.RootElement)) return InvalidPayload();
             var value = json.RootElement.Deserialize<CatalogOrderPayload>(JsonOptions);
             if (value?.Lines is null || value.Lines.Any(line => line is null) ||
-                (revision ? value.ExpectedRevision is null : value.ExpectedRevision is not null)) return Invalid();
+                (revision ? value.ExpectedRevision is null : value.ExpectedRevision is not null)) return InvalidPayload();
             return (new(value.Summary ?? "", value.CurrencyCode ?? "",
                 value.Lines.Select(line => new CatalogOrderLineInput(line.ItemId, line.UnitId, line.Quantity,
                     line.ConversionRevision, line.OverridePrice, line.OverrideReason)).ToArray(), value.CustomerId,
@@ -135,7 +138,7 @@ internal static class TenantCatalogOrderEndpoint
         catch (BadHttpRequestException error) when (error.StatusCode == StatusCodes.Status413PayloadTooLarge)
         { return (null, null, TenantOrderEndpoint.RequestTooLarge()); }
         catch (Exception error) when (error is JsonException or BadHttpRequestException)
-        { return Invalid(); }
+        { return InvalidPayload(); }
     }
 
     private static bool HasDuplicateMembers(JsonElement value)
@@ -151,8 +154,8 @@ internal static class TenantCatalogOrderEndpoint
         return false;
     }
 
-    private static (CatalogOrderDraftRequest?, long?, IResult?) Invalid() =>
-        (null, null, TenantOrderEndpoint.InvalidRequest("request_invalid", "A strict catalog order JSON request is required."));
+    private static (CatalogOrderDraftRequest?, long?, IResult?) InvalidPayload() =>
+        (null, null, Invalid("request_invalid", "A strict catalog order JSON request is required."));
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 }
 

@@ -184,14 +184,7 @@ internal static class TenantOrderEndpoint
 
         if (order is null)
         {
-            return TypedResults.Problem(
-                statusCode: StatusCodes.Status404NotFound,
-                title: "Order not found.",
-                detail: "The requested order was not found in this tenant.",
-                extensions: new Dictionary<string, object?>
-                {
-                    ["code"] = "order_not_found",
-                });
+            return OrderNotFound("order_not_found", "The requested order was not found in this tenant.");
         }
 
         httpContext.Response.Headers.CacheControl = "no-store";
@@ -262,20 +255,13 @@ internal static class TenantOrderEndpoint
         }
         catch (CustomerOrderContextNotFoundException)
         {
-            return TypedResults.Problem(
-                statusCode: StatusCodes.Status404NotFound,
-                title: "Customer context not found.",
-                detail: "The requested customer context was not found in this tenant.",
-                extensions: new Dictionary<string, object?> { ["code"] = "customer_context_not_found" });
+            return TenantCustomerEndpoint.CustomerContextNotFound(
+                "The requested customer context was not found in this tenant.");
         }
 
         if (result.Status == ReviseOrderDraftStatus.NotFound)
         {
-            return TypedResults.Problem(
-                statusCode: StatusCodes.Status404NotFound,
-                title: "Order not found.",
-                detail: "The requested order was not found in this tenant.",
-                extensions: new Dictionary<string, object?> { ["code"] = "order_not_found" });
+            return OrderNotFound("order_not_found", "The requested order was not found in this tenant.");
         }
 
         if (result.Status is ReviseOrderDraftStatus.RevisionConflict or
@@ -387,11 +373,7 @@ internal static class TenantOrderEndpoint
 
         if (result.Status == AbandonOrderDraftStatus.NotFound)
         {
-            return TypedResults.Problem(
-                statusCode: StatusCodes.Status404NotFound,
-                title: "Order not found.",
-                detail: "The requested order was not found in this tenant.",
-                extensions: new Dictionary<string, object?> { ["code"] = "order_not_found" });
+            return OrderNotFound("order_not_found", "The requested order was not found in this tenant.");
         }
 
         if (result.Status is AbandonOrderDraftStatus.RevisionConflict or
@@ -717,6 +699,18 @@ internal static class TenantOrderEndpoint
         TypedResults.Problem(
             statusCode: StatusCodes.Status400BadRequest,
             title: "Invalid order request.",
+            detail: detail,
+            extensions: new Dictionary<string, object?>
+            {
+                ["code"] = code,
+            });
+
+    internal static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult OrderNotFound(
+        string code,
+        string detail) =>
+        TypedResults.Problem(
+            statusCode: StatusCodes.Status404NotFound,
+            title: "Order not found.",
             detail: detail,
             extensions: new Dictionary<string, object?>
             {
