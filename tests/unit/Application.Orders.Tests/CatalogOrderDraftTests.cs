@@ -16,7 +16,7 @@ public sealed class CatalogOrderDraftTests
     public async Task PublishedSelectionUsesOrdersArithmeticAndRetainsCompleteFrozenFacts()
     {
         var fixture = await Fixture.CreateAsync();
-        var result = await fixture.Application.CreateAsync(fixture.Context, fixture.Request, "create", new(false, false), default);
+        var result = await fixture.Application.CreateAsync(fixture.Context, fixture.Request, "create", new(false), default);
         var line = Assert.Single(result.Order!.Lines);
         Assert.Equal(2.469m, line.LineTotal);
         Assert.Equal(line.LineTotal, result.Order.Total);
@@ -42,7 +42,7 @@ public sealed class CatalogOrderDraftTests
             new(fixture.Price.Key.ItemId, code, "USD", PriceScope.Default(), fixture.Price.Key.UnitId),
             fixture.Price.BaseUnitPrice, fixture.Price.Validity, PricePublicationState.Published,
             fixture.Context.AccountId, fixture.Price.CreatedAt, fixture.Price.PublishedAt));
-        var result = await fixture.Application.CreateAsync(fixture.Context, fixture.Request, "long-code", new(false, false), default);
+        var result = await fixture.Application.CreateAsync(fixture.Context, fixture.Request, "long-code", new(false), default);
         Assert.Equal(code, result.Order!.Lines[0].UnitCode);
         Assert.Equal(code, result.Order.Lines[0].CommercialFacts!.Catalog.UnitCode);
         Assert.Equal(2.469m, result.Order.Total);
@@ -54,35 +54,35 @@ public sealed class CatalogOrderDraftTests
     public async Task ReplayDoesNotReadOrRefreshCurrentCommercialSourcesAndDecimalScaleIsSemantic()
     {
         var fixture = await Fixture.CreateAsync();
-        var original = await fixture.Application.CreateAsync(fixture.Context, fixture.Request, "create", new(false, false), default);
+        var original = await fixture.Application.CreateAsync(fixture.Context, fixture.Request, "create", new(false), default);
         fixture.Catalog.Facts = null;
         fixture.Pricing.Candidates.Clear();
         var reads = fixture.Catalog.Reads;
         var replay = await fixture.Application.CreateAsync(fixture.Context, fixture.Request with
-        { Lines = [fixture.Request.Lines[0] with { Quantity = 2.0000m }] }, "create", new(false, false), default);
+        { Lines = [fixture.Request.Lines[0] with { Quantity = 2.0000m }] }, "create", new(false), default);
         Assert.Equal(CreateOrderDraftStatus.Replayed, replay.Status);
         Assert.Same(original.Order, replay.Order);
         Assert.Equal(reads, fixture.Catalog.Reads);
         Assert.Equal(CreateOrderDraftStatus.IdempotencyKeyConflict,
-            (await fixture.Application.CreateAsync(fixture.Context, fixture.Request with { Summary = "Different" }, "create", new(false, false), default)).Status);
+            (await fixture.Application.CreateAsync(fixture.Context, fixture.Request with { Summary = "Different" }, "create", new(false), default)).Status);
     }
 
     [Fact]
     public async Task RevisionRetainsReceiptEvenAfterTheSelectedPriceDisappears()
     {
         var fixture = await Fixture.CreateAsync();
-        var created = await fixture.Application.CreateAsync(fixture.Context, fixture.Request, "create", new(false, false), default);
+        var created = await fixture.Application.CreateAsync(fixture.Context, fixture.Request, "create", new(false), default);
         var request = new ReviseCatalogOrderDraftRequest(created.Order!.OrderId, 1,
             fixture.Request with { Summary = "Revised selection" });
-        var revised = await fixture.Application.ReviseAsync(fixture.Context, request, "revise", new(false, false), default);
+        var revised = await fixture.Application.ReviseAsync(fixture.Context, request, "revise", new(false), default);
         Assert.Equal(ReviseOrderDraftStatus.Revised, revised.Status);
         Assert.Equal(2, revised.Order!.Revision);
         fixture.Pricing.Candidates.Clear();
-        var replay = await fixture.Application.ReviseAsync(fixture.Context, request, "revise", new(false, false), default);
+        var replay = await fixture.Application.ReviseAsync(fixture.Context, request, "revise", new(false), default);
         Assert.Equal(ReviseOrderDraftStatus.Replayed, replay.Status);
         Assert.Same(revised.Order, replay.Order);
         Assert.Equal(ReviseOrderDraftStatus.IdempotencyKeyConflict,
-            (await fixture.Application.ReviseAsync(fixture.Context, request with { ExpectedRevision = 2 }, "revise", new(false, false), default)).Status);
+            (await fixture.Application.ReviseAsync(fixture.Context, request with { ExpectedRevision = 2 }, "revise", new(false), default)).Status);
     }
 
     [Theory]
@@ -91,9 +91,11 @@ public sealed class CatalogOrderDraftTests
     public async Task OverridesNeverGainAuthorityFromPriceOrReason(bool canOverride, bool beyond, int price, string reason, string code)
     {
         var fixture = await Fixture.CreateAsync();
+        var application = new CatalogOrderDraftApplication(fixture.Orders, fixture.Orders, new(fixture.Catalog),
+            fixture.PricingApplication, new(new CustomersPort()), currentPricingAuthority: new Authority(new(true), beyond));
         var request = fixture.Request with { Lines = [fixture.Request.Lines[0] with { OverridePrice = price, OverrideReason = reason }] };
         var error = await Assert.ThrowsAsync<OrderCommercialSelectionException>(() =>
-            fixture.Application.CreateAsync(fixture.Context, request, "override", new(canOverride, beyond), default));
+            application.CreateAsync(fixture.Context, request, "override", new(canOverride), default));
         Assert.Equal(code, error.Code);
         Assert.Null(fixture.Orders.Current);
     }
@@ -101,34 +103,34 @@ public sealed class CatalogOrderDraftTests
     [Fact]
     public async Task ElevatedOverrideRetainsReasonAndPolicyButMissingReasonOrInvalidQuantityCannotPersist()
     {
-        var fixture = await Fixture.CreateAsync();
+        var fixture = await Fixture.CreateAsync(elevatedOverride: true);
         var input = fixture.Request.Lines[0] with { OverridePrice = 200m, OverrideReason = "  approved commercial exception  " };
-        var overridden = await fixture.Application.CreateAsync(fixture.Context, fixture.Request with { Lines = [input] }, "override", new(true, true), default);
+        var overridden = await fixture.Application.CreateAsync(fixture.Context, fixture.Request with { Lines = [input] }, "override", new(true), default);
         Assert.Equal("approved commercial exception", overridden.Order!.Lines[0].CommercialFacts!.PriceSelection.Explanation.Override!.Reason);
         Assert.True(overridden.Order.Lines[0].CommercialFacts!.PriceSelection.Explanation.Override!.BeyondPolicy);
         await Assert.ThrowsAsync<OrderDraftValidationException>(() => fixture.Application.CreateAsync(fixture.Context,
-            fixture.Request with { Lines = [input with { OverrideReason = null }] }, "bad-reason", new(true, true), default));
+            fixture.Request with { Lines = [input with { OverrideReason = null }] }, "bad-reason", new(true), default));
         await Assert.ThrowsAsync<OrderDraftValidationException>(() => fixture.Application.CreateAsync(fixture.Context,
-            fixture.Request with { Lines = [input with { Quantity = 1.00001m }] }, "bad-quantity", new(true, true), default));
+            fixture.Request with { Lines = [input with { Quantity = 1.00001m }] }, "bad-quantity", new(true), default));
     }
 
     [Fact]
     public async Task RevalidationRejectsPublicationOrPolicyChangesWithoutRepricingAndAllowsLabelRename()
     {
         var fixture = await Fixture.CreateAsync();
-        var created = (await fixture.Application.CreateAsync(fixture.Context, fixture.Request, "create", new(false, false), default)).Order!;
+        var created = (await fixture.Application.CreateAsync(fixture.Context, fixture.Request, "create", new(false), default)).Order!;
         var guard = new OrderCommercialCommitGuard(new(fixture.Catalog), fixture.PricingApplication, new Authority());
         fixture.Catalog.Facts = fixture.Catalog.Facts! with { ItemName = "Renamed", ItemRevision = 2 };
-        Assert.True(await guard.IsCompatibleAsync(fixture.Context, created, default));
+        Assert.True(await CompatibleAsync(guard, fixture.Context, created));
         Assert.Equal("Original catalog name", created.Lines[0].Description);
         fixture.Pricing.Policy = new(2, 0, 100);
-        Assert.False(await guard.IsCompatibleAsync(fixture.Context, created, default));
+        Assert.False(await CompatibleAsync(guard, fixture.Context, created));
         fixture.Pricing.Policy = new(1, 0, 100);
         fixture.Pricing.Candidates.Clear();
         fixture.Pricing.Candidates.Add(new(fixture.Context.TenantId, Guid.NewGuid(), 2, fixture.Price.Key,
             fixture.Price.BaseUnitPrice, fixture.Price.Validity, PricePublicationState.Published,
             fixture.Context.AccountId, Fixture.Now, Fixture.Now));
-        Assert.False(await guard.IsCompatibleAsync(fixture.Context, created, default));
+        Assert.False(await CompatibleAsync(guard, fixture.Context, created));
         Assert.Equal(fixture.Price.RevisionId, created.Lines[0].CommercialFacts!.PublishedPrice.RevisionId);
     }
 
@@ -141,10 +143,10 @@ public sealed class CatalogOrderDraftTests
         var app = new CatalogOrderDraftApplication(fixture.Orders, fixture.Orders, new(fixture.Catalog),
             fixture.PricingApplication, new(new CustomersPort()), directory);
         var request = fixture.Request with { CustomerId = requested };
-        var created = await app.CreateAsync(fixture.Context, request, "canonical", new(false, false), default);
+        var created = await app.CreateAsync(fixture.Context, request, "canonical", new(false), default);
         Assert.Equal(canonical, created.Order!.Lines[0].CommercialFacts!.PriceSelection.Explanation.Context.CustomerId);
         directory.CurrentId = Guid.NewGuid();
-        var replay = await app.CreateAsync(fixture.Context, request, "canonical", new(false, false), default);
+        var replay = await app.CreateAsync(fixture.Context, request, "canonical", new(false), default);
         Assert.Equal(CreateOrderDraftStatus.Replayed, replay.Status);
         Assert.Equal(canonical, replay.Order!.Lines[0].CommercialFacts!.PriceSelection.Explanation.Context.CustomerId);
         Assert.Equal(1, directory.Reads);
@@ -155,10 +157,10 @@ public sealed class CatalogOrderDraftTests
     public async Task RetiredOrUnavailableCatalogSelectionIsIncompatibleWithoutRefreshingRetainedFacts()
     {
         var fixture = await Fixture.CreateAsync();
-        var created = (await fixture.Application.CreateAsync(fixture.Context, fixture.Request, "create", new(false, false), default)).Order!;
+        var created = (await fixture.Application.CreateAsync(fixture.Context, fixture.Request, "create", new(false), default)).Order!;
         fixture.Catalog.Facts = null;
         var guard = new OrderCommercialCommitGuard(new(fixture.Catalog), fixture.PricingApplication, new Authority());
-        Assert.False(await guard.IsCompatibleAsync(fixture.Context, created, default));
+        Assert.False(await CompatibleAsync(guard, fixture.Context, created));
         Assert.Equal("Original catalog name", created.Lines[0].CommercialFacts!.Catalog.ItemName);
     }
 
@@ -170,7 +172,7 @@ public sealed class CatalogOrderDraftTests
     public async Task ComparisonRejectsChangedCatalogMeaningEvenWhenPriceIdentityIsUnchanged(string change)
     {
         var fixture = await Fixture.CreateAsync();
-        var created = (await fixture.Application.CreateAsync(fixture.Context, fixture.Request, "create", new(false, false), default)).Order!;
+        var created = (await fixture.Application.CreateAsync(fixture.Context, fixture.Request, "create", new(false), default)).Order!;
         var facts = fixture.Catalog.Facts!;
         fixture.Catalog.Facts = change switch
         {
@@ -181,7 +183,7 @@ public sealed class CatalogOrderDraftTests
             _ => throw new ArgumentOutOfRangeException(nameof(change)),
         };
         var guard = new OrderCommercialCommitGuard(new(fixture.Catalog), fixture.PricingApplication, new Authority());
-        Assert.False(await guard.IsCompatibleAsync(fixture.Context, created, default));
+        Assert.False(await CompatibleAsync(guard, fixture.Context, created));
         Assert.Equal(facts, created.Lines[0].CommercialFacts!.Catalog);
     }
 
@@ -192,11 +194,11 @@ public sealed class CatalogOrderDraftTests
     [InlineData(200, true, false, false)]
     public async Task ComparisonRechecksCurrentOverrideAndBeyondPolicyAuthority(int price, bool canOverride, bool beyond, bool compatible)
     {
-        var fixture = await Fixture.CreateAsync();
+        var fixture = await Fixture.CreateAsync(elevatedOverride: true);
         var request = fixture.Request with { Lines = [fixture.Request.Lines[0] with { OverridePrice = price, OverrideReason = "Commercial exception" }] };
-        var created = (await fixture.Application.CreateAsync(fixture.Context, request, "create", new(true, true), default)).Order!;
-        var guard = new OrderCommercialCommitGuard(new(fixture.Catalog), fixture.PricingApplication, new Authority(new(canOverride, beyond)));
-        Assert.Equal(compatible, await guard.IsCompatibleAsync(fixture.Context, created, default));
+        var created = (await fixture.Application.CreateAsync(fixture.Context, request, "create", new(true), default)).Order!;
+        var guard = new OrderCommercialCommitGuard(new(fixture.Catalog), fixture.PricingApplication, new Authority(new(canOverride), beyond));
+        Assert.Equal(compatible, await CompatibleAsync(guard, fixture.Context, created));
         Assert.Equal(price, created.Lines[0].UnitPrice);
     }
 
@@ -222,6 +224,59 @@ public sealed class CatalogOrderDraftTests
         else
             Assert.NotEqual(retained.QuantityRounding, catalog.QuantityRounding);
         Assert.Throws<InvalidOperationException>(() => OrderCommercialFactsValidation.RequireValid(truncated));
+    // Mirrors the production commit sequence exactly: external current authority is
+    // resolved first, then the pinned comparison consumes that decision.
+    private static async Task<bool> CompatibleAsync(OrderCommercialCommitGuard guard, TenantContext context, OrderDraftSnapshot order)
+    {
+        var authority = await guard.ResolveCurrentAuthorityAsync(context, order, default);
+        return await guard.IsCompatibleAsync(context, order, authority, default);
+    }
+
+    [Theory]
+    [InlineData(CustomerIndividualAvailability.Inactive, false)]
+    [InlineData(CustomerIndividualAvailability.Active, true)]
+    public async Task InactiveOrRedirectedCanonicalCustomerIsABusinessRejectionNotAnInternalFault(
+        CustomerIndividualAvailability availability, bool redirected)
+    {
+        // An individual made inactive, or forwarded to a survivor, is an ordinary current
+        // business state. It must reach the caller as the same pricing/customer-invalid
+        // business outcome the sibling pricing context check uses, never as an
+        // InvalidOperationException that a host maps to HTTP 500.
+        var fixture = await Fixture.CreateAsync();
+        var directory = new CanonicalCustomers(fixture.Context, Guid.NewGuid())
+        {
+            Availability = availability,
+            RedirectTargetIndividualId = redirected ? Guid.NewGuid() : null,
+        };
+        var app = new CatalogOrderDraftApplication(fixture.Orders, fixture.Orders, new(fixture.Catalog),
+            fixture.PricingApplication, new(new CustomersPort()), directory);
+        var request = fixture.Request with { CustomerId = Guid.NewGuid() };
+        var error = await Assert.ThrowsAsync<OrderCommercialSelectionException>(() =>
+            app.CreateAsync(fixture.Context, request, "canonical", new(false), default));
+        Assert.Equal("pricing_customer_invalid", error.Code);
+        Assert.Equal(1, directory.Reads);
+        Assert.Null(fixture.Orders.Current);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ImpossibleCanonicalDirectoryFactsStillFailAsInternalFaults(bool emptyIdentity)
+    {
+        // Ownership and identity of a returned survivor are not business states: a foreign
+        // tenant or an empty identity can only mean the directory itself is inconsistent.
+        var fixture = await Fixture.CreateAsync();
+        var directory = new CanonicalCustomers(fixture.Context, emptyIdentity ? Guid.Empty : Guid.NewGuid())
+        {
+            ReportedTenantId = emptyIdentity ? fixture.Context.TenantId : Guid.NewGuid(),
+        };
+        var app = new CatalogOrderDraftApplication(fixture.Orders, fixture.Orders, new(fixture.Catalog),
+            fixture.PricingApplication, new(new CustomersPort()), directory);
+        var request = fixture.Request with { CustomerId = Guid.NewGuid() };
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            app.CreateAsync(fixture.Context, request, "canonical", new(false), default));
+        Assert.Equal(1, directory.Reads);
+        Assert.Null(fixture.Orders.Current);
     }
 
     private sealed class Fixture
@@ -235,7 +290,7 @@ public sealed class CatalogOrderDraftTests
         internal required PricingApplication PricingApplication { get; init; }
         internal required CatalogOrderDraftApplication Application { get; init; }
         internal OrderPort Orders { get; init; } = new();
-        internal static async Task<Fixture> CreateAsync()
+        internal static async Task<Fixture> CreateAsync(bool elevatedOverride = false)
         {
             var context = (await new ResolveTenantContext(new Membership()).ExecuteAsync(Guid.NewGuid(), Guid.NewGuid(), default))!;
             var item = Guid.NewGuid(); var unit = Guid.NewGuid();
@@ -259,7 +314,8 @@ public sealed class CatalogOrderDraftTests
                 PricingApplication = app,
                 Request = new("Catalog order", "USD", [new(item, unit, 2m)]),
                 Orders = orders,
-                Application = new(orders, orders, new(catalog), app, new(new CustomersPort()))
+                Application = new(orders, orders, new(catalog), app, new(new CustomersPort()),
+                    currentPricingAuthority: elevatedOverride ? new Authority(new OrderPricingAuthority(true), true) : null)
             };
         }
     }
@@ -270,17 +326,26 @@ public sealed class CatalogOrderDraftTests
         public Task<IReadOnlyList<TenantMembership>> ListActiveAsync(Guid accountId, CancellationToken ct) => throw new NotSupportedException();
         public Task<bool> IsActiveAsync(Guid accountId, Guid tenantId, CancellationToken ct) => Task.FromResult(true);
     }
-    private sealed class Authority(OrderPricingAuthority? current = null) : IOrderPricingAuthorityReader
-    { public Task<OrderPricingAuthority> ReadAsync(TenantContext context, CancellationToken ct) => Task.FromResult(current ?? new OrderPricingAuthority(false, false)); }
+    private sealed class Authority(OrderPricingAuthority? current = null, bool canBeyond = false) : IOrderPricingAuthorityReader
+    {
+        public Task<OrderPricingAuthority> ReadAsync(TenantContext context, CancellationToken ct) =>
+            Task.FromResult(current ?? new OrderPricingAuthority(false));
+        public Task<bool> CanOverrideBeyondPolicyAsync(TenantContext context, CancellationToken ct) =>
+            Task.FromResult(canBeyond);
+    }
     private sealed class CanonicalCustomers(TenantContext context, Guid canonical) : ICustomerCanonicalDirectory
     {
         internal Guid CurrentId { get; set; } = canonical;
+        internal Guid ReportedTenantId { get; set; } = context.TenantId;
+        internal CustomerIndividualAvailability Availability { get; set; } = CustomerIndividualAvailability.Active;
+        // Remaining CustomerIndividualSnapshot members keep their declared defaults.
+        internal Guid? RedirectTargetIndividualId { get; set; }
         internal int Reads { get; private set; }
         public Task<CustomerIndividualSnapshot?> ResolveCurrentCustomerAsync(TenantContext tenant, Guid id, CancellationToken ct)
         {
             Reads++;
-            return Task.FromResult<CustomerIndividualSnapshot?>(new(CurrentId, context.TenantId, "Canonical", null, null,
-                CustomerIndividualAvailability.Active, 1, context.AccountId, Fixture.Now, null, null));
+            return Task.FromResult<CustomerIndividualSnapshot?>(new(CurrentId, ReportedTenantId, "Canonical", null, null,
+                Availability, 1, context.AccountId, Fixture.Now, null, null, RedirectTargetIndividualId: RedirectTargetIndividualId));
         }
     }
     private sealed class OrderPort : IOrderDraftStore, IOrderDraftReceiptReader

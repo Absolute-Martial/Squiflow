@@ -9,7 +9,7 @@ internal sealed class OrderPricingAuthorityReader(ITenantPricingAuthorization pe
     public async Task<OrderPricingAuthority> ReadAsync(TenantContext context, CancellationToken ct)
     {
         var canOverride = await permissions.CanOverrideAsync(context.AccountId, context.TenantId, ct).ConfigureAwait(false);
-        return new(canOverride, false);
+        return new(canOverride);
     }
 
     public Task<bool> CanOverrideBeyondPolicyAsync(TenantContext context, CancellationToken ct) =>

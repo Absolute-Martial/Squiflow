@@ -7,18 +7,57 @@ namespace Application.Orders;
 public interface IOrderPricingAuthorityReader
 {
     Task<OrderPricingAuthority> ReadAsync(TenantContext context, CancellationToken ct);
-    async Task<bool> CanOverrideBeyondPolicyAsync(TenantContext context, CancellationToken ct) =>
-        (await ReadAsync(context, ct).ConfigureAwait(false)).CanOverrideBeyondPolicy;
+
+    // Denied unless a trusted current-authority adapter resolves it. Elevated
+    // authority is a separate current external decision; it is never inferred
+    // from the ordinary override permission or from a cached flag.
+    Task<bool> CanOverrideBeyondPolicyAsync(TenantContext context, CancellationToken ct) =>
+        Task.FromResult(false);
+}
+
+// A point-in-time external authorization observation produced by the trusted
+// current-authority reader immediately before the caller takes its publication
+// pin, and consumed by the pinned comparison that follows. It is not durable
+// state, not wire ingress and never a source of authority for retained facts.
+public sealed record OrderCommercialCommitAuthority(bool CanOverride, bool CanOverrideBeyondPolicy)
+{
+    public static readonly OrderCommercialCommitAuthority None = new(false, false);
 }
 
 public sealed class OrderCommercialCommitGuard(SelectCatalogLineFacts catalog,
     PriceContracts.PricingApplication pricing, IOrderPricingAuthorityReader authority) : IOrderCommercialCommitGuard
 {
-    public async Task<bool> IsCompatibleAsync(TenantContext context, OrderDraftSnapshot order, CancellationToken ct)
+    // External authorization is resolved BEFORE the caller takes the shared
+    // publication pin. A slow or degraded authorization provider must never hold
+    // tenant-wide publication exclusion; it is not Catalog/Pricing state, so the
+    // publication pin does not protect it and cannot make it fresher.
+    public async Task<OrderCommercialCommitAuthority> ResolveCurrentAuthorityAsync(
+        TenantContext context, OrderDraftSnapshot order, CancellationToken ct)
     {
-        var currentAuthority = order.Lines.Any(line => line.CommercialFacts?.PriceSelection.Explanation.Override is not null)
-            ? await authority.ReadAsync(context, ct).ConfigureAwait(false)
-            : new OrderPricingAuthority(false, false);
+        ArgumentNullException.ThrowIfNull(order);
+        var retainedOverrides = order.Lines
+            .Select(line => line.CommercialFacts?.PriceSelection.Explanation.Override)
+            .OfType<PriceContracts.PriceOverrideEvidence>()
+            .ToArray();
+        if (retainedOverrides.Length is 0) return OrderCommercialCommitAuthority.None;
+        var current = await authority.ReadAsync(context, ct).ConfigureAwait(false);
+        if (!current.CanOverride) return OrderCommercialCommitAuthority.None;
+        // Retained beyond-policy evidence is the only signal available before the
+        // pin. Reading elevated authority on that basis, or not reading it, can
+        // only change the outcome into a rejection: a changed policy revision,
+        // base price or selection context already fails the pinned comparison, and
+        // an elevation requirement the retained facts do not record is rejected by
+        // the same comparison whether or not the provider was asked.
+        return retainedOverrides.Any(retained => retained.BeyondPolicy)
+            ? new(true, await authority.CanOverrideBeyondPolicyAsync(context, ct).ConfigureAwait(false))
+            : new(true, false);
+    }
+
+    // Database reads only. The caller owns the shared publication pin across this
+    // comparison and the effect, so no external provider call may appear here.
+    public async Task<bool> IsCompatibleAsync(TenantContext context, OrderDraftSnapshot order,
+        OrderCommercialCommitAuthority currentAuthority, CancellationToken ct)
+    {
         foreach (var line in order.Lines)
         {
             if (line.CommercialFacts is not { } retained) continue;
@@ -40,9 +79,8 @@ public sealed class OrderCommercialCommitGuard(SelectCatalogLineFacts catalog,
                     null, null, false, false, ct).ConfigureAwait(false);
                 if (priceOverride is not null)
                 {
-                    var canBeyond = currentAuthority.CanOverrideBeyondPolicy;
-                    if (currentAuthority.CanOverride && PriceContracts.PriceSelectionEngine.RequiresElevatedOverride(current, priceOverride.UnitPrice))
-                        canBeyond = await authority.CanOverrideBeyondPolicyAsync(context, ct).ConfigureAwait(false);
+                    var canBeyond = currentAuthority.CanOverrideBeyondPolicy &&
+                        PriceContracts.PriceSelectionEngine.RequiresElevatedOverride(current, priceOverride.UnitPrice);
                     current = PriceContracts.PriceSelectionEngine.ApplyOverride(current,
                         new(priceOverride.UnitPrice, priceOverride.Reason, currentAuthority.CanOverride, canBeyond));
                 }

@@ -47,7 +47,7 @@ internal static class TenantCatalogOrderEndpoint
             var request = body.Request!;
             var authority = request.Lines.Any(line => line.OverridePrice.HasValue)
                 ? await pricingAuthority.ReadAsync(access.TenantContext!, ct)
-                : new OrderPricingAuthority(false, false);
+                : new OrderPricingAuthority(false);
             OrderDraftSnapshot? snapshot;
             bool replay;
             if (orderId is { } id)
