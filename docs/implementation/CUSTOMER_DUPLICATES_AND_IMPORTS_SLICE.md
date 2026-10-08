@@ -84,7 +84,12 @@ One tenant-scoped transaction advisory gate serializes consolidation, duplicate
 resolution and representative link/unlink before ordered customer row locks.
 Matching **statement-level** database gates run before individual updates,
 representative inserts/updates and redirect-ledger inserts, including contact and
-availability edits. Normal runtime writes require the existing RLS tenant context;
+availability edits. Manual individual create and import row acceptance join the
+same gate from the adapter, because an individual insert publishes the same
+canonical duplicate signals those readers serialize on; those two writers are not
+covered by the statement-level gates above. The gate is held inside the caller's
+existing transaction, so it is released with it and adds no transaction boundary.
+Normal runtime writes require the existing RLS tenant context;
 privileged direct maintenance writers must also set that context before mutations.
 The gate namespace is `customers:canonical:` plus the tenant UUID, hashed with
 PostgreSQL `hashtextextended(...,0)`; a hash collision only adds serialization,
@@ -161,7 +166,13 @@ Mapping does not overwrite the existing customer's attributes. A duplicate which
 appears before acceptance rejects the now-outdated plan without changing its
 retained validation flags; a deliberate new plan is required. A duplicate which
 appears after acceptance rejects an implicitly-new row rather than silently
-merging or guessing. Accepted decisions cannot be changed by a new request key.
+merging or guessing. That row-level check and its insert are one serialized unit
+under the tenant canonicalization gate, so a manual create cannot commit the same
+normalized signals between them. Rejection is a bounded error code, never a merge
+or a guess, and no unique constraint on normalized name, email, phone or external
+registration ID exists: ordering the writers is the whole claim, and canonical
+uniqueness stays operator/consolidation meaning. Accepted decisions cannot be
+changed by a new request key.
 
 Row statuses are `Pending`, `Imported`, `MappedToExisting`, `Rejected`, and
 `Failed`. Each retained row exposes a stable RowId, RowNumber and SourceRowHash
@@ -476,3 +487,42 @@ the corresponding guard and normal repository gate. Generic ETL, automatic merge
 global signal uniqueness, exhaustive fuzzy discovery,
 identity-provider provisioning and historical debtor rewriting remain
 `NOT_INTRODUCED`.
+
+### Import acceptance serialization evidence (2026-10-08)
+
+Row-level duplicate rejection was a check-then-insert pair with no serialization:
+`HasCurrentImportDuplicate` is a bare `SELECT EXISTS(...)`, `customers.individuals`
+carries no unique index on the normalized signals, `LockImport` orders only per
+`(tenant_id, import_id)`, and the statement-level database gates cover individual
+**updates** rather than inserts. A concurrent manual create of the same normalized
+email could therefore commit between the check and the insert and the row would be
+imported anyway. `ProcessNextImportRowAsync` now holds the existing tenant
+canonicalization advisory lock across that check and its insert, and
+`CreateIndividualAsync` takes the same lock, so acceptance and manual create share
+one serialization point. No new advisory key, transaction boundary, retry policy or
+unique constraint was introduced; no migration was changed.
+
+Permanent guards are `DuplicateAppearingAfterAcceptanceRejectsTheImplicitlyNewRowInsteadOfInsertingASecondOne`
+(concurrent manual create paused while holding the gate; the import then rejects the
+row as `new_duplicate_requires_new_plan`, exactly one customer carries that
+normalized email) and `ManualCreateWaitsBehindImportAcceptanceGateWithoutImposingNormalizedEmailUniqueness`
+(reverse ordering; the create is observed waiting on the canonicalization lock and
+two customers may legitimately share a normalized email). Both were confirmed to
+fail against the pre-fix adapter.
+
+Commands inspected for this delta:
+
+```sh
+dotnet build Application.slnx --configuration Release
+dotnet test tests/integration/Application.Customers.Postgres.Tests/Application.Customers.Postgres.Tests.csproj --nologo
+```
+
+The build reported 0 warnings/0 errors and the real PostgreSQL suite passed
+**53/53**, zero skipped. Only that suite and the solution build were run here; no
+whole-repository `./eng/verify.sh` gate and no other test project is claimed by this
+delta. Changing the gate key/order, the row-level check, individual create or any
+requalification trigger above requires rerunning these guards.
+
+Known non-claims: canonical uniqueness, automatic merge and cross-signal duplicate
+detection remain `NOT_INTRODUCED`, and trusted direct maintenance writers that
+bypass the adapter still bypass this application-level gate.
