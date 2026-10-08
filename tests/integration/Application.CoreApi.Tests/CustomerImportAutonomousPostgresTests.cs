@@ -208,10 +208,11 @@ public sealed class CustomerImportAutonomousPostgresTests : IAsyncLifetime
     {
         var builder = Host.CreateApplicationBuilder(); builder.Logging.ClearProviders();
         builder.Services.AddSingleton(source);
+        var objectStorage = HuggingFaceObjectStoreConfiguration.From(configuration);
         builder.Services.AddIdentityAccessPostgres(); builder.Services.AddTenancyPostgres(); builder.Services.AddCustomersPostgres();
-        builder.Services.AddObjectStorage(HuggingFaceObjectStoreConfiguration.From(configuration));
+        builder.Services.AddObjectStorage(objectStorage);
         builder.Services.AddSingleton<ITenantCustomerAuthorization>(authorization);
-        builder.Services.AddCustomerImportExecution(configuration, database);
+        builder.Services.AddCustomerImportExecution(configuration, database, objectStorage);
         builder.Services.Replace(ServiceDescriptor.Scoped<ICustomerImportWorkStore>(_ => new ObservedWorkStore(source, observation)));
         if (objectStore is not null)
             builder.Services.Replace(ServiceDescriptor.Singleton<IObjectStore>(objectStore));

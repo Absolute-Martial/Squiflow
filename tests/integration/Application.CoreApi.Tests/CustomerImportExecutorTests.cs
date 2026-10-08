@@ -1,6 +1,7 @@
 using System.Threading.Channels;
 using Application.CoreApi.Authorization;
 using Application.CoreApi.ImportExecution;
+using Application.CoreApi.Storage;
 using Application.Customers;
 using Application.IdentityAccess;
 using Application.Tenancy;
@@ -239,12 +240,13 @@ public sealed class CustomerImportExecutorTests
             ["HostOptions:BackgroundServiceExceptionBehavior"] = exceptionBehavior,
         }).Build();
         var services = new ServiceCollection();
+        var objectStorage = HuggingFaceObjectStoreConfiguration.From(configuration);
         if (poolSize == 1)
         {
-            Assert.Throws<InvalidOperationException>(() => services.AddCustomerImportExecution(configuration, RuntimeDatabaseConfiguration.From(configuration)));
+            Assert.Throws<InvalidOperationException>(() => services.AddCustomerImportExecution(configuration, RuntimeDatabaseConfiguration.From(configuration), objectStorage));
             return;
         }
-        services.AddCustomerImportExecution(configuration, RuntimeDatabaseConfiguration.From(configuration));
+        services.AddCustomerImportExecution(configuration, RuntimeDatabaseConfiguration.From(configuration), objectStorage);
         using var provider = services.BuildServiceProvider();
         if (invalid) Assert.Throws<OptionsValidationException>(() => provider.GetRequiredService<IOptions<HostOptions>>().Value);
         else Assert.Equal(TimeSpan.FromSeconds(30), provider.GetRequiredService<IOptions<HostOptions>>().Value.ShutdownTimeout);
