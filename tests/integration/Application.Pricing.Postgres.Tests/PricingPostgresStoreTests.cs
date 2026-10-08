@@ -341,6 +341,45 @@ public sealed class PricingPostgresStoreTests : PricingPostgresTestDatabase
         Assert.Empty(await store.GetPublishedCandidatesAsync(actor, new(Item, "EA", "USD", Unit, at: Now), CancellationToken.None));
     }
 
+    [Fact]
+    public async Task RetainedReceiptUnderAnUnsupportedVersionIsAServerContractFaultNotClientInput()
+    {
+        await ApplyPricingSchemaAsync();
+        await SeedAuthorityAsync(TenantA, Account);
+        await using var dataSource = await CreateRuntimeDataSourceAsync();
+        var store = new PostgresPricingStore(dataSource, new FixedTimeProvider(Now));
+        var actor = new PricingActorContext(TenantA, Account);
+        var request = Draft(PriceScope.Default(), 10m);
+        Assert.Equal(CreatePriceDraftStatus.Created,
+            (await store.CreateDraftAsync(actor, request, "current-key", CancellationToken.None)).Status);
+
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync(CancellationToken.None);
+        await using (var retained = new NpgsqlCommand("""
+            INSERT INTO pricing.command_receipts
+                (tenant_id, account_id, operation, idempotency_key, fingerprint, response_json, created_at)
+            SELECT tenant_id, account_id, operation, 'foreign-version-key', fingerprint,
+                   jsonb_set(response_json, '{version}', '1'::jsonb), created_at
+            FROM pricing.command_receipts
+            WHERE tenant_id = @tenant AND account_id = @account
+              AND operation = 'create-price-draft' AND idempotency_key = 'current-key'
+            """, connection))
+        {
+            retained.Parameters.AddWithValue("tenant", TenantA);
+            retained.Parameters.AddWithValue("account", Account);
+            Assert.Equal(1, await retained.ExecuteNonQueryAsync(CancellationToken.None));
+        }
+
+        var failure = await Assert.ThrowsAsync<PricingStoredContractException>(() =>
+            store.CreateDraftAsync(actor, request, "foreign-version-key", CancellationToken.None));
+        Assert.Equal("pricing_receipt_version_unsupported", failure.Code);
+        // A host that maps ArgumentException to a client result must not be able to swallow this.
+        Assert.False(typeof(ArgumentException).IsInstanceOfType(failure));
+
+        var stillCurrent = await store.CreateDraftAsync(actor, request, "current-key", CancellationToken.None);
+        Assert.Equal(CreatePriceDraftStatus.Replayed, stillCurrent.Status);
+    }
+
     private static CreatePriceDraftRequest Draft(PriceScope scope, decimal price) =>
          new(Item, "EA", "USD", scope, price, new PriceValidity(Now.AddDays(-1), Now.AddDays(1)), Unit);
 
