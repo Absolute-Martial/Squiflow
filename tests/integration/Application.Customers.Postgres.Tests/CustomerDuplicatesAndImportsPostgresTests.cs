@@ -97,6 +97,102 @@ public sealed partial class CustomerPostgresTests
     }
 
     [Fact]
+    public async Task ForeignImportContractVersionIsRejectedOnCreateAndPinnedByTheDatabase()
+    {
+        await MigrateAsync();
+        var (tenantId, accountId) = await SeedAsync();
+        var context = await ResolveContextAsync(tenantId, accountId);
+        await using var source = NpgsqlDataSource.Create(await CreateRestrictedRoleAsync());
+        var store = new PostgresCustomerStore(source);
+        var plan = await CustomerImportCsv.PlanAsync(
+            new MemoryStream(System.Text.Encoding.UTF8.GetBytes("name\nContract Guard\n")), Guid.NewGuid(), CancellationToken.None);
+        Assert.Equal(CustomerImportCsv.ContractVersion, plan.ContractVersion);
+
+        const string foreignContract = "customer-import/v99";
+        var foreign = plan with
+        {
+            ContractVersion = foreignContract,
+            Fingerprint = CustomerIdentityNormalization.Fingerprint("customer-import", foreignContract, plan.ManifestHash,
+                string.Join('|', plan.Rows.Select(row => $"{row.RowNumber}:{row.SourceRowHash}:{(int)row.Status}"))),
+        };
+        var rejected = await Assert.ThrowsAsync<CustomerValidationException>(() =>
+            store.CreateImportPlanAsync(context, foreign, "foreign-contract", CancellationToken.None));
+        Assert.Equal("import_plan_invalid", rejected.Code);
+        Assert.Equal(0L, await CountAsync("customers.imports"));
+
+        var planned = await store.CreateImportPlanAsync(context, plan, "current-contract", CancellationToken.None);
+        Assert.True(planned.Created);
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync();
+        await using var pin = connection.CreateCommand();
+        pin.CommandText = "UPDATE customers.imports SET contract_version=@foreign WHERE tenant_id=@tenant AND import_id=@import";
+        pin.Parameters.AddWithValue("foreign", foreignContract);
+        pin.Parameters.AddWithValue("tenant", tenantId);
+        pin.Parameters.AddWithValue("import", plan.ImportId);
+        var pinned = await Assert.ThrowsAsync<PostgresException>(() => pin.ExecuteNonQueryAsync());
+        Assert.Equal(PostgresErrorCodes.CheckViolation, pinned.SqlState);
+        Assert.Equal("ck_customer_imports_contract", pinned.ConstraintName);
+    }
+
+    [Fact]
+    public async Task StoredForeignImportContractVersionFailsSummariseRowsAndExecuteTyped()
+    {
+        await MigrateAsync();
+        var (tenantId, accountId) = await SeedAsync();
+        var context = await ResolveContextAsync(tenantId, accountId);
+        await using var source = NpgsqlDataSource.Create(await CreateRestrictedRoleAsync());
+        var store = new PostgresCustomerStore(source);
+        var planned = await PlanFixtureAsync(store, context, "name\nContract Guard\n");
+        var authority = new ImportAuthority(context);
+
+        // The CHECK is what keeps a foreign contract version out of the table in production; relaxing
+        // it here is the only way to reach the application guard that protects every other shape.
+        await FixtureSqlAsync("ALTER TABLE customers.imports DROP CONSTRAINT ck_customer_imports_contract");
+        await FixtureSqlAsync(
+            $"UPDATE customers.imports SET contract_version='customer-import/v99' WHERE tenant_id='{tenantId:D}' AND import_id='{planned.ImportId:D}'");
+        await FixtureSqlAsync(
+            "ALTER TABLE customers.imports ADD CONSTRAINT ck_customer_imports_contract CHECK (contract_version = 'customer-import/v1') NOT VALID");
+
+        var summary = await Assert.ThrowsAsync<CustomerImportContractUnsupportedException>(() =>
+            store.ReadImportSummaryAsync(context, planned.ImportId, CancellationToken.None));
+        Assert.Equal("customer-import/v99", summary.ContractVersion);
+        var page = await Assert.ThrowsAsync<CustomerImportContractUnsupportedException>(() =>
+            store.ReadImportRowsPageAsync(context, planned.ImportId, 0, 25, CancellationToken.None));
+        Assert.Equal("customer-import/v99", page.ContractVersion);
+        var executed = await Assert.ThrowsAsync<CustomerImportContractUnsupportedException>(() =>
+            new ExecuteCustomerImport(store, authority).ExecuteAsync(context, new(planned.ImportId), "accept", CancellationToken.None));
+        Assert.Equal("customer-import/v99", executed.ContractVersion);
+        Assert.Equal(0L, await CountAsync("customers.import_work"));
+        Assert.Equal(0L, await CountAsync("customers.individuals"));
+
+        await FixtureSqlAsync("ALTER TABLE customers.imports DROP CONSTRAINT ck_customer_imports_contract");
+        await FixtureSqlAsync(
+            $"UPDATE customers.imports SET contract_version='{CustomerImportCsv.ContractVersion}' WHERE tenant_id='{tenantId:D}' AND import_id='{planned.ImportId:D}'");
+        await FixtureSqlAsync(
+            $"ALTER TABLE customers.imports ADD CONSTRAINT ck_customer_imports_contract CHECK (contract_version = '{CustomerImportCsv.ContractVersion}') NOT VALID");
+        Assert.Equal(CustomerImportCsv.ContractVersion,
+            (await store.ReadImportSummaryAsync(context, planned.ImportId, CancellationToken.None))!.ContractVersion);
+    }
+
+    [Fact]
+    public async Task LegacyPendingImportReplanIsReachableWhileItsContractVersionIsSupported()
+    {
+        await MigrateAsync();
+        var (tenantId, accountId) = await SeedAsync();
+        var context = await ResolveContextAsync(tenantId, accountId);
+        await using var source = NpgsqlDataSource.Create(await CreateRestrictedRoleAsync());
+        var store = new PostgresCustomerStore(source);
+        var planned = await PlanFixtureAsync(store, context, "name\nLegacy Pending\n");
+        await FixtureSqlAsync(
+            $"UPDATE customers.import_rows SET duplicate_evidence='legacy_plan_requires_replan' WHERE tenant_id='{tenantId:D}' AND import_id='{planned.ImportId:D}' AND status=1");
+
+        var legacy = await Assert.ThrowsAsync<CustomerValidationException>(() =>
+            new ExecuteCustomerImport(store, new ImportAuthority(context)).ExecuteAsync(context, new(planned.ImportId), "accept", CancellationToken.None));
+        Assert.Equal("legacy_plan_requires_replan", legacy.Code);
+        Assert.Equal(0L, await CountAsync("customers.import_work"));
+    }
+
+    [Fact]
     public async Task ImportSourceRetirementClaimsAreFencedRecoverableAndReleaseUsageOnce()
     {
         await MigrateAsync();

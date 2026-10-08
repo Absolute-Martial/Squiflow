@@ -55,6 +55,13 @@ readable by revision but are not candidates or newly publishable. Explicit new
 stable-unit revisions are required. Version-2 receipts contain full snapshots;
 the earlier unqualified revision-ID-only receipt format is retained but safely
 reported as unsupported for replay, never reconstructed from changed lifecycle.
+An unreadable retained receipt is a server-contract fault, not client input: the
+store raises `PricingStoredContractException`, which deliberately does not
+inherit `ArgumentException`, so a host that maps validation exceptions to `4xx`
+cannot report a deployed-code/retained-data incompatibility as a caller fault.
+It reaches the CoreApi failure contract as a retryable-class server error with a
+non-leaking `internal_error` code, matching the Catalog and Orders receipt
+conditions. Client-input pricing validation mappings are unchanged.
 No release/deployment compatibility is inferred for that former standalone code.
 
 ## Selection and trusted context

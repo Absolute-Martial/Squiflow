@@ -5,6 +5,13 @@ public sealed class PricingValidationException(string code, string message) : Ar
     public string Code { get; } = code;
 }
 
+// A retained server-side artifact cannot be read under the deployed contract. No request change
+// resolves it, so it must not inherit ArgumentException and must never be mapped to a client result.
+public sealed class PricingStoredContractException(string code, string message) : InvalidOperationException(message)
+{
+    public string Code { get; } = code;
+}
+
 // Implemented by a host adapter through Catalog/Customers public queries, never private tables.
 public interface IPricingReferenceReader
 {

@@ -121,6 +121,17 @@ The canonical empty template is
 `modules/customers/Application.Customers/customer-import-v1-template.csv`, also
 available through the protected template API.
 
+`CustomerImportCsv.ContractVersion` is the single capability-owned source for
+`customer-import/v1`. It is validated on the create path, pinned again by the
+`ck_customer_imports_contract` database CHECK, and — because a retained row can
+outlive the deployed code — compared on every read path too: summary, row page,
+plan load and execution all refuse a stored foreign contract version with
+`CustomerImportContractUnsupportedException` instead of summarising or executing
+it under current semantics. That exception deliberately does not inherit
+`ArgumentException`, so it is not reportable as caller input. Planning a new
+plan under a new contract version is the deliberate migration; there is no
+in-place read compatibility for an unknown contract.
+
 Raw CSV is staged to a bounded disposable server file, fully validated, then streamed
 through the neutral `IObjectStore` contract. The bootstrap adapter is the Hugging Face
 Storage Bucket S3-compatible gateway (`https://s3.hf.co/<namespace>`) using path-style
