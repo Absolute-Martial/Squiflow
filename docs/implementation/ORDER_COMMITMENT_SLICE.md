@@ -55,6 +55,29 @@ migration rollback preservation. The repository's normal `eng/verify.sh` is the
 qualification gate. Requalify after lifecycle, authority, SQL, receipt format,
 migration, transaction isolation or database-role changes.
 
+## Commercial commitment and the publication pin
+
+For an eligible commercial draft the owning PostgreSQL adapter locks the header,
+resolves external current override authority, and only then takes the tenant shared
+transaction advisory publication pin on the same connection and transaction that
+writes the header and receipt. External authority is deliberately resolved **before**
+the pin: it is not Catalog/Pricing state, so the pin cannot protect or refresh it,
+and a degraded authorization provider must never hold tenant-wide publication
+exclusion. No provider call may be added inside the pinned comparison. Orders still
+holds that order's own header row lock across the pre-pin call, bounding the blast
+radius to one order.
+
+The pin does not make the comparison share the effect's transaction or connection:
+the comparison's public Catalog/Pricing queries run on separate pooled connections.
+What makes their result valid for the effect is lock-mediated exclusion — no
+publication can obtain the exclusive pin while the Orders transaction holds the
+shared one, so no selectable fact changes between comparison and commit. The exact
+owner is `docs/implementation/ORDER_CATALOG_PRICED_DRAFTS.md`; `OrderPublicationPinsPostgresTests`
+is its permanent regression, including a stalled authorization read proven not to
+hold the pin. Commitment itself does not change: retained override authority is
+rechecked against current authority, and a lost one rejects commitment with
+`CommercialFactsConflict`.
+
 ## Non-claims
 
 No stock reservation, fulfillment task, invoice, receivable, debtor assignment,
