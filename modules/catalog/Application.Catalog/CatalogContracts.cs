@@ -126,8 +126,10 @@ public sealed record CatalogLineFacts(
     int? BaseUnitPrecision = null,
     long? BaseUnitRevision = null,
     decimal? BaseQuantity = null,
-    int QuantityArithmeticVersion = 1,
-    string QuantityRounding = "toEven");
+    // Retained arithmetic identity. The default is the frozen legacy version so facts retained
+    // before this was named keep their original meaning under any later reader.
+    int QuantityArithmeticVersion = QuantityArithmetic.Version1,
+    string QuantityRounding = QuantityArithmetic.Version1Rounding);
 
 public enum CreateCatalogUnitStatus
 {
