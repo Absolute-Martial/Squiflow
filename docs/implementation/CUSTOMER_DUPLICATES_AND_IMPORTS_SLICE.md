@@ -38,6 +38,28 @@ number verification is claimed. Exact organization/program representative
 relationships are supporting evidence. Bounded fuzzy-name discovery is optional,
 not merge authority or an exhaustive search engine.
 
+Discovery offers **current canonical customers only**. A row whose
+`redirect_target_individual_id` is set is excluded: the identity that matched has
+moved to its successor, so presenting the source invites selecting a candidate
+whose every mutation is refused. The successor carries the same identity signals
+and is matched on its own, so the consolidated identity is not lost from the
+result set. This holds in the SQL discovery query and in the host-neutral
+`CustomerDuplicateMatcher.Discover` reference matcher, because the two own the
+same discovery meaning.
+
+A duplicate review decision also requires two current customers. If either side
+was consolidated after acceptance, `Customers.Duplicates.Resolve` returns
+`AlreadyRedirected` and records nothing, mirroring how consolidation reports
+`AlreadyRedirected`. Recording `KeepSeparate`/`Dismiss` about a consolidated row
+would assert a review outcome for an identity that no longer exists as a customer,
+and its retained receipt would then report `requiresManualReview=false` forever.
+Redirect is decided before the caller's expected revisions, so a stale revision is
+never mistaken for the reason a pair was refused; the caller deliberately
+resubmits against the current successor. First and post-lock receipt lookups still
+precede that check, so an exact-intent retry replays its original recorded outcome.
+The existing HTTP conflict mapper reports the `AlreadyRedirected` code; no new
+conflict-body wire field is introduced.
+
 Outcomes are `PotentialDuplicate`, `KeepSeparate`, `ConsolidateInto`, and `Dismiss`.
 `Customers.Duplicates.Resolve` cannot consolidate. The distinct
 `Customers.Duplicates.Consolidate` operation checks both customer revisions and
@@ -111,6 +133,17 @@ replay compatibility for default individuals; a replay cannot add new attributes
 integration hook for current mutable attribution. Historical readers use the
 original identity/frozen facts. Other capabilities must not update Customers
 tables or rewrite their own committed facts to implement canonicalization.
+
+A physical individual read reports the current successor pointer as its own
+`RedirectTargetIndividualId` field, and the individual read HTTP response exposes
+it as `redirectTargetIndividualId`. It is **not** conflated into
+`availability`: consolidation retains the source's own availability, so rewriting
+it would assert a retirement that never happened, and reporting `active` without
+the successor would present a row whose every mutation is refused as an editable
+current customer. Where a caller only needs "not linkable", the existing
+conflation is retained — representative link refuses a redirected source through
+`LinkCustomerRepresentativeStatus.IndividualInactive` — because that decision
+needs no successor. Redirect is not a new availability value.
 
 ## COM-004 format, retention and validation
 
@@ -186,7 +219,20 @@ uniqueness stays operator/consolidation meaning. Accepted decisions cannot be
 changed by a new request key.
 
 Row statuses are `Pending`, `Imported`, `MappedToExisting`, `Rejected`, and
-`Failed`. Each retained row exposes a stable RowId, RowNumber and SourceRowHash
+`Failed`. The retained row is this import's decision record, so the status is
+chosen by **cause**, not by a shared default. `Rejected` is a deliberate refusal
+that is not retried; `Failed` is a system-caused outcome that may be retried and
+then requires operator review. Only an operator `Reject` decision is recorded as
+`operator_rejected`. A `MapToExisting` row whose target is no longer an active
+canonical customer — because it was consolidated after the decision was
+accepted, and accepted decisions are immutable — is recorded as `Failed` with
+`mapping_target_unavailable`, never as a rejection. A consolidated target is not
+transient, so the existing bounded attempt budget terminates that work in
+operator review requiring a new deliberate plan, rather than retrying forever or
+inventing a mapped result. A post-acceptance duplicate on an implicitly-new row
+keeps its documented terminal `Rejected` refusal with
+`new_duplicate_requires_new_plan`; it is refused deliberately, not faulted, and
+is never silently merged or guessed. Each retained row exposes a stable RowId, RowNumber and SourceRowHash
 (ImportId is the owning plan/page identity),
 decision, result customer ID, attempts and bounded error codes. Created customer
 ID is the stable row ID. Customer creation and the committed row result share one

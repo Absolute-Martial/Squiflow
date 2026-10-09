@@ -347,6 +347,126 @@ public sealed partial class CustomerPostgresTests
         await AssertCanonicalGraphAsync();
     }
 
+    [Fact]
+    public async Task RedirectSourceReadReportsItsSuccessorWithoutRewritingRetainedAvailability()
+    {
+        await MigrateAsync();
+        var (tenant, actor) = await SeedAsync();
+        var context = await ResolveContextAsync(tenant, actor);
+        await using var source = NpgsqlDataSource.Create(await CreateRestrictedRoleAsync());
+        var store = new PostgresCustomerStore(source);
+        var a = await CanonicalFixtureAsync(store, context, "Source");
+        var b = await CanonicalFixtureAsync(store, context, "Survivor");
+        await new ConsolidateCustomerDuplicate(store).ExecuteAsync(context,
+            new(a.IndividualId, b.IndividualId, 1, 1), "a-b", CancellationToken.None);
+
+        // The individual read is a physical/historical read, not the canonical directory:
+        // it must report the successor without rewriting what consolidation retained.
+        var read = await store.FindIndividualAsync(context, a.IndividualId, CancellationToken.None);
+        Assert.NotNull(read);
+        Assert.Equal(b.IndividualId, read!.RedirectTargetIndividualId);
+        Assert.Equal(CustomerIndividualAvailability.Active, read.Availability);
+        Assert.Equal("Source", read.DisplayName);
+        Assert.Equal(2, read.Revision);
+        Assert.Equal(b.IndividualId, (await store.ResolveCurrentCustomerAsync(context, a.IndividualId, CancellationToken.None))!.IndividualId);
+        var survivor = await store.FindIndividualAsync(context, b.IndividualId, CancellationToken.None);
+        Assert.NotNull(survivor);
+        Assert.Null(survivor!.RedirectTargetIndividualId);
+
+        // Availability alone cannot carry that meaning, so the read must keep it explicit:
+        // this row still reports Active yet every mutation against it is refused.
+        Assert.Equal(EditCustomerIndividualContactStatus.NotFound,
+            (await new EditCustomerIndividualContact(store).ExecuteAsync(context,
+                new(a.IndividualId, read.Revision, "Rewritten", "rewritten@example.test", null),
+                "edit-source", CancellationToken.None)).Status);
+        Assert.Equal(ChangeCustomerIndividualAvailabilityStatus.NotFound,
+            (await new ChangeCustomerIndividualAvailability(store).ExecuteAsync(context,
+                new(a.IndividualId, read.Revision, CustomerIndividualAvailability.Inactive),
+                "availability-source", CancellationToken.None)).Status);
+        Assert.Equal(a.IndividualId,
+            (await store.FindIndividualAsync(context, a.IndividualId, CancellationToken.None))!.IndividualId);
+        await AssertCanonicalGraphAsync();
+    }
+
+    [Fact]
+    public async Task DiscoveryExcludesConsolidatedSourcesAndResolutionRefusesRedirectedPairs()
+    {
+        await MigrateAsync();
+        var (tenant, actor) = await SeedAsync();
+        var context = await ResolveContextAsync(tenant, actor);
+        await using var source = NpgsqlDataSource.Create(await CreateRestrictedRoleAsync());
+        var store = new PostgresCustomerStore(source);
+        var create = new CreateCustomerIndividual(store);
+        const string shared = "shared@example.test";
+        var a = (await create.ExecuteAsync(context, new("Alice Smith", shared, null), "a", CancellationToken.None)).Individual!;
+        var b = (await create.ExecuteAsync(context, new("Alice Smyth", shared, null), "b", CancellationToken.None)).Individual!;
+        var c = (await create.ExecuteAsync(context, new("Alice Smythe", shared, null), "c", CancellationToken.None)).Individual!;
+        var distinct = (await create.ExecuteAsync(context, new("Alice Distinct", shared, null), "d", CancellationToken.None)).Individual!;
+        var signals = CustomerDuplicateSignals.Create("Alice Smith", shared);
+
+        // Every matching row is a live candidate until B is consolidated into A.
+        Assert.Equal(4, (await new FindCustomerDuplicates(store).ExecuteAsync(context,
+            new(signals, null, 10), CancellationToken.None)).Candidates.Count);
+        await new ConsolidateCustomerDuplicate(store).ExecuteAsync(context,
+            new(b.IndividualId, a.IndividualId, 1, 1), "b-a", CancellationToken.None);
+
+        var offered = (await new FindCustomerDuplicates(store).ExecuteAsync(context,
+            new(signals, null, 10), CancellationToken.None)).Candidates;
+        var offeredIds = offered.Select(candidate => candidate.Customer.IndividualId).ToArray();
+        Assert.Equal(3, offeredIds.Length);
+        Assert.DoesNotContain(b.IndividualId, offeredIds);
+        Assert.Contains(a.IndividualId, offeredIds);
+        // Every offered candidate must still be a live, writable customer identity.
+        Assert.All(offered, candidate =>
+        {
+            Assert.Null(candidate.Customer.RedirectTargetIndividualId);
+            Assert.Equal(CustomerIndividualAvailability.Active, candidate.Customer.Availability);
+        });
+
+        // Recording KeepSeparate/Dismiss for a pair containing a consolidated source would
+        // assert a review outcome about an identity that is no longer a customer at all.
+        var resolve = new ResolveCustomerDuplicate(store);
+        foreach (var (left, right) in new[]
+        {
+            (b.IndividualId, a.IndividualId), (a.IndividualId, b.IndividualId)
+        })
+        {
+            var refused = await resolve.ExecuteAsync(context,
+                new(left, right, 1, 1, CustomerDuplicateOutcome.KeepSeparate, "Different people"),
+                $"redirected-{left:N}", CancellationToken.None);
+            Assert.Equal(ResolveCustomerDuplicateStatus.AlreadyRedirected, refused.Status);
+            Assert.Null(refused.Resolution);
+        }
+        // Redirect is decided before the caller's revision, so a stale revision cannot be
+        // mistaken for the reason the pair was refused.
+        Assert.Equal(ResolveCustomerDuplicateStatus.AlreadyRedirected,
+            (await resolve.ExecuteAsync(context,
+                new(a.IndividualId, b.IndividualId, 3, 1, CustomerDuplicateOutcome.KeepSeparate, "Different people"),
+                "redirected-stale", CancellationToken.None)).Status);
+        Assert.Equal(ResolveCustomerDuplicateStatus.AlreadyRedirected,
+            (await resolve.ExecuteAsync(context,
+                new(a.IndividualId, b.IndividualId, 1, 1, CustomerDuplicateOutcome.Dismiss),
+                "redirected-dismiss", CancellationToken.None)).Status);
+        // No refused attempt left a review decision record behind.
+        foreach (var customer in new[] { a, b })
+            Assert.All(await store.ReadResolutionsAsync(context, customer.IndividualId, null, 50, CancellationToken.None),
+                resolution => Assert.NotEqual(CustomerDuplicateOutcome.KeepSeparate, resolution.Outcome));
+
+        // A live pair still resolves, and its retained resolution is still honoured.
+        var resolved = await resolve.ExecuteAsync(context,
+            new(a.IndividualId, distinct.IndividualId, 1, 1, CustomerDuplicateOutcome.KeepSeparate, "Different people"),
+            "resolved-pair", CancellationToken.None);
+        Assert.Equal(ResolveCustomerDuplicateStatus.Resolved, resolved.Status);
+        var retained = (await new FindCustomerDuplicates(store).ExecuteAsync(context,
+            new(signals, a.IndividualId, 10), CancellationToken.None)).Candidates
+            .Single(candidate => candidate.Customer.IndividualId == distinct.IndividualId);
+        Assert.False(retained.RequiresManualReview);
+        Assert.Equal(resolved.Resolution, retained.Resolution);
+        Assert.Equal(1L, await CountAsync("customers.customer_redirects"));
+        Assert.Equal(4L, await CountAsync("customers.individuals"));
+        await AssertCanonicalGraphAsync();
+    }
+
     private static async Task<CustomerIndividualSnapshot> CanonicalFixtureAsync(PostgresCustomerStore store, TenantContext context, string name) =>
         (await new CreateCustomerIndividual(store).ExecuteAsync(context, new(name, null, null), name, CancellationToken.None)).Individual!;
 

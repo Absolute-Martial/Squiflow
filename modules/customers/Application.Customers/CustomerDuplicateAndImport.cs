@@ -115,6 +115,9 @@ public static class CustomerDuplicateMatcher
         foreach (var record in records)
         {
             if (excludeCustomerId == record.Customer.IndividualId || record.Customer.TenantId != tenantId) continue;
+            // A consolidated source no longer exists as a candidate identity; its successor
+            // carries the same signals and is matched on its own.
+            if (record.Customer.RedirectTargetIndividualId.HasValue) continue;
             var evidence = Evidence(target, record.Signals, includeFuzzyNameDiscovery);
             if (evidence.Count == 0) continue;
             matches.Add(new(
@@ -219,6 +222,10 @@ public enum ResolveCustomerDuplicateStatus
     AlreadyResolved = 5,
     InvalidOutcome = 6,
     IdempotencyKeyConflict = 7,
+    // Either side was consolidated away from being a current customer. A review decision
+    // cannot be recorded about an identity that no longer exists, so the caller must
+    // deliberately resubmit against the current successor; retained receipts still replay.
+    AlreadyRedirected = 8,
 }
 
 public enum ConsolidateCustomerDuplicateStatus
@@ -336,6 +343,10 @@ public sealed class ConsolidateCustomerDuplicate(ICustomerDuplicateConsolidation
     }
 }
 
+// The retained row is this import's decision record, so the statuses distinguish who
+// decided what. `Rejected` is a deliberate refusal that will not be retried; `Failed`
+// is a system-caused outcome that may be retried and then requires operator review. An
+// operator `Reject` decision is the only cause recorded as a deliberate rejection.
 public enum CustomerImportRowStatus
 {
     Pending = 1,

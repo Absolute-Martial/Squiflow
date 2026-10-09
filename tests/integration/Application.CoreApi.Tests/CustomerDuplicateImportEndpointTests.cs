@@ -712,6 +712,34 @@ public sealed class CustomerDuplicateImportEndpointTests
     }
 
     private const long BatchAuthorityRevision = 12;
+    [Fact]
+    public async Task ResolveRefusalOnARedirectedPairIsAConflictAndRecordsNothing()
+    {
+        using var factory = new WhiteLabelApiFactory(); var actor = Guid.NewGuid(); var tenant = Guid.NewGuid(); var subject = Guid.NewGuid().ToString("N");
+        factory.Bind(subject, actor); factory.AddTenantMembership(actor, tenant, "Duplicate tenant");
+        var store = new RedirectedPairResolutionStore();
+        using var configured = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<ITenantCustomerAuthorization>(); services.AddSingleton<ITenantCustomerAuthorization>(new EndpointCustomerAuthority(resolveAllowed: true));
+            services.RemoveAll<ICustomerDuplicateResolutionStore>(); services.AddSingleton<ICustomerDuplicateResolutionStore>(store);
+        }));
+        using var client = configured.CreateClient(); client.DefaultRequestHeaders.Authorization = new("Bearer", factory.CreateToken(subject));
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/tenants/{tenant:D}/customers/duplicates/resolve")
+        { Content = JsonContent.Create(new { customerId = Guid.NewGuid(), otherCustomerId = Guid.NewGuid(), expectedCustomerRevision = 1, expectedOtherRevision = 1, outcome = "KeepSeparate" }) };
+        request.Headers.Add("Idempotency-Key", "resolve-redirected");
+        using var refused = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
+        Assert.Contains("AlreadyRedirected", await refused.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        Assert.Equal(1, store.Calls);
+    }
+
+    private sealed class RedirectedPairResolutionStore : ICustomerDuplicateResolutionStore
+    {
+        public int Calls { get; private set; }
+        public Task<ResolveCustomerDuplicateResult> ResolveDuplicateAsync(TenantContext context,
+            ResolveCustomerDuplicateRequest request, string idempotencyKey, CancellationToken cancellationToken)
+        { Calls++; return Task.FromResult(new ResolveCustomerDuplicateResult(ResolveCustomerDuplicateStatus.AlreadyRedirected, null)); }
+    }
 
     private sealed class DeniedImportAuthority : ICustomerImportAuthority
     {
