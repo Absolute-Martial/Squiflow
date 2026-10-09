@@ -98,6 +98,17 @@ Capabilities are independent: `Pricing.View`, `Pricing.EditDraft`,
 does not grant price publication or an override. Draft editing means creating
 a replacement draft revision, never mutating an economic snapshot.
 
+Retained selection explanations pin the envelope semantics version that produced their
+recorded override decision. Version 1 is frozen: inclusive absolute bounds plus percentage
+decrease/increase against the selected base price. Changing envelope **meaning** requires a
+new `PricingOverridePolicySemantics` version with a new evaluator and a moved `CurrentVersion`;
+version 1 stays reachable, so already-issued quotations and committed Orders keep validating.
+Retained-fact readers must route through the pinned version, never through the current engine
+meaning. An unsupported retained version fails closed instead of being read with current
+semantics. `PricingOverridePolicy` stores envelope numbers only, so the semantics version belongs
+to the reading snapshot; the version defaults to 1 so facts written before the field existed read
+back as version 1.
+
 Every override requires current `Pricing.Override` and a nonblank bounded reason.
 The immutable policy combines inclusive absolute minimum/maximum and optional
 maximum percentage decrease/increase relative to the selected base price. Both

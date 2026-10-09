@@ -90,6 +90,17 @@ A changed source/policy rejects issue without
 substituting another price. Issued facts include the selected published price,
 conversion, policy and override explanation.
 
+Retained-fact validation is independent of current predicate meaning. `Validate`
+re-derives the recorded quantities and override decision only through the
+semantics versions the retained snapshot itself pinned: `QuantityArithmetic.Version1`
+for the base quantity and `PricingOverridePolicySemantics.Version1` for
+`BeyondPolicy`. Changing either predicate's meaning is a new version with a new
+frozen evaluator, never an edit of version 1, so issued history stays valid across
+the whole corpus. An unsupported retained version fails closed rather than being
+read with current semantics. These owners are
+[`CATALOG_AND_UNIT_BOUNDARY.md`](CATALOG_AND_UNIT_BOUNDARY.md) and
+[`PRICING_POLICY_AND_PUBLICATION.md`](PRICING_POLICY_AND_PUBLICATION.md).
+
 CoreApi exposes `POST /api/v1/tenants/{tenantId}/quotations`,
 `PUT /{quotationId}/draft`, `POST /{quotationId}/issue`, detail `GET /{quotationId}`
 and `GET /{quotationId}/issued?afterRevision=0&limit=20` under that root. Draft
@@ -127,6 +138,7 @@ issued history.
 | Independent current action/pricing authority and safe replay/outage behavior | `QuotationEndpointTests`; actual pinned-model `OpenFgaTenantAuthorizationTests` |
 | Immutable issued history, unique tenant-wide number and atomic issue/receipt | Real PostgreSQL `QuotationPostgresTests`, including concurrent issue/revise/number allocation, receipt failure, RLS and hostile historical storage; `CoreApiRuntimeRoleProvisioningTests` checks destructive inherited grants and complete provisioning rollback |
 | Current-source issue guard and one publication pin on the effect backend | Real Catalog/Pricing/Customers/Orders adapter integration in `QuotationPublicationTests` |
+| Retained facts validate against their own pinned arithmetic/envelope semantics, not current predicate meaning | `QuotationRulesTests`; real PostgreSQL `IssuedQuotationStaysReadableAndCommittableAfterAPredicateSemanticsChange`, which rewrites stored issued facts into the pre-version shape and re-reads, converts and commits them |
 | Backend loss releases the pin and rolls back all issue facts | `QuotationPublicationTests` before header write and between effect and receipt; retry after publication change fails explicitly |
 | Named protected API contracts, safe malformed input and bounded history mapping | `QuotationEndpointTests`, `OpenApiContractTests` and existing protected-route host tests |
 | Migration registration, embedded runtime SQL and compiler dependency ownership | `MigrationRegistryTests`, `ProjectBoundariesTests`, real migration pending-model checks |
