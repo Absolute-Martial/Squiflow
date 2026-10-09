@@ -6,11 +6,11 @@ Generated from full task metadata. Read the complete file and accepted dependenc
 |---|---|---|---|---|
 | [COM-001 — Verify the commercial starting point](COM-001-verify-the-commercial-starting-point.md) | VERIFY_EXISTING | GPT-6 Luna (high) | REQUIRED | BAS-001 |
 | [COM-002 — Customer contacts and representative relationships](COM-002-customer-contacts-and-representative-relationships.md) | READY_AFTER_DEPENDENCIES | GPT-6.1 Sol | REQUIRED | COM-001, GATE-001, ADM-008 |
-| [COM-003 — Duplicate detection and deliberate customer consolidation](COM-003-duplicate-detection-and-deliberate-customer-consolidation.md) | DECISION_REQUIRED | GPT-6.1 Sol | REQUIRED | COM-002 |
-| [COM-004 — Bounded onboarding customer import](COM-004-bounded-onboarding-customer-import.md) | CONDITIONAL | GPT-6.1 Sol | CONDITIONAL | COM-003 |
-| [COM-005 — Tenant product and service catalog with explicit units](COM-005-tenant-product-and-service-catalog-with-explicit-units.md) | DECISION_REQUIRED | GPT-6.1 Sol | REQUIRED | COM-001, GATE-001 |
-| [COM-006 — Resolve price selection and override policy contracts](COM-006-resolve-price-selection-and-override-policy-contracts.md) | DECISION_REQUIRED | GPT-6.1 Sol | REQUIRED | COM-005 |
-| [COM-007 — Published price policy and explainable selection](COM-007-published-price-policy-and-explainable-selection.md) | READY_AFTER_DEPENDENCIES | GPT-6.1 Sol | REQUIRED | COM-006, ADM-008 |
+| [COM-003 — Duplicate detection and deliberate customer consolidation](COM-003-duplicate-detection-and-deliberate-customer-consolidation.md) | VERIFY_EXISTING | GPT-6.1 Sol | REQUIRED | COM-002 |
+| [COM-004 — Bounded onboarding customer import](COM-004-bounded-onboarding-customer-import.md) | VERIFY_EXISTING | GPT-6.1 Sol | REQUIRED | COM-003 |
+| [COM-005 — Tenant product and service catalog with explicit units](COM-005-tenant-product-and-service-catalog-with-explicit-units.md) | VERIFY_EXISTING | GPT-6.1 Sol | REQUIRED | COM-001, GATE-001 |
+| [COM-006 — Resolve price selection and override policy contracts](COM-006-resolve-price-selection-and-override-policy-contracts.md) | VERIFY_EXISTING | GPT-6.1 Sol | REQUIRED | COM-005 |
+| [COM-007 — Published price policy and explainable selection](COM-007-published-price-policy-and-explainable-selection.md) | VERIFY_EXISTING | GPT-6.1 Sol | REQUIRED | COM-006, ADM-008 |
 | [COM-008 — Controlled manual final-price overrides](COM-008-controlled-manual-final-price-overrides.md) | READY_AFTER_DEPENDENCIES | GPT-6.1 Sol | REQUIRED | COM-007 |
 | [COM-009 — Optional quotations and immutable issued revisions](COM-009-optional-quotations-and-immutable-issued-revisions.md) | DECISION_REQUIRED | GPT-6.1 Sol | REQUIRED | COM-007 |
 | [COM-010 — Quotation responses and idempotent order conversion](COM-010-quotation-responses-and-idempotent-order-conversion.md) | READY_AFTER_DEPENDENCIES | GPT-6.1 Sol | REQUIRED | COM-009 |

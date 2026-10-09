@@ -639,7 +639,7 @@
       "task_id": "COM-003",
       "title": "Duplicate detection and deliberate customer consolidation",
       "phase": "02-commercial-backend",
-      "status": "DECISION_REQUIRED",
+      "status": "VERIFY_EXISTING",
       "model": "GPT-6.1 Sol",
       "release_requirement": "REQUIRED",
       "dependencies": [
@@ -653,9 +653,9 @@
       "task_id": "COM-004",
       "title": "Bounded onboarding customer import",
       "phase": "02-commercial-backend",
-      "status": "CONDITIONAL",
+      "status": "VERIFY_EXISTING",
       "model": "GPT-6.1 Sol",
-      "release_requirement": "CONDITIONAL",
+      "release_requirement": "REQUIRED",
       "dependencies": [
         "COM-003"
       ],
@@ -676,7 +676,7 @@
       "task_id": "COM-005",
       "title": "Tenant product and service catalog with explicit units",
       "phase": "02-commercial-backend",
-      "status": "DECISION_REQUIRED",
+      "status": "VERIFY_EXISTING",
       "model": "GPT-6.1 Sol",
       "release_requirement": "REQUIRED",
       "dependencies": [
@@ -691,7 +691,7 @@
       "task_id": "COM-006",
       "title": "Resolve price selection and override policy contracts",
       "phase": "02-commercial-backend",
-      "status": "DECISION_REQUIRED",
+      "status": "VERIFY_EXISTING",
       "model": "GPT-6.1 Sol",
       "release_requirement": "REQUIRED",
       "dependencies": [
@@ -705,7 +705,7 @@
       "task_id": "COM-007",
       "title": "Published price policy and explainable selection",
       "phase": "02-commercial-backend",
-      "status": "READY_AFTER_DEPENDENCIES",
+      "status": "VERIFY_EXISTING",
       "model": "GPT-6.1 Sol",
       "release_requirement": "REQUIRED",
       "dependencies": [
@@ -1285,7 +1285,7 @@
       "task_id": "OPS-007",
       "title": "Qualify the owned object store adapter and migration boundary",
       "phase": "03-runtime-operations",
-      "status": "READY_AFTER_DEPENDENCIES",
+      "status": "VERIFY_EXISTING",
       "model": "GPT-6.1 Sol",
       "release_requirement": "REQUIRED",
       "dependencies": [
@@ -1300,7 +1300,7 @@
       "task_id": "OPS-008",
       "title": "Protect streamed uploads metadata and quarantine",
       "phase": "03-runtime-operations",
-      "status": "CONDITIONAL",
+      "status": "VERIFY_EXISTING",
       "model": "GPT-6.1 Sol",
       "release_requirement": "CONDITIONAL",
       "dependencies": [
@@ -1348,7 +1348,7 @@
       "task_id": "OPS-011",
       "title": "Reserve and reconcile the first durable usage meter",
       "phase": "03-runtime-operations",
-      "status": "READY_AFTER_DEPENDENCIES",
+      "status": "VERIFY_EXISTING",
       "model": "GPT-6.1 Sol",
       "release_requirement": "REQUIRED",
       "dependencies": [
