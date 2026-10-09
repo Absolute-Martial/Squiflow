@@ -1,5 +1,12 @@
 namespace Application.Pricing;
 
+// Selection is bounded once, here, so a consumer revalidating a retained selection
+// asserts the same bound the engine applied instead of repeating the number.
+public static class PriceSelectionBounds
+{
+    public const int MaximumCandidates = 64;
+}
+
 public static class PriceSelectionEngine
 {
     public static PriceResolution Resolve(
@@ -11,8 +18,9 @@ public static class PriceSelectionEngine
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(candidates);
         ArgumentNullException.ThrowIfNull(overridePolicy);
-        if (candidates.Count > 64)
-            throw new ArgumentException("Candidate selection is bounded to 64 facts.", nameof(candidates));
+        if (candidates.Count > PriceSelectionBounds.MaximumCandidates)
+            throw new ArgumentException(
+                $"Candidate selection is bounded to {PriceSelectionBounds.MaximumCandidates} facts.", nameof(candidates));
         if (overridePolicy.PolicyRevision != request.PolicyRevision)
             throw new ArgumentException("The selection request and override policy revisions must match.", nameof(overridePolicy));
         if (candidates.Any(candidate => candidate.TenantId != request.TenantId))
@@ -85,6 +93,11 @@ public static class PriceSelectionEngine
         baseResolution is PriceResolved resolved &&
         !(resolved.Explanation.Policy ?? throw new InvalidOperationException("Selection policy evidence is required."))
             .Contains(unitPrice, resolved.BasePrice.BaseUnitPrice);
+
+    // Retained-fact readers re-evaluate the recorded override decision through the envelope
+    // semantics the snapshot pinned, never through this reader's current engine meaning.
+    public static bool RetainedBeyondPolicy(PricingOverridePolicy policy, decimal unitPrice, decimal baseUnitPrice) =>
+        !PricingOverridePolicySemantics.Contains(policy, unitPrice, baseUnitPrice);
 
     public static PriceResolution ApplyOverride(PriceResolution baseResolution, PriceOverrideRequest overrideRequest)
     {

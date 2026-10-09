@@ -1,0 +1,1 @@
+SELECT CASE WHEN octet_length(snapshot::text)<=65536 THEN snapshot::text ELSE '{}' END,revision,work_id,created_at,updated_at,CASE WHEN octet_length(source::text)<=65536 THEN source::text ELSE '{}' END,schema_version FROM fulfillment.works WHERE tenant_id=@tenant AND order_id=@order;

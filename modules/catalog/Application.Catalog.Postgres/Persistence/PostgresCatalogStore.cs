@@ -569,7 +569,7 @@ public sealed partial class PostgresCatalogStore(
             ParseStatus(reader.GetString(4)), reader.GetInt64(5), reader.GetGuid(6), reader.GetFieldValue<DateTimeOffset>(7),
             reader.IsDBNull(8) ? null : reader.GetFieldValue<DateTimeOffset>(8), reader.IsDBNull(9) ? null : reader.GetGuid(9));
 
-    private static CatalogItemSnapshot ReadItem(NpgsqlDataReader reader, Guid tenantId) =>
+    internal static CatalogItemSnapshot ReadItem(NpgsqlDataReader reader, Guid tenantId) =>
         new(
             reader.GetGuid(0), tenantId, reader.IsDBNull(1) ? null : reader.GetString(1), reader.GetString(2),
             reader.IsDBNull(3) ? null : reader.GetString(3), ParseKind(reader.GetString(4)), ParseStatus(reader.GetString(5)),

@@ -18,6 +18,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../../modules/platform-administration/Application.PlatformAdministration.Postgres/Application.PlatformAdministration.Postgres.csproj" />
-    <ProjectReference Include="../../../services/admin-bootstrap/Application.AdminBootstrap/Application.AdminBootstrap.csproj" />
+    <ProjectReference Include="../../../operations/admin-bootstrap/Application.AdminBootstrap/Application.AdminBootstrap.csproj" />
   </ItemGroup>
 </Project>

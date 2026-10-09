@@ -189,9 +189,10 @@ public sealed partial class QuotationPostgresTests : IAsyncLifetime
                 GRANT USAGE ON SCHEMA orders TO quotation_runtime;
                 GRANT SELECT,INSERT ON orders.order_drafts,orders.order_draft_lines,orders.command_receipts,orders.quotation_origins TO quotation_runtime;
                 GRANT SELECT ON orders.program_order_metadata TO quotation_runtime;
+                GRANT SELECT ON orders.approval_requests,orders.approval_events,orders.approval_commit_evidence TO quotation_runtime;
                 GRANT USAGE ON SCHEMA profiles TO quotation_runtime;
                 GRANT SELECT ON profiles.policy_heads,profiles.policy_revisions,profiles.publications,profiles.authority TO quotation_runtime;
-                GRANT INSERT(tenant_id,order_id,profile_id,policy_revision_id,require_reference,external_reference,bound_at) ON orders.program_order_metadata TO quotation_runtime;
+                GRANT INSERT(tenant_id,order_id,profile_id,policy_revision_id,require_reference,require_approval,external_reference,bound_at) ON orders.program_order_metadata TO quotation_runtime;
                 GRANT UPDATE(external_reference) ON orders.program_order_metadata TO quotation_runtime;
                 GRANT UPDATE(state,revision,abandoned_at,abandoned_by_account_id,committed_at,committed_by_account_id) ON orders.order_drafts TO quotation_runtime;
                 """, owner);

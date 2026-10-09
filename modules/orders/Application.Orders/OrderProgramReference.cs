@@ -8,7 +8,8 @@ namespace Application.Orders;
 public sealed record OrderProgramPolicyFacts(
     Guid ProfileId,
     Guid PolicyRevisionId,
-    bool RequireReferenceForProgramOrders);
+    bool RequireReferenceForProgramOrders,
+    bool RequireApprovalForProgramOrders = false);
 
 public static class OrderProgramReference
 {

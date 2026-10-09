@@ -35,11 +35,13 @@ runs every verification project declared for that host in `eng/hosts.tsv`.
 - AdminApi -> `Application.AdminApi.Tests`.
 - AdminBootstrap -> `Application.AdminBootstrap.Tests`.
 - DbMigrator -> IdentityAccess, Tenancy, Customers, PlatformAdministration through
-  AdminBootstrap, and Orders PostgreSQL/migration regressions.
+  AdminBootstrap, Orders and Fulfillment PostgreSQL/migration regressions.
 
-The DbMigrator breadth is deliberate. `MigrationModules.All` applies five module
-schemas, so testing only IdentityAccess was not a complete independent migrator
-graph. Host verification does not replace the full repository gate and does not
+The DbMigrator breadth is deliberate. `MigrationModules.All` is the current
+registered schema authority; generic migration-registry/lifecycle tests cover
+that complete registry, while the declared native owner suites cover their
+selected persistence invariants. Adding Fulfillment also adds its native suite
+to this host guard. Testing only IdentityAccess would omit those owner checks. Host verification does not replace the full repository gate and does not
 imply deployment qualification.
 
 `build-host.sh --publish` removes the previous host output, publishes from the

@@ -18,7 +18,7 @@ internal static class ObjectStorageRegistration
         services.AddHttpClient("Application.CoreApi.HuggingFaceObjectStore", client =>
         {
             client.Timeout = Timeout.InfiniteTimeSpan;
-        });
+        }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
         services.TryAddSingleton<IObjectStore>(provider => configuration.Enabled
             ? new HuggingFaceObjectStore(
                 provider.GetRequiredService<IHttpClientFactory>().CreateClient("Application.CoreApi.HuggingFaceObjectStore"),

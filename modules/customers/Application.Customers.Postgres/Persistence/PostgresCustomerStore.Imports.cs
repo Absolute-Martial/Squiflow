@@ -206,6 +206,7 @@ public sealed partial class PostgresCustomerStore
         RequireBoundedPageSize(limit);
         if (afterRowNumber < 0) throw new CustomerValidationException("cursor_invalid", "Row cursor cannot be negative.");
         await using var session = await CustomerTenantDbSession.OpenAsync(dataSource, context.TenantId, cancellationToken).ConfigureAwait(false);
+        await RequireSupportedImportContractAsync(session, context, importId, cancellationToken).ConfigureAwait(false);
         var rows = await ReadImportRowsAsync(session, context, importId, afterRowNumber, limit + 1, cancellationToken).ConfigureAwait(false);
         return new(rows.Take(limit).ToArray(), rows.Count > limit ? rows[limit - 1].RowNumber : null);
     }
@@ -227,6 +228,7 @@ public sealed partial class PostgresCustomerStore
         ImportParameters(command, context.TenantId, importId);
         await using var reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
         if (!await reader.ReadAsync(ct).ConfigureAwait(false)) return null;
+        RequireSupportedContract(reader.GetString(0));
         var work = reader.IsDBNull(8) ? null : new CustomerImportWorkSnapshot(reader.GetGuid(8), importId,
             (CustomerImportWorkStatus)reader.GetInt32(9), reader.GetInt32(4) + reader.GetInt32(5) + reader.GetInt32(6),
             reader.GetInt32(3) + reader.GetInt32(7), reader.GetFieldValue<DateTimeOffset>(10),
@@ -270,8 +272,25 @@ public sealed partial class PostgresCustomerStore
     private static async Task<CustomerImportPlan?> LoadImportPlanAsync(CustomerTenantDbSession session, TenantContext context, Guid importId, CancellationToken ct)
     {
         var import = await FindImportAsync(session, context, importId, ct).ConfigureAwait(false);
-        return import is null ? null : new(importId, import.ContractVersion, import.ManifestHash, import.ByteLength,
+        if (import is null) return null;
+        RequireSupportedContract(import.ContractVersion);
+        return new(importId, import.ContractVersion, import.ManifestHash, import.ByteLength,
             await ReadImportRowsAsync(session, context, importId, 0, CustomerImportCsv.MaxRows, ct).ConfigureAwait(false), import.Fingerprint);
+    }
+
+    // The database CHECK pins the contract version, so this is the typed application guard for a
+    // plan whose rows, intents or fingerprint cannot be interpreted under current semantics.
+    private static void RequireSupportedContract(string contractVersion)
+    {
+        if (!string.Equals(contractVersion, CustomerImportCsv.ContractVersion, StringComparison.Ordinal))
+            throw new CustomerImportContractUnsupportedException(contractVersion);
+    }
+
+    private static async Task RequireSupportedImportContractAsync(CustomerTenantDbSession session,
+        TenantContext context, Guid importId, CancellationToken ct)
+    {
+        var import = await FindImportAsync(session, context, importId, ct).ConfigureAwait(false);
+        if (import is not null) RequireSupportedContract(import.ContractVersion);
     }
 
     private static async Task<(CustomerImportWorkSnapshot Snapshot, string Fingerprint, Guid AccountId)?> FindImportWorkAsync(

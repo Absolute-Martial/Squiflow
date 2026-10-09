@@ -15,7 +15,7 @@ internal static class TenantProfilePolicyEndpoints
     {
         var context = TenantRequestAccess.RequireResolvedContext(tenantId, http);
         var state = await profiles.GetPolicyAsync(context, cancellationToken).ConfigureAwait(false)
-            ?? new TenantPolicyState(tenantId, 0, false, null);
+            ?? new TenantPolicyState(tenantId, 0, false, null, false);
         if (state.TenantId != tenantId)
             throw new InvalidOperationException("Profile policy query returned another tenant's state.");
         http.Response.Headers.CacheControl = "no-store";
@@ -41,7 +41,8 @@ internal static class TenantProfilePolicyEndpoints
                 .ConfigureAwait(false) ?? 1;
             var result = await profiles.EditPolicyAsync(
                 context,
-                new EditTenantPolicyRequest(payload.Value!.ExpectedRevision, payload.Value.RequireReferenceForProgramOrders),
+                new EditTenantPolicyRequest(payload.Value!.ExpectedRevision, payload.Value.RequireReferenceForProgramOrders,
+                    payload.Value.RequireApprovalForProgramOrders),
                 authRevision,
                 key!,
                 cancellationToken).ConfigureAwait(false);
@@ -151,7 +152,8 @@ internal static class TenantProfilePolicyEndpoints
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 internal sealed record EditPolicyPayload(
     [property: JsonRequired] long ExpectedRevision,
-    [property: JsonRequired] bool RequireReferenceForProgramOrders);
+    [property: JsonRequired] bool RequireReferenceForProgramOrders,
+    bool? RequireApprovalForProgramOrders = null);
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 internal sealed record PublishPolicyPayload([property: JsonRequired] long ExpectedRevision);

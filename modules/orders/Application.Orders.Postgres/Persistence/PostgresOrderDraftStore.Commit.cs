@@ -55,8 +55,22 @@ public sealed partial class PostgresOrderDraftStore
             if (commercialCommitGuard is null)
                 return new(CommitOrderDraftStatus.CommercialFactsConflict, null);
 
-            // Same backend/transaction as the effect and receipt: backend loss cannot
-            // release publication protection while leaving this commit alive.
+            // External current authority is resolved BEFORE the publication pin. It is
+            // not Catalog/Pricing state, so the pin does not protect it, and a slow or
+            // degraded authorization provider must never hold tenant-wide publication
+            // exclusion for the length of an external call.
+            var currentAuthority = await commercialCommitGuard
+                .ResolveCurrentAuthorityAsync(tenantContext, beforeCommit, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // The pin belongs to THIS Orders transaction, so PostgreSQL releases it at the
+            // same COMMIT/ROLLBACK as the header update and receipt: losing this backend
+            // cannot leave an effect without its publication protection. It does NOT make
+            // the comparison share that transaction. The guard's comparison queries run on
+            // separate pooled connections in their own ordinary read transactions; what
+            // makes their result valid for the effect is this lock-mediated exclusion —
+            // no Catalog/Pricing publication can obtain the exclusive pin, and therefore
+            // no selectable fact can change between the comparison and the commit.
             // Catalog/Pricing writers pin exclusively before their own row locks and
             // never lock Orders rows. Public comparison queries acquire no second pin.
             if (beforeCommit.QuotationOrigin is null)
@@ -66,10 +80,12 @@ public sealed partial class PostgresOrderDraftStore
                     await pin.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
                 }
             cancellationToken.ThrowIfCancellationRequested();
-            if (!await commercialCommitGuard.IsCompatibleAsync(tenantContext, beforeCommit, cancellationToken).ConfigureAwait(false))
+            if (!await commercialCommitGuard.IsCompatibleAsync(
+                    tenantContext, beforeCommit, currentAuthority, cancellationToken).ConfigureAwait(false))
                 return new(CommitOrderDraftStatus.CommercialFactsConflict, null);
         }
 
+        OrderApprovalEvidence? approvalEvidence = null;
         if (beforeCommit is { State: OrderDraftState.Draft } && beforeCommit.Revision == request.ExpectedRevision)
         {
             if (profilePolicySource is not null && (beforeCommit.ProgramPolicy is null ||
@@ -78,9 +94,12 @@ public sealed partial class PostgresOrderDraftStore
                 return new(CommitOrderDraftStatus.ProfileUnavailable, null);
             if (OrderProgramReference.IsMissing(beforeCommit))
                 return new(CommitOrderDraftStatus.ProgramReferenceRequired, null);
+            var admission = await AssessApprovalAdmissionAsync(session, beforeCommit, cancellationToken).ConfigureAwait(false);
+            if (admission.Status != CommitOrderDraftStatus.Committed) return new(admission.Status, null);
+            approvalEvidence = admission.Evidence;
         }
 
-        var committedAt = _timeProvider.GetUtcNow();
+        var committedAt = UtcNow();
         var changed = await TryCommitOrderAsync(
             session, tenantContext, request, committedAt, cancellationToken)
             .ConfigureAwait(false);
@@ -114,6 +133,8 @@ public sealed partial class PostgresOrderDraftStore
                 status, null);
         }
 
+        if (approvalEvidence is not null)
+            await InsertApprovalCommitEvidenceAsync(session, tenantContext.TenantId, request.OrderId, approvalEvidence, cancellationToken).ConfigureAwait(false);
         var order = await FindOrderAsync(
             session, tenantContext.TenantId, request.OrderId, cancellationToken)
             .ConfigureAwait(false)

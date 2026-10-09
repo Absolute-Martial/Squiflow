@@ -70,34 +70,31 @@ internal sealed class HuggingFaceObjectStore(
         if (metadata.Metadata.Length != request.ExpectedLength)
             return new(ObjectStoreReadOutcome.Corrupt);
 
+        HttpResponseMessage? response = null;
+        var timeout = Timeout(cancellationToken);
         try
         {
             using var signed = CreateRequest(HttpMethod.Get, request.Key, EmptySha256, null);
-            var response = await SendAsync(signed, cancellationToken, HttpCompletionOption.ResponseHeadersRead)
+            response = await client.SendAsync(signed, HttpCompletionOption.ResponseHeadersRead, timeout.Token)
                 .ConfigureAwait(false);
             if (IsRedirect(response.StatusCode))
             {
                 var location = response.Headers.Location;
                 response.Dispose();
+                response = null;
                 if (!IsAllowedRedirect(location)) return new(ObjectStoreReadOutcome.Unavailable);
-                using var redirectTimeout = Timeout(cancellationToken);
-                response = await client.GetAsync(location, HttpCompletionOption.ResponseHeadersRead, redirectTimeout.Token)
+                response = await client.GetAsync(location, HttpCompletionOption.ResponseHeadersRead, timeout.Token)
                     .ConfigureAwait(false);
             }
 
-            if (!response.IsSuccessStatusCode)
-            {
-                var outcome = MapReadFailure(response.StatusCode);
-                response.Dispose();
-                return new(outcome);
-            }
-
-            using var contentTimeout = Timeout(cancellationToken);
-            var content = await response.Content.ReadAsStreamAsync(contentTimeout.Token).ConfigureAwait(false);
-            var verified = new VerifyingReadStream(content, response, request.ExpectedLength, request.ExpectedSha256);
+            if (!response.IsSuccessStatusCode) return new(MapReadFailure(response.StatusCode));
+            var content = await response.Content.ReadAsStreamAsync(timeout.Token).ConfigureAwait(false);
+            var verified = new VerifyingReadStream(content, response, timeout, request.ExpectedLength, request.ExpectedSha256);
+            // The returned stream owns the response and the deadline until body consumption finishes.
+            response = null;
+            timeout = null;
             return new(ObjectStoreReadOutcome.Opened, verified,
-                new(request.Key, request.ExpectedLength, request.ExpectedSha256,
-                    metadata.Metadata.ContentType));
+                new(request.Key, request.ExpectedLength, request.ExpectedSha256, metadata.Metadata.ContentType));
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -106,6 +103,11 @@ internal sealed class HuggingFaceObjectStore(
         catch (HttpRequestException)
         {
             return new(ObjectStoreReadOutcome.Unavailable);
+        }
+        finally
+        {
+            response?.Dispose();
+            timeout?.Dispose();
         }
     }
 
@@ -169,8 +171,20 @@ internal sealed class HuggingFaceObjectStore(
             });
         }
 
-        var buffer = new byte[81920];
-        while (await existing.Content.ReadAsync(buffer, cancellationToken).ConfigureAwait(false) > 0) { }
+        // VerifyingReadStream raises when the stored bytes disagree with the expected
+        // length or digest. Without this the exception escapes the outcome contract, the
+        // caller's reservation is never released and a modelled provider outcome becomes
+        // an unhandled 500.
+        try
+        {
+            var buffer = new byte[81920];
+            while (await existing.Content.ReadAsync(buffer, cancellationToken).ConfigureAwait(false) > 0) { }
+        }
+        catch (InvalidDataException)
+        {
+            return new(ObjectStorePutOutcome.Corrupt);
+        }
+
         return new(ObjectStorePutOutcome.AlreadyExists, existing.Metadata);
     }
 
@@ -386,7 +400,7 @@ internal sealed class HuggingFaceObjectStore(
         public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 
-    private sealed class VerifyingReadStream(Stream content, HttpResponseMessage response, long expectedLength, string expectedHash)
+    private sealed class VerifyingReadStream(Stream content, HttpResponseMessage response, CancellationTokenSource deadline, long expectedLength, string expectedHash)
         : Stream
     {
         private readonly IncrementalHash _hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
@@ -401,7 +415,8 @@ internal sealed class HuggingFaceObjectStore(
         public override int Read(Span<byte> buffer) => throw new NotSupportedException();
         public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
         {
-            var read = await content.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(deadline.Token, cancellationToken);
+            var read = await content.ReadAsync(buffer, linked.Token).ConfigureAwait(false);
             if (read > 0) { _read += read; _hash.AppendData(buffer.Span[..read]); }
             else Verify();
             return read;
@@ -418,7 +433,7 @@ internal sealed class HuggingFaceObjectStore(
         }
         protected override void Dispose(bool disposing)
         {
-            if (disposing) { content.Dispose(); response.Dispose(); _hash.Dispose(); }
+            if (disposing) { content.Dispose(); response.Dispose(); deadline.Dispose(); _hash.Dispose(); }
             base.Dispose(disposing);
         }
         public override void Flush() => throw new NotSupportedException();

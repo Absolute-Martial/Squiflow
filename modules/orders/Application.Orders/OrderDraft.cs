@@ -41,7 +41,8 @@ public sealed record OrderDraftSnapshot(
     Guid? CommittedByAccountId = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] OrderQuotationOrigin? QuotationOrigin = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] OrderProgramPolicyFacts? ProgramPolicy = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ExternalProgramReference = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ExternalProgramReference = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] OrderApprovalEvidence? ApprovalEvidence = null);
 
 public sealed record OrderDraftListItem(
     Guid OrderId,
@@ -148,6 +149,8 @@ public enum CommitOrderDraftStatus
     CommercialFactsConflict = 8,
     ProgramReferenceRequired = 9,
     ProfileUnavailable = 10,
+    ApprovalRequired = 11,
+    ApprovalStale = 12,
 }
 
 public sealed record CommitOrderDraftResult(

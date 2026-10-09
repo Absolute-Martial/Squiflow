@@ -94,6 +94,8 @@ internal static class TenantOrderCommitEndpoint
             CommitOrderDraftStatus.AlreadyAbandoned or
             CommitOrderDraftStatus.CommercialFactsConflict or
             CommitOrderDraftStatus.ProgramReferenceRequired or
+            CommitOrderDraftStatus.ApprovalRequired or
+            CommitOrderDraftStatus.ApprovalStale or
             CommitOrderDraftStatus.IdempotencyKeyConflict)
         {
             var (code, detail) = result.Status switch
@@ -106,6 +108,10 @@ internal static class TenantOrderCommitEndpoint
                     ("order_already_abandoned", "The order draft has already been abandoned."),
                 CommitOrderDraftStatus.ProgramReferenceRequired =>
                     ("order_program_reference_required", "Supply the customer program reference before commitment."),
+                CommitOrderDraftStatus.ApprovalRequired =>
+                    ("order_approval_required", "Obtain independent approval of the current Order revision before commitment."),
+                CommitOrderDraftStatus.ApprovalStale =>
+                    ("order_approval_stale", "Request new approval for the changed Order revision."),
                 CommitOrderDraftStatus.CommercialFactsConflict =>
                     ("order_commercial_facts_conflict", "The retained catalog price, policy or compatibility has changed. Explicitly revise the draft before commitment."),
                 _ =>

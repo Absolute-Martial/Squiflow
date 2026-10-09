@@ -54,6 +54,8 @@ public sealed partial class PostgresQuotationStore(NpgsqlDataSource source, Time
             if (draft.Mode == QuotationPriceMode.Catalog)
             {
                 // The only pin backend is this effect/receipt transaction; public queries never acquire another pin.
+                // Only database work runs under it: the caller resolves frozen authority before this
+                // transaction opens, so a slow authorization provider cannot stall the tenant.
                 await using var pin = Command("PinPublication", connection, transaction, context);
                 await pin.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
             }

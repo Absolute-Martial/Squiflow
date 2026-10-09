@@ -354,7 +354,7 @@ public sealed class QuotationEndpointTests
             var account = Guid.NewGuid();
             var now = DateTimeOffset.UtcNow;
             Catalog.Selection = new(CatalogLineFactsStatus.Available, new(Item, "SKU", Unit, "Quoted item", "EA", "Each", 2, 4,
-                1, 1, new(Unit, Unit, 1, 1, 1), "EA", "Each", 4, 1, 2));
+                1, 1, new(Unit, Unit, 1, 1, 1), QuantityArithmetic.Version1, QuantityArithmetic.Version1Rounding, "EA", "Each", 4, 1, 2));
             Prices = new(_tenant, account, now);
             Prices.Candidates.Add(new(_tenant, Guid.NewGuid(), 1, new(Item, "EA", "USD", PriceScope.Default(), Unit), 20,
                 new(now.AddDays(-1)), PricePublicationState.Published, account, now.AddDays(-1), now.AddDays(-1)));

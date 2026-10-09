@@ -4,7 +4,8 @@
 adapter are `PRODUCTION_HONEST` for the focused evidence below. CoreApi routes,
 independent pinned-model permissions, migration ordering, runtime grants and
 catalog-priced Orders integration are composed and `PRODUCTION_HONEST` for the
-declared local receiving scope after the **1011-test** normal gate. Actual numerical inventory
+declared local receiving scope after the exact normal gate recorded in
+`README.IMPLEMENTATION.md`. Actual numerical inventory
 authority remains `NOT_INTRODUCED`.
 
 This is the focused owner for COM-005. It records the accepted v0.0.1
@@ -78,12 +79,31 @@ operations:
 `CatalogLineFacts` retains item ID/code/name, unit ID/code/name, quantity,
 unit precision, item and source-unit revisions, base-unit code/name/precision/
 revision, rounded base quantity, conversion source/target IDs and exact ratio/
-revision, quantity arithmetic version, and rounding mode. A new line requires an
-active item and both active units; a different source unit requires an explicit
+revision, quantity arithmetic version, and rounding mode. The arithmetic version and
+rounding mode are required parameters published as `QuantityArithmetic.Version1` and
+`QuantityArithmetic.Version1Rounding`, so no consumer re-declares them and an absent
+retained field cannot be read as the value the engine produced. Each understood
+version gets its own constant beside version 1; a later version never overwrites it.
+A new line requires an active item and both active units; a different source unit
+requires an explicit
 direct conversion revision to the item's base unit. Availability-only selection
 also requires explicit available state. Retired records remain readable but
 are unavailable for new selection. `Available` means this catalog selection is
 permitted, not that precise numerical stock exists or is reserved.
+
+`QuantityArithmetic` owns quantity-arithmetic semantics versioning. Version 1 is
+frozen: exact decimal rational conversion with only the final base quantity
+rounded, at the declared base-unit precision, using `toEven`. Retained facts pin
+the version that produced their base quantity, and retained-fact readers must
+route through that pinned evaluator rather than the current conversion meaning.
+Changing conversion **meaning** requires a new version with a new evaluator and a
+moved `CurrentVersion`; version 1 stays reachable, so already-issued quotations
+and committed Orders keep validating. An unsupported retained version fails closed
+instead of being re-derived with current semantics. The retained default is version
+1, so facts written before the field was named keep their original meaning.
+`QuotationRulesTests.FrozenVersionOneEvaluatorsStayCharacterized` pins the literal
+version-1 base-quantity outcomes, so an in-place edit of that evaluator fails that
+test rather than silently changing what committed facts mean.
 
 All mutation commands have bounded caller-scoped idempotency keys and canonical
 fingerprints. Successful effects persist a receipt and replay the original

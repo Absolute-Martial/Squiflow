@@ -32,11 +32,12 @@ public static class CatalogLineFactSelection
             : new CatalogConversionFacts(source.UnitId, target.UnitId, conversion!.Revision, conversion.Numerator, conversion.Denominator);
         try
         {
-            var baseQuantity = CatalogQuantityConversion.Convert(selection.Quantity, source.Precision,
+            var baseQuantity = CatalogQuantityConversion.Convert(QuantityArithmetic.CurrentVersion, selection.Quantity, source.Precision,
                 target.Precision, facts.Numerator, facts.Denominator);
             return new(CatalogLineFactsStatus.Available, new CatalogLineFacts(item.ItemId, item.Code, source.UnitId,
                 item.Name, source.Code, source.Name, selection.Quantity, source.Precision, item.Revision, source.Revision,
-                facts, target.Code, target.Name, target.Precision, target.Revision, baseQuantity));
+                facts, QuantityArithmetic.CurrentVersion, QuantityArithmetic.CurrentRounding,
+                target.Code, target.Name, target.Precision, target.Revision, baseQuantity));
         }
         catch (CatalogValidationException)
         {

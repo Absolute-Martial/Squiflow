@@ -489,12 +489,19 @@ public partial class CustomerDuplicatesAndImports : Migration
             onDelete: ReferentialAction.Restrict);
 
         migrationBuilder.Sql("""
-            UPDATE customers.individuals
+            DO $backfill$ DECLARE tenant uuid; BEGIN
+              FOR tenant IN SELECT id FROM tenancy.tenants LOOP
+                PERFORM set_config('app.current_tenant',tenant::text,true);
+                UPDATE customers.individuals
             SET customer_type = CASE WHEN btrim(customer_type) = '' THEN 'individual' ELSE lower(btrim(customer_type)) END,
                 normalized_name = upper(btrim(display_name)),
                 normalized_email = CASE WHEN email IS NULL THEN NULL ELSE upper(btrim(email)) END,
                 normalized_phone = CASE WHEN phone IS NULL THEN NULL ELSE regexp_replace(phone, '[^0-9]', '', 'g') END,
-                normalized_external_registration_id = CASE WHEN external_registration_id IS NULL THEN NULL ELSE upper(btrim(external_registration_id)) END;
+                normalized_external_registration_id = CASE WHEN external_registration_id IS NULL THEN NULL ELSE upper(btrim(external_registration_id)) END
+                WHERE tenant_id = tenant;
+              END LOOP;
+              PERFORM set_config('app.current_tenant','',true);
+            END $backfill$;
             ALTER TABLE customers.individuals ALTER COLUMN customer_type SET DEFAULT 'individual';
             """);
 

@@ -6,20 +6,22 @@ using Application.Tenancy;
 
 namespace Application.Profiles;
 
-public sealed record TenantPolicyState(Guid TenantId, long Revision, bool RequireReferenceForProgramOrders, Guid? PublishedPolicyRevisionId);
+public sealed record TenantPolicyState(Guid TenantId, long Revision, bool RequireReferenceForProgramOrders, Guid? PublishedPolicyRevisionId,
+    bool RequireApprovalForProgramOrders = false);
 public sealed record PublishedTenantPolicy(Guid PolicyRevisionId, Guid TenantId, long Revision, bool RequireReferenceForProgramOrders,
-    Guid PublishedByAccountId, DateTimeOffset PublishedAt, long ObservedAuthorizationRevision);
+    Guid PublishedByAccountId, DateTimeOffset PublishedAt, long ObservedAuthorizationRevision,
+    string Version = TenantProfileRules.LegacyPolicyVersion, bool RequireApprovalForProgramOrders = false);
 public sealed record TenantProfileSnapshot(string Version, Guid ProfileId, Guid TenantId, string CatalogFingerprint, string SelectionFingerprint,
     IReadOnlyList<string> FeatureIds, PublishedTenantPolicy Policy, Guid PublishedByPrincipalId, Guid PublishedByDeviceId,
     DateTimeOffset PublishedAt, long ObservedAuthorizationRevision, bool IsLegacyBaseline);
 public sealed record TenantProfileAuthority(Guid TenantId, long Revision, Guid? ActiveProfileId, Guid? LegacyBaselineProfileId);
-public sealed record EditTenantPolicyRequest(long ExpectedRevision, bool RequireReferenceForProgramOrders);
+public sealed record EditTenantPolicyRequest(long ExpectedRevision, bool RequireReferenceForProgramOrders, bool? RequireApprovalForProgramOrders = null);
 public sealed record PublishTenantPolicyRequest(long ExpectedRevision);
 public sealed record PublishTenantProfileRequest(Guid TenantId, long ExpectedAuthorityRevision, Guid PublishedPolicyRevisionId,
     long ObservedAuthorizationRevision, bool IsLegacyBaseline = false);
 public sealed record ActivateTenantProfileRequest(Guid TenantId, long ExpectedAuthorityRevision, Guid ProfileId, bool AsLegacyBaseline = false);
 
-public enum ProfileCommandStatus { Edited, PolicyPublished, ProfilePublished, Activated, LegacyBaselineSelected, Replayed, NotFound, RevisionConflict, IdempotencyKeyConflict, InvalidBaseline, BaselineAlreadySelected }
+public enum ProfileCommandStatus { Edited, PolicyPublished, ProfilePublished, Activated, LegacyBaselineSelected, Replayed, NotFound, RevisionConflict, IdempotencyKeyConflict, InvalidBaseline, BaselineAlreadySelected, UnsupportedPolicyVersion }
 public sealed record ProfileCommandResult(ProfileCommandStatus Status, TenantPolicyState? PolicyState = null,
     PublishedTenantPolicy? PublishedPolicy = null, TenantProfileSnapshot? Profile = null, TenantProfileAuthority? Authority = null);
 
@@ -47,7 +49,10 @@ public sealed class ProfileValidationException(string code, string message) : Ar
 
 public static class TenantProfileRules
 {
-    public const string SupportedVersion = "tenant-profile/v1";
+    public const string LegacyVersion = "tenant-profile/v1";
+    public const string SupportedVersion = "tenant-profile/v2";
+    public const string LegacyPolicyVersion = "tenant-policy/v1";
+    public const string SupportedPolicyVersion = "tenant-policy/v2";
     public static void RequireIdentity(Guid value)
     {
         if (value == Guid.Empty) throw new ProfileValidationException("profile_identity_invalid", "A nonempty identity is required.");
@@ -78,7 +83,9 @@ public static class TenantProfileRules
     {
         ArgumentNullException.ThrowIfNull(policy);
         if (tenantId == Guid.Empty || policy.PolicyRevisionId == Guid.Empty || policy.PublishedByAccountId == Guid.Empty ||
-            policy.TenantId != tenantId || policy.Revision < 1 || policy.ObservedAuthorizationRevision < 1)
+            policy.TenantId != tenantId || policy.Revision < 1 || policy.ObservedAuthorizationRevision < 1 ||
+            policy.Version is not (LegacyPolicyVersion or SupportedPolicyVersion) ||
+            policy.Version == LegacyPolicyVersion && policy.RequireApprovalForProgramOrders)
             throw new InvalidOperationException("Stored tenant policy identity, revision or authorization observation is invalid.");
         RequireTime(policy.PublishedAt);
     }
@@ -87,14 +94,16 @@ public static class TenantProfileRules
         ArgumentNullException.ThrowIfNull(profile);
         if (tenantId == Guid.Empty || profile.ProfileId == Guid.Empty || profile.PublishedByPrincipalId == Guid.Empty ||
             profile.PublishedByDeviceId == Guid.Empty || profile.ObservedAuthorizationRevision < 1 ||
-            profile.Version != SupportedVersion || profile.TenantId != tenantId)
+            profile.Version is not (LegacyVersion or SupportedVersion) || profile.TenantId != tenantId)
             throw new InvalidOperationException("Stored tenant profile version or tenant identity is unsupported.");
         var selection = CommercialFeatureCatalog.Catalog.Compile([]);
         if (profile.CatalogFingerprint != selection.CatalogFingerprint || profile.SelectionFingerprint != selection.SelectionFingerprint ||
             profile.FeatureIds is null || !profile.FeatureIds.SequenceEqual(selection.EffectiveFeatureIds, StringComparer.Ordinal))
             throw new InvalidOperationException("Stored tenant profile catalog or selection is incompatible.");
         ValidatePolicy(profile.Policy, tenantId); RequireTime(profile.PublishedAt);
-        if (profile.PublishedAt < profile.Policy.PublishedAt || profile.IsLegacyBaseline && profile.Policy.RequireReferenceForProgramOrders)
+        var requiredPolicyVersion = profile.Version == LegacyVersion ? LegacyPolicyVersion : SupportedPolicyVersion;
+        if (profile.Policy.Version != requiredPolicyVersion || profile.PublishedAt < profile.Policy.PublishedAt ||
+            profile.IsLegacyBaseline && (profile.Policy.RequireReferenceForProgramOrders || profile.Policy.RequireApprovalForProgramOrders))
             throw new InvalidOperationException("Stored tenant profile policy or publication time is inconsistent.");
     }
     public static void RequireTime(DateTimeOffset at)

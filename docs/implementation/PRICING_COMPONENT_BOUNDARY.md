@@ -11,8 +11,9 @@ The separated calculation and protected preview are `PRODUCTION_HONEST` for
 their declared arithmetic/compatibility and API scopes. Separate manual-entry
 permission control is `PRODUCTION_HONEST` for the current CoreApi routes and
 replay scope described below. Adaptive policy, protected HTTP exposure and
-catalog-priced Orders integration are `PRODUCTION_HONEST` for the narrow scopes
-and local receiving evidence in the focused Pricing/Orders owners.
+catalog-priced Orders integration are `PRODUCTION_HONEST` only for the narrow
+scopes and local receiving evidence recorded in the focused Pricing/Orders
+owners; this file does not assert their state independently.
 
 This owner separates pricing responsibilities for the end-to-end business map.
 Detailed business meaning remains in `docs/domain/BUSINESS_MODEL.md` section 5
@@ -143,11 +144,13 @@ their exact current qualification state is stated there.
   focused owner closes the priced identity/context, explicit precedence,
   missing/expired/conflict outcomes, override reason/evidence, policy envelope,
   additional-capability override branch and draft revalidation contract.
-- **COM-007 is implemented for the bounded provider adapter.** Publication is
-  immutable and revisioned, same-scope overlaps are rejected, and selection
-  explanations retain the selected fact and policy context. Public host
-  exposure is introduced but receiving qualification remains `BLOCKED` rather
-  than being inferred from focused provider tests.
+- **COM-007 is implemented and locally qualified for the bounded provider adapter
+  and its public host exposure.** Publication is immutable and revisioned,
+  same-scope overlaps are rejected, and selection explanations retain the
+  selected fact and policy context. The current state of that responsibility is
+  recorded only in
+  [`PRICING_POLICY_AND_PUBLICATION.md`](PRICING_POLICY_AND_PUBLICATION.md); this
+  boundary does not restate or re-decide it.
 
 Requalify this boundary when a pricing host route, OpenFGA relation, migration
 registration, Orders revalidation caller or another price-bearing consumer is

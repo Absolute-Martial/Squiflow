@@ -99,7 +99,7 @@ public sealed partial class PostgresOrderDraftStore
         await InsertLinesAsync(session, order, cancellationToken).ConfigureAwait(false);
         if (await TryInsertReceiptAsync(
             session, tenantContext.AccountId, ReviseOperation, idempotencyKey,
-            fingerprint, order, _timeProvider.GetUtcNow(), cancellationToken).ConfigureAwait(false))
+            fingerprint, order, UtcNow(), cancellationToken).ConfigureAwait(false))
         {
             await session.CommitAsync(cancellationToken).ConfigureAwait(false);
             return new ReviseOrderDraftResult(ReviseOrderDraftStatus.Revised, order);

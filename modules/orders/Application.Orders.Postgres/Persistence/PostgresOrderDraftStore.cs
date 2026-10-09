@@ -7,14 +7,21 @@ public sealed partial class PostgresOrderDraftStore(
     NpgsqlDataSource dataSource,
     TimeProvider? timeProvider = null,
     IOrderCommercialCommitGuard? commercialCommitGuard = null,
-    IOrderProfilePolicySource? profilePolicySource = null)
-    : IOrderDraftStore, IOrderDraftHistoryStore, IOrderDraftReceiptReader, IOrderProgramReferenceStore
+    IOrderProfilePolicySource? profilePolicySource = null,
+    IOrderApprovalAuthority? approvalAuthority = null)
+    : IOrderDraftStore, IOrderDraftHistoryStore, IOrderDraftReceiptReader, IOrderProgramReferenceStore, IOrderApprovalStore
 {
     private const string CreateOperation = "create-order-draft";
     private const string AbandonOperation = "abandon-order-draft";
     private const string CommitOperation = "commit-order-draft";
     private const string ReviseOperation = "revise-order-draft";
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
+
+    // PostgreSQL stores microseconds. Keep relational facts and immutable JSON receipts identical.
+    private DateTimeOffset UtcNow() => DatabaseTimestamp(_timeProvider.GetUtcNow());
+
+    private static DateTimeOffset DatabaseTimestamp(DateTimeOffset timestamp) =>
+        new(timestamp.UtcTicks - timestamp.UtcTicks % 10, TimeSpan.Zero);
 
     public async Task<CreateOrderDraftResult> CreateAsync(
         TenantContext tenantContext,
@@ -45,7 +52,7 @@ public sealed partial class PostgresOrderDraftStore(
             return replayResult;
         }
 
-        var createdAt = _timeProvider.GetUtcNow();
+        var createdAt = UtcNow();
         var order = new OrderDraftSnapshot(
             Guid.CreateVersion7(),
             tenantContext.TenantId,
@@ -127,7 +134,7 @@ public sealed partial class PostgresOrderDraftStore(
             return replayResult;
         }
 
-        var abandonedAt = _timeProvider.GetUtcNow();
+        var abandonedAt = UtcNow();
         var changed = await TryAbandonOrderAsync(
             session, tenantContext, request, abandonedAt, cancellationToken)
             .ConfigureAwait(false);

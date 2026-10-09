@@ -45,6 +45,7 @@ public sealed class CoreApiRuntimeRoleProvisioningTests : PostgresTestDatabase
                      "profiles.authority", "profiles.command_receipts",
                      "orders.order_drafts",
                      "orders.order_draft_lines", "orders.command_receipts", "orders.program_order_metadata",
+                     "orders.approval_requests", "orders.approval_events", "orders.approval_commit_evidence",
                  })
         {
             await using var command = runtime.CreateCommand();
@@ -80,9 +81,74 @@ public sealed class CoreApiRuntimeRoleProvisioningTests : PostgresTestDatabase
             """;
         Assert.Equal(0, await allowedDraftUpdate.ExecuteNonQueryAsync(CancellationToken.None));
 
+        await using var allowedApprovalRequestUpdate = runtime.CreateCommand();
+        allowedApprovalRequestUpdate.CommandText = """
+            UPDATE orders.approval_requests
+            SET assigned_id = assigned_id, revision = revision, state = state, updated_at = updated_at
+            WHERE false
+            """;
+        Assert.Equal(0, await allowedApprovalRequestUpdate.ExecuteNonQueryAsync(CancellationToken.None));
+
+        foreach (var column in new[]
+                 {
+                     "tenant_id", "request_id", "order_id", "requester_id", "revision_author_id",
+                     "order_revision", "subject", "subject_fingerprint", "created_at",
+                 })
+        {
+            await using var forbiddenApprovalRequestRewrite = runtime.CreateCommand();
+            forbiddenApprovalRequestRewrite.CommandText =
+                $"UPDATE orders.approval_requests SET {column} = {column} WHERE false";
+            var approvalRequestRewriteFailure = await Assert.ThrowsAsync<PostgresException>(() =>
+                forbiddenApprovalRequestRewrite.ExecuteNonQueryAsync(CancellationToken.None));
+            Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, approvalRequestRewriteFailure.SqlState);
+        }
+
+        foreach (var (table, column) in new[]
+                 {
+                     ("orders.approval_events", "actor_id"),
+                     ("orders.approval_commit_evidence", "subject_fingerprint"),
+                 })
+        {
+            await using var approvalUpdatePrivilege = runtime.CreateCommand();
+            approvalUpdatePrivilege.CommandText =
+                "SELECT has_table_privilege(current_user, @table, 'UPDATE') " +
+                "OR has_any_column_privilege(current_user, @table, 'UPDATE')";
+            approvalUpdatePrivilege.Parameters.AddWithValue("table", table);
+            Assert.Equal(false, await approvalUpdatePrivilege.ExecuteScalarAsync(CancellationToken.None));
+
+            await using var forbiddenApprovalUpdate = runtime.CreateCommand();
+            forbiddenApprovalUpdate.CommandText = $"UPDATE {table} SET {column} = {column} WHERE false";
+            var approvalUpdateFailure = await Assert.ThrowsAsync<PostgresException>(() =>
+                forbiddenApprovalUpdate.ExecuteNonQueryAsync(CancellationToken.None));
+            Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, approvalUpdateFailure.SqlState);
+
+            await using var forbiddenApprovalDelete = runtime.CreateCommand();
+            forbiddenApprovalDelete.CommandText = $"DELETE FROM {table} WHERE false";
+            var approvalDeleteFailure = await Assert.ThrowsAsync<PostgresException>(() =>
+                forbiddenApprovalDelete.ExecuteNonQueryAsync(CancellationToken.None));
+            Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, approvalDeleteFailure.SqlState);
+        }
+
+        await using var forbiddenApprovalRequestDelete = runtime.CreateCommand();
+        forbiddenApprovalRequestDelete.CommandText = "DELETE FROM orders.approval_requests WHERE false";
+        var approvalRequestDeleteFailure = await Assert.ThrowsAsync<PostgresException>(() =>
+            forbiddenApprovalRequestDelete.ExecuteNonQueryAsync(CancellationToken.None));
+        Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, approvalRequestDeleteFailure.SqlState);
+
         await using var allowedLineDelete = runtime.CreateCommand();
         allowedLineDelete.CommandText = "DELETE FROM orders.order_draft_lines WHERE false";
         Assert.Equal(0, await allowedLineDelete.ExecuteNonQueryAsync(CancellationToken.None));
+
+        await using var allowedImportSourceLifecycleUpdate = runtime.CreateCommand();
+        allowedImportSourceLifecycleUpdate.CommandText = """
+            UPDATE customers.import_source_objects
+            SET state = state, failure_code = failure_code,
+                retirement_generation = retirement_generation,
+                retirement_lease_id = retirement_lease_id,
+                retirement_lease_expires_at = retirement_lease_expires_at
+            WHERE false
+            """;
+        Assert.Equal(0, await allowedImportSourceLifecycleUpdate.ExecuteNonQueryAsync(CancellationToken.None));
 
         await using var allowedTenantRevisionUpdate = runtime.CreateCommand();
         allowedTenantRevisionUpdate.CommandText = "UPDATE tenancy.tenants SET revision = revision WHERE false";
@@ -151,6 +217,8 @@ public sealed class CoreApiRuntimeRoleProvisioningTests : PostgresTestDatabase
             "UPDATE catalog.units SET precision=precision WHERE false",
             "UPDATE catalog.items SET base_unit_id=base_unit_id WHERE false",
             "UPDATE customers.import_rows SET source_row_hash=source_row_hash WHERE false",
+            "UPDATE customers.import_source_objects SET retention=retention WHERE false",
+            "UPDATE customers.import_source_objects SET expires_at=expires_at WHERE false",
         })
         {
             await using var denied = new NpgsqlCommand(sql, runtime);
@@ -255,6 +323,15 @@ public sealed class CoreApiRuntimeRoleProvisioningTests : PostgresTestDatabase
         {
             await AssertProvisioningRejectedAsync($"UPDATE ON TABLE quotations.{table}");
         }
+    }
+
+    [Fact]
+    public async Task ProvisioningRejectsInheritedApprovalEventUpdateWithoutApplyingPartialGrants()
+    {
+        await ApplyOrderSchemaAsync();
+        await CreateRoleAsync();
+
+        await AssertProvisioningRejectedAsync("UPDATE ON TABLE orders.approval_events");
     }
 
     [Fact]

@@ -76,9 +76,11 @@ public sealed class QuotationPricing(SelectCatalogLineFacts catalog, PricingAppl
         return offer;
     }
 
-    public async Task<bool> IsCompatibleAsync(TenantContext context, QuotationDraftFacts offer, CancellationToken ct)
+    public async Task<bool> IsCompatibleAsync(TenantContext context, QuotationDraftFacts offer,
+        QuotationFrozenAuthority frozen, CancellationToken ct)
     {
-        await RequireFrozenAuthorityAsync(context, offer, ct).ConfigureAwait(false);
+        // Authority is already resolved: only database comparison may run under the publication pin.
+        if (frozen != QuotationFrozenAuthority.RequiredFor(offer)) return false;
         if (offer.CustomerContext is { } customer &&
             await customers.ExecuteAsync(context, customer.OrganizationId, customer.ProgramId, ct).ConfigureAwait(false) is null) return false;
         if (offer.CustomerId is { } id)
@@ -104,8 +106,10 @@ public sealed class QuotationPricing(SelectCatalogLineFacts catalog, PricingAppl
                     offer.CurrencyCode, retained.Explanation.Context, null, null, false, false, ct).ConfigureAwait(false);
                 if (retained.Explanation.Override is { } priceOverride)
                 {
+                    // A re-resolution can newly require elevated authority the retained override did
+                    // not. Frozen authority was resolved outside the pin, so deny rather than call out.
                     var elevated = PriceSelectionEngine.RequiresElevatedOverride(resolution, priceOverride.UnitPrice);
-                    if (elevated) await RequireAsync(context, QuotationCapability.OverrideBeyondPolicy, ct).ConfigureAwait(false);
+                    if (elevated && !frozen.OverrideBeyondPolicy) throw new QuotationCapabilityDeniedException();
                     resolution = PriceSelectionEngine.ApplyOverride(resolution, new(priceOverride.UnitPrice, priceOverride.Reason, true, elevated));
                 }
                 if (PricingRevalidation.Compare(retained, resolution).Status != PricingRevalidationStatus.Unchanged) return false;
@@ -115,18 +119,30 @@ public sealed class QuotationPricing(SelectCatalogLineFacts catalog, PricingAppl
         return true;
     }
 
+    // Resolves every outbound authorization check the retained offer needs. Callers run this
+    // before opening the effect transaction: the shared commercial-publication pin is tenant
+    // wide, so an outbound round trip held under it stalls every publication for that tenant.
+    public async Task<QuotationFrozenAuthority> ResolveFrozenAuthorityAsync(TenantContext context,
+        QuotationDraftFacts offer, CancellationToken ct)
+    {
+        var required = QuotationFrozenAuthority.RequiredFor(offer);
+        if (required.ManualPricing && !await authority.CheckAsync(context, QuotationCapability.ManualPricing, ct).ConfigureAwait(false))
+            throw new QuotationCapabilityDeniedException();
+        if (required.CatalogView && !await authority.CheckAsync(context, QuotationCapability.CatalogView, ct).ConfigureAwait(false))
+            throw new QuotationCapabilityDeniedException();
+        if (required.PricingView && !await authority.CheckAsync(context, QuotationCapability.PricingView, ct).ConfigureAwait(false))
+            throw new QuotationCapabilityDeniedException();
+        if (required.Override && !await authority.CheckAsync(context, QuotationCapability.Override, ct).ConfigureAwait(false))
+            throw new QuotationCapabilityDeniedException();
+        if (required.OverrideBeyondPolicy &&
+            !await authority.CheckAsync(context, QuotationCapability.OverrideBeyondPolicy, ct).ConfigureAwait(false))
+            throw new QuotationCapabilityDeniedException();
+        return required;
+    }
     public async Task RequireInputAuthorityAsync(TenantContext context, QuotationDraftRequest input, CancellationToken ct)
     {
         await RequireModeAsync(context, input.Mode, ct).ConfigureAwait(false);
         if (input.Lines.Any(line => line.OverridePrice.HasValue)) await RequireAsync(context, QuotationCapability.Override, ct).ConfigureAwait(false);
-    }
-    public async Task RequireFrozenAuthorityAsync(TenantContext context, QuotationDraftFacts offer, CancellationToken ct)
-    {
-        await RequireModeAsync(context, offer.Mode, ct).ConfigureAwait(false);
-        if (offer.Lines.Any(line => line.PriceSelection?.Explanation.Override is not null))
-            await RequireAsync(context, QuotationCapability.Override, ct).ConfigureAwait(false);
-        if (offer.Lines.Any(line => line.PriceSelection?.Explanation.Override is { BeyondPolicy: true }))
-            await RequireAsync(context, QuotationCapability.OverrideBeyondPolicy, ct).ConfigureAwait(false);
     }
     public async Task RequireAsync(TenantContext context, QuotationCapability permission, CancellationToken ct)
     { if (!await authority.CheckAsync(context, permission, ct).ConfigureAwait(false)) throw new QuotationCapabilityDeniedException(); }

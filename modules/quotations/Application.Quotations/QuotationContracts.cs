@@ -37,6 +37,21 @@ public interface IQuotationAuthority
 {
     Task<bool> CheckAsync(TenantContext context, QuotationCapability permission, CancellationToken cancellationToken);
 }
+// The exact outbound checks a retained offer needs, resolved by the caller BEFORE the
+// issue effect transaction takes the shared commercial-publication pin. A comparison that
+// sees any other offer shape than the one its authority was resolved for must fail closed.
+public sealed record QuotationFrozenAuthority(bool ManualPricing, bool CatalogView, bool PricingView,
+    bool Override, bool OverrideBeyondPolicy)
+{
+    public static QuotationFrozenAuthority RequiredFor(QuotationDraftFacts offer)
+    {
+        ArgumentNullException.ThrowIfNull(offer);
+        var manual = offer.Mode == QuotationPriceMode.Manual;
+        var overridden = offer.Lines.Any(line => line.PriceSelection?.Explanation.Override is not null);
+        return new(manual, !manual, !manual, overridden,
+            offer.Lines.Any(line => line.PriceSelection?.Explanation.Override is { BeyondPolicy: true }));
+    }
+}
 public interface IQuotationStore
 {
     Task<QuotationCommandResult?> FindReceiptAsync(TenantContext context, string operation, string key, string fingerprint, CancellationToken ct);

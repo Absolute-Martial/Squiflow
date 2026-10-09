@@ -15,6 +15,8 @@ public enum OrderDraftActionUnavailability
     QuotationBound = 4,
     ProfileUnavailable = 5,
     ProgramReferenceRequired = 6,
+    ApprovalRequired = 7,
+    ApprovalStale = 8,
 }
 
 public sealed record OrderDraftActionAvailability(
@@ -34,7 +36,9 @@ public sealed record OrderDraftActionGuide(
         bool mayCommit = false,
         bool quotationBound = false,
         bool profileAvailable = true,
-        bool programReferenceMissing = false)
+        bool programReferenceMissing = false,
+        bool approvalRequired = false,
+        bool approvalStale = false)
     {
         if (observedRevision < 1)
             throw new InvalidOperationException("An order draft revision must be positive.");
@@ -71,6 +75,8 @@ public sealed record OrderDraftActionGuide(
                     CommitOrderDraftStatus.AlreadyCommitted => OrderDraftActionUnavailability.AlreadyCommitted,
                     _ when mayCommit && !profileAvailable => OrderDraftActionUnavailability.ProfileUnavailable,
                     _ when mayCommit && programReferenceMissing => OrderDraftActionUnavailability.ProgramReferenceRequired,
+                    _ when mayCommit && approvalRequired => OrderDraftActionUnavailability.ApprovalRequired,
+                    _ when mayCommit && approvalStale => OrderDraftActionUnavailability.ApprovalStale,
                     _ => null,
                 },
                 mayCommit),

@@ -12,8 +12,10 @@ namespace Application.Quotations.Postgres.Tests;
 
 public sealed partial class QuotationPostgresTests
 {
-    [Fact]
-    public async Task ActualAcceptedProgramQuotationKeepsOfferAndConversionSnapshotAcrossReferenceEditAndCommit()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ActualAcceptedProgramQuotationKeepsOfferAndConversionSnapshotAcrossReferenceEditAndCommit(bool requireApproval)
     {
         var context = await Context();
         var organization = Guid.NewGuid();
@@ -26,7 +28,7 @@ public sealed partial class QuotationPostgresTests
             """, ("tenant", _tenant), ("organization", organization), ("program", program), ("account", _account), ("at", _clock.GetUtcNow()));
         await using var ownerSource = new NpgsqlDataSourceBuilder(_database.GetConnectionString()).Build();
         var profiles = new PostgresProfileStore(ownerSource, _clock);
-        var edited = await profiles.EditPolicyAsync(context, new(0, true), 1, "program-policy", default);
+        var edited = await profiles.EditPolicyAsync(context, new(0, true, requireApproval), 1, "program-policy", default);
         var policy = await profiles.PublishPolicyAsync(context, new(edited.PolicyState!.Revision), 1, "program-policy-publish", default);
         var access = new PlatformAdminAccess(Guid.NewGuid(), Guid.NewGuid());
         var publication = await profiles.PublishProfileAsync(access, new(_tenant, 0, policy.PublishedPolicy!.PolicyRevisionId, 1), "program-profile", default);
@@ -43,12 +45,29 @@ public sealed partial class QuotationPostgresTests
         var original = converted.Quotation!.Conversion!.OriginalOrder;
         Assert.Equal(publication.Profile.ProfileId, original.ProgramPolicy?.ProfileId);
         Assert.True(original.ProgramPolicy!.RequireReferenceForProgramOrders);
-        var orders = new PostgresOrderDraftStore(_runtime, _clock, new OrderCommercialCommitGuard(null!, null!, null!, quotationStore), profilePolicySource: new PinnedProfileBridge());
+        var approver = Guid.NewGuid();
+        var orders = new PostgresOrderDraftStore(_runtime, _clock, new OrderCommercialCommitGuard(null!, null!, null!, quotationStore),
+            profilePolicySource: new PinnedProfileBridge(), approvalAuthority: new QuotedApprovalAuthority(_account, approver));
         var commit = new CommitOrderDraft(orders);
         Assert.Equal(CommitOrderDraftStatus.ProgramReferenceRequired,
             (await commit.ExecuteAsync(context, new(original.OrderId, original.Revision), "program-commit", default)).Status);
         var reference = await new SetOrderProgramReference(orders).ExecuteAsync(context, new(original.OrderId, original.Revision, "PO-1042"), "program-reference", default);
         Assert.Equal(SetOrderProgramReferenceStatus.Updated, reference.Status);
+        if (requireApproval)
+        {
+            Assert.Equal(CommitOrderDraftStatus.ApprovalRequired,
+                (await commit.ExecuteAsync(context, new(original.OrderId, reference.Order!.Revision), "program-commit", default)).Status);
+            await OwnerSqlAsync("""
+                INSERT INTO identity_access.accounts(id) VALUES(@approver);
+                GRANT INSERT ON orders.approval_requests,orders.approval_events,orders.approval_commit_evidence TO quotation_runtime;
+                GRANT UPDATE(assigned_id,revision,state,updated_at) ON orders.approval_requests TO quotation_runtime;
+                """, ("approver", approver), ("tenant", _tenant), ("at", _clock.GetUtcNow()));
+            var approverContext = await ContextAsync(_tenant, approver);
+            var submitted = await orders.SubmitApprovalAsync(context, new(original.OrderId, reference.Order.Revision, approver), "quote-submit", default);
+            Assert.Equal(OrderApprovalStatus.Applied, submitted.Status);
+            Assert.Equal(OrderApprovalStatus.Applied, (await orders.DecideApprovalAsync(approverContext!,
+                new(submitted.Request!.RequestId, 1, OrderApprovalDecision.Approve), "quote-approve", default)).Status);
+        }
         var committed = await commit.ExecuteAsync(context, new(original.OrderId, reference.Order!.Revision), "program-commit", default);
         Assert.Equal(CommitOrderDraftStatus.Committed, committed.Status);
         Assert.Equivalent(original.Lines, committed.Order!.Lines);
@@ -66,6 +85,14 @@ public sealed partial class QuotationPostgresTests
         Assert.Equal(OrderDraftChange.ProgramReferenceUpdated, history.Items[1].Change);
     }
 
+    private sealed class QuotedApprovalAuthority(Guid requester, Guid approver) : IOrderApprovalAuthority
+    {
+        public Task<OrderApprovalAuthority> ResolveAsync(TenantContext context, CancellationToken cancellationToken) =>
+            Task.FromResult(new OrderApprovalAuthority(1, context.AccountId == requester, true, context.AccountId == approver, false, false, false, true));
+        public Task<bool> IsEligibleApproverAsync(TenantContext context, Guid accountId, CancellationToken cancellationToken) =>
+            Task.FromResult(accountId == approver);
+    }
+
     private sealed class PinnedOrderWriter : IQuotationOrderWriter
     {
         public async Task<OrderDraftSnapshot> CreateAsync(TenantContext context, AcceptedQuotationOrder accepted,
@@ -74,7 +101,7 @@ public sealed partial class QuotationPostgresTests
             var profile = await PostgresProfileStore.ResolveActiveForOrderAsync(connection, transaction, context.TenantId, ct)
                 ?? throw new OrderProfileUnavailableException();
             return await PostgresOrderDraftStore.CreateAcceptedQuotationAsync(context, accepted, connection, transaction, createdAt, ct,
-                new(profile.ProfileId, profile.Policy.PolicyRevisionId, profile.Policy.RequireReferenceForProgramOrders));
+                new(profile.ProfileId, profile.Policy.PolicyRevisionId, profile.Policy.RequireReferenceForProgramOrders, profile.Policy.RequireApprovalForProgramOrders));
         }
     }
 
@@ -87,6 +114,6 @@ public sealed partial class QuotationPostgresTests
         public async Task<bool> IsRetainedCompatibleAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, Guid tenantId, OrderProgramPolicyFacts policy, CancellationToken ct) =>
             Facts(await PostgresProfileStore.ResolveRetainedForOrderAsync(connection, transaction, tenantId, policy.ProfileId, ct)) == policy;
         private static OrderProgramPolicyFacts? Facts(TenantProfileSnapshot? profile) => profile is null ? null :
-            new(profile.ProfileId, profile.Policy.PolicyRevisionId, profile.Policy.RequireReferenceForProgramOrders);
+            new(profile.ProfileId, profile.Policy.PolicyRevisionId, profile.Policy.RequireReferenceForProgramOrders, profile.Policy.RequireApprovalForProgramOrders);
     }
 }

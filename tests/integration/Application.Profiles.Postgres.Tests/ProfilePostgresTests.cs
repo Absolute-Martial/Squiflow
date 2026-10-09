@@ -43,7 +43,7 @@ public sealed class ProfilePostgresTests : IAsyncLifetime
             GRANT USAGE ON SCHEMA profiles TO profile_tenant_runtime,profile_platform_runtime;
             GRANT SELECT ON ALL TABLES IN SCHEMA profiles TO profile_tenant_runtime,profile_platform_runtime;
             GRANT INSERT ON profiles.policy_heads,profiles.policy_revisions,profiles.command_receipts TO profile_tenant_runtime;
-            GRANT UPDATE(revision,require_reference,published_policy_id) ON profiles.policy_heads TO profile_tenant_runtime;
+            GRANT UPDATE(revision,require_reference,require_approval,published_policy_id) ON profiles.policy_heads TO profile_tenant_runtime;
             GRANT INSERT ON profiles.publications,profiles.authority,profiles.command_receipts TO profile_platform_runtime;
             GRANT UPDATE(revision,active_profile_id,legacy_baseline_profile_id) ON profiles.authority TO profile_platform_runtime;
             """);
@@ -71,6 +71,34 @@ public sealed class ProfilePostgresTests : IAsyncLifetime
         Assert.Equal(ProfileCommandStatus.Replayed, replay.Status); Assert.Equivalent(published.PublishedPolicy, replay.PublishedPolicy);
         Assert.Equal(ProfileCommandStatus.IdempotencyKeyConflict, (await store.EditPolicyAsync(context, new(0, true), 1, "first", default)).Status);
         Assert.Equal(ProfileCommandStatus.RevisionConflict, (await store.EditPolicyAsync(context, new(1, true), 1, "stale", default)).Status);
+    }
+    [Fact]
+    public async Task ApprovalPolicyRoundTripsAndReferenceOnlyEditPreservesTheCurrentApprovalSetting()
+    {
+        var context = await ContextAsync();
+        var draft = await TenantStore.EditPolicyAsync(context, new(0, false, true), 1, "approval-on", default);
+        Assert.True(draft.PolicyState!.RequireApprovalForProgramOrders);
+        var published = await TenantStore.PublishPolicyAsync(context, new(draft.PolicyState.Revision), 1, "approval-publish", default);
+        Assert.True(published.PublishedPolicy!.RequireApprovalForProgramOrders);
+        Assert.Equal(TenantProfileRules.SupportedPolicyVersion, published.PublishedPolicy.Version);
+        var optional = await PlatformStore.PublishProfileAsync(administrator,
+            new(tenantId, 0, published.PublishedPolicy.PolicyRevisionId, 1), "approval-profile", default);
+        Assert.Equal(TenantProfileRules.SupportedVersion, optional.Profile!.Version);
+        Assert.True((await PlatformStore.GetProfileAsync(tenantId, optional.Profile.ProfileId, default))!.Policy.RequireApprovalForProgramOrders);
+
+        var referenceEdit = await TenantStore.EditPolicyAsync(context, new(published.PublishedPolicy.Revision, true), 1, "reference-only", default);
+        Assert.True(referenceEdit.PolicyState!.RequireApprovalForProgramOrders);
+        var approvalOff = await TenantStore.EditPolicyAsync(context, new(referenceEdit.PolicyState.Revision, false, false), 1, "approval-off", default);
+        Assert.False(approvalOff.PolicyState!.RequireApprovalForProgramOrders);
+        var falsePolicy = await TenantStore.PublishPolicyAsync(context, new(approvalOff.PolicyState.Revision), 1, "approval-off-publish", default);
+        Assert.False(falsePolicy.PublishedPolicy!.RequireApprovalForProgramOrders);
+    }
+    [Fact]
+    public async Task RequiredApprovalPolicyCannotBePublishedOrSelectedAsTheOptionalLegacyBaseline()
+    {
+        var required = await PublishAsync(false, "approval-baseline", baseline: true, approval: true);
+        Assert.Equal(ProfileCommandStatus.InvalidBaseline, required.Status);
+        Assert.Equal(0, await CountAsync("publications"));
     }
     [Fact]
     public async Task SameCallerKeyConvergesAndIndependentCompareAndSwapCommandsHaveOneWinner()
@@ -268,7 +296,7 @@ public sealed class ProfilePostgresTests : IAsyncLifetime
     {
         var profile = await PublishAsync(false, "damage");
         var jsonPath = damage switch { "version" => "{Version}", "catalog" => "{CatalogFingerprint}", "policy" => "{Policy,RequireReferenceForProgramOrders}", _ => "{Status}" };
-        var value = damage switch { "version" => "\"tenant-profile/v2\"", "catalog" => "\"unknown\"", "policy" => "true", _ => "0" };
+        var value = damage switch { "version" => "\"tenant-profile/v9\"", "catalog" => "\"unknown\"", "policy" => "true", _ => "0" };
         if (damage == "receipt")
         {
             await OwnerSqlAsync("ALTER TABLE profiles.command_receipts DISABLE TRIGGER immutable_profile_receipt; UPDATE profiles.command_receipts SET result=jsonb_set(result,@path::text[],@value::jsonb) WHERE operation='publish-profile'", ("path", jsonPath), ("value", value));
@@ -300,6 +328,57 @@ public sealed class ProfilePostgresTests : IAsyncLifetime
         }
     }
     [Fact]
+    public async Task V2PolicyAndSnapshotRejectMissingOrContradictoryApprovalVersionFacts()
+    {
+        var profile = await PublishAsync(false, "v2-contradictory", approval: true);
+        var second = await PublishAsync(false, "v2-version-mismatch");
+        var third = await PublishAsync(false, "v2-policy-version");
+        var fourth = await PublishAsync(false, "unknown-policy-version");
+        await OwnerSqlAsync("ALTER TABLE profiles.publications DISABLE TRIGGER immutable_publication; UPDATE profiles.publications SET facts=facts-'Policy' || jsonb_build_object('Policy', (facts->'Policy')-'RequireApprovalForProgramOrders') WHERE profile_id=@id", ("id", profile.Profile!.ProfileId));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => PlatformStore.GetProfileAsync(tenantId, profile.Profile!.ProfileId, default));
+
+        await OwnerSqlAsync("ALTER TABLE profiles.publications DISABLE TRIGGER immutable_publication; UPDATE profiles.publications SET facts=jsonb_set(facts,'{Version}','\"tenant-profile/v1\"') WHERE profile_id=@id", ("id", second.Profile!.ProfileId));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => PlatformStore.GetProfileAsync(tenantId, second.Profile.ProfileId, default));
+
+        await OwnerSqlAsync("ALTER TABLE profiles.policy_revisions DISABLE TRIGGER immutable_policy_revision; UPDATE profiles.policy_revisions SET facts=facts-'RequireApprovalForProgramOrders' WHERE policy_id=@id", ("id", third.PublishedPolicy!.PolicyRevisionId));
+        var context = await ContextAsync();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => TenantStore.GetPublishedPolicyAsync(context, third.PublishedPolicy.PolicyRevisionId, default));
+
+        await OwnerSqlAsync("UPDATE profiles.policy_revisions SET facts=jsonb_set(facts,'{Version}','\"tenant-policy/v9\"') WHERE policy_id=@id", ("id", fourth.PublishedPolicy!.PolicyRevisionId));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => TenantStore.GetPublishedPolicyAsync(context, fourth.PublishedPolicy.PolicyRevisionId, default));
+    }
+    [Fact]
+    public async Task LegacyV1ProfileAndReceiptRemainReadableWithoutRewritingTheirStoredFacts()
+    {
+        var result = await PublishAsync(false, "legacy-v1");
+        var policyId = result.PublishedPolicy!.PolicyRevisionId;
+        var profileId = result.Profile!.ProfileId;
+        await OwnerSqlAsync("""
+            ALTER TABLE profiles.policy_revisions DISABLE TRIGGER immutable_policy_revision;
+            UPDATE profiles.policy_revisions SET facts=facts-'Version'-'RequireApprovalForProgramOrders',version=1,require_approval=false WHERE policy_id=@policy;
+            ALTER TABLE profiles.publications DISABLE TRIGGER immutable_publication;
+            UPDATE profiles.publications SET facts=jsonb_set(facts,'{Version}','"tenant-profile/v1"') WHERE profile_id=@profile;
+            UPDATE profiles.publications SET facts=jsonb_set(facts,'{Policy}',(facts->'Policy')-'Version'-'RequireApprovalForProgramOrders'),version=1 WHERE profile_id=@profile;
+            ALTER TABLE profiles.command_receipts DISABLE TRIGGER immutable_profile_receipt;
+            UPDATE profiles.command_receipts SET result=jsonb_set(result,'{Profile,Version}','"tenant-profile/v1"') WHERE operation='publish-profile';
+            UPDATE profiles.command_receipts SET result=jsonb_set(result,'{Profile,Policy}',(result->'Profile'->'Policy')-'Version'-'RequireApprovalForProgramOrders') WHERE operation='publish-profile';
+            UPDATE profiles.command_receipts SET result=jsonb_set(result,'{PublishedPolicy}',(result->'PublishedPolicy')-'Version'-'RequireApprovalForProgramOrders') WHERE operation='publish-profile';
+            """, ("policy", policyId), ("profile", profileId));
+        var profileJson = await OwnerScalarAsync<string>("SELECT facts::text FROM profiles.publications WHERE profile_id=@id", ("id", profileId));
+        var receiptJson = await OwnerScalarAsync<string>("SELECT result::text FROM profiles.command_receipts WHERE operation='publish-profile'");
+        var retained = await PlatformStore.GetProfileAsync(tenantId, profileId, default);
+        Assert.Equal(TenantProfileRules.LegacyVersion, retained!.Version);
+        Assert.False(retained.Policy.RequireApprovalForProgramOrders);
+        var replay = await PlatformStore.PublishProfileAsync(administrator, new(tenantId, 0, policyId, 1), "profile-legacy-v1", default);
+        Assert.Equal(ProfileCommandStatus.Replayed, replay.Status);
+        Assert.Equal(TenantProfileRules.LegacyVersion, replay.Profile!.Version);
+        var newPublication = await PlatformStore.PublishProfileAsync(administrator,
+            new(tenantId, result.Authority!.Revision, policyId, 1), "new-profile-from-legacy-policy", default);
+        Assert.Equal(ProfileCommandStatus.UnsupportedPolicyVersion, newPublication.Status);
+        Assert.Equal(profileJson, await OwnerScalarAsync<string>("SELECT facts::text FROM profiles.publications WHERE profile_id=@id", ("id", profileId)));
+        Assert.Equal(receiptJson, await OwnerScalarAsync<string>("SELECT result::text FROM profiles.command_receipts WHERE operation='publish-profile'"));
+    }
+    [Fact]
     public async Task DestructiveMigrationRollbackIsRejectedAndRetainedProfilesRemainReadable()
     {
         var profile = await PublishAsync(false, "retained");
@@ -307,10 +386,10 @@ public sealed class ProfilePostgresTests : IAsyncLifetime
         await Assert.ThrowsAsync<NotSupportedException>(() => context.GetService<IMigrator>().MigrateAsync("0"));
         Assert.Equivalent(profile.Profile, await PlatformStore.GetProfileAsync(tenantId, profile.Profile!.ProfileId, default));
     }
-    private async Task<ProfileCommandResult> PublishAsync(bool required, string suffix, bool baseline = false)
+    private async Task<ProfileCommandResult> PublishAsync(bool required, string suffix, bool baseline = false, bool approval = false)
     {
         var context = await ContextAsync(); var previous = await TenantStore.GetPolicyAsync(context, default);
-        var draft = await TenantStore.EditPolicyAsync(context, new(previous?.Revision ?? 0, required), 1, "draft-" + suffix, default);
+        var draft = await TenantStore.EditPolicyAsync(context, new(previous?.Revision ?? 0, required, approval), 1, "draft-" + suffix, default);
         var policy = await TenantStore.PublishPolicyAsync(context, new(draft.PolicyState!.Revision), 1, "policy-" + suffix, default);
         var authority = await PlatformStore.GetAuthorityAsync(tenantId, default);
         return await PlatformStore.PublishProfileAsync(administrator, new(tenantId, authority?.Revision ?? 0, policy.PublishedPolicy!.PolicyRevisionId, 1, baseline), "profile-" + suffix, default);
@@ -320,6 +399,11 @@ public sealed class ProfilePostgresTests : IAsyncLifetime
     {
         await using var connection = new NpgsqlConnection(database.GetConnectionString()); await connection.OpenAsync(); await using var command = new NpgsqlCommand(sql, connection);
         foreach (var (name, value) in values) command.Parameters.AddWithValue(name, value); await command.ExecuteNonQueryAsync();
+    }
+    private async Task<T> OwnerScalarAsync<T>(string sql, params (string Name, object Value)[] values)
+    {
+        await using var connection = new NpgsqlConnection(database.GetConnectionString()); await connection.OpenAsync(); await using var command = new NpgsqlCommand(sql, connection);
+        foreach (var (name, value) in values) command.Parameters.AddWithValue(name, value); return (T)(await command.ExecuteScalarAsync())!;
     }
     private async Task TenantSqlAsync(string sql)
     {

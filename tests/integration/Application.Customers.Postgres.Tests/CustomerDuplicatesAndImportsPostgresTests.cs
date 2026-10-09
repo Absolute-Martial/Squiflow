@@ -97,6 +97,185 @@ public sealed partial class CustomerPostgresTests
     }
 
     [Fact]
+    public async Task ForeignImportContractVersionIsRejectedOnCreateAndPinnedByTheDatabase()
+    {
+        await MigrateAsync();
+        var (tenantId, accountId) = await SeedAsync();
+        var context = await ResolveContextAsync(tenantId, accountId);
+        await using var source = NpgsqlDataSource.Create(await CreateRestrictedRoleAsync());
+        var store = new PostgresCustomerStore(source);
+        var plan = await CustomerImportCsv.PlanAsync(
+            new MemoryStream(System.Text.Encoding.UTF8.GetBytes("name\nContract Guard\n")), Guid.NewGuid(), CancellationToken.None);
+        Assert.Equal(CustomerImportCsv.ContractVersion, plan.ContractVersion);
+
+        const string foreignContract = "customer-import/v99";
+        var foreign = plan with
+        {
+            ContractVersion = foreignContract,
+            Fingerprint = CustomerIdentityNormalization.Fingerprint("customer-import", foreignContract, plan.ManifestHash,
+                string.Join('|', plan.Rows.Select(row => $"{row.RowNumber}:{row.SourceRowHash}:{(int)row.Status}"))),
+        };
+        var rejected = await Assert.ThrowsAsync<CustomerValidationException>(() =>
+            store.CreateImportPlanAsync(context, foreign, "foreign-contract", CancellationToken.None));
+        Assert.Equal("import_plan_invalid", rejected.Code);
+        Assert.Equal(0L, await CountAsync("customers.imports"));
+
+        var planned = await store.CreateImportPlanAsync(context, plan, "current-contract", CancellationToken.None);
+        Assert.True(planned.Created);
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync();
+        await using var pin = connection.CreateCommand();
+        pin.CommandText = "UPDATE customers.imports SET contract_version=@foreign WHERE tenant_id=@tenant AND import_id=@import";
+        pin.Parameters.AddWithValue("foreign", foreignContract);
+        pin.Parameters.AddWithValue("tenant", tenantId);
+        pin.Parameters.AddWithValue("import", plan.ImportId);
+        var pinned = await Assert.ThrowsAsync<PostgresException>(() => pin.ExecuteNonQueryAsync());
+        Assert.Equal(PostgresErrorCodes.CheckViolation, pinned.SqlState);
+        Assert.Equal("ck_customer_imports_contract", pinned.ConstraintName);
+    }
+
+    [Fact]
+    public async Task StoredForeignImportContractVersionFailsSummariseRowsAndExecuteTyped()
+    {
+        await MigrateAsync();
+        var (tenantId, accountId) = await SeedAsync();
+        var context = await ResolveContextAsync(tenantId, accountId);
+        await using var source = NpgsqlDataSource.Create(await CreateRestrictedRoleAsync());
+        var store = new PostgresCustomerStore(source);
+        var planned = await PlanFixtureAsync(store, context, "name\nContract Guard\n");
+        var authority = new ImportAuthority(context);
+
+        await new ExecuteCustomerImport(store, authority).ExecuteAsync(context, new(planned.ImportId), "accept-current", CancellationToken.None);
+
+        // The CHECK is what keeps a foreign contract version out of the table in production; relaxing
+        // it here is the only way to reach the application guard that protects every other shape.
+        await FixtureSqlAsync("ALTER TABLE customers.imports DROP CONSTRAINT ck_customer_imports_contract");
+        await FixtureSqlAsync(
+            $"UPDATE customers.imports SET contract_version='customer-import/v99' WHERE tenant_id='{tenantId:D}' AND import_id='{planned.ImportId:D}'");
+        await FixtureSqlAsync(
+            "ALTER TABLE customers.imports ADD CONSTRAINT ck_customer_imports_contract CHECK (contract_version = 'customer-import/v1') NOT VALID");
+
+        var summary = await Assert.ThrowsAsync<CustomerImportContractUnsupportedException>(() =>
+            store.ReadImportSummaryAsync(context, planned.ImportId, CancellationToken.None));
+        Assert.Equal("customer-import/v99", summary.ContractVersion);
+        var page = await Assert.ThrowsAsync<CustomerImportContractUnsupportedException>(() =>
+            store.ReadImportRowsPageAsync(context, planned.ImportId, 0, 25, CancellationToken.None));
+        Assert.Equal("customer-import/v99", page.ContractVersion);
+        var executed = await Assert.ThrowsAsync<CustomerImportContractUnsupportedException>(() =>
+            new ExecuteCustomerImport(store, authority).ExecuteAsync(context, new(planned.ImportId), "accept", CancellationToken.None));
+        Assert.Equal("customer-import/v99", executed.ContractVersion);
+        Assert.Equal(1L, await CountAsync("customers.import_work"));
+        Assert.Equal(0L, await CountAsync("customers.individuals"));
+
+        var claim = await store.ClaimImportAsync(tenantId, Guid.NewGuid(), RunCustomerImportBatch.ClaimLease, CancellationToken.None);
+        Assert.NotNull(claim);
+        var queued = await Assert.ThrowsAsync<CustomerImportContractUnsupportedException>(() =>
+            store.ProcessNextImportRowAsync(claim, context, CancellationToken.None));
+        Assert.Equal("customer-import/v99", queued.ContractVersion);
+        Assert.Equal(0L, await CountAsync("customers.individuals"));
+
+        await FixtureSqlAsync("ALTER TABLE customers.imports DROP CONSTRAINT ck_customer_imports_contract");
+        await FixtureSqlAsync(
+            $"UPDATE customers.imports SET contract_version='{CustomerImportCsv.ContractVersion}' WHERE tenant_id='{tenantId:D}' AND import_id='{planned.ImportId:D}'");
+        await FixtureSqlAsync(
+            $"ALTER TABLE customers.imports ADD CONSTRAINT ck_customer_imports_contract CHECK (contract_version = '{CustomerImportCsv.ContractVersion}') NOT VALID");
+        Assert.Equal(CustomerImportCsv.ContractVersion,
+            (await store.ReadImportSummaryAsync(context, planned.ImportId, CancellationToken.None))!.ContractVersion);
+    }
+
+    [Fact]
+    public async Task LegacyPendingImportReplanIsReachableWhileItsContractVersionIsSupported()
+    {
+        await MigrateAsync();
+        var (tenantId, accountId) = await SeedAsync();
+        var context = await ResolveContextAsync(tenantId, accountId);
+        await using var source = NpgsqlDataSource.Create(await CreateRestrictedRoleAsync());
+        var store = new PostgresCustomerStore(source);
+        var planned = await PlanFixtureAsync(store, context, "name\nLegacy Pending\n");
+        await FixtureSqlAsync(
+            $"UPDATE customers.import_rows SET duplicate_evidence='legacy_plan_requires_replan' WHERE tenant_id='{tenantId:D}' AND import_id='{planned.ImportId:D}' AND status=1");
+
+        var legacy = await Assert.ThrowsAsync<CustomerValidationException>(() =>
+            new ExecuteCustomerImport(store, new ImportAuthority(context)).ExecuteAsync(context, new(planned.ImportId), "accept", CancellationToken.None));
+        Assert.Equal("legacy_plan_requires_replan", legacy.Code);
+        Assert.Equal(0L, await CountAsync("customers.import_work"));
+    }
+
+    [Fact]
+    public async Task ConsolidatedMappingTargetIsRecordedAsASystemFailureNotAnOperatorRejection()
+    {
+        await MigrateAsync();
+        var (tenant, actor) = await SeedAsync();
+        var context = await ResolveContextAsync(tenant, actor);
+        await using var source = NpgsqlDataSource.Create(await CreateRestrictedRoleAsync());
+        var store = new PostgresCustomerStore(source);
+        var target = (await new CreateCustomerIndividual(store).ExecuteAsync(context,
+            new("Mapped Target", null, null), "target", CancellationToken.None)).Individual!;
+        var survivor = (await new CreateCustomerIndividual(store).ExecuteAsync(context,
+            new("Later Survivor", null, null), "survivor", CancellationToken.None)).Individual!;
+        const string csv = "name,email\n" +
+                           "Mapped Row,mapped@example.test\n" +
+                           "Rejected Row,rejected@example.test\n" +
+                           "New Row,new@example.test\n";
+        var planned = await new CreateCustomerImport(store).ExecuteAsync(context,
+            new MemoryStream(System.Text.Encoding.UTF8.GetBytes(csv)), Guid.NewGuid(), "import-plan-consolidated", CancellationToken.None);
+        var authority = new ImportAuthority(context);
+        await new ExecuteCustomerImport(store, authority).ExecuteAsync(context, new(planned.ImportId,
+            new Dictionary<int, Guid> { [2] = target.IndividualId },
+            [new CustomerImportDecision(3, planned.Plan.Rows.Single(row => row.RowNumber == 3).SourceRowHash,
+                CustomerImportDecisionKind.Reject)]), "import-work-consolidated", CancellationToken.None);
+
+        // The mapped target is consolidated after acceptance, so a system-side merge made
+        // the accepted decision unprocessable. No operator rejected this row.
+        await new ConsolidateCustomerDuplicate(store).ExecuteAsync(context,
+            new(target.IndividualId, survivor.IndividualId, 1, 1), "target-survivor", CancellationToken.None);
+
+        var runner = new RunCustomerImportBatch(store, authority);
+        await runner.ExecuteAsync(tenant, Guid.NewGuid(), 50, CancellationToken.None);
+        var rows = (await store.ReadImportRowsPageAsync(context, planned.ImportId, 0, 25, CancellationToken.None)).Items;
+        var mapped = rows.Single(row => row.RowNumber == 2);
+        var rejected = rows.Single(row => row.RowNumber == 3);
+        var created = rows.Single(row => row.RowNumber == 4);
+        Assert.Equal(CustomerImportRowStatus.Failed, mapped.Status);
+        Assert.Equal("mapping_target_unavailable", mapped.ErrorCode);
+        Assert.Null(mapped.CustomerId);
+        Assert.Equal(CustomerImportRowStatus.Rejected, rejected.Status);
+        Assert.Equal("operator_rejected", rejected.ErrorCode);
+        Assert.Equal(CustomerImportRowStatus.Imported, created.Status);
+        // The two causes must remain distinguishable in the retained receipt.
+        Assert.NotEqual(rejected.Status, mapped.Status);
+        Assert.NotEqual(rejected.ErrorCode, mapped.ErrorCode);
+        var summary = await store.ReadImportSummaryAsync(context, planned.ImportId, CancellationToken.None);
+        Assert.Equal(1, summary!.Rejected);
+        Assert.Equal(1, summary.Failed);
+        Assert.Equal(1, summary.Imported);
+        Assert.Equal(CustomerImportWorkStatus.Accepted, summary.Work!.Status);
+        Assert.Equal("row_processing_failed", summary.Work.LastError);
+        // Only the deliberately created row exists; the consolidated target was never mapped to.
+        Assert.Equal(3L, await CountAsync("customers.individuals"));
+
+        // A consolidated target is not transient: the attempt budget terminates the work
+        // in operator review instead of retrying forever or inventing a mapped result.
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            await FixtureSqlAsync("""
+                UPDATE customers.import_rows SET processed_at=clock_timestamp()-interval '10 seconds';
+                UPDATE customers.import_work SET next_attempt_at=clock_timestamp()-interval '10 seconds';
+                """);
+            await runner.ExecuteAsync(tenant, Guid.NewGuid(), 50, CancellationToken.None);
+        }
+        var exhausted = await store.ReadImportSummaryAsync(context, planned.ImportId, CancellationToken.None);
+        Assert.Equal(CustomerImportWorkStatus.Failed, exhausted!.Work!.Status);
+        Assert.Equal(3, (await store.ReadImportRowsPageAsync(context, planned.ImportId, 0, 25, CancellationToken.None))
+            .Items.Single(row => row.RowNumber == 2).Attempts);
+        Assert.Equal(CustomerImportBatchStatus.Idle, (await runner.ExecuteAsync(tenant, Guid.NewGuid(), 50, CancellationToken.None)).Status);
+        Assert.Equal("mapping_target_unavailable",
+            (await store.ReadImportRowsPageAsync(context, planned.ImportId, 0, 25, CancellationToken.None))
+            .Items.Single(row => row.RowNumber == 2).ErrorCode);
+        Assert.Equal(3L, await CountAsync("customers.individuals"));
+    }
+
+    [Fact]
     public async Task ImportSourceRetirementClaimsAreFencedRecoverableAndReleaseUsageOnce()
     {
         await MigrateAsync();
@@ -170,17 +349,133 @@ public sealed partial class CustomerPostgresTests
         await store.CompleteSourceRetirementAsync(context, retirement, true, null, CancellationToken.None);
         var stillPending = await store.ReadSourceAsync(context, completed.ImportId, CancellationToken.None);
         Assert.Equal(CustomerImportSourceState.RetirementPending, stillPending!.State);
-        Assert.Equal(plan.ByteLength, await ReadRetainedBytesAsync(tenantId, policy.ProviderScope));
+        Assert.Equal(plan.ByteLength, (await ReadStorageUsageAsync(tenantId, policy.ProviderScope)).Retained);
 
         await store.CompleteSourceRetirementAsync(context, recovered, true, null, CancellationToken.None);
         var retired = await store.ReadSourceAsync(context, completed.ImportId, CancellationToken.None);
         Assert.Equal(CustomerImportSourceState.Retired, retired!.State);
-        Assert.Equal(0L, await ReadRetainedBytesAsync(tenantId, policy.ProviderScope));
+        Assert.Equal(0L, (await ReadStorageUsageAsync(tenantId, policy.ProviderScope)).Retained);
         await store.CompleteSourceRetirementAsync(context, recovered, true, null, CancellationToken.None);
-        Assert.Equal(0L, await ReadRetainedBytesAsync(tenantId, policy.ProviderScope));
+        Assert.Equal(0L, (await ReadStorageUsageAsync(tenantId, policy.ProviderScope)).Retained);
         await Assert.ThrowsAsync<CustomerValidationException>(() => store.BeginSourceAsync(context, plan, "source-1",
             CustomerImportRetention.DefaultSevenDays, policy, CancellationToken.None));
         Assert.NotNull(await store.ReadImportSummaryAsync(context, completed.ImportId, CancellationToken.None));
+    }
+
+    // customers.object_storage_reservations.state is the persisted integer domain fixed by the
+    // Customers migration (state IN (1, 2, 3, 4)). It has no published enum, so the lifecycle
+    // values are named here rather than asserted as bare integers.
+    private const int ReservationHeld = 1;
+    private const int ReservationCommitted = 2;
+    private const int ReservationReleased = 3;
+    private const int ReservationOutcomeUnknown = 4;
+
+    [Fact]
+    public async Task ImportSourceAllowanceIsReservedThenRetainedRefusedWhenExhaustedAndOnlyReleasedByAProvenAbsentUpload()
+    {
+        await MigrateAsync();
+        var (tenantId, accountId) = await SeedAsync();
+        var context = await ResolveContextAsync(tenantId, accountId);
+        await using var source = NpgsqlDataSource.Create(await CreateRestrictedRoleAsync());
+        var store = new PostgresCustomerStore(source);
+
+        // The allowance is a small multiple of one source so an exhausted allowance can be probed
+        // with a plan whose single CSV field stays inside the accepted raw field length.
+        const int AllowanceInSources = 20;
+        var retained = await PlanOfByteLengthAsync(21);
+        var policy = CustomerImportSourcePolicy.Create(
+            "test/source-allowance", retained.ByteLength * AllowanceInSources);
+
+        var retainedLease = await store.BeginSourceAsync(context, retained, "allowance-retained",
+            CustomerImportRetention.DefaultSevenDays, policy, CancellationToken.None);
+        Assert.True(retainedLease.UploadRequired);
+        Assert.NotEqual(Guid.Empty, retainedLease.ReservationId);
+
+        // A staged source has already consumed its bytes from the tenant's allowance even though
+        // nothing is retained, because a crashed uploader must not be able to re-spend the same
+        // allowance on a second source.
+        var staged = await ReadStorageUsageAsync(tenantId, policy.ProviderScope);
+        Assert.Equal(retained.ByteLength, staged.Reserved);
+        Assert.Equal(0L, staged.Retained);
+        var stagedReservations = await ReadReservationStatesAsync(tenantId, policy.ProviderScope);
+        Assert.Equal(ReservationHeld, stagedReservations[retainedLease.ObjectKey]);
+
+        var completed = await store.CompleteSourceAsync(context, retained, "allowance-retained",
+            CustomerImportRetention.DefaultSevenDays, policy, retainedLease, CancellationToken.None);
+        Assert.True(completed.Created);
+
+        // A published source moves the reservation out of the pending allowance and into the
+        // retained bytes instead of releasing it, so the same bytes are charged exactly once.
+        var published = await ReadStorageUsageAsync(tenantId, policy.ProviderScope);
+        Assert.Equal(0L, published.Reserved);
+        Assert.Equal(retained.ByteLength, published.Retained);
+        Assert.Equal(ReservationCommitted,
+            (await ReadReservationStatesAsync(tenantId, policy.ProviderScope))[retainedLease.ObjectKey]);
+
+        var remaining = policy.MaximumRetainedBytes - published.Retained - published.Reserved;
+        var refused = await PlanOfByteLengthAsync(remaining + 1);
+        Assert.True(refused.ByteLength <= policy.MaximumRetainedBytes,
+            "The refusal must come from accumulated usage, not from a single oversized plan.");
+        var capacity = await Assert.ThrowsAsync<CustomerValidationException>(() => store.BeginSourceAsync(
+            context, refused, "allowance-refused", CustomerImportRetention.DefaultSevenDays, policy, CancellationToken.None));
+        Assert.Equal("import_storage_capacity", capacity.Code);
+        var afterRefusal = await ReadStorageUsageAsync(tenantId, policy.ProviderScope);
+        Assert.Equal(published.Reserved, afterRefusal.Reserved);
+        Assert.Equal(published.Retained, afterRefusal.Retained);
+        var refusedReservations = await ReadReservationStatesAsync(tenantId, policy.ProviderScope);
+        Assert.Single(refusedReservations);
+        Assert.DoesNotContain("allowance-refused", refusedReservations.Keys, StringComparer.Ordinal);
+
+        var absent = await PlanOfByteLengthAsync(remaining);
+        var absentLease = await store.BeginSourceAsync(context, absent, "allowance-proven-absent",
+            CustomerImportRetention.DefaultSevenDays, policy, CancellationToken.None);
+        Assert.Equal(remaining, (await ReadStorageUsageAsync(tenantId, policy.ProviderScope)).Reserved);
+        await store.MarkSourceFailureAsync(context, absentLease, CustomerImportSourceFailureKind.ProvenAbsent,
+            "object_absent", CancellationToken.None);
+
+        // A proven-absent upload never happened, so its bytes return to the allowance instead of
+        // being charged as retained.
+        var released = await ReadStorageUsageAsync(tenantId, policy.ProviderScope);
+        Assert.Equal(0L, released.Reserved);
+        Assert.Equal(published.Retained, released.Retained);
+        Assert.Equal(ReservationReleased,
+            (await ReadReservationStatesAsync(tenantId, policy.ProviderScope))[absentLease.ObjectKey]);
+        Assert.Equal(CustomerImportSourceState.Unavailable,
+            await ReadSourceStateAsync(tenantId, absentLease.ObjectKey));
+
+        var unknown = await PlanOfByteLengthAsync(remaining);
+        var unknownLease = await store.BeginSourceAsync(context, unknown, "allowance-outcome-unknown",
+            CustomerImportRetention.DefaultSevenDays, policy, CancellationToken.None);
+        Assert.Equal(remaining, (await ReadStorageUsageAsync(tenantId, policy.ProviderScope)).Reserved);
+        await store.MarkSourceFailureAsync(context, unknownLease, CustomerImportSourceFailureKind.OutcomeUnknown,
+            "provider_response_lost", CancellationToken.None);
+
+        // An unknown outcome may have left bytes in the bucket, so the allowance stays consumed
+        // until retirement reconciles the object; only the reservation is marked for reconciliation.
+        var unresolved = await ReadStorageUsageAsync(tenantId, policy.ProviderScope);
+        Assert.Equal(remaining, unresolved.Reserved);
+        Assert.Equal(published.Retained, unresolved.Retained);
+        Assert.Equal(ReservationOutcomeUnknown,
+            (await ReadReservationStatesAsync(tenantId, policy.ProviderScope))[unknownLease.ObjectKey]);
+        Assert.Equal(CustomerImportSourceState.Orphaned,
+            await ReadSourceStateAsync(tenantId, unknownLease.ObjectKey));
+        var stillRefused = await PlanOfByteLengthAsync(remaining);
+        var consumed = await Assert.ThrowsAsync<CustomerValidationException>(() => store.BeginSourceAsync(
+            context, stillRefused, "allowance-unknown-consumed", CustomerImportRetention.DefaultSevenDays,
+            policy, CancellationToken.None));
+        Assert.Equal("import_storage_capacity", consumed.Code);
+        Assert.Equal(unresolved.Reserved, (await ReadStorageUsageAsync(tenantId, policy.ProviderScope)).Reserved);
+        Assert.Equal(unresolved.Retained, (await ReadStorageUsageAsync(tenantId, policy.ProviderScope)).Retained);
+    }
+
+    private static async Task<CustomerImportPlan> PlanOfByteLengthAsync(long byteLength)
+    {
+        // "name\n" header, one field, one row terminator.
+        var nameLength = (int)byteLength - "name\n".Length - "\n".Length;
+        Assert.InRange(nameLength, 1, 4096);
+        var content = $"name\n{new string('C', nameLength)}\n";
+        return await CustomerImportCsv.PlanAsync(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(content)),
+            Guid.NewGuid(), CancellationToken.None);
     }
 
     [Fact]
@@ -509,6 +804,136 @@ public sealed partial class CustomerPostgresTests
     }
 
     [Fact]
+    public async Task DuplicateAppearingAfterAcceptanceRejectsTheImplicitlyNewRowInsteadOfInsertingASecondOne()
+    {
+        await MigrateAsync(); var (tenant, actor) = await SeedAsync(); var context = await ResolveContextAsync(tenant, actor);
+        await using var source = NpgsqlDataSource.Create(await CreateRestrictedRoleAsync()); var store = new PostgresCustomerStore(source);
+        var plan = await PlanFixtureAsync(store, context, "name,email\nConcurrent Imported Fixture,serialized@example.test\n");
+        Assert.False(plan.Plan.Rows[0].RequiresDecision);
+        await new ExecuteCustomerImport(store, new ImportAuthority(context)).ExecuteAsync(context, new(plan.ImportId), "accept", CancellationToken.None);
+        var claim = await store.ClaimImportAsync(tenant, Guid.NewGuid(), RunCustomerImportBatch.ClaimLease, CancellationToken.None);
+
+        // The concurrent manual creator is paused inside its insert while it holds the
+        // tenant canonicalization gate, so the import can only reach its duplicate check
+        // after that creator commits. With the gate shared, the import queues behind it;
+        // without it the import would read a snapshot with no duplicate and insert a second
+        // customer carrying the same normalized email.
+        await using var gate = new NpgsqlConnection(ConnectionString); await gate.OpenAsync();
+        await using (var hold = gate.CreateCommand())
+        {
+            hold.CommandText = "SELECT pg_advisory_lock(814700403)";
+            await hold.ExecuteNonQueryAsync();
+        }
+        await FixtureSqlAsync("""
+            CREATE FUNCTION customers.import_canonical_gate_fixture() RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN PERFORM pg_advisory_xact_lock(814700403); RETURN NEW; END $$;
+            CREATE TRIGGER import_canonical_gate_fixture BEFORE INSERT ON customers.individuals
+              FOR EACH ROW EXECUTE FUNCTION customers.import_canonical_gate_fixture();
+            """);
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var manualCreate = new CreateCustomerIndividual(store).ExecuteAsync(context,
+            new("Concurrent Manual Fixture", "serialized@example.test", null), "manual-serialized", deadline.Token);
+        Assert.True(await WaitForPausedRuntimeStatementAsync("INSERT INTO customers.individuals%", deadline.Token));
+        var importRow = store.ProcessNextImportRowAsync(claim!, context, deadline.Token);
+        // Best effort ordering evidence: the held gate already forces this interleaving, so
+        // the committed outcome below stays the assertion that must hold either way.
+        using var orderingProbe = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        try { _ = await WaitForPausedRuntimeStatementAsync("%pg_advisory_xact_lock(hashtextextended%", orderingProbe.Token); }
+        catch (OperationCanceledException) when (orderingProbe.IsCancellationRequested) { }
+        Assert.Equal(0L, await CountAsync("customers.individuals"));
+
+        await using (var release = gate.CreateCommand())
+        {
+            release.CommandText = "SELECT pg_advisory_unlock(814700403)";
+            await release.ExecuteNonQueryAsync();
+        }
+        var manual = await manualCreate;
+        Assert.Equal(CreateCustomerIndividualStatus.Created, manual.Status);
+        Assert.Equal(CustomerImportRowExecutionStatus.Processed, await importRow);
+        var row = Assert.Single((await store.ReadImportRowsPageAsync(context, plan.ImportId, 0, 25, CancellationToken.None)).Items);
+        Assert.Equal(CustomerImportRowStatus.Rejected, row.Status);
+        Assert.Equal("new_duplicate_requires_new_plan", row.ErrorCode);
+        Assert.Null(row.CustomerId);
+        Assert.Equal(1L, await CountAsync("customers.individuals"));
+        Assert.Equal(1L, await CountWithNormalizedEmailAsync("serialized@example.test"));
+        Assert.Equal(1, (await store.ReadImportSummaryAsync(context, plan.ImportId, CancellationToken.None))!.Rejected);
+    }
+
+    [Fact]
+    public async Task ManualCreateWaitsBehindImportAcceptanceGateWithoutImposingNormalizedEmailUniqueness()
+    {
+        await MigrateAsync(); var (tenant, actor) = await SeedAsync(); var context = await ResolveContextAsync(tenant, actor);
+        await using var source = NpgsqlDataSource.Create(await CreateRestrictedRoleAsync()); var store = new PostgresCustomerStore(source);
+        var plan = await PlanFixtureAsync(store, context, "name,email\nAccepted First Fixture,ordered@example.test\n");
+        Assert.False(plan.Plan.Rows[0].RequiresDecision);
+        await new ExecuteCustomerImport(store, new ImportAuthority(context)).ExecuteAsync(context, new(plan.ImportId), "accept", CancellationToken.None);
+        var claim = await store.ClaimImportAsync(tenant, Guid.NewGuid(), RunCustomerImportBatch.ClaimLease, CancellationToken.None);
+
+        // Reverse ordering: the import holds the tenant canonicalization gate and is paused
+        // inside its insert, so the concurrent manual create must queue on the same gate
+        // rather than publish its normalized signals inside the import's effect window.
+        await using var gate = new NpgsqlConnection(ConnectionString); await gate.OpenAsync();
+        await using (var hold = gate.CreateCommand())
+        {
+            hold.CommandText = "SELECT pg_advisory_lock(814700404)";
+            await hold.ExecuteNonQueryAsync();
+        }
+        await FixtureSqlAsync("""
+            CREATE FUNCTION customers.import_gate_order_fixture() RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN PERFORM pg_advisory_xact_lock(814700404); RETURN NEW; END $$;
+            CREATE TRIGGER import_gate_order_fixture BEFORE INSERT ON customers.individuals
+              FOR EACH ROW EXECUTE FUNCTION customers.import_gate_order_fixture();
+            """);
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var importRow = store.ProcessNextImportRowAsync(claim!, context, deadline.Token);
+        Assert.True(await WaitForPausedRuntimeStatementAsync("INSERT INTO customers.individuals%", deadline.Token));
+        var manualCreate = new CreateCustomerIndividual(store).ExecuteAsync(context,
+            new("Queued Manual Fixture", "ordered@example.test", null), "manual-ordered", deadline.Token);
+        // The ordering itself is the claim here: this backend can only be waiting on the
+        // tenant canonicalization gate, because the import still holds it.
+        Assert.True(await WaitForPausedRuntimeStatementAsync("%pg_advisory_xact_lock(hashtextextended%", deadline.Token));
+        Assert.Equal(0L, await CountAsync("customers.individuals"));
+
+        await using (var release = gate.CreateCommand())
+        {
+            release.CommandText = "SELECT pg_advisory_unlock(814700404)";
+            await release.ExecuteNonQueryAsync();
+        }
+        Assert.Equal(CustomerImportRowExecutionStatus.Processed, await importRow);
+        Assert.Equal(CreateCustomerIndividualStatus.Created, (await manualCreate).Status);
+        var row = Assert.Single((await store.ReadImportRowsPageAsync(context, plan.ImportId, 0, 25, CancellationToken.None)).Items);
+        Assert.Equal(CustomerImportRowStatus.Imported, row.Status);
+        Assert.Equal(row.RowId, row.CustomerId);
+        // Ordering is not uniqueness: the domain does not claim one customer per email.
+        Assert.Equal(2L, await CountWithNormalizedEmailAsync("ordered@example.test"));
+        Assert.Equal(2L, await CountAsync("customers.individuals"));
+    }
+
+    private async Task<long> CountWithNormalizedEmailAsync(string email)
+    {
+        await using var connection = new NpgsqlConnection(ConnectionString); await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT count(*) FROM customers.individuals WHERE normalized_email=@normalized_email";
+        command.Parameters.AddWithValue("normalized_email", CustomerIdentityNormalization.Email(email));
+        return (long)(await command.ExecuteScalarAsync() ?? throw new InvalidOperationException());
+    }
+
+    private async Task<bool> WaitForPausedRuntimeStatementAsync(string statementPattern, CancellationToken cancellationToken)
+    {
+        await using var monitor = new NpgsqlConnection(ConnectionString);
+        await monitor.OpenAsync(cancellationToken);
+        while (true)
+        {
+            await using var observe = monitor.CreateCommand();
+            observe.CommandText = "SELECT count(*) FROM pg_stat_activity WHERE usename='application_customers_runtime' AND wait_event='advisory' AND query LIKE @pattern";
+            observe.Parameters.AddWithValue("pattern", statementPattern);
+            if ((long)(await observe.ExecuteScalarAsync(cancellationToken) ?? throw new InvalidOperationException()) > 0) return true;
+            if (cancellationToken.IsCancellationRequested) return false;
+            await Task.Yield();
+        }
+    }
+
+    [Fact]
     public async Task DeniedOrOutdatedAuthorityStopsBeforeCustomerEffectsAndGracefulDrainReleasesClaim()
     {
         await MigrateAsync(); var (tenant, actor) = await SeedAsync(); var context = await ResolveContextAsync(tenant, actor);
@@ -596,6 +1021,226 @@ public sealed partial class CustomerPostgresTests
         Assert.Equal(CustomerImportWorkStatus.Failed, summary.Work!.Status);
         Assert.Equal(3, (await store.ReadImportRowsPageAsync(context, plan.ImportId, 0, 25, CancellationToken.None)).Items[0].Attempts);
         Assert.Equal(0L, await CountAsync("customers.individuals"));
+    }
+
+    [Fact]
+    public async Task StaleClaimGenerationAndWorkerCannotCompleteARowTheCurrentOwnerHolds()
+    {
+        await MigrateAsync(); var (tenant, actor) = await SeedAsync(); var context = await ResolveContextAsync(tenant, actor);
+        var runtime = await CreateRestrictedRoleAsync();
+        await using var source = NpgsqlDataSource.Create(runtime); var store = new PostgresCustomerStore(source);
+        var target = (await new CreateCustomerIndividual(store).ExecuteAsync(context,
+            new("Existing Fencing Target", null, null), "fencing-target", CancellationToken.None)).Individual!;
+        var plan = await PlanFixtureAsync(store, context, "name\nFenced First\nFenced Second\n");
+        await new ExecuteCustomerImport(store, new ImportAuthority(context)).ExecuteAsync(context, new(plan.ImportId), "accept", CancellationToken.None);
+        var abandoned = (await store.ClaimImportAsync(tenant, Guid.NewGuid(), RunCustomerImportBatch.ClaimLease, CancellationToken.None))!;
+        Assert.Equal(CustomerImportRowExecutionStatus.Processed, await store.ProcessNextImportRowAsync(abandoned, context, CancellationToken.None));
+        await FixtureSqlAsync("UPDATE customers.import_work SET lease_expires_at=clock_timestamp()-interval '1 second'");
+        await using var newOwnerSource = NpgsqlDataSource.Create(runtime);
+        var newOwner = new PostgresCustomerStore(newOwnerSource);
+        var current = (await newOwner.ClaimImportAsync(tenant, Guid.NewGuid(), RunCustomerImportBatch.ClaimLease, CancellationToken.None))!;
+        Assert.True(current.Generation > abandoned.Generation);
+        var processing = Assert.Single((await newOwner.ReadImportRowsPageAsync(context, plan.ImportId, 0, 50, CancellationToken.None)).Items,
+            row => row.Status == CustomerImportRowStatus.Pending);
+        Assert.Equal(0, processing.Attempts);
+
+        // The commit point re-asserts ownership, so no superseded generation, worker or work row
+        // may write the result of the row the current claim is processing.
+        foreach (var stale in new[] { abandoned, abandoned with { WorkerId = Guid.NewGuid() },
+            current with { Generation = abandoned.Generation }, current with { WorkId = Guid.NewGuid() } })
+            Assert.Equal(0, await CompleteImportRowAffectedAsync(stale, plan.ImportId, processing.RowNumber, target.IndividualId));
+
+        var untouched = Assert.Single((await newOwner.ReadImportRowsPageAsync(context, plan.ImportId, 0, 50, CancellationToken.None)).Items,
+            row => row.RowNumber == processing.RowNumber);
+        Assert.Equal(CustomerImportRowStatus.Pending, untouched.Status);
+        Assert.Equal(0, untouched.Attempts);
+        Assert.Null(untouched.CustomerId);
+
+        Assert.Equal(1, await CompleteImportRowAffectedAsync(current, plan.ImportId, processing.RowNumber, target.IndividualId));
+        var completed = Assert.Single((await newOwner.ReadImportRowsPageAsync(context, plan.ImportId, 0, 50, CancellationToken.None)).Items,
+            row => row.RowNumber == processing.RowNumber);
+        Assert.Equal(CustomerImportRowStatus.MappedToExisting, completed.Status);
+        Assert.Equal(1, completed.Attempts); Assert.Equal(target.IndividualId, completed.CustomerId);
+        Assert.Equal(CustomerImportRowExecutionStatus.Complete, await newOwner.ProcessNextImportRowAsync(current, context, CancellationToken.None));
+        await newOwner.ReleaseImportClaimAsync(current, false, CancellationToken.None);
+        var summary = await newOwner.ReadImportSummaryAsync(context, plan.ImportId, CancellationToken.None);
+        Assert.Equal(CustomerImportWorkStatus.Completed, summary!.Work!.Status);
+        Assert.Equal(1, summary.Imported); Assert.Equal(1, summary.MappedToExisting); Assert.Equal(0, summary.Pending);
+        Assert.Equal(2L, await CountAsync("customers.individuals"));
+    }
+
+    [Fact]
+    public async Task ExpiredClaimCannotCompleteItsRowAndTheRowKeepsItsWholeAttemptBudget()
+    {
+        await MigrateAsync(); var (tenant, actor) = await SeedAsync(); var context = await ResolveContextAsync(tenant, actor);
+        await using var source = NpgsqlDataSource.Create(await CreateRestrictedRoleAsync()); var store = new PostgresCustomerStore(source);
+        var plan = await PlanFixtureAsync(store, context, "name\nExpired Claim Fixture\n");
+        await new ExecuteCustomerImport(store, new ImportAuthority(context)).ExecuteAsync(context, new(plan.ImportId), "accept", CancellationToken.None);
+        await FixtureSqlAsync("""
+            CREATE FUNCTION customers.import_claim_delay_fixture() RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN PERFORM pg_advisory_xact_lock(814700302); RETURN NEW; END $$;
+            CREATE TRIGGER import_claim_delay_fixture BEFORE INSERT ON customers.individuals
+              FOR EACH ROW EXECUTE FUNCTION customers.import_claim_delay_fixture();
+            """);
+        await using var barrier = new NpgsqlConnection(ConnectionString); await barrier.OpenAsync();
+        await using (var hold = barrier.CreateCommand())
+        {
+            hold.CommandText = "SELECT pg_advisory_lock(814700302)";
+            await hold.ExecuteNonQueryAsync();
+        }
+        // The shortest claimable lease expires while the row effect is still blocked, so the
+        // commit runs without a live claim even though the pre-row ownership gate passed.
+        var claim = (await store.ClaimImportAsync(tenant, Guid.NewGuid(), TimeSpan.FromSeconds(10), CancellationToken.None))!;
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+        var processing = store.ProcessNextImportRowAsync(claim, context, deadline.Token);
+        Assert.True(await WaitForPausedRuntimeStatementAsync("INSERT INTO customers.individuals%", deadline.Token));
+        await using (var monitor = new NpgsqlConnection(ConnectionString))
+        {
+            await monitor.OpenAsync(deadline.Token);
+            while (true)
+            {
+                await using var expired = new NpgsqlCommand("SELECT clock_timestamp() >= @expires_at", monitor);
+                expired.Parameters.AddWithValue("expires_at", claim.LeaseExpiresAt);
+                if (true.Equals(await expired.ExecuteScalarAsync(deadline.Token))) break;
+                await Task.Yield();
+            }
+        }
+        await using (var release = barrier.CreateCommand())
+        {
+            release.CommandText = "SELECT pg_advisory_unlock(814700302)";
+            await release.ExecuteNonQueryAsync();
+        }
+        await Assert.ThrowsAsync<CustomerImportClaimLostException>(() => processing);
+        await FixtureSqlAsync("""
+            DROP TRIGGER import_claim_delay_fixture ON customers.individuals;
+            DROP FUNCTION customers.import_claim_delay_fixture();
+            """);
+        Assert.Equal(0L, await CountAsync("customers.individuals"));
+        var fenced = Assert.Single((await store.ReadImportRowsPageAsync(context, plan.ImportId, 0, 50, CancellationToken.None)).Items);
+        Assert.Equal(CustomerImportRowStatus.Pending, fenced.Status);
+        Assert.Equal(0, fenced.Attempts); Assert.Null(fenced.CustomerId);
+
+        Assert.Equal(CustomerImportBatchStatus.Completed,
+            (await new RunCustomerImportBatch(store, new ImportAuthority(context)).ExecuteAsync(tenant, Guid.NewGuid(), 50, CancellationToken.None)).Status);
+        var recovered = Assert.Single((await store.ReadImportRowsPageAsync(context, plan.ImportId, 0, 50, CancellationToken.None)).Items);
+        Assert.Equal(CustomerImportRowStatus.Imported, recovered.Status);
+        Assert.Equal(1, recovered.Attempts); Assert.Equal(fenced.RowId, recovered.CustomerId);
+        Assert.Equal(1L, await CountAsync("customers.individuals"));
+    }
+
+    [Fact]
+    public async Task InfrastructureClassFaultsDoNotConsumeTheRowsBoundedAttemptBudget()
+    {
+        await MigrateAsync(); var (tenant, actor) = await SeedAsync(); var context = await ResolveContextAsync(tenant, actor);
+        var runtime = await CreateRestrictedRoleAsync();
+        await using var source = NpgsqlDataSource.Create(runtime); var store = new PostgresCustomerStore(source);
+        var plan = await PlanFixtureAsync(store, context, "name\nInfrastructure Fixture\n");
+        var authority = new ImportAuthority(context);
+        await new ExecuteCustomerImport(store, authority).ExecuteAsync(context, new(plan.ImportId), "accept", CancellationToken.None);
+        var runner = new RunCustomerImportBatch(store, authority);
+        foreach (var sqlState in new[] { "40001", "40P01", "57P01", "57P02", "08006" })
+        {
+            await FixtureSqlAsync($"""
+                DROP TRIGGER IF EXISTS import_infrastructure_fixture ON customers.individuals;
+                DROP FUNCTION IF EXISTS customers.import_infrastructure_fixture();
+                CREATE FUNCTION customers.import_infrastructure_fixture() RETURNS trigger LANGUAGE plpgsql AS $$
+                BEGIN RAISE EXCEPTION 'Synthetic infrastructure fault' USING ERRCODE='{sqlState}'; END $$;
+                CREATE TRIGGER import_infrastructure_fixture BEFORE INSERT ON customers.individuals
+                  FOR EACH ROW EXECUTE FUNCTION customers.import_infrastructure_fixture();
+                """);
+            var fault = await Record.ExceptionAsync(() => runner.ExecuteAsync(tenant, Guid.NewGuid(), 50, CancellationToken.None));
+            Assert.Equal(0L, await CountAsync("customers.individuals"));
+            var untouched = Assert.Single((await store.ReadImportRowsPageAsync(context, plan.ImportId, 0, 50, CancellationToken.None)).Items);
+            Assert.Equal(CustomerImportRowStatus.Pending, untouched.Status);
+            Assert.Equal(0, untouched.Attempts);
+            Assert.Equal(CustomerImportWorkStatus.Accepted,
+                (await store.ReadImportSummaryAsync(context, plan.ImportId, CancellationToken.None))!.Work!.Status);
+            Assert.Equal(sqlState, Assert.IsType<PostgresException>(fault).SqlState);
+        }
+
+        await FixtureSqlAsync("""
+            DROP TRIGGER import_infrastructure_fixture ON customers.individuals;
+            DROP FUNCTION customers.import_infrastructure_fixture();
+            """);
+        Assert.Equal(CustomerImportBatchStatus.Completed,
+            (await runner.ExecuteAsync(tenant, Guid.NewGuid(), 50, CancellationToken.None)).Status);
+        var completed = Assert.Single((await store.ReadImportRowsPageAsync(context, plan.ImportId, 0, 50, CancellationToken.None)).Items);
+        Assert.Equal(CustomerImportRowStatus.Imported, completed.Status);
+        Assert.Equal(1, completed.Attempts); Assert.Equal(completed.RowId, completed.CustomerId);
+        Assert.Equal(1L, await CountAsync("customers.individuals"));
+    }
+
+    [Fact]
+    public async Task CommitSideFaultRecordsABoundedRowFailureInsteadOfRetryingWithoutAnAttempt()
+    {
+        await MigrateAsync(); var (tenant, actor) = await SeedAsync(); var context = await ResolveContextAsync(tenant, actor);
+        await using var source = NpgsqlDataSource.Create(await CreateRestrictedRoleAsync()); var store = new PostgresCustomerStore(source);
+        var plan = await PlanFixtureAsync(store, context, "name,notes\nCommit Fault Fixture,commit-side-fault-fixture\n");
+        var authority = new ImportAuthority(context);
+        await new ExecuteCustomerImport(store, authority).ExecuteAsync(context, new(plan.ImportId), "accept", CancellationToken.None);
+        await FixtureSqlAsync("""
+            CREATE FUNCTION customers.import_commit_fault_fixture() RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN
+              IF NEW.notes = 'commit-side-fault-fixture' THEN
+                RAISE EXCEPTION 'Synthetic commit-side fault' USING ERRCODE='58030';
+              END IF;
+              RETURN NULL;
+            END $$;
+            CREATE CONSTRAINT TRIGGER import_commit_fault_fixture AFTER INSERT ON customers.individuals
+              DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION customers.import_commit_fault_fixture();
+            """);
+        var runner = new RunCustomerImportBatch(store, authority);
+        for (var attempt = 1; attempt <= 3; attempt++)
+        {
+            var fault = await Record.ExceptionAsync(() => runner.ExecuteAsync(tenant, Guid.NewGuid(), 50, CancellationToken.None));
+            Assert.Equal(0L, await CountAsync("customers.individuals"));
+            var failed = Assert.Single((await store.ReadImportRowsPageAsync(context, plan.ImportId, 0, 50, CancellationToken.None)).Items);
+            Assert.Equal(CustomerImportRowStatus.Failed, failed.Status);
+            Assert.Equal(attempt, failed.Attempts);
+            var work = (await store.ReadImportSummaryAsync(context, plan.ImportId, CancellationToken.None))!.Work!;
+            Assert.Equal(attempt < 3 ? CustomerImportWorkStatus.Accepted : CustomerImportWorkStatus.Failed, work.Status);
+            Assert.Equal("row_processing_failed", work.LastError);
+            Assert.Equal("58030", Assert.IsType<PostgresException>(fault).SqlState);
+            await FixtureSqlAsync("""
+                UPDATE customers.import_rows SET processed_at=clock_timestamp()-interval '10 seconds';
+                UPDATE customers.import_work SET next_attempt_at=clock_timestamp()-interval '10 seconds';
+                """);
+        }
+        Assert.Equal(CustomerImportBatchStatus.Idle, (await runner.ExecuteAsync(tenant, Guid.NewGuid(), 50, CancellationToken.None)).Status);
+        var exhausted = Assert.Single((await store.ReadImportRowsPageAsync(context, plan.ImportId, 0, 50, CancellationToken.None)).Items);
+        Assert.Equal(CustomerImportRowStatus.Failed, exhausted.Status);
+        Assert.Equal(3, exhausted.Attempts); Assert.Null(exhausted.CustomerId);
+        Assert.Equal(0L, await CountAsync("customers.individuals"));
+
+        await FixtureSqlAsync("""
+            DROP TRIGGER import_commit_fault_fixture ON customers.individuals;
+            DROP FUNCTION customers.import_commit_fault_fixture();
+            """);
+        var replan = await PlanFixtureAsync(store, context, "name,notes\nCommit Fault Recovery,commit-side-fault-fixture\n");
+        await new ExecuteCustomerImport(store, authority).ExecuteAsync(context, new(replan.ImportId), "accept", CancellationToken.None);
+        Assert.Equal(CustomerImportBatchStatus.Completed,
+            (await new RunCustomerImportBatch(store, authority).ExecuteAsync(tenant, Guid.NewGuid(), 50, CancellationToken.None)).Status);
+        var recovered = Assert.Single((await store.ReadImportRowsPageAsync(context, replan.ImportId, 0, 50, CancellationToken.None)).Items);
+        Assert.Equal(CustomerImportRowStatus.Imported, recovered.Status);
+        Assert.Equal(1, recovered.Attempts); Assert.Equal(1L, await CountAsync("customers.individuals"));
+    }
+
+    private async Task<int> CompleteImportRowAffectedAsync(CustomerImportClaim claim, Guid importId, int rowNumber, Guid? customerId)
+    {
+        await using var connection = new NpgsqlConnection(ConnectionString); await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = CustomerSql.CompleteImportRow;
+        command.Parameters.AddWithValue("tenant_id", claim.TenantId);
+        command.Parameters.AddWithValue("import_id", importId);
+        command.Parameters.AddWithValue("row_number", rowNumber);
+        command.Parameters.AddWithValue("status", (int)CustomerImportRowStatus.MappedToExisting);
+        command.Parameters.AddWithValue("customer_id", (object?)customerId ?? DBNull.Value);
+        command.Parameters.AddWithValue("error_code", DBNull.Value);
+        command.Parameters.AddWithValue("error_message", DBNull.Value);
+        command.Parameters.AddWithValue("work_id", claim.WorkId);
+        command.Parameters.AddWithValue("worker_id", claim.WorkerId);
+        command.Parameters.AddWithValue("generation", claim.Generation);
+        return await command.ExecuteNonQueryAsync();
     }
 
     private static Task<CreateCustomerImportResult> PlanFixtureAsync(PostgresCustomerStore store, TenantContext context, string csv) =>
@@ -797,12 +1442,36 @@ public sealed partial class CustomerPostgresTests
         await command.ExecuteNonQueryAsync();
     }
 
-    private async Task<long> ReadRetainedBytesAsync(Guid tenantId, string providerScope)
+    private async Task<(long Reserved, long Retained)> ReadStorageUsageAsync(Guid tenantId, string providerScope)
     {
         await using var connection = new NpgsqlConnection(ConnectionString); await connection.OpenAsync();
         await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT retained_bytes FROM customers.object_storage_usage WHERE tenant_id=@tenant AND provider_scope=@provider";
+        command.CommandText = "SELECT reserved_bytes, retained_bytes FROM customers.object_storage_usage WHERE tenant_id=@tenant AND provider_scope=@provider";
         command.Parameters.AddWithValue("tenant", tenantId); command.Parameters.AddWithValue("provider", providerScope);
-        return (long)(await command.ExecuteScalarAsync() ?? throw new InvalidOperationException("Usage row is missing."));
+        await using var reader = await command.ExecuteReaderAsync();
+        Assert.True(await reader.ReadAsync());
+        return (reader.GetInt64(0), reader.GetInt64(1));
+    }
+
+    private async Task<IReadOnlyDictionary<string, int>> ReadReservationStatesAsync(Guid tenantId, string providerScope)
+    {
+        await using var connection = new NpgsqlConnection(ConnectionString); await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT object_key, state FROM customers.object_storage_reservations WHERE tenant_id=@tenant AND provider_scope=@provider ORDER BY object_key";
+        command.Parameters.AddWithValue("tenant", tenantId); command.Parameters.AddWithValue("provider", providerScope);
+        var states = new Dictionary<string, int>(StringComparer.Ordinal);
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync()) states.Add(reader.GetString(0), reader.GetInt32(1));
+        return states;
+    }
+
+    private async Task<CustomerImportSourceState> ReadSourceStateAsync(Guid tenantId, string objectKey)
+    {
+        await using var connection = new NpgsqlConnection(ConnectionString); await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT state FROM customers.import_source_objects WHERE tenant_id=@tenant AND object_key=@key";
+        command.Parameters.AddWithValue("tenant", tenantId); command.Parameters.AddWithValue("key", objectKey);
+        return (CustomerImportSourceState)(int)(await command.ExecuteScalarAsync()
+            ?? throw new InvalidOperationException("The import source row is missing."));
     }
 }

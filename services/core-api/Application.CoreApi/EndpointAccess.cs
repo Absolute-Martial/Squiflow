@@ -57,6 +57,24 @@ internal enum EndpointAccess
     AuthorizedQuotationExpire,
     AuthorizedQuotationConvert,
     AuthorizedTenantOrderProgramReference,
+    OrderApprovalSubmit,
+    OrderApprovalView,
+    OrderApprovalDecide,
+    OrderApprovalRecover,
+    OrderApprovalCancel,
+    OrderFulfillmentView,
+    OrderFulfillmentWorkRecord,
+    OrderFulfillmentHandoffRecord,
+    OrderFulfillmentCorrect,
+    PurchasingView,
+    PurchasingSupplierManage,
+    PurchasingRequestRecord,
+    PurchasingReceiptRecord,
+    PurchasingPaymentRecord,
+    PurchasingCorrect,
+    InvoiceIssue,
+    InvoiceView,
+
 }
 
 internal sealed record EndpointAccessMetadata(EndpointAccess Access)
@@ -100,6 +118,40 @@ internal static class CoreApiApplicationAuthorizationContract
         EndpointAccess.AuthorizedTenantOrderPricePreview => [CreateOrderRequirement.Instance, ApplyManualPriceRequirement.Instance],
         EndpointAccess.AuthorizedTenantOrderHistory => [ViewOrdersRequirement.Instance],
         EndpointAccess.AuthorizedTenantOrderActions => [ViewOrdersRequirement.Instance],
+        EndpointAccess.OrderApprovalSubmit =>
+        [
+            new TenantOrderApprovalRequirement(TenantOrderApprovalPermission.Submit),
+            new TenantOrderApprovalRequirement(TenantOrderApprovalPermission.View),
+            ViewOrdersRequirement.Instance,
+        ],
+        EndpointAccess.OrderApprovalView =>
+            [new TenantOrderApprovalRequirement(TenantOrderApprovalPermission.View)],
+        EndpointAccess.OrderApprovalDecide =>
+        [
+            new TenantOrderApprovalRequirement(TenantOrderApprovalPermission.Decide),
+            new TenantOrderApprovalRequirement(TenantOrderApprovalPermission.View),
+            ViewOrdersRequirement.Instance,
+        ],
+        EndpointAccess.OrderApprovalCancel =>
+            [new TenantOrderApprovalRequirement(TenantOrderApprovalPermission.Submit)],
+        EndpointAccess.OrderApprovalRecover =>
+            [new TenantOrderApprovalRequirement(TenantOrderApprovalPermission.Recover)],
+        EndpointAccess.OrderFulfillmentView =>
+            [new TenantOrderFulfillmentRequirement(TenantOrderFulfillmentPermission.View)],
+        EndpointAccess.OrderFulfillmentWorkRecord =>
+            [new TenantOrderFulfillmentRequirement(TenantOrderFulfillmentPermission.RecordWork)],
+        EndpointAccess.OrderFulfillmentHandoffRecord =>
+            [new TenantOrderFulfillmentRequirement(TenantOrderFulfillmentPermission.RecordHandoff)],
+        EndpointAccess.OrderFulfillmentCorrect =>
+            [new TenantOrderFulfillmentRequirement(TenantOrderFulfillmentPermission.Correct)],
+        EndpointAccess.PurchasingView => [new TenantPurchasingRequirement(TenantPurchasingPermission.View)],
+        EndpointAccess.PurchasingSupplierManage => [new TenantPurchasingRequirement(TenantPurchasingPermission.ManageSupplier)],
+        EndpointAccess.PurchasingRequestRecord => [new TenantPurchasingRequirement(TenantPurchasingPermission.RecordRequest)],
+        EndpointAccess.PurchasingReceiptRecord => [new TenantPurchasingRequirement(TenantPurchasingPermission.RecordReceipt)],
+        EndpointAccess.PurchasingPaymentRecord => [new TenantPurchasingRequirement(TenantPurchasingPermission.RecordPayment)],
+        EndpointAccess.PurchasingCorrect => [new TenantPurchasingRequirement(TenantPurchasingPermission.Correct)],
+        EndpointAccess.InvoiceIssue => [new TenantInvoiceRequirement(TenantInvoicePermission.Issue)],
+        EndpointAccess.InvoiceView => [new TenantInvoiceRequirement(TenantInvoicePermission.View)],
         EndpointAccess.AuthorizedCustomerOrganizationCreation => [CreateOrganizationRequirement.Instance],
         EndpointAccess.AuthorizedCustomerOrganizationRead => [ViewOrganizationsRequirement.Instance],
         EndpointAccess.AuthorizedCustomerOrganizationBrowse => [ViewOrganizationsRequirement.Instance],

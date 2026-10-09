@@ -18,6 +18,7 @@ internal static class TenantOrderActionsEndpoint
         ResolveTenantContext resolveTenantContext,
         IAuthorizationService authorization,
         GetOrderDraft getOrderDraft,
+        IOrderApprovalStore approvals,
         CancellationToken cancellationToken)
     {
         var access = await TenantRequestAccess.ResolveAsync(
@@ -47,6 +48,7 @@ internal static class TenantOrderActionsEndpoint
         if (order.OrderId != orderId || order.TenantId != access.TenantContext!.TenantId)
             throw new InvalidOperationException("The order query returned an inconsistent identity.");
 
+        var approvalStatus = CommitOrderDraftStatus.Committed;
         var quotationBound = order.QuotationOrigin is not null;
         var lifecycle = OrderDraftActionGuide.Explain(
             order.State, order.Revision, mayRevise: true, mayAbandon: true, mayCommit: true, quotationBound: quotationBound);
@@ -66,6 +68,12 @@ internal static class TenantOrderActionsEndpoint
                 mayAbandon = (await authorization.AuthorizeAsync(principal, resource, AbandonOrderRequirement.Instance)).Succeeded;
             if (mayCommit)
                 mayCommit = (await authorization.AuthorizeAsync(principal, resource, CommitOrderRequirement.Instance)).Succeeded;
+            if (mayCommit && OrderApprovalRules.IsRequired(order))
+                approvalStatus = await approvals.AssessAdmissionAsync(access.TenantContext!, orderId, order.Revision, cancellationToken);
+        }
+        catch (OrderApprovalAccessDeniedException)
+        {
+            return TenantRequestAccess.Problem("tenant_permission_denied", "Current Order viewing authority is required.");
         }
         catch (AuthorizationProviderUnavailableException)
         {
@@ -74,8 +82,12 @@ internal static class TenantOrderActionsEndpoint
                 extensions: new Dictionary<string, object?> { ["code"] = "authorization_unavailable" });
         }
 
+        if (approvalStatus is CommitOrderDraftStatus.RevisionConflict or CommitOrderDraftStatus.NotFound)
+            return TypedResults.Problem(statusCode: 409, title: "The Order changed while its guidance was being read.",
+                extensions: new Dictionary<string, object?> { ["code"] = "order_admission_revision_changed" });
         var guide = OrderDraftActionGuide.Explain(order.State, order.Revision, mayRevise, mayAbandon, mayCommit, quotationBound: quotationBound,
-            profileAvailable: order.ProgramPolicy is not null, programReferenceMissing: OrderProgramReference.IsMissing(order));
+            profileAvailable: order.ProgramPolicy is not null, programReferenceMissing: OrderProgramReference.IsMissing(order),
+            approvalRequired: approvalStatus == CommitOrderDraftStatus.ApprovalRequired, approvalStale: approvalStatus == CommitOrderDraftStatus.ApprovalStale);
         return TypedResults.Ok(new OrderDraftActionsResponse(orderId, guide.ObservedRevision,
             guide.Actions.Select(action => new OrderDraftActionResponse(action.Action switch
             {
@@ -92,6 +104,8 @@ internal static class TenantOrderActionsEndpoint
                 OrderDraftActionUnavailability.QuotationBound => "order_quotation_bound",
                 OrderDraftActionUnavailability.ProfileUnavailable => "order_profile_unavailable",
                 OrderDraftActionUnavailability.ProgramReferenceRequired => "order_program_reference_required",
+                OrderDraftActionUnavailability.ApprovalRequired => "order_approval_required",
+                OrderDraftActionUnavailability.ApprovalStale => "order_approval_stale",
                 _ => throw new InvalidOperationException("The order guide contains an unsupported reason."),
             })).ToArray()));
     }

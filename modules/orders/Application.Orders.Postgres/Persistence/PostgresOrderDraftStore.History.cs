@@ -64,6 +64,8 @@ public sealed partial class PostgresOrderDraftStore
         {
             await RequireRetainedProgramPolicyAsync(session, tenantContext.TenantId, entry.Order, cancellationToken).ConfigureAwait(false);
             await RequireAcceptedQuotationFactsAsync(tenantContext, entry.Order, cancellationToken).ConfigureAwait(false);
+            if (entry.Order.State == OrderDraftState.Committed)
+                await RequireRetainedApprovalCommitAsync(session, entry.Order, cancellationToken).ConfigureAwait(false);
         }
         // Every successful current command stores its effect and receipt together. Do not
         // invent missing historical revisions or silently present contradictory receipts.

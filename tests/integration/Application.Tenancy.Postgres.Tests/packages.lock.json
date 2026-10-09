@@ -310,14 +310,32 @@
         "dependencies": {
           "Application.Catalog.Postgres": "[0.0.1, )",
           "Application.Customers.Postgres": "[0.0.1, )",
+          "Application.Fulfillment.Postgres": "[0.0.1, )",
           "Application.IdentityAccess.Postgres": "[0.0.1, )",
+          "Application.Invoices.Postgres": "[0.0.1, )",
           "Application.Orders.Postgres": "[0.0.1, )",
           "Application.PlatformAdministration.Postgres": "[0.0.1, )",
           "Application.Pricing.Postgres": "[0.0.1, )",
           "Application.Profiles.Postgres": "[0.0.1, )",
+          "Application.Purchasing.Postgres": "[0.0.1, )",
           "Application.Quotations.Postgres": "[0.0.1, )",
           "Application.Tenancy.Postgres": "[0.0.1, )",
           "Npgsql": "[10.0.2, )"
+        }
+      },
+      "application.fulfillment": {
+        "type": "Project",
+        "dependencies": {
+          "Application.Tenancy": "[0.0.1, )"
+        }
+      },
+      "application.fulfillment.postgres": {
+        "type": "Project",
+        "dependencies": {
+          "Application.Fulfillment": "[0.0.1, )",
+          "Microsoft.EntityFrameworkCore": "[10.0.8, )",
+          "Npgsql": "[10.0.2, )",
+          "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.1, )"
         }
       },
       "application.identityaccess": {
@@ -328,6 +346,23 @@
         "dependencies": {
           "Application.IdentityAccess": "[0.0.1, )",
           "Microsoft.EntityFrameworkCore": "[10.0.8, )",
+          "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.1, )"
+        }
+      },
+      "application.invoices": {
+        "type": "Project",
+        "dependencies": {
+          "Application.Customers": "[0.0.1, )",
+          "Application.Orders": "[0.0.1, )",
+          "Application.Tenancy": "[0.0.1, )"
+        }
+      },
+      "application.invoices.postgres": {
+        "type": "Project",
+        "dependencies": {
+          "Application.Invoices": "[0.0.1, )",
+          "Microsoft.EntityFrameworkCore": "[10.0.8, )",
+          "Npgsql": "[10.0.2, )",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.1, )"
         }
       },
@@ -389,6 +424,21 @@
         "type": "Project",
         "dependencies": {
           "Application.Profiles": "[0.0.1, )",
+          "Microsoft.EntityFrameworkCore": "[10.0.8, )",
+          "Npgsql": "[10.0.2, )",
+          "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.1, )"
+        }
+      },
+      "application.purchasing": {
+        "type": "Project",
+        "dependencies": {
+          "Application.Tenancy": "[0.0.1, )"
+        }
+      },
+      "application.purchasing.postgres": {
+        "type": "Project",
+        "dependencies": {
+          "Application.Purchasing": "[0.0.1, )",
           "Microsoft.EntityFrameworkCore": "[10.0.8, )",
           "Npgsql": "[10.0.2, )",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.1, )"

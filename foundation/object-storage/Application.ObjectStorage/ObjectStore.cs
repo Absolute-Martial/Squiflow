@@ -11,7 +11,7 @@ public sealed class ObjectStoreKey
         if (string.IsNullOrWhiteSpace(value) || value.Length > 512 || value.StartsWith('/') || value.EndsWith('/')
             || value.StartsWith("./", StringComparison.Ordinal) || value.EndsWith("..", StringComparison.Ordinal)
             || value.Contains("//", StringComparison.Ordinal) || value.Contains("../", StringComparison.Ordinal)
-            || value.Contains('\\') || value.Contains('\0'))
+            || value.Contains('\\') || value.Contains('\0') || value.Split('/').Any(segment => segment is "." or ".."))
         {
             throw new ArgumentException("The object key is invalid.", nameof(value));
         }

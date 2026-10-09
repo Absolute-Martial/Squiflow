@@ -18,8 +18,10 @@ that arithmetic. Current repository inventory is in `README.IMPLEMENTATION.md`.
 | Quotation/agreement owning-fact integration | `NOT_INTRODUCED` | COM-009 issuance is receiving qualification; the accepted-offer reader/conversion remains COM-010. No client ID or price-book publication may pretend to be a committed fact. |
 | Discount calculation, approval workflow, arbitrary wholesale tiers | `NOT_INTRODUCED` | No expression language, guessed eligibility GUID or universal maker/checker rule. |
 
-The normal **1011-test** repository gate supplies combined receiving evidence;
-earlier standalone checks alone did not qualify the HTTP surface. This does not
+The exact normal repository gate supplies combined receiving evidence; its current
+total is recorded in `README.IMPLEMENTATION.md` and its task-level result in
+`docs/development-tasks/TASK_STATUS.md`. Earlier standalone checks alone did not
+qualify the HTTP surface. This does not
 claim remote CI, live deployment or absent quotation/discount/approval capabilities.
 
 ## Identity, immutable revisions and compatibility
@@ -55,6 +57,13 @@ readable by revision but are not candidates or newly publishable. Explicit new
 stable-unit revisions are required. Version-2 receipts contain full snapshots;
 the earlier unqualified revision-ID-only receipt format is retained but safely
 reported as unsupported for replay, never reconstructed from changed lifecycle.
+An unreadable retained receipt is a server-contract fault, not client input: the
+store raises `PricingStoredContractException`, which deliberately does not
+inherit `ArgumentException`, so a host that maps validation exceptions to `4xx`
+cannot report a deployed-code/retained-data incompatibility as a caller fault.
+It reaches the CoreApi failure contract as a retryable-class server error with a
+non-leaking `internal_error` code, matching the Catalog and Orders receipt
+conditions. Client-input pricing validation mappings are unchanged.
 No release/deployment compatibility is inferred for that former standalone code.
 
 ## Selection and trusted context
@@ -98,6 +107,19 @@ Capabilities are independent: `Pricing.View`, `Pricing.EditDraft`,
 does not grant price publication or an override. Draft editing means creating
 a replacement draft revision, never mutating an economic snapshot.
 
+Retained selection explanations pin the envelope semantics version that produced their
+recorded override decision. Version 1 is frozen: inclusive absolute bounds plus percentage
+decrease/increase against the selected base price. Changing envelope **meaning** requires a
+new `PricingOverridePolicySemantics` version with a new evaluator and a moved `CurrentVersion`;
+version 1 stays reachable, so already-issued quotations and committed Orders keep validating.
+Retained-fact readers must route through the pinned version, never through the current engine
+meaning. An unsupported retained version fails closed instead of being read with current
+semantics. `PricingOverridePolicy` stores envelope numbers only, so the semantics version belongs
+to the reading snapshot; the version defaults to 1 so facts written before the field existed read
+back as version 1. `QuotationRulesTests.FrozenVersionOneEvaluatorsStayCharacterized` pins the
+literal version-1 decisions, so editing the version-1 evaluator in place fails that test and must
+be repaired by adding a version rather than by rewriting retained meaning.
+
 Every override requires current `Pricing.Override` and a nonblank bounded reason.
 The immutable policy combines inclusive absolute minimum/maximum and optional
 maximum percentage decrease/increase relative to the selected base price. Both
@@ -140,7 +162,10 @@ Candidate SQL probes only the five applicable tenant/item/unit/currency scopes,
 filtering exact conversion-revision compatibility before applying any row bound,
 with at most two facts per active/expired/future category: at most 30 returned
 facts. It does not enumerate other customers, tenants or all historical rows.
-The pure engine caps input at 64 facts. History uses contextual keyset paging,
+The pure engine caps input at 64 facts, published as
+`PriceSelectionBounds.MaximumCandidates` so a consumer revalidating a retained
+selection asserts the bound the engine applied instead of repeating the number.
+History uses contextual keyset paging,
 limit 1–50, strictly after a revision; no unbounded history/read count is claimed.
 Overlap probes stop at the first conflicting published fact.
 

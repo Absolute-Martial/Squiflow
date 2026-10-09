@@ -25,18 +25,22 @@ Historical receiving-environment evidence recorded AdminApi 56/56 and Invoices 1
 
 Subsequent [ADM-002/ADM-003 evidence](../production-completion-review/evidence/ADM-002-ADM-003.md) supports the bounded deadline correction and the implemented public-auth fix. The public-liveness bearer reproducer first failed against the pre-fix source, then commit `6735370` added the correction in both hosts; current-head AdminApi 87/87 and Tenancy.Postgres 19/19 are green. The required post-fix ADM-003 reviewer receipt is retained at [ADM-003-INDEPENDENT-REVIEW-RECEIPT.md](../production-completion-review/evidence/ADM-003-INDEPENDENT-REVIEW-RECEIPT.md) with an explicit `ACCEPTED` disposition for its declared narrow scope, so ADM-003 is no longer acceptance-pending; its recorded reviewer-independence caveat remains a gate-owner decision. [OPS-022 evidence](../production-completion-review/evidence/OPS-022.md) supports actual fresh-process startup and abort/SIGTERM cleanup. [COM-020 evidence](../production-completion-review/evidence/COM-020.md) records current-head Invoices 25/25 plus Architecture 14/14. GATE-001 was accepted provisionally by the accountable repository owner at baseline `97519c6`, on the retained [gate-owner acceptance record](../production-completion-review/evidence/GATE-001-OWNER-ACCEPTANCE.md) and the monitoring agent's [technical decision](../production-completion-review/evidence/GATE-001-DECISION-7deba82.md). That acceptance covers the narrow backend entry baseline only: one uncontended normal `./eng/verify.sh` reached 741 passed / 0 failed / 0 skipped across 16/16 projects with a zero-warning, zero-error Release build, all four independent host checks passed, and local Testcontainers only — no remote CI, live provider, deployment or whole-product claim. Reviewer independence for ADM-003 was resolved by explicit owner acceptance despite the disclosed same-lineage caveat, not by an independent third party. the earlier normal run reached a zero-warning/error Release build and multiple passing suites, but its final process exit and complete aggregate were lost with the workspace tunnel. See [first-sequence current-head status](../production-completion-review/evidence/FIRST-SEQUENCE-CURRENT-HEAD.md).
 
-## Phase 1 authorization-administration continuation — 2026-10-05
+## Phase 1 authorization-administration continuation — recorded 2026-10-05, superseded by the 2026-10-07 gate below
 
 The current source implements/settles the dependency chain through ADM-012 without activating a background Worker. See [ADM-005 through ADM-012 current implementation evidence](../production-completion-review/evidence/ADM-005-ADM-012-CURRENT-IMPLEMENTATION.md).
 
 - **ADM-005:** decision complete through the import/link-only branch; provider-side human creation/invitation is not selected for `v0.0.1`.
 - **ADM-007:** account-lifecycle decision complete; global account suspension/recovery remains future Platform Admin/security authority and is distinct from tenant membership lifecycle.
 - **ADM-008:** first Owner/delegation/custom-role policy complete for this slice.
-- **ADM-009–ADM-012:** source implementation and focused regression suites are present; dynamic acceptance is **EVIDENCE_PENDING** until the exact PostgreSQL/OpenFGA/full repository checks run in the receiving environment.
+- **ADM-009–ADM-012:** as of this 2026-10-05 record the dynamic acceptance was
+  `EVIDENCE_PENDING` until the exact PostgreSQL/OpenFGA/full repository checks ran
+  in the receiving environment. Those checks have since run: see the recorded
+  2026-10-07 gate below (Tenancy PostgreSQL 26/26, CoreApi 458/458, exit 0).
+  What remains is accountable gate-owner/reviewer acceptance, not evidence.
 - **OPS-003:** remains conditional/not activated because reconciliation is bounded synchronous/manual rather than automatic background execution.
 - **WEB-001/UIA-001/ADM-034:** the bounded topology/high-risk admission prerequisite decisions are present; Web/Admin Web runtimes and live provider `acr` evidence are not claimed.
 
-Do not infer production qualification for ADM-009–012 from the host-neutral compiler pass. The provider-backed build/test boundary remains intentionally visible.
+Production qualification for ADM-009–ADM-012 still is not inferred from the host-neutral compiler pass; it now also has the recorded provider-backed gate run, which is evidence rather than acceptance.
 
 ## Commercial receiving continuation — 2026-10-07
 
@@ -180,9 +184,12 @@ Live Hugging Face upload, download, delete, conditional write, redirects/timeout
 
 This is local dirty-tree qualification, not commit/merge/PR integration, remote CI,
 coverage, live identity-provider qualification, deployment readiness or production
-acceptance. Incoming `eng/verify.sh` runs its unit/container project groups
-sequentially; this pass did not change that policy or serialize test cases to hide
-failures. Historical gate totals are preserved below only as historical evidence.
+acceptance. This pass also changed the gate's execution policy: `eng/verify.sh` now
+classifies test projects by their own Testcontainers dependency and runs the unit
+group and then the container group, one `dotnet test` per project, where the
+preceding script issued a single solution-wide `dotnet test`. No test case is
+serialized within a project. Historical gate totals are preserved below only as
+historical evidence.
 
 The prior truncated-output uncertainty is closed for this final source. A fresh
 pre-fix exact gate also passed 1044/1044; it is retained separately and was not reused
@@ -232,3 +239,54 @@ permanent guards, source hashes and the retained failed receiving checks. This s
 COM-011 and its profile prerequisites were absent. COM-012/013 and general OPS-013
 audit remain separate absent responsibilities. Existing live-provider and
 gate-owner claims are unchanged. Product version remains `v0.0.1`.
+
+
+## 2026-10-09 COM-012 / minimal COM-013 receiving qualification
+
+The owner-accepted independent program-Order approval contract is implemented and locally `PRODUCTION_HONEST`, `BLOCKED = none` for the declared bounded scope. Typed v2 policy/profile facts preserve supported v1 pins; independent rights, exact revision subjects, protected pending-work/history, requester cancellation, recent current-Owner reassignment/cancellation, and atomic approval-aware commitment evidence are owned by [Order approval and admission](../implementation/ORDER_APPROVAL_AND_ADMISSION.md).
+
+One unchanged normal `./eng/verify.sh` passed **1,282/1,282 across all 23 projects**, zero failures/skips or Release warnings/errors. CoreApi/AdminApi/DbMigrator independent publishes passed on the identical frozen source. The [qualification receipt](../review/COM_012_013_IMPLEMENTATION_RECEIPT.md) records source hashes, actual native guards and retained failed receiving runs. This supersedes the preceding dated statement that COM-012/013 were absent. COM-014/015 require their owner-selected production/handoff case; general OPS-013, other commercial responsibilities and existing live-provider/gate-owner claims remain separate. Product remains `v0.0.1`.
+
+
+## COM-014/COM-015 qualified service work and pickup - 2026-10-09
+
+The owner accepted the one committed program Order / one catalog-priced non-stock service-line contract, separate exact partial completion/pickup, blocking dispositions and initial-Owner step-up corrections. The [focused owner](../implementation/ORDER_SERVICE_FULFILLMENT.md) is locally `PRODUCTION_HONEST` for the selected scope: 1,347/1,347 normal-gate tests across 25 projects and three independent host publications passed, with zero failures/skips/warnings/errors; `BLOCKED = none` for this slice. The [receiving receipt](../review/COM_014_015_IMPLEMENTATION_RECEIPT.md) retains source admission, actual checks and non-claims. Planning cards are `VERIFY_EXISTING` for bounded source/evidence review; that label is not runtime qualification. Incoming COM-012/013 source and qualified handoff remain preserved. Artwork, delivery, returns, inventory, outsourcing, billing and general OPS-013 remain separate.
+
+## Catalog consistency receiving correction — 2026-10-09
+
+The current `python3 docs/development-tasks/validate_catalog.py` passes for **all 119 tasks**, including metadata, dependency routes, local links, generated indexes and SHA-256 membership. The earlier 15 errors retained in the COM-012/013 and COM-014/015 receiving records are historical to those snapshots. This correction separates the four cards' allowed planning status (`VERIFY_EXISTING`) from their unchanged qualification prose, synchronizes GATE-002 with COM-004's already accepted `REQUIRED` release obligation, and refreshes the generated catalog. [The catalog receipt](../review/TASK_CATALOG_CONSISTENCY_20261009.md) records the scope and guard. No capability acceptance, runtime scope, release requirement or live-provider qualification is changed; OPS-007/OPS-008 remain blocked for their missing live evidence.
+
+## 2026-10-10 COM-016 and OPS-013 receiving status
+
+The owner accepted the one informal tenant supplier-service case in the [COM-016 proposal](../review/COM_016_DECISION_PROPOSAL.md), owned by the [purchasing contract](../implementation/PURCHASING_SUPPLIER_SERVICE_SLICE.md). The implementation is introduced; qualification remains **BLOCKED** pending the integrated normal gate, independent CoreApi/DbMigrator Release publications, and the latest provider-suite repeat. Focused evidence currently includes CoreApi core checks (24/24 on each of two runs), Purchasing provider checks (39/39; latest repeat pending), Purchasing API/model (20/20), native HTTP (1/1), runtime grants (5/5), migration registry (4/4), and architecture checks (16/16). These focused runs do not qualify the responsibility. `COM-016` is `VERIFY_EXISTING` planning metadata; its `CONDITIONAL` release requirement and GATE-002 conditional route remain unchanged. COM-017 and COM-018 have not been selected.
+
+The owner also accepted the bounded pickup profile in the [OPS-013 proposal](../review/OPS_013_DECISION_PROPOSAL.md), owned by the [audit profile](../implementation/BUSINESS_AUDIT_PICKUP_PROFILE.md). The selected responsibility is introduced; qualification remains **BLOCKED** pending the integrated normal gate and independent host publications. Focused pickup PostgreSQL (33/33) and native HTTP (1/1) evidence passed, including the provider-logging-disabled restart/read/replay journey. These focused runs do not qualify OPS-013. `VERIFY_EXISTING` is planning metadata; the `REQUIRED` release route is unchanged. The exact remaining qualification evidence belongs to the final integrated source, not these partial runs.
+
+## COM-016 and OPS-013 final receiving qualification — 2026-10-10
+
+The accepted supplier-service case and indefinite-retention pickup audit profile are locally `PRODUCTION_HONEST`, `BLOCKED = none` for these declared scopes. The final unchanged normal `./eng/verify.sh` passed **1,447/1,447 across 27 projects**, zero failures/skips or Release warnings/errors; all three independent CoreApi/AdminApi/DbMigrator publications passed. The [receipt](../review/COM_016_OPS_013_IMPLEMENTATION_RECEIPT.md) identifies frozen source, every project result, fixes, recurring guards and recovery. Purchasing PostgreSQL is 40/40; native Purchasing and Fulfillment configured-pool journeys each pass 2/2; Fulfillment PostgreSQL is 33/33. These supersede pending receiving checks above without rewriting their historical evidence. Planning `VERIFY_EXISTING` and existing release routes remain unchanged.
+
+The owner deferred COM-017 until customer settlement exists under [the proposal](../review/COM_017_DECISION_PROPOSAL.md). Outsourcing remains `NOT_INTRODUCED`; invoice/receivable/payment/allocation/settlement qualification and later case selection are activation prerequisites. COM-018 is unselected. Live storage/provider and other gate-owner claims remain separate; product stays `v0.0.1`.
+
+## First durable invoice contract accepted — 2026-10-10
+
+The owner accepted [COM-019–021's five choices](../review/COM_019_021_DECISION_PROPOSAL.md): one full invoice per committed Order, required frozen organization attribution, tenant GUID plus increasing organization ordinal with gaps allowed, server-derived UTC business date without caller dating, and active individual debtors only. COM-019 is `VERIFY_EXISTING` decision metadata. [The focused owner](../implementation/INVOICE_ISSUE_CONTRACT.md) classifies COM-020 contract alignment as receiving/`BLOCKED`; durable issuance remains `NOT_INTRODUCED` in this checkpoint. The donor 25-case pure suite and its independent [gap review](../review/COM_020_GAP_REVIEW_20261010.md) do not qualify the newly accepted deltas. COM-021 persistence and COM-022 protected API qualification remain the next implementation responsibilities; receivable/payment/allocation/settlement follow separately before the owner-deferred COM-017 can be selected.
+
+## Invoice issuance receiving integration — 2026-10-10
+
+COM-020–022 are explicitly assigned against the accepted first invoice contract.
+The existing core is being aligned; the earned PostgreSQL adapter and independent
+issue/view CoreApi composition are introduced and `BLOCKED` receiving qualification.
+No focused or full-gate pass is claimed for this new source. The prior saved
+COM-016/OPS-013 source and its evidence remain unchanged.
+
+[COM-023–025's proposed settlement contract](../review/COM_023_025_DECISION_PROPOSAL.md)
+is waiting for an owner decision; no receivable/payment runtime is introduced.
+COM-017 remains deferred until customer settlement is qualified.
+
+## Customer settlement business contract accepted — 2026-10-10
+
+The owner accepted [COM-023–025's proposed first case](../review/COM_023_025_DECISION_PROPOSAL.md).
+Their business-choice prerequisite is closed; runtime is still `NOT_INTRODUCED`
+pending invoice qualification and explicitly assigned receiving implementation.
+The acceptance does not lift COM-017's deferral or select its outsourced case.

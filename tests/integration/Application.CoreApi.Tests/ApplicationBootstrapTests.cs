@@ -251,6 +251,9 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
 
     public int GetCustomerStoreCallCount(Guid tenantId) => _customers.CallCount(tenantId);
 
+    public void ConsolidateCustomerIndividual(Guid tenantId, Guid sourceId, Guid canonicalId) =>
+        _customers.ConsolidateIndividual(tenantId, sourceId, canonicalId);
+
     public int GetOrderFindCount(Guid tenantId) => _orders.GetFindCount(tenantId);
 
     public int GetOrderListCount(Guid tenantId) => _orders.GetListCount(tenantId);
@@ -274,11 +277,12 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
         string issuer = Authority,
         string audience = Audience,
         DateTime? expires = null,
-        SecurityKey? signingKey = null)
+        SecurityKey? signingKey = null,
+        IEnumerable<Claim>? extraClaims = null)
     {
-        var claims = subject is null
-            ? Array.Empty<Claim>()
-            : [new Claim("sub", subject)];
+        var claims = new List<Claim>();
+        if (subject is not null) claims.Add(new Claim("sub", subject));
+        if (extraClaims is not null) claims.AddRange(extraClaims);
         var descriptor = new SecurityTokenDescriptor
         {
             Issuer = issuer,

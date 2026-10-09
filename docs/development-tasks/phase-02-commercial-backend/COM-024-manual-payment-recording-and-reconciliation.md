@@ -2,7 +2,7 @@
 
 Task ID: COM-024
 Phase: 02-commercial-backend
-Status: DECISION_REQUIRED
+Status: READY_AFTER_DEPENDENCIES
 Model: GPT-6.1 Sol
 Dependencies: COM-023
 Release requirement: REQUIRED
@@ -22,6 +22,8 @@ Recheck `README.IMPLEMENTATION.md`, scoped `AGENTS.md`, [business model](../../d
 Allowed areas: payment-owned manual record/reconciliation commands, currency/amount/evidence, receipt reads and persistence with focused tests. No provider adapter or receivable allocation yet; exclude cashbook/general-ledger and SaaS subscription billing.
 
 ## Decisions/prerequisites
+
+The owner accepted the bounded first case in [COM-023–025's proposal](../../review/COM_023_025_DECISION_PROPOSAL.md) on 2026-10-10. Its exact rules govern implementation; later financial variants remain unselected.
 
 Decide manual channels, exact received/confirmed evidence, correction versus reversal rules, monetary precision, reconciliation authority and reference uniqueness. Partial payment is required; advances may remain unapplied under COM-025.
 

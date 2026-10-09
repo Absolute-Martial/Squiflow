@@ -21,8 +21,8 @@ public sealed class InvoiceIssueTests
                 customerContext: new CustomerOrderContext(organizationId, null),
                 lines:
                 [
-                    new OrderDraftLine(1, "Precise line", 0.5m, "EA", 2.4689m, 1.2344m),
-                    new OrderDraftLine(2, "Whole line", 2m, "EA", 5m, 10m),
+                    new InvoiceSourceLine(1, "Precise line", 0.5m, "EA", 2.4689m, 1.2344m),
+                    new InvoiceSourceLine(2, "Whole line", 2m, "EA", 5m, 10m),
                 ],
                 total: 11.2344m),
         };
@@ -53,7 +53,7 @@ public sealed class InvoiceIssueTests
         Assert.Equal(tenant.AccountId, invoice.IssuedByAccountId);
         Assert.Equal(TimeSpan.Zero, invoice.IssuedAt.Offset);
         Assert.Equal(new DateOnly(2026, 10, 3), invoice.BusinessDate);
-        Assert.Equal("ORG-TEST-0001", invoice.BusinessReference);
+        Assert.Equal(1, invoice.OrganizationOrdinal);
         Assert.Equal(1, authority.CheckCount);
         Assert.Equal(1, invoiceStore.CommitCount);
         Assert.Equal("issue-1", invoiceStore.LastNormalizedKey);
@@ -115,7 +115,7 @@ public sealed class InvoiceIssueTests
     }
 
     [Fact]
-    public async Task InactiveIndividualStopsAtTheExplicitlyUnresolvedEligibilityDecision()
+    public async Task InactiveIndividualIsRejectedAsAnInvalidDebtor()
     {
         var tenant = await CreateContextAsync();
         var individualId = Guid.NewGuid();
@@ -139,9 +139,63 @@ public sealed class InvoiceIssueTests
                 "inactive-individual"),
             CancellationToken.None);
 
-        Assert.Equal(InvoiceIssueStatus.ContractDecisionRequired, result.Status);
-        Assert.Equal(InvoiceIssueDecisionRequirement.InactiveIndividualEligibility, result.RequiredDecision);
+        Assert.Equal(InvoiceIssueStatus.InvalidDebtor, result.Status);
         Assert.Equal(0, invoiceStore.CommitCount);
+    }
+
+    [Fact]
+    public async Task ConsolidatedAwayIndividualIsNotASelectableDebtor()
+    {
+        var tenant = await CreateContextAsync();
+        var sourceId = Guid.NewGuid();
+        var survivorId = Guid.NewGuid();
+        var orderStore = new TestOrderStore { Snapshot = CommittedOrder(tenant) };
+        var customers = new TestCustomerStore();
+        // Active and otherwise valid, but it now carries a forward redirect to the survivor.
+        customers.Individuals[sourceId] = RedirectedIndividual(
+            tenant, sourceId, "Pre-consolidation name", survivorId);
+        var invoiceStore = new InMemoryInvoiceIssueStore();
+        var useCase = CreateUseCase(new TestAuthority(), invoiceStore, orderStore, customers);
+
+        var result = await useCase.ExecuteAsync(
+            tenant,
+            new IssueInvoiceRequest(
+                orderStore.Snapshot.OrderId,
+                orderStore.Snapshot.Revision,
+                new InvoiceDebtorSelection.Individual(sourceId),
+                "redirected-individual"),
+            CancellationToken.None);
+
+        // Rejected as an invalid debtor rather than frozen as issued fact: an issued invoice
+        // is immutable, so accepting a merged-away identity would permanently mint a document
+        // naming a customer that no longer exists, under its pre-consolidation name.
+        Assert.Equal(InvoiceIssueStatus.InvalidDebtor, result.Status);
+        Assert.Equal(0, invoiceStore.CommitCount);
+    }
+
+    [Fact]
+    public async Task SurvivorOfAConsolidationRemainsASelectableDebtor()
+    {
+        var tenant = await CreateContextAsync();
+        var survivorId = Guid.NewGuid();
+        var orderStore = new TestOrderStore { Snapshot = CommittedOrder(tenant) };
+        var customers = new TestCustomerStore();
+        customers.Individuals[survivorId] = Individual(
+            tenant, survivorId, "Survivor", CustomerIndividualAvailability.Active, revision: 9);
+        var invoiceStore = new InMemoryInvoiceIssueStore();
+        var useCase = CreateUseCase(new TestAuthority(), invoiceStore, orderStore, customers);
+
+        var result = await useCase.ExecuteAsync(
+            tenant,
+            new IssueInvoiceRequest(
+                orderStore.Snapshot.OrderId,
+                orderStore.Snapshot.Revision,
+                new InvoiceDebtorSelection.Individual(survivorId),
+                "survivor-individual"),
+            CancellationToken.None);
+
+        Assert.Equal(InvoiceIssueStatus.Issued, result.Status);
+        Assert.Equal(1, invoiceStore.CommitCount);
     }
 
     [Theory]
@@ -198,6 +252,283 @@ public sealed class InvoiceIssueTests
         Assert.Equal(1, invoiceStore.CommitCount);
     }
 
+    [Fact]
+    public async Task UnattributedOrderCannotIssueEvenWhenAValidIndividualWasSelected()
+    {
+        var tenant = await CreateContextAsync();
+        var individualId = Guid.NewGuid();
+        var committed = CommittedOrder(tenant);
+        var order = new InvoiceSourceOrderFacts(
+            committed.TenantId, committed.OrderId, committed.Revision, committed.IsCommitted,
+            committed.CurrencyCode, null, committed.Lines, committed.Total);
+        var orderStore = new TestOrderStore { Snapshot = order };
+        var customers = new TestCustomerStore();
+        customers.Individuals[individualId] = Individual(
+            tenant, individualId, "Active customer", CustomerIndividualAvailability.Active, 1);
+        var store = new InMemoryInvoiceIssueStore();
+        var useCase = CreateUseCase(new TestAuthority(), store, orderStore, customers);
+
+        var result = await useCase.ExecuteAsync(
+            tenant,
+            new IssueInvoiceRequest(order.OrderId, order.Revision,
+                new InvoiceDebtorSelection.Individual(individualId), "unattributed"),
+            CancellationToken.None);
+
+        Assert.Equal(InvoiceIssueStatus.InvalidDebtor, result.Status);
+        Assert.Equal(0, store.CommitCount);
+    }
+
+    [Fact]
+    public async Task OneFullInvoicePerOrderIsEnforcedAcrossDifferentIdempotencyKeys()
+    {
+        var tenant = await CreateContextAsync();
+        var organizationId = Guid.NewGuid();
+        var order = CommittedOrder(tenant, customerContext: new CustomerOrderContext(organizationId, null));
+        var orderStore = new TestOrderStore { Snapshot = order };
+        var customers = new TestCustomerStore();
+        customers.Organizations[organizationId] = Organization(tenant, organizationId, "Organization");
+        var store = new InMemoryInvoiceIssueStore();
+        var useCase = CreateUseCase(new TestAuthority(), store, orderStore, customers);
+
+        var first = await useCase.ExecuteAsync(tenant,
+            new IssueInvoiceRequest(order.OrderId, order.Revision, null, "invoice-one"), CancellationToken.None);
+        var second = await useCase.ExecuteAsync(tenant,
+            new IssueInvoiceRequest(order.OrderId, order.Revision, null, "invoice-two"), CancellationToken.None);
+
+        Assert.Equal(InvoiceIssueStatus.Issued, first.Status);
+        Assert.Equal(InvoiceIssueStatus.OrderAlreadyInvoiced, second.Status);
+        Assert.Equal(1, store.IssuedOrderCount);
+        Assert.Equal(1, Assert.IsType<InvoiceIssuedFacts>(first.Invoice).OrganizationOrdinal);
+    }
+
+    [Theory]
+    [InlineData(InvoiceIssueCommitStatus.NotAuthorized, InvoiceIssueStatus.NotAuthorized)]
+    [InlineData(InvoiceIssueCommitStatus.InvalidSource, InvoiceIssueStatus.InvalidCommittedOrderFacts)]
+    [InlineData(InvoiceIssueCommitStatus.InvalidDebtor, InvoiceIssueStatus.InvalidDebtor)]
+    [InlineData(InvoiceIssueCommitStatus.ResourceLimit, InvoiceIssueStatus.ResourceLimit)]
+    [InlineData(InvoiceIssueCommitStatus.OrderAlreadyInvoiced, InvoiceIssueStatus.OrderAlreadyInvoiced)]
+    [InlineData(InvoiceIssueCommitStatus.OutcomeUnknown, InvoiceIssueStatus.OutcomeUnknown)]
+    public async Task StoreCommitOutcomesMapToStablePureResults(
+        InvoiceIssueCommitStatus storeStatus,
+        InvoiceIssueStatus expectedStatus)
+    {
+        var tenant = await CreateContextAsync();
+        var organizationId = Guid.NewGuid();
+        var order = CommittedOrder(tenant, customerContext: new CustomerOrderContext(organizationId, null));
+        var orderStore = new TestOrderStore { Snapshot = order };
+        var customers = new TestCustomerStore();
+        customers.Organizations[organizationId] = Organization(tenant, organizationId, "Organization");
+        var invoiceStore = new InMemoryInvoiceIssueStore { CommitStatusOverride = storeStatus };
+        var useCase = CreateUseCase(new TestAuthority(), invoiceStore, orderStore, customers);
+
+        var result = await useCase.ExecuteAsync(tenant,
+            new IssueInvoiceRequest(order.OrderId, order.Revision, null, "mapped-outcome"), CancellationToken.None);
+
+        Assert.Equal(expectedStatus, result.Status);
+        Assert.Null(result.Invoice);
+    }
+
+    [Fact]
+    public async Task FreshTransactionalAuthorizationDenialReturnsNoReplayFacts()
+    {
+        var tenant = await CreateContextAsync();
+        var organizationId = Guid.NewGuid();
+        var order = CommittedOrder(tenant, customerContext: new CustomerOrderContext(organizationId, null));
+        var orderStore = new TestOrderStore { Snapshot = order };
+        var customers = new TestCustomerStore();
+        customers.Organizations[organizationId] = Organization(tenant, organizationId, "Organization");
+        var store = new InMemoryInvoiceIssueStore();
+        var useCase = CreateUseCase(new TestAuthority(), store, orderStore, customers);
+        var request = new IssueInvoiceRequest(order.OrderId, order.Revision, null, "fresh-denial");
+        var issued = await useCase.ExecuteAsync(tenant, request, CancellationToken.None);
+        store.ReceiptStatusOverride = InvoiceIssueReceiptStatus.NotAuthorized;
+
+        var denied = await useCase.ExecuteAsync(tenant, request, CancellationToken.None);
+
+        Assert.Equal(InvoiceIssueStatus.Issued, issued.Status);
+        Assert.Equal(InvoiceIssueStatus.NotAuthorized, denied.Status);
+        Assert.Null(denied.Invoice);
+    }
+
+    [Fact]
+    public async Task SourceBeyondTheRetainedLineLimitReturnsResourceLimitBeforeDebtorLookup()
+    {
+        var tenant = await CreateContextAsync();
+        var lines = Enumerable.Range(1, 101)
+            .Select(position => new InvoiceSourceLine(position, "Line", 1m, "EA", 1m, 1m))
+            .ToArray();
+        var order = CommittedOrder(
+            tenant,
+            customerContext: new CustomerOrderContext(Guid.NewGuid(), null),
+            lines: lines,
+            total: lines.Length);
+        var orderStore = new TestOrderStore { Snapshot = order };
+        var customers = new TestCustomerStore();
+        var store = new InMemoryInvoiceIssueStore();
+        var useCase = CreateUseCase(new TestAuthority(), store, orderStore, customers);
+
+        var result = await useCase.ExecuteAsync(tenant,
+            new IssueInvoiceRequest(order.OrderId, order.Revision, null, "too-many-lines"), CancellationToken.None);
+
+        Assert.Equal(InvoiceIssueStatus.ResourceLimit, result.Status);
+        Assert.Equal(0, store.CommitCount);
+        Assert.Equal(0, customers.OrganizationFindCount);
+    }
+
+    [Theory]
+    [InlineData(InvoiceSourceOrderReadStatus.Missing, InvoiceIssueStatus.SourceNotFound)]
+    [InlineData(InvoiceSourceOrderReadStatus.Invalid, InvoiceIssueStatus.InvalidCommittedOrderFacts)]
+    [InlineData(InvoiceSourceOrderReadStatus.Unavailable, InvoiceIssueStatus.DependencyUnavailable)]
+    public async Task SourceReaderOutcomesMapWithoutIssuing(
+        InvoiceSourceOrderReadStatus readStatus,
+        InvoiceIssueStatus expectedStatus)
+    {
+        var tenant = await CreateContextAsync();
+        var order = CommittedOrder(tenant);
+        var source = new TestOrderStore { Snapshot = order, ReadStatusOverride = readStatus };
+        var invoiceStore = new InMemoryInvoiceIssueStore();
+        var useCase = CreateUseCase(new TestAuthority(), invoiceStore, source, new TestCustomerStore());
+
+        var result = await useCase.ExecuteAsync(tenant,
+            new IssueInvoiceRequest(order.OrderId, order.Revision, null, "source-result"), CancellationToken.None);
+
+        Assert.Equal(expectedStatus, result.Status);
+        Assert.Equal(0, invoiceStore.CommitCount);
+    }
+
+    [Fact]
+    public async Task EmptyAttributedProgramIsInvalidSourceBeforeDebtorReadsOrPersistence()
+    {
+        var tenant = await CreateContextAsync();
+        var organizationId = Guid.NewGuid();
+        var order = CommittedOrder(tenant, customerContext: new CustomerOrderContext(organizationId, Guid.Empty));
+        var source = new TestOrderStore { Snapshot = order };
+        var customers = new TestCustomerStore();
+        customers.Organizations[organizationId] = Organization(tenant, organizationId, "Organization");
+        var store = new InMemoryInvoiceIssueStore();
+        var useCase = CreateUseCase(new TestAuthority(), store, source, customers);
+
+        var result = await useCase.ExecuteAsync(tenant,
+            new IssueInvoiceRequest(order.OrderId, order.Revision, null, "invalid-source-program"), CancellationToken.None);
+
+        Assert.Equal(InvoiceIssueStatus.InvalidCommittedOrderFacts, result.Status);
+        Assert.Null(result.Invoice);
+        Assert.Equal(0, customers.OrganizationFindCount);
+        Assert.Equal(0, store.CommitCount);
+    }
+
+    [Fact]
+    public async Task SharedSourceValidatorRequiresExactFrozenOrderFacts()
+    {
+        var tenant = await CreateContextAsync();
+        var organizationId = Guid.NewGuid();
+        var order = CommittedOrder(tenant, customerContext: new CustomerOrderContext(organizationId, null));
+        var sourceReader = new TestOrderStore { Snapshot = order };
+        var customers = new TestCustomerStore();
+        customers.Organizations[organizationId] = Organization(tenant, organizationId, "Organization");
+        var store = new InMemoryInvoiceIssueStore();
+        var useCase = CreateUseCase(new TestAuthority(), store, sourceReader, customers);
+        await useCase.ExecuteAsync(tenant,
+            new IssueInvoiceRequest(order.OrderId, order.Revision, null, "source-validator"), CancellationToken.None);
+        var candidate = Assert.IsType<InvoiceIssueCandidate>(store.LastCandidate);
+
+        Assert.Equal(
+            InvoiceIssueSourceValidationStatus.Valid,
+            InvoiceIssueSourceValidation.Validate(tenant, candidate, order));
+        var changed = new InvoiceSourceOrderFacts(
+            order.TenantId, order.OrderId, order.Revision, true, order.CurrencyCode,
+            order.CustomerContext, [new InvoiceSourceLine(1, "Changed", 1m, "EA", 10m, 10m)], 10m);
+        Assert.Equal(
+            InvoiceIssueSourceValidationStatus.Invalid,
+            InvoiceIssueSourceValidation.Validate(tenant, candidate, changed));
+    }
+
+    [Fact]
+    public async Task SharedDebtorValidatorRejectsChangedNameRevisionInactiveAndWrongTenant()
+    {
+        var tenant = await CreateContextAsync();
+        var individualId = Guid.NewGuid();
+        var orgId = Guid.NewGuid();
+        var order = CommittedOrder(tenant, customerContext: new CustomerOrderContext(orgId, null));
+        var source = new TestOrderStore { Snapshot = order };
+        var customers = new TestCustomerStore();
+        customers.Individuals[individualId] = Individual(
+            tenant, individualId, "Individual", CustomerIndividualAvailability.Active, 7);
+        var store = new InMemoryInvoiceIssueStore();
+        var useCase = CreateUseCase(new TestAuthority(), store, source, customers);
+        await useCase.ExecuteAsync(tenant,
+            new IssueInvoiceRequest(order.OrderId, order.Revision,
+                new InvoiceDebtorSelection.Individual(individualId), "debtor-validator"), CancellationToken.None);
+        var candidate = Assert.IsType<InvoiceIssueCandidate>(store.LastCandidate);
+
+        Assert.Equal(InvoiceIssueDebtorValidationStatus.Valid,
+            InvoiceIssueDebtorValidation.ValidateObservedCandidate(tenant, candidate,
+                new InvoiceDebtorObservedFacts.Individual(tenant.TenantId, individualId, 7, "Individual", true)));
+        Assert.Equal(InvoiceIssueDebtorValidationStatus.Invalid,
+            InvoiceIssueDebtorValidation.ValidateObservedCandidate(tenant, candidate,
+                new InvoiceDebtorObservedFacts.Individual(tenant.TenantId, individualId, 8, "Individual", true)));
+        Assert.Equal(InvoiceIssueDebtorValidationStatus.Invalid,
+            InvoiceIssueDebtorValidation.ValidateObservedCandidate(tenant, candidate,
+                new InvoiceDebtorObservedFacts.Individual(tenant.TenantId, individualId, 7, "Individual", false)));
+        Assert.Equal(InvoiceIssueDebtorValidationStatus.Invalid,
+            InvoiceIssueDebtorValidation.ValidateObservedCandidate(tenant, candidate,
+                new InvoiceDebtorObservedFacts.Individual(Guid.NewGuid(), individualId, 7, "Individual", true)));
+    }
+
+    [Fact]
+    public async Task SharedDebtorValidatorRequiresTheAttributedProgramIdentity()
+    {
+        var tenant = await CreateContextAsync();
+        var organizationId = Guid.NewGuid();
+        var programId = Guid.NewGuid();
+        var order = CommittedOrder(tenant,
+            customerContext: new CustomerOrderContext(organizationId, programId));
+        var source = new TestOrderStore { Snapshot = order };
+        var customers = new TestCustomerStore();
+        customers.Organizations[organizationId] = Organization(tenant, organizationId, "Organization");
+        customers.Programs[programId] = Program(tenant, programId, organizationId, "Program");
+        var store = new InMemoryInvoiceIssueStore();
+        var useCase = CreateUseCase(new TestAuthority(), store, source, customers);
+        await useCase.ExecuteAsync(tenant,
+            new IssueInvoiceRequest(order.OrderId, order.Revision,
+                new InvoiceDebtorSelection.AttributedProgram(), "program-validator"), CancellationToken.None);
+        var candidate = Assert.IsType<InvoiceIssueCandidate>(store.LastCandidate);
+
+        Assert.Equal(InvoiceIssueDebtorValidationStatus.Valid,
+            InvoiceIssueDebtorValidation.ValidateObservedCandidate(tenant, candidate,
+                new InvoiceDebtorObservedFacts.Program(
+                    tenant.TenantId, organizationId, "Organization", programId, "Program")));
+        Assert.Equal(InvoiceIssueDebtorValidationStatus.Invalid,
+            InvoiceIssueDebtorValidation.ValidateObservedCandidate(tenant, candidate,
+                new InvoiceDebtorObservedFacts.Program(
+                    tenant.TenantId, organizationId, "Organization", Guid.NewGuid(), "Program")));
+    }
+
+    [Fact]
+    public void RetainedFactsDeriveUtcDateAndRequirePositiveOrganizationOrdinal()
+    {
+        var issuedAt = new DateTimeOffset(2026, 10, 3, 23, 30, 0, TimeSpan.Zero);
+        var context = new CustomerOrderContext(Guid.NewGuid(), null);
+        var debtor = new InvoiceDebtorFacts.Organization(context.OrganizationId, "Organization");
+        var accepted = new InvoiceIssuedFacts(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1, context, "NPR",
+            [new InvoiceIssuedLine(1, "Line", 1m, "EA", 1m, 1m)], 1m,
+            debtor, Guid.NewGuid(), issuedAt, new DateOnly(2026, 10, 3), 1);
+        Assert.Equal(new DateOnly(2026, 10, 3), accepted.BusinessDate);
+
+        var badDate = Assert.Throws<InvoiceIssueValidationException>(() => new InvoiceIssuedFacts(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1, context, "NPR",
+            [new InvoiceIssuedLine(1, "Line", 1m, "EA", 1m, 1m)], 1m, debtor, Guid.NewGuid(),
+            issuedAt, new DateOnly(2026, 10, 4), 1));
+        var badOrdinal = Assert.Throws<InvoiceIssueValidationException>(() => new InvoiceIssuedFacts(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1, context, "NPR",
+            [new InvoiceIssuedLine(1, "Line", 1m, "EA", 1m, 1m)], 1m, debtor, Guid.NewGuid(),
+            new DateTimeOffset(2026, 10, 3, 12, 0, 0, TimeSpan.Zero), new DateOnly(2026, 10, 3), 0));
+
+        Assert.Equal("business_date_invalid", badDate.Code);
+        Assert.Equal("organization_ordinal_invalid", badOrdinal.Code);
+    }
+
     [Theory]
     [InlineData(OrderDraftState.Draft, "NPR", 3, InvoiceIssueStatus.OrderNotCommitted)]
     [InlineData(OrderDraftState.Abandoned, "NPR", 3, InvoiceIssueStatus.OrderNotCommitted)]
@@ -215,7 +546,15 @@ public sealed class InvoiceIssueTests
             tenant,
             currencyCode: currencyCode,
             customerContext: new CustomerOrderContext(organizationId, null));
-        snapshot = snapshot with { State = state };
+        snapshot = new InvoiceSourceOrderFacts(
+            snapshot.TenantId,
+            snapshot.OrderId,
+            snapshot.Revision,
+            state == OrderDraftState.Committed,
+            snapshot.CurrencyCode,
+            snapshot.CustomerContext,
+            snapshot.Lines,
+            snapshot.Total);
         var orderStore = new TestOrderStore { Snapshot = snapshot };
         var customers = new TestCustomerStore();
         customers.Organizations[organizationId] = Organization(tenant, organizationId, "Organization");
@@ -246,9 +585,9 @@ public sealed class InvoiceIssueTests
                 tenant,
                 lines:
                 [
-                    new OrderDraftLine(1, "Maximum", 1m, "EA", 999_999_999_999_999.9999m,
+                    new InvoiceSourceLine(1, "Maximum", 1m, "EA", 999_999_999_999_999.9999m,
                         999_999_999_999_999.9999m),
-                    new OrderDraftLine(2, "Extra", 1m, "EA", 0.0001m, 0.0001m),
+                    new InvoiceSourceLine(2, "Extra", 1m, "EA", 0.0001m, 0.0001m),
                 ],
                 total: 1_000_000_000_000_000.0000m),
         };
@@ -276,7 +615,7 @@ public sealed class InvoiceIssueTests
         {
             Snapshot = CommittedOrder(
                 tenant,
-                lines: [new OrderDraftLine(1, "Bad scale", 1.00001m, "EA", 1m, 1m)],
+                lines: [new InvoiceSourceLine(1, "Bad scale", 1.00001m, "EA", 1m, 1m)],
                 total: 1m),
         };
         var invoiceStore = new InMemoryInvoiceIssueStore();
@@ -300,7 +639,7 @@ public sealed class InvoiceIssueTests
     {
         var tenant = await CreateContextAsync();
         var organizationId = Guid.NewGuid();
-        var mutableLines = new List<OrderDraftLine>
+        var mutableLines = new List<InvoiceSourceLine>
         {
             new(1, "Original line", 1m, "EA", 10m, 10m),
         };
@@ -323,7 +662,7 @@ public sealed class InvoiceIssueTests
             "same-key");
 
         var issued = await useCase.ExecuteAsync(tenant, request, CancellationToken.None);
-        mutableLines[0] = new OrderDraftLine(1, "Changed source", 1m, "EA", 999m, 999m);
+        mutableLines[0] = new InvoiceSourceLine(1, "Changed source", 1m, "EA", 999m, 999m);
         customers.Organizations[organizationId] = Organization(tenant, organizationId, "Changed organization");
 
         var replayed = await useCase.ExecuteAsync(tenant, request, CancellationToken.None);
@@ -425,7 +764,7 @@ public sealed class InvoiceIssueTests
             Guid.NewGuid(),
             Guid.NewGuid(),
             1,
-            null,
+            new CustomerOrderContext(Guid.NewGuid(), null),
             "NPR",
             lines,
             1m,
@@ -433,7 +772,7 @@ public sealed class InvoiceIssueTests
             Guid.NewGuid(),
             new DateTimeOffset(2026, 10, 3, 12, 0, 0, TimeSpan.Zero),
             new DateOnly(2026, 10, 3),
-            "REF-1");
+            1);
 
         lines[0] = new InvoiceIssuedLine(1, "Mutated", 2m, "EA", 2m, 4m);
         lines.Add(new InvoiceIssuedLine(2, "Added", 1m, "EA", 1m, 1m));
@@ -483,9 +822,9 @@ public sealed class InvoiceIssueTests
         debtor = debtor with { Kind = retainedKind };
 
         var exception = Assert.Throws<InvoiceIssueValidationException>(() => new InvoiceIssuedFacts(
-            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1, null, "NPR",
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1, ContextFor(debtor), "NPR",
             [new InvoiceIssuedLine(1, "Line", 1m, "EA", 1m, 1m)], 1m, debtor, Guid.NewGuid(),
-            new DateTimeOffset(2026, 10, 3, 12, 0, 0, TimeSpan.Zero), new DateOnly(2026, 10, 3), "REF-1"));
+            new DateTimeOffset(2026, 10, 3, 12, 0, 0, TimeSpan.Zero), new DateOnly(2026, 10, 3), 1));
 
         Assert.Equal("debtor_kind_invalid", exception.Code);
     }
@@ -497,12 +836,27 @@ public sealed class InvoiceIssueTests
             Guid.NewGuid(), "Organization", Guid.NewGuid(), "Program");
 
         var invoice = new InvoiceIssuedFacts(
-            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1, null, "NPR",
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1, ContextFor(debtor), "NPR",
             [new InvoiceIssuedLine(1, "Line", 1m, "EA", 1m, 1m)], 1m, debtor, Guid.NewGuid(),
-            new DateTimeOffset(2026, 10, 3, 12, 0, 0, TimeSpan.Zero), new DateOnly(2026, 10, 3), "REF-1");
+            new DateTimeOffset(2026, 10, 3, 12, 0, 0, TimeSpan.Zero), new DateOnly(2026, 10, 3), 1);
 
         Assert.Equal(InvoiceDebtorKind.Program, invoice.Debtor.Kind);
         Assert.Equal(debtor, invoice.Debtor);
+    }
+
+    [Fact]
+    public void IssuedFactsRejectAProgramDifferentFromTheAttributedProgram()
+    {
+        var debtor = new InvoiceDebtorFacts.Program(
+            Guid.NewGuid(), "Organization", Guid.NewGuid(), "Program");
+
+        var exception = Assert.Throws<InvoiceIssueValidationException>(() => new InvoiceIssuedFacts(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1,
+            new CustomerOrderContext(debtor.OrganizationId, Guid.NewGuid()), "NPR",
+            [new InvoiceIssuedLine(1, "Line", 1m, "EA", 1m, 1m)], 1m, debtor, Guid.NewGuid(),
+            new DateTimeOffset(2026, 10, 3, 12, 0, 0, TimeSpan.Zero), new DateOnly(2026, 10, 3), 1));
+
+        Assert.Equal("debtor_organization_mismatch", exception.Code);
     }
 
     private static IssueInvoice CreateUseCase(
@@ -513,31 +867,35 @@ public sealed class InvoiceIssueTests
         new(
             authority,
             invoiceStore,
-            new GetOrderDraft(orderStore),
+            orderStore,
             new GetCustomerOrganization(customers),
             new GetCustomerProgram(customers),
             new GetCustomerIndividual(customers));
 
-    private static OrderDraftSnapshot CommittedOrder(
+    private static InvoiceSourceOrderFacts CommittedOrder(
         TenantContext tenant,
         string currencyCode = "NPR",
         CustomerOrderContext? customerContext = null,
-        IReadOnlyList<OrderDraftLine>? lines = null,
+        IReadOnlyList<InvoiceSourceLine>? lines = null,
         decimal total = 10m) =>
         new(
-            Guid.NewGuid(),
             tenant.TenantId,
-            tenant.AccountId,
-            "Committed order",
-            currencyCode,
-            total,
+            Guid.NewGuid(),
             3,
-            new DateTimeOffset(2026, 10, 3, 10, 0, 0, TimeSpan.Zero),
-            lines ?? [new OrderDraftLine(1, "Line", 1m, "EA", 10m, 10m)],
-            OrderDraftState.Committed,
-            CustomerContext: customerContext,
-            CommittedAt: new DateTimeOffset(2026, 10, 3, 10, 5, 0, TimeSpan.Zero),
-            CommittedByAccountId: tenant.AccountId);
+            true,
+            currencyCode,
+            customerContext ?? new CustomerOrderContext(Guid.NewGuid(), null),
+            lines ?? [new InvoiceSourceLine(1, "Line", 1m, "EA", 10m, 10m)],
+            total);
+
+    private static CustomerOrderContext ContextFor(InvoiceDebtorFacts debtor) => new(
+        debtor switch
+        {
+            InvoiceDebtorFacts.Organization organization => organization.OrganizationId,
+            InvoiceDebtorFacts.Program program => program.OrganizationId,
+            _ => Guid.NewGuid(),
+        },
+        debtor is InvoiceDebtorFacts.Program programDebtor ? programDebtor.ProgramId : null);
 
     private static CustomerOrganizationSnapshot Organization(
         TenantContext tenant,
@@ -558,7 +916,8 @@ public sealed class InvoiceIssueTests
         Guid individualId,
         string name,
         CustomerIndividualAvailability availability,
-        long revision) =>
+        long revision,
+        Guid? redirectTargetIndividualId = null) =>
         new(
             individualId,
             tenant.TenantId,
@@ -570,7 +929,21 @@ public sealed class InvoiceIssueTests
             tenant.AccountId,
             new DateTimeOffset(2026, 10, 1, 0, 0, 0, TimeSpan.Zero),
             null,
-            null);
+            null,
+            RedirectTargetIndividualId: redirectTargetIndividualId);
+
+    private static CustomerIndividualSnapshot RedirectedIndividual(
+        TenantContext tenant,
+        Guid individualId,
+        string name,
+        Guid redirectTargetIndividualId) =>
+        Individual(
+            tenant,
+            individualId,
+            name,
+            CustomerIndividualAvailability.Active,
+            revision: 4,
+            redirectTargetIndividualId: redirectTargetIndividualId);
 
     private static async Task<TenantContext> CreateContextAsync() =>
         (await new ResolveTenantContext(new ActiveMembershipDirectory())
@@ -607,11 +980,16 @@ public sealed class InvoiceIssueTests
     private sealed class InMemoryInvoiceIssueStore : IInvoiceIssueStore
     {
         private readonly Dictionary<(Guid TenantId, Guid AccountId, string Key), StoredReceipt> receipts = [];
-        private int referenceCounter;
+        private readonly Dictionary<(Guid TenantId, Guid OrderId), InvoiceIssuedFacts> issuedOrders = [];
+        private readonly Dictionary<(Guid TenantId, Guid OrganizationId), long> ordinals = [];
 
         public int ReceiptLookupCount { get; private set; }
         public int CommitCount { get; private set; }
+        public int IssuedOrderCount => issuedOrders.Count;
         public string? LastNormalizedKey { get; private set; }
+        public InvoiceIssueReceiptStatus? ReceiptStatusOverride { get; set; }
+        public InvoiceIssueCommitStatus? CommitStatusOverride { get; set; }
+        public InvoiceIssueCandidate? LastCandidate { get; private set; }
 
         public Task<InvoiceIssueReceiptResult> FindReceiptAsync(
             TenantContext tenantContext,
@@ -621,6 +999,11 @@ public sealed class InvoiceIssueTests
         {
             ReceiptLookupCount++;
             LastNormalizedKey = idempotencyKey;
+            if (ReceiptStatusOverride is { } overrideStatus)
+            {
+                return Task.FromResult(new InvoiceIssueReceiptResult(overrideStatus));
+            }
+
             var scope = (tenantContext.TenantId, tenantContext.AccountId, idempotencyKey);
             if (!receipts.TryGetValue(scope, out var receipt))
             {
@@ -640,7 +1023,13 @@ public sealed class InvoiceIssueTests
             CancellationToken cancellationToken)
         {
             CommitCount++;
+            LastCandidate = candidate;
             LastNormalizedKey = idempotencyKey;
+            if (CommitStatusOverride is { } overrideStatus)
+            {
+                return Task.FromResult(new InvoiceIssueCommitResult(overrideStatus));
+            }
+
             var scope = (tenantContext.TenantId, tenantContext.AccountId, idempotencyKey);
             if (receipts.TryGetValue(scope, out var existing))
             {
@@ -648,6 +1037,16 @@ public sealed class InvoiceIssueTests
                     ? new InvoiceIssueCommitResult(InvoiceIssueCommitStatus.Replayed, existing.Invoice)
                     : new InvoiceIssueCommitResult(InvoiceIssueCommitStatus.IdempotencyKeyConflict));
             }
+
+            if (issuedOrders.ContainsKey((candidate.TenantId, candidate.SourceOrderId)))
+            {
+                return Task.FromResult(new InvoiceIssueCommitResult(InvoiceIssueCommitStatus.OrderAlreadyInvoiced));
+            }
+
+            var ordinalKey = (candidate.TenantId, candidate.SourceCustomerContext!.OrganizationId);
+            ordinals.TryGetValue(ordinalKey, out var priorOrdinal);
+            var ordinal = priorOrdinal + 1;
+            var issuedAt = new DateTimeOffset(2026, 10, 3, 12, 0, 0, TimeSpan.Zero);
 
             var invoice = new InvoiceIssuedFacts(
                 Guid.NewGuid(),
@@ -660,63 +1059,39 @@ public sealed class InvoiceIssueTests
                 candidate.Total,
                 candidate.Debtor,
                 candidate.IssuedByAccountId,
-                new DateTimeOffset(2026, 10, 3, 12, 0, 0, TimeSpan.Zero),
-                new DateOnly(2026, 10, 3),
-                $"ORG-TEST-{++referenceCounter:0000}");
+                issuedAt,
+                DateOnly.FromDateTime(issuedAt.UtcDateTime),
+                ordinal);
             receipts[scope] = new StoredReceipt(fingerprint, invoice);
+            issuedOrders[(candidate.TenantId, candidate.SourceOrderId)] = invoice;
+            ordinals[ordinalKey] = ordinal;
             return Task.FromResult(new InvoiceIssueCommitResult(InvoiceIssueCommitStatus.Issued, invoice));
         }
 
         private sealed record StoredReceipt(string Fingerprint, InvoiceIssuedFacts Invoice);
     }
 
-    private sealed class TestOrderStore : IOrderDraftStore
+    private sealed class TestOrderStore : IInvoiceSourceOrderReader
     {
-        public required OrderDraftSnapshot Snapshot { get; set; }
+        public required InvoiceSourceOrderFacts Snapshot { get; set; }
         public int FindCount { get; private set; }
+        public InvoiceSourceOrderReadStatus? ReadStatusOverride { get; set; }
 
-        public Task<OrderDraftSnapshot?> FindAsync(
+        public Task<InvoiceSourceOrderReadResult> ReadAsync(
             TenantContext tenantContext,
             Guid orderId,
             CancellationToken cancellationToken)
         {
             FindCount++;
-            return Task.FromResult<OrderDraftSnapshot?>(
-                Snapshot.TenantId == tenantContext.TenantId && Snapshot.OrderId == orderId ? Snapshot : null);
+            if (ReadStatusOverride is { } overrideStatus)
+            {
+                return Task.FromResult(new InvoiceSourceOrderReadResult(overrideStatus));
+            }
+
+            return Task.FromResult(Snapshot.TenantId == tenantContext.TenantId && Snapshot.OrderId == orderId
+                ? new InvoiceSourceOrderReadResult(InvoiceSourceOrderReadStatus.Found, Snapshot)
+                : new InvoiceSourceOrderReadResult(InvoiceSourceOrderReadStatus.Missing));
         }
-
-        public Task<CreateOrderDraftResult> CreateAsync(
-            TenantContext tenantContext,
-            OrderDraftIntent intent,
-            string idempotencyKey,
-            CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<OrderDraftPage> ListAsync(
-            TenantContext tenantContext,
-            ListOrderDraftsRequest request,
-            CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<AbandonOrderDraftResult> AbandonAsync(
-            TenantContext tenantContext,
-            AbandonOrderDraftRequest request,
-            string idempotencyKey,
-            string fingerprint,
-            CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<ReviseOrderDraftResult> ReviseAsync(
-            TenantContext tenantContext,
-            ReviseOrderDraftRequest request,
-            OrderDraftIntent intent,
-            string idempotencyKey,
-            string fingerprint,
-            CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<CommitOrderDraftResult> CommitAsync(
-            TenantContext tenantContext,
-            CommitOrderDraftRequest request,
-            string idempotencyKey,
-            string fingerprint,
-            CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 
     private sealed class TestCustomerStore : ICustomerStore, ICustomerIndividualStore

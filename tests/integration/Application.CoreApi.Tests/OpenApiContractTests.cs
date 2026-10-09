@@ -88,6 +88,35 @@ public sealed class OpenApiContractTests : IClassFixture<WhiteLabelApiFactory>
     }
 
     [Fact]
+    public async Task InvoiceIssueAndFrozenReadsDescribeStrictProtectedContractsAndMinimalCommandReplies()
+    {
+        using var response = await _client.GetAsync("/openapi/v1.json");
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var root = document.RootElement;
+        var path = root.GetProperty("paths").GetProperty("/api/v1/tenants/{tenantId}/orders/{orderId}/invoice");
+        var issue = path.GetProperty("post");
+        Assert.True(HasOidcRequirement(issue));
+        Assert.True(HasOidcRequirement(path.GetProperty("get")));
+        Assert.True(HasOidcRequirement(root.GetProperty("paths").GetProperty("/api/v1/tenants/{tenantId}/invoices/{invoiceId}").GetProperty("get")));
+        var key = issue.GetProperty("parameters").EnumerateArray().Single(parameter => parameter.GetProperty("name").GetString() == "Idempotency-Key");
+        Assert.True(key.GetProperty("required").GetBoolean());
+        Assert.Equal(1, key.GetProperty("schema").GetProperty("minLength").GetInt32());
+        Assert.Equal(128, key.GetProperty("schema").GetProperty("maxLength").GetInt32());
+        var responses = issue.GetProperty("responses");
+        Assert.True(responses.GetProperty("201").GetProperty("headers").TryGetProperty("Location", out _));
+        Assert.True(responses.GetProperty("200").GetProperty("headers").TryGetProperty("Idempotency-Replayed", out _));
+        foreach (var status in new[] { "400", "401", "403", "404", "409", "413", "429", "500", "503", "504" })
+            Assert.True(responses.TryGetProperty(status, out _));
+        var schemas = root.GetProperty("components").GetProperty("schemas");
+        var bodyRef = issue.GetProperty("requestBody").GetProperty("content").GetProperty("application/json").GetProperty("schema").GetProperty("$ref").GetString()!;
+        var body = schemas.GetProperty(bodyRef.Split('/')[^1]);
+        Assert.Contains(body.GetProperty("required").EnumerateArray(), property => property.GetString() == "expectedOrderRevision");
+        Assert.False(body.GetProperty("additionalProperties").GetBoolean());
+        var commandRef = responses.GetProperty("201").GetProperty("content").GetProperty("application/json").GetProperty("schema").GetProperty("$ref").GetString()!;
+        Assert.Equal("invoiceId", Assert.Single(schemas.GetProperty(commandRef.Split('/')[^1]).GetProperty("properties").EnumerateObject()).Name);
+    }
+
+    [Fact]
     public async Task CreateOrderDocumentsIdempotencyAndResponseHeaders()
     {
         using var response = await _client.GetAsync("/openapi/v1.json");
@@ -215,6 +244,36 @@ public sealed class OpenApiContractTests : IClassFixture<WhiteLabelApiFactory>
         Assert.Contains(schema.GetProperty("required").EnumerateArray(), field => field.GetString() == requiredField);
         Assert.True(operation.GetProperty("responses").GetProperty("200").GetProperty("headers").TryGetProperty("Idempotency-Replayed", out _));
         Assert.True(operation.GetProperty("responses").TryGetProperty("429", out _));
+    }
+
+    [Theory]
+    [InlineData("/api/v1/tenants/{tenantId}/orders/catalog-priced", "post", true)]
+    [InlineData("/api/v1/tenants/{tenantId}/orders/{orderId}/catalog-priced-draft", "put", false)]
+    public async Task CatalogPricedOrderMutationsDocumentTheRequiredIdempotencyKey(string path, string method, bool created)
+    {
+        using var response = await _client.GetAsync("/openapi/v1.json");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var operation = document.RootElement.GetProperty("paths").GetProperty(path).GetProperty(method);
+        Assert.True(HasOidcRequirement(operation));
+
+        // These routes require one Idempotency-Key at runtime, so the documented contract
+        // must require it as well rather than leaving a generated client without it.
+        var key = operation.GetProperty("parameters").EnumerateArray()
+            .Single(parameter => parameter.GetProperty("name").GetString() == "Idempotency-Key");
+        Assert.True(key.GetProperty("required").GetBoolean());
+        Assert.Equal("header", key.GetProperty("in").GetString());
+        Assert.Equal(1, key.GetProperty("schema").GetProperty("minLength").GetInt32());
+        Assert.Equal(128, key.GetProperty("schema").GetProperty("maxLength").GetInt32());
+
+        var responses = operation.GetProperty("responses");
+        Assert.True(responses.GetProperty("200").GetProperty("headers")
+            .TryGetProperty("Idempotency-Replayed", out _));
+        Assert.Equal(created, responses.TryGetProperty("201", out var createdResponse));
+        if (created)
+            Assert.True(createdResponse.GetProperty("headers").TryGetProperty("Location", out _));
+        Assert.True(responses.TryGetProperty("409", out _));
+        Assert.True(responses.TryGetProperty("429", out _));
     }
 
     private static bool HasOidcRequirement(JsonElement operation) =>

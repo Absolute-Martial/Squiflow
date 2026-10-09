@@ -100,13 +100,16 @@ public static class QuotationRules
                 if (line.Catalog is not null || line.PriceSelection is not null || line.PublishedPrice is not null) Fail("retained_facts_invalid");
                 continue;
             }
+            if (line.PriceSelection?.Explanation?.Policy is { } retainedPolicy &&
+                !PricingOverridePolicySemantics.Supported(retainedPolicy.EnvelopeSemanticsVersion))
+                throw new PricingStoredContractException("pricing_policy_semantics_unsupported", "The retained pricing envelope version is not supported by this reader.");
             if (line.Catalog is not { Conversion: { } conversion } catalog || line.PriceSelection is not { Explanation: { } explanation } price ||
                 line.PublishedPrice is not { } source || explanation.Context is not { } context ||
                 catalog.ItemId == Guid.Empty || catalog.UnitId == Guid.Empty || catalog.ItemRevision < 1 || catalog.UnitRevision < 1 ||
                 catalog.UnitCode != line.UnitCode || catalog.ItemName != line.Description || catalog.Quantity != line.Quantity ||
                 conversion.SourceUnitId != catalog.UnitId || conversion.TargetUnitId == Guid.Empty || conversion.Revision < 1 ||
                 catalog.BaseUnitPrecision is null || catalog.BaseUnitRevision is null || catalog.BaseQuantity is null ||
-                catalog.QuantityArithmeticVersion != 1 || catalog.QuantityRounding != "toEven" ||
+                !QuantityArithmetic.RoundingSupported(catalog.QuantityArithmeticVersion, catalog.QuantityRounding) ||
                 tenantId.HasValue && source.TenantId != tenantId || source.State != PricePublicationState.Published ||
                 source.Key.ItemId != catalog.ItemId || source.Key.UnitId != catalog.UnitId || source.Key.UnitCode != line.UnitCode ||
                 source.Key.CurrencyCode != offer.CurrencyCode || price.UnitPrice != line.UnitPrice || price.CurrencyCode != offer.CurrencyCode ||
@@ -122,12 +125,17 @@ public static class QuotationRules
                 context.CommittedQuotationId.HasValue || context.CommittedAgreementId.HasValue || context.WholesaleTierId.HasValue ||
                 !source.Validity.Contains(explanation.EvaluatedAt))
                 throw new QuotationValidationException("retained_facts_invalid", "Retained quotation source facts are inconsistent.");
-            if (CatalogQuantityConversion.Convert(line.Quantity, catalog.UnitPrecision, catalog.BaseUnitPrecision.Value,
-                conversion.Numerator, conversion.Denominator) != catalog.BaseQuantity) Fail("retained_facts_invalid");
+            if (CatalogQuantityConversion.Convert(catalog.QuantityArithmeticVersion, line.Quantity, catalog.UnitPrecision,
+                catalog.BaseUnitPrecision.Value, conversion.Numerator, conversion.Denominator) != catalog.BaseQuantity)
+                Fail("retained_facts_invalid");
             if (explanation.Discount is not null || explanation.Override is null && source.BaseUnitPrice != line.UnitPrice)
                 Fail("retained_facts_invalid");
+            // The retained BeyondPolicy decision is validated against the retained envelope snapshot
+            // through the semantics version that snapshot pinned, not through this reader's current
+            // engine meaning. A reader that cannot evaluate that version fails closed above.
             if (explanation.Override is { } evidence && (evidence.UnitPrice != line.UnitPrice ||
-                evidence.BeyondPolicy != !explanation.Policy.Contains(line.UnitPrice, source.BaseUnitPrice) ||
+                evidence.BeyondPolicy != PriceSelectionEngine.RetainedBeyondPolicy(explanation.Policy,
+                    line.UnitPrice, source.BaseUnitPrice) ||
                 evidence.ApprovalReference is not null || evidence.ApprovedByAccountId.HasValue ||
                 Text(evidence.Reason, 500, "retained_facts_invalid") != evidence.Reason)) Fail("retained_facts_invalid");
         }

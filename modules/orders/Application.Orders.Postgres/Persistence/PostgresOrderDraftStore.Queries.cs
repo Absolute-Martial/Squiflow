@@ -143,6 +143,7 @@ public sealed partial class PostgresOrderDraftStore
         snapshot = snapshot with { ProgramPolicy = metadata?.Policy, ExternalProgramReference = metadata?.Reference };
         if (snapshot.ProgramPolicy is not null) OrderProgramReference.RequireValidStored(snapshot.ProgramPolicy, snapshot.ExternalProgramReference);
         await RequireRetainedProgramPolicyAsync(session, tenantId, snapshot, cancellationToken).ConfigureAwait(false);
+        snapshot = snapshot with { ApprovalEvidence = await ReadApprovalCommitEvidenceAsync(session, snapshot, cancellationToken).ConfigureAwait(false) };
         if (validateCommercialFacts) OrderCommercialFactsValidation.RequireValid(snapshot);
         return snapshot;
     }

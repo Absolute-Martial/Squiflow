@@ -18,6 +18,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../../services/core-api/Application.CoreApi/Application.CoreApi.csproj" />
+    <ProjectReference Include="../../../operations/db-migrator/Application.DatabaseMigrator/Application.DatabaseMigrator.csproj" Aliases="DatabaseMigrator" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="../../../infrastructure/authorization/openfga/tenant-authorization-model.json"

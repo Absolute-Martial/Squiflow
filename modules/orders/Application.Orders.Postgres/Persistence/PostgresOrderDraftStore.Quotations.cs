@@ -36,7 +36,7 @@ public sealed partial class PostgresOrderDraftStore
     private async Task RequireAcceptedQuotationFactsAsync(TenantContext context, OrderDraftSnapshot order, CancellationToken ct)
     {
         if (order.QuotationOrigin is not null && (commercialCommitGuard is null ||
-            !await commercialCommitGuard.IsCompatibleAsync(context, order, ct).ConfigureAwait(false)))
+            !await commercialCommitGuard.IsCompatibleAsync(context, order, OrderCommercialCommitAuthority.None, ct).ConfigureAwait(false)))
             throw new InvalidOperationException("The quoted Order does not match its trusted accepted offer and conversion link.");
     }
     private static async Task<OrderQuotationOrigin?> ReadQuotationOriginAsync(OrderTenantDbSession session, Guid tenantId, Guid orderId, CancellationToken ct)

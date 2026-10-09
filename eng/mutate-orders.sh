@@ -9,6 +9,7 @@ rm -rf -- "$output"
 cd "$test_project"
 dotnet tool restore
 dotnet stryker \
+    --project 'Application.Orders.csproj' \
     --mutate '**/OrderDraft.cs' \
     --output "$output" \
     --concurrency "${STRYKER_CONCURRENCY:-2}" \

@@ -63,6 +63,69 @@ public sealed record InvoiceIssuedLine(
     decimal UnitPrice,
     decimal LineTotal);
 
+public sealed record InvoiceSourceLine(
+    int Position,
+    string Description,
+    decimal Quantity,
+    string UnitCode,
+    decimal UnitPrice,
+    decimal LineTotal);
+
+public sealed class InvoiceSourceOrderFacts
+{
+    private readonly ReadOnlyCollection<InvoiceSourceLine> retainedLines;
+
+    public InvoiceSourceOrderFacts(
+        Guid tenantId,
+        Guid orderId,
+        long revision,
+        bool isCommitted,
+        string currencyCode,
+        CustomerOrderContext? customerContext,
+        IEnumerable<InvoiceSourceLine> lines,
+        decimal total)
+    {
+        ArgumentNullException.ThrowIfNull(lines);
+        TenantId = tenantId;
+        OrderId = orderId;
+        Revision = revision;
+        IsCommitted = isCommitted;
+        CurrencyCode = currencyCode;
+        CustomerContext = customerContext;
+        retainedLines = Array.AsReadOnly(lines.ToArray());
+        Total = total;
+    }
+
+    public Guid TenantId { get; }
+    public Guid OrderId { get; }
+    public long Revision { get; }
+    public bool IsCommitted { get; }
+    public string CurrencyCode { get; }
+    public CustomerOrderContext? CustomerContext { get; }
+    public IReadOnlyList<InvoiceSourceLine> Lines => retainedLines;
+    public decimal Total { get; }
+}
+
+public enum InvoiceSourceOrderReadStatus
+{
+    Found = 1,
+    Missing = 2,
+    Invalid = 3,
+    Unavailable = 4,
+}
+
+public sealed record InvoiceSourceOrderReadResult(
+    InvoiceSourceOrderReadStatus Status,
+    InvoiceSourceOrderFacts? SourceOrder = null);
+
+public interface IInvoiceSourceOrderReader
+{
+    Task<InvoiceSourceOrderReadResult> ReadAsync(
+        TenantContext tenantContext,
+        Guid orderId,
+        CancellationToken cancellationToken);
+}
+
 public sealed class InvoiceIssuedFacts
 {
     private readonly ReadOnlyCollection<InvoiceIssuedLine> lines;
@@ -80,7 +143,7 @@ public sealed class InvoiceIssuedFacts
         Guid issuedByAccountId,
         DateTimeOffset issuedAt,
         DateOnly businessDate,
-        string businessReference)
+        long organizationOrdinal)
     {
         ArgumentNullException.ThrowIfNull(lines);
         ArgumentNullException.ThrowIfNull(debtor);
@@ -102,18 +165,18 @@ public sealed class InvoiceIssuedFacts
                 "Issued timestamp must be a non-default UTC timestamp.");
         }
 
-        if (businessDate == default)
+        if (businessDate != DateOnly.FromDateTime(issuedAt.UtcDateTime))
         {
             throw new InvoiceIssueValidationException(
                 "business_date_invalid",
-                "Invoice business date cannot be the default date.");
+                "Invoice business date must equal the UTC date of its issue timestamp.");
         }
 
-        if (string.IsNullOrWhiteSpace(businessReference))
+        if (organizationOrdinal < 1)
         {
             throw new InvoiceIssueValidationException(
-                "business_reference_invalid",
-                "Invoice business reference cannot be blank.");
+                "organization_ordinal_invalid",
+                "Organization invoice ordinal must be positive.");
         }
 
         if (!string.Equals(currencyCode, InvoiceIssueRules.RequiredCurrencyCode, StringComparison.Ordinal))
@@ -123,13 +186,12 @@ public sealed class InvoiceIssuedFacts
                 "Issued invoice currency must be NPR.");
         }
 
-        if (sourceCustomerContext is not null &&
-            (sourceCustomerContext.OrganizationId == Guid.Empty ||
-             sourceCustomerContext.ProgramId == Guid.Empty))
+        if (sourceCustomerContext is null || sourceCustomerContext.OrganizationId == Guid.Empty ||
+            sourceCustomerContext.ProgramId == Guid.Empty)
         {
             throw new InvoiceIssueValidationException(
                 "customer_context_invalid",
-                "Retained customer attribution contains an empty identity.");
+                "Retained customer attribution must contain an organization identity and valid optional program identity.");
         }
 
         var retainedLines = lines.ToArray();
@@ -140,7 +202,32 @@ public sealed class InvoiceIssuedFacts
                 "Issued invoice lines or total violate the accepted decimal arithmetic contract.");
         }
 
+        if (!InvoiceIssueRules.AreWithinRetainedBounds(retainedLines, debtor))
+        {
+            throw new InvoiceIssueValidationException(
+                "resource_limit_exceeded",
+                "Retained invoice facts exceed the supported resource bounds.");
+        }
+
+        if (!InvoiceIssueRules.HasValidRetainedLineText(retainedLines))
+        {
+            throw new InvoiceIssueValidationException(
+                "issued_line_text_invalid",
+                "Retained invoice line text is invalid.");
+        }
+
         InvoiceIssueRules.ValidateDebtorFacts(debtor);
+        if (debtor is InvoiceDebtorFacts.Organization organizationDebtor &&
+            organizationDebtor.OrganizationId != sourceCustomerContext.OrganizationId ||
+            debtor is InvoiceDebtorFacts.Program programDebtor &&
+            (programDebtor.OrganizationId != sourceCustomerContext.OrganizationId ||
+             sourceCustomerContext.ProgramId is not { } attributedProgramId ||
+             attributedProgramId != programDebtor.ProgramId))
+        {
+            throw new InvoiceIssueValidationException(
+                "debtor_organization_mismatch",
+                "Organization or program debtor must use the committed Order organization anchor.");
+        }
 
         InvoiceId = invoiceId;
         TenantId = tenantId;
@@ -154,7 +241,7 @@ public sealed class InvoiceIssuedFacts
         IssuedByAccountId = issuedByAccountId;
         IssuedAt = issuedAt;
         BusinessDate = businessDate;
-        BusinessReference = businessReference;
+        OrganizationOrdinal = organizationOrdinal;
     }
 
     public Guid InvoiceId { get; }
@@ -169,7 +256,7 @@ public sealed class InvoiceIssuedFacts
     public Guid IssuedByAccountId { get; }
     public DateTimeOffset IssuedAt { get; }
     public DateOnly BusinessDate { get; }
-    public string BusinessReference { get; }
+    public long OrganizationOrdinal { get; }
 }
 
 public sealed class InvoiceIssueCandidate
@@ -222,18 +309,14 @@ public enum InvoiceIssueStatus
     IdempotencyKeyConflict = 10,
     DependencyUnavailable = 11,
     HistoricalReceiptInvalid = 12,
-    ContractDecisionRequired = 13,
-}
-
-public enum InvoiceIssueDecisionRequirement
-{
-    InactiveIndividualEligibility = 1,
+    OrderAlreadyInvoiced = 14,
+    OutcomeUnknown = 15,
+    ResourceLimit = 16,
 }
 
 public sealed record InvoiceIssueResult(
     InvoiceIssueStatus Status,
-    InvoiceIssuedFacts? Invoice = null,
-    InvoiceIssueDecisionRequirement? RequiredDecision = null);
+    InvoiceIssuedFacts? Invoice = null);
 
 public enum InvoiceIssueAuthorityStatus
 {
@@ -258,6 +341,7 @@ public enum InvoiceIssueReceiptStatus
     IdempotencyKeyConflict = 3,
     Unavailable = 4,
     HistoricalReceiptInvalid = 5,
+    NotAuthorized = 6,
 }
 
 public sealed record InvoiceIssueReceiptResult(
@@ -271,6 +355,12 @@ public enum InvoiceIssueCommitStatus
     IdempotencyKeyConflict = 3,
     Unavailable = 4,
     HistoricalReceiptInvalid = 5,
+    NotAuthorized = 6,
+    InvalidSource = 7,
+    InvalidDebtor = 8,
+    ResourceLimit = 9,
+    OrderAlreadyInvoiced = 10,
+    OutcomeUnknown = 11,
 }
 
 public sealed record InvoiceIssueCommitResult(
@@ -305,10 +395,23 @@ public sealed class InvoiceIssueValidationException(string code, string message)
     public string Code { get; } = code;
 }
 
+public static class InvoiceIssueIntent
+{
+    public static string NormalizeIdempotencyKey(string value) =>
+        InvoiceIssueRules.NormalizeIdempotencyKey(value);
+
+    public static string Fingerprint(IssueInvoiceRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        InvoiceIssueRules.ValidateRequest(request);
+        return InvoiceIssueRules.Fingerprint(request);
+    }
+}
+
 public sealed class IssueInvoice(
     IInvoiceIssueAuthority authority,
     IInvoiceIssueStore invoiceStore,
-    GetOrderDraft getOrder,
+    IInvoiceSourceOrderReader sourceOrderReader,
     GetCustomerOrganization getOrganization,
     GetCustomerProgram getProgram,
     GetCustomerIndividual getIndividual)
@@ -321,8 +424,8 @@ public sealed class IssueInvoice(
         ArgumentNullException.ThrowIfNull(tenantContext);
         ArgumentNullException.ThrowIfNull(request);
         InvoiceIssueRules.ValidateRequest(request);
-        var normalizedKey = InvoiceIssueRules.NormalizeIdempotencyKey(request.IdempotencyKey);
-        var fingerprint = InvoiceIssueRules.Fingerprint(request);
+        var normalizedKey = InvoiceIssueIntent.NormalizeIdempotencyKey(request.IdempotencyKey);
+        var fingerprint = InvoiceIssueIntent.Fingerprint(request);
 
         var authorityStatus = await authority.CheckAsync(tenantContext, cancellationToken)
             .ConfigureAwait(false);
@@ -345,14 +448,36 @@ public sealed class IssueInvoice(
             return receiptOutcome;
         }
 
-        var order = await getOrder.ExecuteAsync(tenantContext, request.OrderId, cancellationToken)
+        var sourceResult = await sourceOrderReader
+            .ReadAsync(tenantContext, request.OrderId, cancellationToken)
             .ConfigureAwait(false);
-        if (order is null)
+        if (sourceResult.Status == InvoiceSourceOrderReadStatus.Missing)
         {
             return new(InvoiceIssueStatus.SourceNotFound);
         }
 
-        if (order.State != OrderDraftState.Committed)
+        if (sourceResult.Status == InvoiceSourceOrderReadStatus.Unavailable)
+        {
+            return new(InvoiceIssueStatus.DependencyUnavailable);
+        }
+
+        if (sourceResult.Status == InvoiceSourceOrderReadStatus.Invalid || sourceResult.SourceOrder is null)
+        {
+            return new(InvoiceIssueStatus.InvalidCommittedOrderFacts);
+        }
+
+        if (!Enum.IsDefined(sourceResult.Status))
+        {
+            throw new InvalidOperationException("Invoice source reader returned an unsupported status.");
+        }
+
+        var order = sourceResult.SourceOrder;
+        if (order.TenantId != tenantContext.TenantId || order.OrderId != request.OrderId)
+        {
+            return new(InvoiceIssueStatus.SourceNotFound);
+        }
+
+        if (!order.IsCommitted)
         {
             return new(InvoiceIssueStatus.OrderNotCommitted);
         }
@@ -365,6 +490,21 @@ public sealed class IssueInvoice(
         if (!string.Equals(order.CurrencyCode, InvoiceIssueRules.RequiredCurrencyCode, StringComparison.Ordinal))
         {
             return new(InvoiceIssueStatus.UnsupportedCurrency);
+        }
+
+        if (order.CustomerContext is null || order.CustomerContext.OrganizationId == Guid.Empty)
+        {
+            return new(InvoiceIssueStatus.InvalidDebtor);
+        }
+
+        if (order.CustomerContext.ProgramId == Guid.Empty)
+        {
+            return new(InvoiceIssueStatus.InvalidCommittedOrderFacts);
+        }
+
+        if (InvoiceIssueRules.ExceedsSourceBounds(order))
+        {
+            return new(InvoiceIssueStatus.ResourceLimit);
         }
 
         if (!InvoiceIssueRules.TryBuildLines(order, out var issuedLines, out var total))
@@ -380,6 +520,24 @@ public sealed class IssueInvoice(
         if (debtorResult.Result is not null)
         {
             return debtorResult.Result;
+        }
+
+        try
+        {
+            InvoiceIssueRules.ValidateDebtorFacts(debtorResult.Debtor!);
+        }
+        catch (InvoiceIssueValidationException)
+        {
+            return new(InvoiceIssueStatus.InvalidDebtor);
+        }
+
+        if (debtorResult.Debtor is InvoiceDebtorFacts.Organization organizationDebtor &&
+            organizationDebtor.OrganizationId != order.CustomerContext.OrganizationId ||
+            debtorResult.Debtor is InvoiceDebtorFacts.Program programDebtor &&
+            (programDebtor.OrganizationId != order.CustomerContext.OrganizationId ||
+             order.CustomerContext.ProgramId != programDebtor.ProgramId))
+        {
+            return new(InvoiceIssueStatus.InvalidDebtor);
         }
 
         var candidate = new InvoiceIssueCandidate(
@@ -410,6 +568,7 @@ public sealed class IssueInvoice(
             InvoiceIssueReceiptStatus.IdempotencyKeyConflict => new(InvoiceIssueStatus.IdempotencyKeyConflict),
             InvoiceIssueReceiptStatus.Unavailable => new(InvoiceIssueStatus.DependencyUnavailable),
             InvoiceIssueReceiptStatus.HistoricalReceiptInvalid => new(InvoiceIssueStatus.HistoricalReceiptInvalid),
+            InvoiceIssueReceiptStatus.NotAuthorized => new(InvoiceIssueStatus.NotAuthorized),
             _ => throw new InvalidOperationException("Invoice issue receipt lookup returned an unsupported status."),
         };
 
@@ -427,6 +586,12 @@ public sealed class IssueInvoice(
             InvoiceIssueCommitStatus.IdempotencyKeyConflict => new(InvoiceIssueStatus.IdempotencyKeyConflict),
             InvoiceIssueCommitStatus.Unavailable => new(InvoiceIssueStatus.DependencyUnavailable),
             InvoiceIssueCommitStatus.HistoricalReceiptInvalid => new(InvoiceIssueStatus.HistoricalReceiptInvalid),
+            InvoiceIssueCommitStatus.NotAuthorized => new(InvoiceIssueStatus.NotAuthorized),
+            InvoiceIssueCommitStatus.InvalidSource => new(InvoiceIssueStatus.InvalidCommittedOrderFacts),
+            InvoiceIssueCommitStatus.InvalidDebtor => new(InvoiceIssueStatus.InvalidDebtor),
+            InvoiceIssueCommitStatus.ResourceLimit => new(InvoiceIssueStatus.ResourceLimit),
+            InvoiceIssueCommitStatus.OrderAlreadyInvoiced => new(InvoiceIssueStatus.OrderAlreadyInvoiced),
+            InvoiceIssueCommitStatus.OutcomeUnknown => new(InvoiceIssueStatus.OutcomeUnknown),
             _ => throw new InvalidOperationException("Invoice issue persistence returned an unsupported status."),
         };
 
@@ -448,7 +613,9 @@ public sealed class IssueInvoice(
                 var organization = await getOrganization
                     .ExecuteAsync(tenantContext, customerContext.OrganizationId, cancellationToken)
                     .ConfigureAwait(false);
-                return organization is null
+                return organization is null ||
+                    organization.TenantId != tenantContext.TenantId ||
+                    organization.OrganizationId != customerContext.OrganizationId
                     ? (null, new InvoiceIssueResult(InvoiceIssueStatus.InvalidDebtor))
                     : (new InvoiceDebtorFacts.Organization(
                         organization.OrganizationId,
@@ -462,7 +629,8 @@ public sealed class IssueInvoice(
 
                 var program = await getProgram.ExecuteAsync(tenantContext, programId, cancellationToken)
                     .ConfigureAwait(false);
-                if (program is null || program.OrganizationId != customerContext.OrganizationId)
+                if (program is null || program.TenantId != tenantContext.TenantId ||
+                    program.ProgramId != programId || program.OrganizationId != customerContext.OrganizationId)
                 {
                     return (null, new InvoiceIssueResult(InvoiceIssueStatus.InvalidDebtor));
                 }
@@ -470,7 +638,9 @@ public sealed class IssueInvoice(
                 var programOrganization = await getOrganization
                     .ExecuteAsync(tenantContext, customerContext.OrganizationId, cancellationToken)
                     .ConfigureAwait(false);
-                return programOrganization is null
+                return programOrganization is null ||
+                    programOrganization.TenantId != tenantContext.TenantId ||
+                    programOrganization.OrganizationId != customerContext.OrganizationId
                     ? (null, new InvoiceIssueResult(InvoiceIssueStatus.InvalidDebtor))
                     : (new InvoiceDebtorFacts.Program(
                         programOrganization.OrganizationId,
@@ -482,16 +652,29 @@ public sealed class IssueInvoice(
                 var individual = await getIndividual
                     .ExecuteAsync(tenantContext, individualSelection.IndividualId, cancellationToken)
                     .ConfigureAwait(false);
-                if (individual is null)
+                if (individual is null || individual.TenantId != tenantContext.TenantId ||
+                    individual.IndividualId != individualSelection.IndividualId)
+                {
+                    return (null, new InvoiceIssueResult(InvoiceIssueStatus.InvalidDebtor));
+                }
+
+                if (individual.RedirectTargetIndividualId is not null)
+                {
+                    return (null, new InvoiceIssueResult(InvoiceIssueStatus.InvalidDebtor));
+                }
+
+                // A consolidated-away identity is not a current debtor. The redirect is a
+                // forward pointer to the surviving individual; selecting the source would
+                // freeze an issued invoice naming an identity that no longer exists as a
+                // customer, under its pre-consolidation display name.
+                if (individual.RedirectTargetIndividualId.HasValue)
                 {
                     return (null, new InvoiceIssueResult(InvoiceIssueStatus.InvalidDebtor));
                 }
 
                 if (individual.Availability == CustomerIndividualAvailability.Inactive)
                 {
-                    return (null, new InvoiceIssueResult(
-                        InvoiceIssueStatus.ContractDecisionRequired,
-                        RequiredDecision: InvoiceIssueDecisionRequirement.InactiveIndividualEligibility));
+                    return (null, new InvoiceIssueResult(InvoiceIssueStatus.InvalidDebtor));
                 }
 
                 if (individual.Availability != CustomerIndividualAvailability.Active)
@@ -604,6 +787,7 @@ internal static class InvoiceIssueRules
             {
                 if (line is null || line.Position < 1 || !positions.Add(line.Position) ||
                     line.Quantity <= 0m || line.UnitPrice < 0m ||
+                    !IsValidLineText(line.Description, 300) || !IsValidLineText(line.UnitCode, 64) ||
                     !HasSupportedPrecisionAndRange(line.Quantity) ||
                     !HasSupportedPrecisionAndRange(line.UnitPrice) ||
                     !HasSupportedPrecisionAndRange(line.LineTotal))
@@ -679,7 +863,7 @@ internal static class InvoiceIssueRules
     }
 
     internal static bool TryBuildLines(
-        OrderDraftSnapshot order,
+        InvoiceSourceOrderFacts order,
         out InvoiceIssuedLine[] lines,
         out decimal total)
     {
@@ -698,6 +882,8 @@ internal static class InvoiceIssueRules
             {
                 var source = order.Lines[index];
                 if (source is null || source.Position < 1 || !positions.Add(source.Position) ||
+                    !IsValidLineText(source.Description, 300) ||
+                    !IsValidLineText(source.UnitCode, 64) ||
                     source.Quantity <= 0m || source.UnitPrice < 0m ||
                     !HasSupportedPrecisionAndRange(source.Quantity) ||
                     !HasSupportedPrecisionAndRange(source.UnitPrice) ||
@@ -748,6 +934,30 @@ internal static class InvoiceIssueRules
         return true;
     }
 
+    internal static bool ExceedsSourceBounds(InvoiceSourceOrderFacts order) =>
+        order.Lines.Count > 100 || order.Lines.Any(line => line is not null &&
+            (line.Description?.Length > 300 || line.UnitCode?.Length > 64));
+
+    internal static bool AreWithinRetainedBounds(
+        IReadOnlyList<InvoiceIssuedLine> lines,
+        InvoiceDebtorFacts debtor) =>
+        lines.Count is >= 1 and <= 100 &&
+        lines.All(line => line is not null && line.Description?.Length <= 300 && line.UnitCode?.Length <= 64) &&
+        debtor switch
+        {
+            InvoiceDebtorFacts.Organization organization => organization.OrganizationDisplayName is { Length: <= 200 },
+            InvoiceDebtorFacts.Program program =>
+                program.OrganizationDisplayName is { Length: <= 200 } &&
+                program.ProgramDisplayName is { Length: <= 200 },
+            InvoiceDebtorFacts.Individual individual => individual.DisplayName is { Length: <= 200 },
+            _ => false,
+        };
+
+    internal static bool HasValidRetainedLineText(IReadOnlyList<InvoiceIssuedLine> lines) =>
+        lines.All(line => line is not null &&
+            IsValidLineText(line.Description, 300) &&
+            IsValidLineText(line.UnitCode, 64));
+
     internal static InvoiceIssuedFacts RequireRetainedInvoice(
         InvoiceIssuedFacts? invoice,
         TenantContext tenantContext) =>
@@ -788,7 +998,7 @@ internal static class InvoiceIssueRules
 
     private static void RequireRetainedDisplayName(string value)
     {
-        if (string.IsNullOrWhiteSpace(value) || !HasWellFormedUtf16(value) || value.Any(char.IsControl))
+        if (!IsValidLineText(value, 200))
         {
             throw new InvoiceIssueValidationException(
                 "debtor_display_name_invalid",
@@ -807,21 +1017,19 @@ internal static class InvoiceIssueRules
     internal static bool IsUtcTimestamp(DateTimeOffset timestamp) =>
         timestamp != default && timestamp.Offset == TimeSpan.Zero;
 
-    private static bool HasSupportedPrecisionAndRange(decimal value) =>
-        value <= MaximumDecimal19Scale4 &&
-        value >= -MaximumDecimal19Scale4 &&
-        GetScale(value) <= 4;
+    private static bool IsValidLineText(string? value, int maximumLength) =>
+        !string.IsNullOrWhiteSpace(value) &&
+        value.Length <= maximumLength &&
+        HasWellFormedUtf16(value) &&
+        !value.Any(char.IsControl);
 
-    private static int GetScale(decimal value) =>
-        (decimal.GetBits(value)[3] >> 16) & 0x7F;
-
-    private static bool HasWellFormedUtf16(string value)
+    internal static bool HasWellFormedUtf16(string value)
     {
         for (var index = 0; index < value.Length; index++)
         {
             if (char.IsHighSurrogate(value[index]))
             {
-                if (++index == value.Length || !char.IsLowSurrogate(value[index]))
+                if (index + 1 >= value.Length || !char.IsLowSurrogate(value[++index]))
                 {
                     return false;
                 }
@@ -833,5 +1041,125 @@ internal static class InvoiceIssueRules
         }
 
         return true;
+    }
+
+    private static bool HasSupportedPrecisionAndRange(decimal value) =>
+        value <= MaximumDecimal19Scale4 &&
+        value >= -MaximumDecimal19Scale4 &&
+        GetScale(value) <= 4;
+
+    private static int GetScale(decimal value) =>
+        (decimal.GetBits(value)[3] >> 16) & 0x7F;
+
+}
+
+public enum InvoiceIssueSourceValidationStatus
+{
+    Valid = 1,
+    Invalid = 2,
+}
+
+public static class InvoiceIssueSourceValidation
+{
+    public static InvoiceIssueSourceValidationStatus Validate(
+        TenantContext tenantContext,
+        InvoiceIssueCandidate candidate,
+        InvoiceSourceOrderFacts source)
+    {
+        ArgumentNullException.ThrowIfNull(tenantContext);
+        ArgumentNullException.ThrowIfNull(candidate);
+        ArgumentNullException.ThrowIfNull(source);
+
+        if (source.TenantId != tenantContext.TenantId ||
+            source.TenantId != candidate.TenantId ||
+            source.OrderId != candidate.SourceOrderId ||
+            source.Revision != candidate.SourceOrderRevision ||
+            !source.IsCommitted ||
+            !string.Equals(source.CurrencyCode, candidate.CurrencyCode, StringComparison.Ordinal) ||
+            source.CustomerContext is null ||
+            source.CustomerContext != candidate.SourceCustomerContext ||
+            InvoiceIssueRules.ExceedsSourceBounds(source) ||
+            !InvoiceIssueRules.TryBuildLines(source, out var lines, out var total) ||
+            total != candidate.Total ||
+            !lines.SequenceEqual(candidate.Lines))
+        {
+            return InvoiceIssueSourceValidationStatus.Invalid;
+        }
+
+        return InvoiceIssueSourceValidationStatus.Valid;
+    }
+}
+
+public enum InvoiceIssueDebtorValidationStatus
+{
+    Valid = 1,
+    Invalid = 2,
+}
+
+public abstract record InvoiceDebtorObservedFacts
+{
+    private InvoiceDebtorObservedFacts()
+    {
+    }
+
+    public sealed record Organization(Guid TenantId, Guid OrganizationId, string DisplayName)
+        : InvoiceDebtorObservedFacts;
+
+    public sealed record Program(
+        Guid TenantId,
+        Guid OrganizationId,
+        string OrganizationDisplayName,
+        Guid ProgramId,
+        string DisplayName)
+        : InvoiceDebtorObservedFacts;
+
+    public sealed record Individual(
+        Guid TenantId,
+        Guid IndividualId,
+        long Revision,
+        string DisplayName,
+        bool IsActive)
+        : InvoiceDebtorObservedFacts;
+}
+
+public static class InvoiceIssueDebtorValidation
+{
+    public static InvoiceIssueDebtorValidationStatus ValidateObservedCandidate(
+        TenantContext tenantContext,
+        InvoiceIssueCandidate candidate,
+        InvoiceDebtorObservedFacts? observed)
+    {
+        ArgumentNullException.ThrowIfNull(tenantContext);
+        ArgumentNullException.ThrowIfNull(candidate);
+        var sourceOrganizationId = candidate.SourceCustomerContext?.OrganizationId;
+        return (candidate.Debtor, observed) switch
+        {
+            (InvoiceDebtorFacts.Organization debtor, InvoiceDebtorObservedFacts.Organization current) =>
+                current.TenantId == tenantContext.TenantId &&
+                current.OrganizationId == sourceOrganizationId &&
+                current.OrganizationId == debtor.OrganizationId &&
+                string.Equals(current.DisplayName, debtor.OrganizationDisplayName, StringComparison.Ordinal)
+                    ? InvoiceIssueDebtorValidationStatus.Valid
+                    : InvoiceIssueDebtorValidationStatus.Invalid,
+            (InvoiceDebtorFacts.Program debtor, InvoiceDebtorObservedFacts.Program current) =>
+                current.TenantId == tenantContext.TenantId &&
+                current.OrganizationId == sourceOrganizationId &&
+                current.OrganizationId == debtor.OrganizationId &&
+                candidate.SourceCustomerContext?.ProgramId == current.ProgramId &&
+                current.ProgramId == debtor.ProgramId &&
+                string.Equals(current.OrganizationDisplayName, debtor.OrganizationDisplayName, StringComparison.Ordinal) &&
+                string.Equals(current.DisplayName, debtor.ProgramDisplayName, StringComparison.Ordinal)
+                    ? InvoiceIssueDebtorValidationStatus.Valid
+                    : InvoiceIssueDebtorValidationStatus.Invalid,
+            (InvoiceDebtorFacts.Individual debtor, InvoiceDebtorObservedFacts.Individual current) =>
+                current.TenantId == tenantContext.TenantId &&
+                current.IsActive &&
+                current.IndividualId == debtor.IndividualId &&
+                current.Revision == debtor.ObservedRevision &&
+                string.Equals(current.DisplayName, debtor.DisplayName, StringComparison.Ordinal)
+                    ? InvoiceIssueDebtorValidationStatus.Valid
+                    : InvoiceIssueDebtorValidationStatus.Invalid,
+            _ => InvoiceIssueDebtorValidationStatus.Invalid,
+        };
     }
 }

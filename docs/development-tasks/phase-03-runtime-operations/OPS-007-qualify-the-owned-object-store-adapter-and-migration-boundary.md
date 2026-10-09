@@ -2,11 +2,19 @@
 
 Task ID: OPS-007
 Phase: 03-runtime-operations
-Status: BLOCKED
+Status: VERIFY_EXISTING
+Runtime state: BLOCKED
+
 Model: GPT-6.1 Sol
 Dependencies: GATE-001, COM-001
 Release requirement: REQUIRED
 
+`Status` above is the scheduling value defined by
+[`ORCHESTRATOR.md`](../ORCHESTRATOR.md); runtime gate states are recorded on
+their own line. This task's runtime state is **BLOCKED** for the reason stated
+below.
+Cross-track prerequisites: COM-001
+## Qualification
 Local implementation and qualification are complete for the declared neutral,
 CoreApi and PostgreSQL consumer contracts. The exact 1045-test gate passed with
 zero failures/skips and zero Release warnings/errors; CoreApi 458/458 and real
@@ -23,7 +31,6 @@ Current evidence/guards are owned by
 [CUSTOMER_DUPLICATES_AND_IMPORTS_SLICE.md](../../implementation/CUSTOMER_DUPLICATES_AND_IMPORTS_SLICE.md).
 No repository integration or production acceptance is inferred.
 
-Cross-track prerequisites: COM-001
 
 ## Outcome
 
