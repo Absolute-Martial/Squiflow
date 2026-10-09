@@ -29,6 +29,8 @@ public sealed class CustomerRepresentativeEndpointTests : IClassFixture<WhiteLab
         Assert.Equal(HttpStatusCode.Created, organizationCreated.StatusCode);
         using var organizationJson = JsonDocument.Parse(await organizationCreated.Content.ReadAsStringAsync());
         var organizationId = organizationJson.RootElement.GetProperty("organizationId").GetGuid();
+        Assert.Equal($"{organizationCreated.RequestMessage!.RequestUri!.AbsolutePath}/{organizationId:D}",
+            organizationCreated.Headers.Location!.OriginalString);
 
         var individuals = $"/api/v1/tenants/{tenant:D}/customers/individuals";
         using var individualCreated = await PostAsync(individuals, token, "person", new
@@ -40,6 +42,8 @@ public sealed class CustomerRepresentativeEndpointTests : IClassFixture<WhiteLab
         Assert.Equal(HttpStatusCode.Created, individualCreated.StatusCode);
         using var individualJson = JsonDocument.Parse(await individualCreated.Content.ReadAsStringAsync());
         var individualId = individualJson.RootElement.GetProperty("individualId").GetGuid();
+        Assert.Equal($"{individualCreated.RequestMessage!.RequestUri!.AbsolutePath}/{individualId:D}",
+            individualCreated.Headers.Location!.OriginalString);
 
         var representatives = $"{organizations}/{organizationId:D}/representatives";
         using var denied = await PostAsync(representatives, token, "link", new { individualId });
@@ -51,6 +55,8 @@ public sealed class CustomerRepresentativeEndpointTests : IClassFixture<WhiteLab
         var linkedBody = await linked.Content.ReadAsStringAsync();
         using var linkedJson = JsonDocument.Parse(linkedBody);
         var representativeId = linkedJson.RootElement.GetProperty("representativeId").GetGuid();
+        Assert.Equal($"{linked.RequestMessage!.RequestUri!.AbsolutePath}/{representativeId:D}",
+            linked.Headers.Location!.OriginalString);
         Assert.Equal(individualId, linkedJson.RootElement.GetProperty("individualId").GetGuid());
         Assert.False(linkedJson.RootElement.TryGetProperty("displayName", out _));
         Assert.False(linkedJson.RootElement.TryGetProperty("email", out _));

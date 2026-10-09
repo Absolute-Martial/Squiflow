@@ -29,6 +29,10 @@ public sealed class PricingEndpointTests
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         using var draftJson = JsonDocument.Parse(await created.Content.ReadAsStringAsync());
         var revision = draftJson.RootElement.GetProperty("revisionId").GetGuid();
+        // The created revision URL is the request pricing root plus the created revision identity.
+        Assert.Equal(
+            new Uri(created.RequestMessage!.RequestUri!, $"drafts/../revisions/{revision:D}").AbsolutePath,
+            created.Headers.Location!.OriginalString);
         using var publishDenied = await fixture.PostAsync($"revisions/{revision:D}/publish", new { }, "publish");
         Assert.Equal(HttpStatusCode.Forbidden, publishDenied.StatusCode);
         fixture.Permissions.Publish = true;
@@ -181,6 +185,44 @@ public sealed class PricingEndpointTests
         Assert.DoesNotContain("pricing_receipt_version_unsupported", problem, StringComparison.Ordinal);
         Assert.DoesNotContain("stable-unit", problem, StringComparison.Ordinal);
         Assert.Equal(0, fixture.Store.Effects);
+    public async Task PricingProblemTitlesNamePricingAndNeverCustomerResources()
+    {
+        using var fixture = new PricingHostFixture();
+        fixture.Permissions.View = true;
+        using var missing = await fixture.GetAsync($"revisions/{Guid.NewGuid():D}");
+        Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
+        Assert.Equal(("pricing_revision_not_found", "Price revision not found."), await ProblemAsync(missing));
+
+        fixture.Permissions.Edit = true;
+        using var created = await fixture.PostAsync("drafts", fixture.DraftBody(), "shared-key");
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        using var conflicted = await fixture.PostAsync("drafts",
+            fixture.DraftBody(baseUnitPrice: 21), "shared-key");
+        Assert.Equal(HttpStatusCode.Conflict, conflicted.StatusCode);
+        var (conflictCode, conflictTitle) = await ProblemAsync(conflicted);
+        Assert.Equal("idempotency_key_conflict", conflictCode);
+        Assert.Equal("Idempotency key conflict.", conflictTitle);
+        using var conflictProblem = JsonDocument.Parse(await conflicted.Content.ReadAsStringAsync());
+        Assert.Contains("pricing request", conflictProblem.RootElement.GetProperty("detail").GetString());
+
+        using var invalid = await fixture.PostAsync("drafts",
+            fixture.DraftBody(scope: "committedAgreement", target: Guid.NewGuid()), "unsupported-scope");
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        var (invalidCode, invalidTitle) = await ProblemAsync(invalid);
+        Assert.Equal("pricing_scope_unsupported", invalidCode);
+        Assert.Equal("Invalid pricing request.", invalidTitle);
+
+        using var oversize = await fixture.PostJsonAsync("resolve", "{\"reason\":\"" + new string('x', 5000) + "\"}");
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, oversize.StatusCode);
+        Assert.Equal(("request_too_large", "Pricing request is too large."), await ProblemAsync(oversize));
+    }
+
+    private static async Task<(string Code, string Title)> ProblemAsync(HttpResponseMessage response)
+    {
+        using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var title = problem.RootElement.GetProperty("title").GetString()!;
+        Assert.DoesNotContain("ustomer", title);
+        return (problem.RootElement.GetProperty("code").GetString()!, title);
     }
 
     private static async Task<string?> StatusAsync(HttpResponseMessage response)
@@ -245,7 +287,7 @@ internal sealed class PricingHostFixture : IDisposable
         _client = _host.CreateClient();
     }
 
-    internal object DraftBody(string scope = "default", Guid? target = null, Guid? unit = null, long? conversionRevision = null) =>
+    internal object DraftBody(string scope = "default", Guid? target = null, Guid? unit = null, long? conversionRevision = null, decimal baseUnitPrice = 20) =>
         new
         {
             itemId = Item,
@@ -253,7 +295,7 @@ internal sealed class PricingHostFixture : IDisposable
             currencyCode = "USD",
             scope,
             targetId = target,
-            baseUnitPrice = 20,
+            baseUnitPrice,
             validFrom = Now.AddDays(-1),
             validTo = Now.AddDays(1),
             conversionRevision
@@ -272,6 +314,12 @@ internal sealed class PricingHostFixture : IDisposable
     {
         using var request = Request(path, null);
         request.Content = new StringContent(body, Encoding.UTF8, "application/json");
+        return await _client.SendAsync(request);
+    }
+    internal async Task<HttpResponseMessage> GetAsync(string path)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/tenants/{Tenant:D}/pricing/{path}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _token);
         return await _client.SendAsync(request);
     }
     private HttpRequestMessage Request(string path, string? key, Guid? tenantId = null)
