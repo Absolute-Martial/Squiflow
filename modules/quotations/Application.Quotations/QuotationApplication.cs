@@ -32,10 +32,28 @@ public sealed partial class QuotationApplication(IQuotationStore store, Quotatio
     {
         await pricing.RequireAsync(context, QuotationCapability.Issue, ct).ConfigureAwait(false);
         QuotationRules.RequireIdentity(id, expectedVersion); key = QuotationRules.Key(key);
+        // Frozen authority is resolved before the store is called: the shared commercial-publication
+        // pin is tenant wide, so an outbound authorization call taken under it stalls every catalog,
+        // pricing and quotation publication for that tenant. The store still revalidates the retained
+        // draft against current sources inside the pinned transaction that writes the effect.
+        var frozen = await ResolveFrozenAuthorityAsync(context, id, expectedVersion, ct).ConfigureAwait(false);
         var result = await store.IssueAsync(context, id, expectedVersion, key, QuotationRules.Fingerprint(new { id, expectedVersion }),
-            (offer, token) => pricing.IsCompatibleAsync(context, offer, token), ct).ConfigureAwait(false);
+            frozen is null
+                // A draft appeared between the authority read and the effect transaction. Fail closed.
+                ? (_, _) => Task.FromResult(false)
+                : (Func<QuotationDraftFacts, CancellationToken, Task<bool>>)((offer, token) => pricing.IsCompatibleAsync(context, offer, frozen, token)),
+            ct).ConfigureAwait(false);
         return await ReplayAsync(context, result, ct).ConfigureAwait(false);
     }
+    // Returns null when this request cannot reach the comparison: a missing quotation, an already
+    // issued one, an accepted family or a stale revision is decided by the store under its row lock,
+    // and an unchanged draft is the only offer whose authority may be resolved outside the pin.
+    private async Task<QuotationFrozenAuthority?> ResolveFrozenAuthorityAsync(TenantContext context,
+        Guid id, long expectedVersion, CancellationToken ct) =>
+        await store.FindAsync(context, id, ct).ConfigureAwait(false) is { Version: var version, Draft: { } draft } &&
+            version == expectedVersion
+            ? await pricing.ResolveFrozenAuthorityAsync(context, draft, ct).ConfigureAwait(false)
+            : null;
     public async Task<QuotationSnapshot?> FindAsync(TenantContext context, Guid id, CancellationToken ct)
     {
         await pricing.RequireAsync(context, QuotationCapability.View, ct).ConfigureAwait(false);
@@ -57,7 +75,7 @@ public sealed partial class QuotationApplication(IQuotationStore store, Quotatio
         {
             var offer = result.Quotation?.Draft ?? result.Quotation?.CurrentIssued?.Offer
                 ?? throw new InvalidOperationException("The quotation receipt has no retained priced facts.");
-            await pricing.RequireFrozenAuthorityAsync(context, offer, ct).ConfigureAwait(false);
+            await pricing.ResolveFrozenAuthorityAsync(context, offer, ct).ConfigureAwait(false);
         }
         return result;
     }

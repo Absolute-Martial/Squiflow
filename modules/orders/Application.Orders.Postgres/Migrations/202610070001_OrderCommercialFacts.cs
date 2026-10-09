@@ -19,16 +19,20 @@ public partial class OrderCommercialFacts : Migration
 
     protected override void Down(MigrationBuilder migrationBuilder)
     {
-        migrationBuilder.Sql("""
+        migrationBuilder.Sql($$"""
             LOCK TABLE orders.order_draft_lines, orders.command_receipts IN ACCESS EXCLUSIVE MODE;
             DO $body$
             DECLARE current_tenant uuid;
             BEGIN
                 FOR current_tenant IN SELECT id FROM tenancy.tenants LOOP
                     PERFORM set_config('app.current_tenant', current_tenant::text, true);
+                    -- Every envelope version this writer can emit retains shape this migration drops or
+                    -- narrows, so the whole set must block the downgrade. Recognising a subset lets a
+                    -- rollback report success while newer receipts still carry that shape.
                     IF EXISTS (SELECT 1 FROM orders.order_draft_lines WHERE tenant_id = current_tenant AND
                             (commercial_facts IS NOT NULL OR unit_code !~ '^[A-Z0-9]{1,16}$'))
-                        OR EXISTS (SELECT 1 FROM orders.command_receipts WHERE tenant_id = current_tenant AND response_json->>'schemaVersion' = '4') THEN
+                        OR EXISTS (SELECT 1 FROM orders.command_receipts WHERE tenant_id = current_tenant
+                            AND response_json->>'schemaVersion' IN ({{OrderReceiptSchemaVersions.SqlLiteralList}})) THEN
                         RAISE EXCEPTION 'Cannot discard retained order commercial facts.';
                     END IF;
                 END LOOP;
