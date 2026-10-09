@@ -132,7 +132,10 @@ Candidate SQL probes only the five applicable tenant/item/unit/currency scopes,
 filtering exact conversion-revision compatibility before applying any row bound,
 with at most two facts per active/expired/future category: at most 30 returned
 facts. It does not enumerate other customers, tenants or all historical rows.
-The pure engine caps input at 64 facts. History uses contextual keyset paging,
+The pure engine caps input at 64 facts, published as
+`PriceSelectionBounds.MaximumCandidates` so a consumer revalidating a retained
+selection asserts the bound the engine applied instead of repeating the number.
+History uses contextual keyset paging,
 limit 1–50, strictly after a revision; no unbounded history/read count is claimed.
 Overlap probes stop at the first conflicting published fact.
 

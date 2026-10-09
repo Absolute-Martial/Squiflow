@@ -118,7 +118,8 @@ public sealed class CatalogEndpointTests
         using var read = await setup.SendAsync(path + "?revision=1");
         Assert.Equal(HttpStatusCode.OK, read.StatusCode);
         setup.Store.Selection = new(CatalogLineFactsStatus.Available, new CatalogLineFacts(item, null, source, "Item", "ALT", "Alternate", 1m,
-            2, 1, 1, new(source, target, 1, 1m, 8m), "BASE", "Base", 2, 1, 0.12m));
+            2, 1, 1, new(source, target, 1, 1m, 8m), QuantityArithmetic.Version1, QuantityArithmetic.Version1Rounding,
+            "BASE", "Base", 2, 1, 0.12m));
         using var selection = await setup.SendAsync("line-facts", $"{{\"itemId\":\"{item:D}\",\"unitId\":\"{source:D}\",\"quantity\":1,\"conversionRevision\":1}}", key: null);
         Assert.Equal(HttpStatusCode.OK, selection.StatusCode);
         using var selected = JsonDocument.Parse(await selection.Content.ReadAsStringAsync());
