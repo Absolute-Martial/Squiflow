@@ -166,6 +166,23 @@ public sealed class PricingEndpointTests
         Assert.Equal(0, fixture.Store.CandidateReads);
     }
 
+    [Fact]
+    public async Task AnUnreadableRetainedReceiptIsAServerFaultNotAClientError()
+    {
+        using var fixture = new PricingHostFixture();
+        fixture.Permissions.Edit = true;
+        fixture.Store.UnreadableReceiptKey = "unreadable";
+        using var response = await fixture.PostAsync("drafts", fixture.DraftBody(), fixture.Store.UnreadableReceiptKey);
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.True(response.Headers.CacheControl?.NoStore);
+        var problem = await response.Content.ReadAsStringAsync();
+        using var json = JsonDocument.Parse(problem);
+        Assert.Equal("internal_error", json.RootElement.GetProperty("code").GetString());
+        Assert.DoesNotContain("pricing_receipt_version_unsupported", problem, StringComparison.Ordinal);
+        Assert.DoesNotContain("stable-unit", problem, StringComparison.Ordinal);
+        Assert.Equal(0, fixture.Store.Effects);
+    }
+
     private static async Task<string?> StatusAsync(HttpResponseMessage response)
     {
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -308,9 +325,12 @@ internal sealed class PricingHostStore(Guid tenant, Guid account, DateTimeOffset
     internal List<PriceRevision> Candidates { get; } = [];
     internal int CandidateReads { get; private set; }
     internal int Effects { get; private set; }
+    internal string? UnreadableReceiptKey { get; set; }
     public Task<PriceRevision?> FindAsync(PricingActorContext actor, Guid revisionId, CancellationToken ct) => Task.FromResult(_prices.GetValueOrDefault(revisionId));
     public Task<CreatePriceDraftResult> CreateDraftAsync(PricingActorContext actor, CreatePriceDraftRequest request, string key, CancellationToken ct)
     {
+        if (key == UnreadableReceiptKey)
+            throw new PricingStoredContractException("pricing_receipt_version_unsupported", "This retained receipt predates the immutable stable-unit contract.");
         if (_receipts.TryGetValue(("create", key), out var retained)) return Task.FromResult(new CreatePriceDraftResult(
             retained.Fingerprint == request.Fingerprint ? CreatePriceDraftStatus.Replayed : CreatePriceDraftStatus.IdempotencyKeyConflict,
             retained.Fingerprint == request.Fingerprint ? (PriceRevision)retained.Snapshot : null));
