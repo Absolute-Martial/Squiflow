@@ -166,7 +166,8 @@ public sealed partial class OrderMigrationAndRlsTests
         var store = new PostgresQuotationStore(source, new FixedTimeProvider());
         var issuing = store.IssueAsync(context, draft.QuotationId, 1, "quote-issue", QuotationRules.Fingerprint("issue"), async (offer, ct) =>
         {
-            var compatible = await pricing.IsCompatibleAsync(context, offer, ct);
+            var compatible = await pricing.IsCompatibleAsync(context, offer,
+            await pricing.ResolveFrozenAuthorityAsync(context, offer, ct), ct);
             Assert.True(compatible); compared.TrySetResult();
             await proceed.Task.WaitAsync(TimeSpan.FromSeconds(20), ct);
             return compatible;
@@ -211,7 +212,8 @@ public sealed partial class OrderMigrationAndRlsTests
         await using var receiptBlock = await admin.BeginTransactionAsync();
         var issuing = store.IssueAsync(context, draft.QuotationId, 1, "quote-issue", QuotationRules.Fingerprint("issue"), async (offer, ct) =>
         {
-            var result = await pricing.IsCompatibleAsync(context, offer, ct); Assert.True(result);
+            var result = await pricing.IsCompatibleAsync(context, offer,
+                await pricing.ResolveFrozenAuthorityAsync(context, offer, ct), ct); Assert.True(result);
             compared.TrySetResult(); await proceed.Task.WaitAsync(TimeSpan.FromSeconds(20), ct); return result;
         }, default);
         await compared.Task.WaitAsync(TimeSpan.FromSeconds(15));
@@ -240,6 +242,58 @@ public sealed partial class OrderMigrationAndRlsTests
     }
 
     [Fact]
+    public async Task SlowQuotationAuthorityIsResolvedBeforeTheSharedPublicationPinIsTaken()
+    {
+        await ApplyOrderSchemaAsync();
+        var account = Guid.NewGuid(); var tenant = Guid.NewGuid(); await SeedAuthorityRowsAsync(account, tenant);
+        var runtime = await CreateCommercialRuntimeAsync();
+        await using var source = CommercialSource(runtime, "quote-slow-authority", 4);
+        await using var publisher = CommercialSource(runtime, "slow-authority-publisher", 2);
+        var context = await ResolveContextAsync(tenant, account);
+        var fixture = await CreateCommercialFixtureAsync(source, context);
+        var (application, _) = QuoteApplication(source, new QuoteAuthority());
+        var request = new QuotationDraftRequest(QuotationPriceMode.Catalog, "Slow-authority offer", "USD", new FixedTimeProvider().GetUtcNow().AddDays(1),
+            [new(2, ItemId: fixture.Item.ItemId, UnitId: fixture.Unit.UnitId, ConversionRevision: 1)]);
+        var draft = (await application.CreateAsync(context, request, "quote-create", default)).Quotation!;
+        var outstanding = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var answered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var (issuing, _) = QuoteApplication(source, new SlowQuoteAuthority(outstanding, answered));
+        var issue = issuing.IssueAsync(context, draft.QuotationId, draft.Version, "quote-issue", default);
+        // The outbound authorization round trip is still outstanding here.
+        await outstanding.Task.WaitAsync(TimeSpan.FromSeconds(20));
+        try
+        {
+            await AssertNoPublicationPinHeldAsync("quote-slow-authority");
+            // Tenant-wide publication must still progress while authority is outstanding. A new unit
+            // takes the exclusive pin without changing any fact this quotation compares against.
+            var catalog = new PostgresCatalogStore(publisher, new FixedTimeProvider());
+            var publication = new CreateCatalogUnit(catalog).ExecuteAsync(context, new("PUB", "Publisher", 4), "publisher-unit", default);
+            await WaitForPublicationLockAsync("slow-authority-publisher", granted: true, "ExclusiveLock");
+            Assert.Equal(CreateCatalogUnitStatus.Created, (await publication.WaitAsync(TimeSpan.FromSeconds(20))).Status);
+            Assert.False(issue.IsCompleted);
+            await AssertNoPublicationPinHeldAsync("quote-slow-authority");
+        }
+        finally { answered.TrySetResult(); }
+        // The database comparison and the effect still run inside the pinned transaction.
+        Assert.Equal(QuotationCommandStatus.Issued, (await issue.WaitAsync(TimeSpan.FromSeconds(20))).Status);
+        Assert.Equal(24, (await issuing.FindAsync(context, draft.QuotationId, default))!.CurrentIssued!.Offer.Total);
+    }
+
+    private async Task AssertNoPublicationPinHeldAsync(string applicationName)
+    {
+        await using var monitor = new NpgsqlConnection(ConnectionString);
+        await monitor.OpenAsync();
+        // Granted holders and queued waiters both appear in pg_locks, so this proves the shared pin is
+        // neither held by nor queued behind this backend while its authority call is outstanding.
+        await using var probe = new NpgsqlCommand("""
+            SELECT count(*) FROM pg_locks l JOIN pg_stat_activity a ON a.pid=l.pid
+            WHERE a.application_name=@name AND l.locktype='advisory' AND l.mode IN ('ShareLock','ExclusiveLock')
+            """, monitor);
+        probe.Parameters.AddWithValue("name", applicationName);
+        Assert.Equal(0L, await probe.ExecuteScalarAsync());
+    }
+
+    [Fact]
     public async Task QuoteIssueRejectsSourceExpiryBetweenComparisonAndAuthoritativeIssueTime()
     {
         await ApplyOrderSchemaAsync();
@@ -260,7 +314,8 @@ public sealed partial class OrderMigrationAndRlsTests
         var store = new PostgresQuotationStore(source, clock);
         var result = await store.IssueAsync(context, draft.QuotationId, 1, "quote-issue", QuotationRules.Fingerprint("issue"), async (offer, ct) =>
         {
-            Assert.True(await pricing.IsCompatibleAsync(context, offer, ct));
+            Assert.True(await pricing.IsCompatibleAsync(context, offer,
+                await pricing.ResolveFrozenAuthorityAsync(context, offer, ct), ct));
             clock.At = expiring.Validity.ValidTo!.Value;
             return true;
         }, default);
@@ -275,18 +330,32 @@ public sealed partial class OrderMigrationAndRlsTests
         public override DateTimeOffset GetUtcNow() => At;
     }
 
-    private (QuotationApplication Application, QuotationPricing Pricing) QuoteApplication(NpgsqlDataSource source)
+    private (QuotationApplication Application, QuotationPricing Pricing) QuoteApplication(NpgsqlDataSource source,
+        IQuotationAuthority? authority = null)
     {
         var catalog = new PostgresCatalogStore(source, new FixedTimeProvider());
         var prices = new PostgresPricingStore(source, new FixedTimeProvider());
         var customers = new PostgresCustomerStore(source);
         var pricing = new QuotationPricing(new(catalog), new(prices, new(prices), prices,
             new CommercialReferences(catalog, ResolveContextAsync), new FixedTimeProvider()),
-            new ResolveCustomerOrderContext(customers), new QuoteAuthority(), customers);
+            new ResolveCustomerOrderContext(customers), authority ?? new QuoteAuthority(), customers);
         return (new(new PostgresQuotationStore(source, new FixedTimeProvider()), pricing), pricing);
     }
     private sealed class QuoteAuthority : IQuotationAuthority
     { public Task<bool> CheckAsync(TenantContext context, QuotationCapability capability, CancellationToken ct) => Task.FromResult(true); }
+    // Stands in for a degraded but reachable OpenFGA: the call is slow, never an error.
+    private sealed class SlowQuoteAuthority(TaskCompletionSource outstanding, TaskCompletionSource answered) : IQuotationAuthority
+    {
+        public async Task<bool> CheckAsync(TenantContext context, QuotationCapability capability, CancellationToken ct)
+        {
+            if (capability is QuotationCapability.CatalogView or QuotationCapability.PricingView)
+            {
+                outstanding.TrySetResult();
+                await answered.Task.WaitAsync(TimeSpan.FromSeconds(30), ct);
+            }
+            return true;
+        }
+    }
     private sealed class ResponseOnlyQuoteAuthority : IQuotationAuthority
     {
         public Task<bool> CheckAsync(TenantContext context, QuotationCapability permission, CancellationToken ct) =>
