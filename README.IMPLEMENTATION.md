@@ -50,7 +50,7 @@ Unhandled transient PostgreSQL failures return safe `503` / `database_unavailabl
 | Route | Authority |
 |---|---|
 | `GET /health/live` | None. Dependency-free liveness. |
-| `GET /health/ready` | None. Status-only, five-second single-flight cached check of primary PostgreSQL connectivity and read access to the configured OpenFGA model. Does not replace migration verification or an authorized business smoke journey. |
+| `GET /health/ready` | None. Status-only, five-second single-flight cached check of primary PostgreSQL connectivity, read access to the configured OpenFGA model, and — only when customer-import execution is enabled — the executor's raw-source deletion admission state. Does not replace migration verification or an authorized business smoke journey. |
 | `GET /openapi/v1.json` | None. Classified contract description. |
 | `GET /api/v1/application/bootstrap` | None. Bounded public white-label identity with its own bounded cache/ETag policy. |
 | `GET /api/v1/account` | JWT (configured HTTPS issuer, exact audience, signature, lifetime) and an active bound account. |
