@@ -199,8 +199,11 @@ public sealed class CatalogOrderDraftTests
         fixture.Catalog.Facts = fixture.Catalog.Facts! with { Quantity = 1m, BaseQuantity = 1m };
         Assert.True(fixture.Pricing.Policy.Contains(0.8996m, 0.9995m));
         Assert.False(fixture.Pricing.Policy.Contains(0.8996m, decimal.Round(0.9995m, 2, MidpointRounding.AwayFromZero)));
-        var request = fixture.Request with { Lines = [fixture.Request.Lines[0] with
-        { Quantity = 1m, OverridePrice = 0.8996m, OverrideReason = "Synthetic commercial exception" }] };
+        var request = fixture.Request with
+        {
+            Lines = [fixture.Request.Lines[0] with
+            { Quantity = 1m, OverridePrice = 0.8996m, OverrideReason = "Synthetic commercial exception" }]
+        };
         var created = (await fixture.Application.CreateAsync(fixture.Context, request, "create", new(true, true), default)).Order!;
         var retained = created.Lines[0].CommercialFacts!;
         Assert.False(retained.PriceSelection.Explanation.Override!.BeyondPolicy);
