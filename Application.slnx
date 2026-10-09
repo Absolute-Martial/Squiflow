@@ -24,8 +24,8 @@
   <Folder Name="/services/">
     <Project Path="services/admin-api/Application.AdminApi/Application.AdminApi.csproj" />
     <Project Path="services/core-api/Application.CoreApi/Application.CoreApi.csproj" />
-    <Project Path="services/admin-bootstrap/Application.AdminBootstrap/Application.AdminBootstrap.csproj" />
-    <Project Path="services/db-migrator/Application.DatabaseMigrator/Application.DatabaseMigrator.csproj" />
+    <Project Path="operations/admin-bootstrap/Application.AdminBootstrap/Application.AdminBootstrap.csproj" />
+    <Project Path="operations/db-migrator/Application.DatabaseMigrator/Application.DatabaseMigrator.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/architecture/Application.Architecture.Tests/Application.Architecture.Tests.csproj" />

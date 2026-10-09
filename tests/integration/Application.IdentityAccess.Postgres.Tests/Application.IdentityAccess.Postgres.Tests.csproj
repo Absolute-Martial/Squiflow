@@ -15,6 +15,6 @@
   <ItemGroup>
     <ProjectReference Include="../../../modules/identity-access/Application.IdentityAccess.Postgres/Application.IdentityAccess.Postgres.csproj" />
     <ProjectReference Include="../../../modules/platform-administration/Application.PlatformAdministration.Postgres/Application.PlatformAdministration.Postgres.csproj" />
-    <ProjectReference Include="../../../services/db-migrator/Application.DatabaseMigrator/Application.DatabaseMigrator.csproj" />
+    <ProjectReference Include="../../../operations/db-migrator/Application.DatabaseMigrator/Application.DatabaseMigrator.csproj" />
   </ItemGroup>
 </Project>
