@@ -23,8 +23,11 @@ public sealed partial class PostgresPricingStore
             (request.MaximumDecreasePercent.HasValue && decimal.Round(request.MaximumDecreasePercent.Value, 4) != request.MaximumDecreasePercent) ||
             (request.MaximumIncreasePercent.HasValue && decimal.Round(request.MaximumIncreasePercent.Value, 4) != request.MaximumIncreasePercent))
             throw new PricingValidationException("pricing_policy_invalid", "Policy bounds must fit supported decimal precision.");
+        // A newly published policy is current authority and is evaluated under current semantics;
+        // the version travels with it into every explanation snapshot taken from here.
         var policy = new PricingOverridePolicy(checked(request.ExpectedRevision + 1), request.MinimumUnitPrice,
-            request.MaximumUnitPrice, request.MaximumDecreasePercent, request.MaximumIncreasePercent);
+            request.MaximumUnitPrice, request.MaximumDecreasePercent, request.MaximumIncreasePercent,
+            PricingOverridePolicySemantics.CurrentVersion);
         await using var session = await PricingTenantDbSession.OpenPublicationAsync(dataSource, actor.TenantId, ct).ConfigureAwait(false);
         await LockAsync(session, $"policy|{actor.TenantId:D}", ct).ConfigureAwait(false);
         var receipt = await FindReceiptAsync(session, actor, "publish-policy", key, ct).ConfigureAwait(false);
@@ -69,8 +72,12 @@ public sealed partial class PostgresPricingStore
         command.Parameters.AddWithValue("tenant_id", tenantId);
         await using var reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
         if (!await reader.ReadAsync(ct).ConfigureAwait(false)) return null;
+        // Stored policy rows carry envelope numbers only; the semantics version belongs to the reading
+        // reader. Reading current authority therefore pins current semantics, while explanations
+        // already holding a snapshot keep that snapshot's own pinned version.
         return new(tenantId, new PricingOverridePolicy(reader.GetInt64(0), reader.GetDecimal(1), reader.GetDecimal(2),
-            reader.IsDBNull(3) ? null : reader.GetDecimal(3), reader.IsDBNull(4) ? null : reader.GetDecimal(4)),
+            reader.IsDBNull(3) ? null : reader.GetDecimal(3), reader.IsDBNull(4) ? null : reader.GetDecimal(4),
+            PricingOverridePolicySemantics.CurrentVersion),
             reader.GetGuid(5), reader.GetFieldValue<DateTimeOffset>(6));
     }
 }

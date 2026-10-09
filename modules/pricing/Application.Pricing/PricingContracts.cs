@@ -371,6 +371,40 @@ public sealed record PriceSelectionRequest
     public long PolicyRevision { get; }
 }
 
+// Owner of override-envelope SEMANTICS versioning. A retained selection explanation pins the
+// version whose evaluator produced its BeyondPolicy decision, so changing envelope meaning is a
+// NEW version with a new evaluator, never an edit of an existing one. Version 1 is frozen: its
+// body must keep evaluating exactly as first qualified, because every already-issued quotation
+// and committed Order retains version 1 and revalidates through it forever.
+public static class PricingOverridePolicySemantics
+{
+    public const int Version1 = 1;
+
+    // Newly published policies are evaluated under the current meaning. Newly added meaning is a
+    // new constant plus a new frozen evaluator; Version1 stays reachable so old facts stay valid.
+    public const int CurrentVersion = Version1;
+
+    public static bool Supported(int semanticsVersion) => semanticsVersion == Version1;
+
+    public static bool Contains(PricingOverridePolicy policy, decimal value, decimal basePrice)
+    {
+        ArgumentNullException.ThrowIfNull(policy);
+        return policy.EnvelopeSemanticsVersion switch
+        {
+            Version1 => ContainsVersion1(policy, value, basePrice),
+            _ => throw new PricingValidationException("pricing_policy_semantics_unsupported",
+                "The retained override policy envelope semantics are not supported by this reader.")
+        };
+    }
+
+    // Frozen version 1: inclusive absolute bounds plus optional percentage decrease/increase
+    // measured against the selected base price. Do not modify; add a new version instead.
+    private static bool ContainsVersion1(PricingOverridePolicy policy, decimal value, decimal basePrice) =>
+        value >= policy.MinimumUnitPrice && value <= policy.MaximumUnitPrice &&
+        (!policy.MaximumDecreasePercent.HasValue || value >= basePrice * (1 - policy.MaximumDecreasePercent.Value / 100)) &&
+        (!policy.MaximumIncreasePercent.HasValue || value <= basePrice * (1 + policy.MaximumIncreasePercent.Value / 100));
+}
+
 public sealed record PricingOverridePolicy
 {
     public PricingOverridePolicy(
@@ -378,7 +412,10 @@ public sealed record PricingOverridePolicy
         decimal minimumUnitPrice,
         decimal maximumUnitPrice,
         decimal? maximumDecreasePercent = null,
-        decimal? maximumIncreasePercent = null)
+        decimal? maximumIncreasePercent = null,
+        // Default is the frozen legacy version, NOT current: retained JSON written before this
+        // field existed must read back as version 1, whatever version is current when it is read.
+        int envelopeSemanticsVersion = PricingOverridePolicySemantics.Version1)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(policyRevision);
         if (minimumUnitPrice < 0 || maximumUnitPrice < minimumUnitPrice)
@@ -392,6 +429,10 @@ public sealed record PricingOverridePolicy
             throw new ArgumentOutOfRangeException(nameof(maximumDecreasePercent));
         MaximumDecreasePercent = maximumDecreasePercent;
         MaximumIncreasePercent = maximumIncreasePercent;
+        // Deliberately not range-checked. A snapshot written by a newer writer must still
+        // deserialize so a reader can reject it as an unsupported version explicitly, rather
+        // than failing as a corrupt read. Readers gate on PricingOverridePolicySemantics.Supported.
+        EnvelopeSemanticsVersion = envelopeSemanticsVersion;
     }
 
     public long PolicyRevision { get; }
@@ -404,11 +445,14 @@ public sealed record PricingOverridePolicy
 
     public decimal? MaximumIncreasePercent { get; }
 
+    // Retained with the snapshot. A reader that cannot evaluate this version fails closed rather
+    // than silently applying its own current envelope meaning to frozen facts.
+    public int EnvelopeSemanticsVersion { get; }
+
     public bool Contains(decimal value) => value >= MinimumUnitPrice && value <= MaximumUnitPrice;
 
-    public bool Contains(decimal value, decimal basePrice) => Contains(value) &&
-        (!MaximumDecreasePercent.HasValue || value >= basePrice * (1 - MaximumDecreasePercent.Value / 100)) &&
-        (!MaximumIncreasePercent.HasValue || value <= basePrice * (1 + MaximumIncreasePercent.Value / 100));
+    public bool Contains(decimal value, decimal basePrice) =>
+        PricingOverridePolicySemantics.Contains(this, value, basePrice);
 }
 
 public sealed record PriceOverrideRequest

@@ -117,8 +117,36 @@ public sealed class ChangeCatalogAvailability(ICatalogAvailabilityStore store)
     }
 }
 
+// Owner of quantity-arithmetic SEMANTICS versioning. Retained catalog facts pin the version whose
+// evaluator produced their BaseQuantity, so changing conversion meaning is a NEW version with a new
+// evaluator, never an edit of an existing one. Version 1 is frozen: already-issued quotations and
+// committed Orders retain version 1 and revalidate through it forever.
+public static class QuantityArithmetic
+{
+    public const int Version1 = 1;
+    public const string Version1Rounding = "toEven";
+
+    // Newly selected facts are produced under the current meaning. Newly added meaning is a new
+    // constant plus a new frozen evaluator; Version1 stays reachable so old facts stay valid.
+    public const int CurrentVersion = Version1;
+
+    public static bool Supported(int arithmeticVersion) => arithmeticVersion == Version1;
+
+    public static bool RoundingSupported(int arithmeticVersion, string? rounding) =>
+        Supported(arithmeticVersion) && rounding == Version1Rounding;
+}
+
 public static class CatalogQuantityConversion
 {
+    // Retained-fact readers re-derive the recorded BaseQuantity through the arithmetic version the
+    // retained facts pinned, never through this reader's current conversion meaning.
+    public static decimal Convert(int arithmeticVersion, decimal quantity, int sourcePrecision,
+        int targetPrecision, decimal numerator, decimal denominator) =>
+        arithmeticVersion == QuantityArithmetic.Version1
+            ? Convert(quantity, sourcePrecision, targetPrecision, numerator, denominator)
+            : throw new CatalogValidationException("quantity_arithmetic_unsupported",
+                "The retained quantity arithmetic version is not supported by this reader.");
+
     public static void RequireFactor(decimal factor)
     {
         if (factor <= 0 || factor > 9_999_999_999.999999999m || decimal.Round(factor, 9, MidpointRounding.ToEven) != factor)
@@ -127,6 +155,8 @@ public static class CatalogQuantityConversion
 
     // Exact decimal rational arithmetic avoids intermediate decimal overflow and
     // double rounding. Only the final base quantity is rounded, at its precision.
+    // This is the frozen version 1 evaluator (QuantityArithmetic.Version1Rounding = toEven).
+    // Do not modify its meaning; add a new version and evaluator instead.
     public static decimal Convert(decimal quantity, int sourcePrecision, int targetPrecision, decimal numerator, decimal denominator)
     {
         CatalogRules.RequireQuantity(quantity, sourcePrecision);

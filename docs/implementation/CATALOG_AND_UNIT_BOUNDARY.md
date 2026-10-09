@@ -85,6 +85,20 @@ also requires explicit available state. Retired records remain readable but
 are unavailable for new selection. `Available` means this catalog selection is
 permitted, not that precise numerical stock exists or is reserved.
 
+`QuantityArithmetic` owns quantity-arithmetic semantics versioning. Version 1 is
+frozen: exact decimal rational conversion with only the final base quantity
+rounded, at the declared base-unit precision, using `toEven`. Retained facts pin
+the version that produced their base quantity, and retained-fact readers must
+route through that pinned evaluator rather than the current conversion meaning.
+Changing conversion **meaning** requires a new version with a new evaluator and a
+moved `CurrentVersion`; version 1 stays reachable, so already-issued quotations
+and committed Orders keep validating. An unsupported retained version fails closed
+instead of being re-derived with current semantics. The retained default is version
+1, so facts written before the field was named keep their original meaning.
+`QuotationRulesTests.FrozenVersionOneEvaluatorsStayCharacterized` pins the literal
+version-1 base-quantity outcomes, so an in-place edit of that evaluator fails that
+test rather than silently changing what committed facts mean.
+
 All mutation commands have bounded caller-scoped idempotency keys and canonical
 fingerprints. Successful effects persist a receipt and replay the original
 snapshot; reusing a key for changed intent returns an idempotency conflict.

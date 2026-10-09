@@ -86,6 +86,11 @@ public static class PriceSelectionEngine
         !(resolved.Explanation.Policy ?? throw new InvalidOperationException("Selection policy evidence is required."))
             .Contains(unitPrice, resolved.BasePrice.BaseUnitPrice);
 
+    // Retained-fact readers re-evaluate the recorded override decision through the envelope
+    // semantics the snapshot pinned, never through this reader's current engine meaning.
+    public static bool RetainedBeyondPolicy(PricingOverridePolicy policy, decimal unitPrice, decimal baseUnitPrice) =>
+        !PricingOverridePolicySemantics.Contains(policy, unitPrice, baseUnitPrice);
+
     public static PriceResolution ApplyOverride(PriceResolution baseResolution, PriceOverrideRequest overrideRequest)
     {
         ArgumentNullException.ThrowIfNull(baseResolution);
