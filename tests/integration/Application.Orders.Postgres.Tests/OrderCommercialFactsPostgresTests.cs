@@ -4,6 +4,7 @@ using Application.Customers;
 using Application.Customers.Postgres;
 using Application.Pricing;
 using Application.Pricing.Postgres;
+using Application.Profiles.Postgres;
 using Application.Tenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -229,6 +230,137 @@ public sealed partial class OrderMigrationAndRlsTests
         Assert.Equal(PostgresErrorCodes.RaiseException, error.SqlState);
         Assert.Contains("202610070001_OrderCommercialFacts", await migration.Database.GetAppliedMigrationsAsync());
         Assert.Equal(2, await CountReceiptsAsync(tenant));
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    public async Task CommercialSchemaRollbackRefusesEveryRetainedReceiptEnvelopeVersion(int schemaVersion)
+    {
+        await ApplyOrderSchemaAsync();
+        var account = Guid.NewGuid(); var tenant = Guid.NewGuid();
+        await SeedAuthorityRowsAsync(account, tenant);
+        var context = await ResolveContextAsync(tenant, account);
+        Guid orderId;
+        await using (var source = new NpgsqlDataSourceBuilder(await CreateRuntimeRoleAsync()).Build())
+        {
+            var store = new PostgresOrderDraftStore(source, new FixedTimeProvider());
+            orderId = (await store.CreateAsync(context, CreateIntent("Manual envelope holder"), "create", default)).Order!.OrderId;
+        }
+        // Leave only the envelope under test: the production create receipt would otherwise satisfy
+        // the guard by itself and hide which versions it actually recognizes.
+        await using (var connection = new NpgsqlConnection(ConnectionString))
+        {
+            await connection.OpenAsync();
+            await using var clear = new NpgsqlCommand("DELETE FROM orders.command_receipts WHERE tenant_id=@tenant", connection);
+            clear.Parameters.AddWithValue("tenant", tenant);
+            await clear.ExecuteNonQueryAsync();
+        }
+        // Neither half of the guard can see this envelope through order_draft_lines: the order is a
+        // manual draft with no commercial facts and a unit code the narrower column still accepts.
+        Assert.Equal(0L, await CountRowsAsync("""
+            SELECT count(*) FROM orders.order_draft_lines WHERE tenant_id = @tenant_id
+            AND (commercial_facts IS NOT NULL OR unit_code !~ '^[A-Z0-9]{1,16}$')
+            """, tenant));
+        await InsertReceiptEnvelopeAsync(tenant, account, orderId, schemaVersion);
+        Assert.Equal(1L, await CountReceiptsAsync(tenant));
+
+        await using var migration = CreateContext();
+        var script = migration.GetService<IMigrator>().GenerateScript("202610070001_OrderCommercialFacts", "202610030001_OrderCommitment");
+        await using var downgrade = new NpgsqlCommand(script, new NpgsqlConnection(ConnectionString));
+        await ((NpgsqlConnection)downgrade.Connection!).OpenAsync();
+        var error = await Assert.ThrowsAsync<PostgresException>(() => downgrade.ExecuteNonQueryAsync());
+        Assert.Equal(PostgresErrorCodes.RaiseException, error.SqlState);
+        Assert.Contains("202610070001_OrderCommercialFacts", await migration.Database.GetAppliedMigrationsAsync());
+        // The guard recognizes the shared set exactly, not a hand-maintained copy of part of it.
+        Assert.Contains($"response_json->>'schemaVersion' IN ('1', '2', '3', '4', '5', '6')", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ProgramPolicyEnvelopeOnAManualOrderBlocksTheCommercialSchemaRollback()
+    {
+        await ApplyOrderSchemaAsync();
+        var accountId = Guid.NewGuid(); var tenantId = Guid.NewGuid();
+        var organizationId = Guid.NewGuid(); var programId = Guid.NewGuid();
+        await SeedAuthorityRowsAsync(accountId, tenantId);
+        await SeedCustomerContextAsync(tenantId, accountId, organizationId, programId);
+        await using var profileSource = new NpgsqlDataSourceBuilder(ConnectionString).Build();
+        var clock = new FixedTimeProvider();
+        var profiles = new PostgresProfileStore(profileSource, clock);
+        var context = await ResolveContextAsync(tenantId, accountId);
+        await PublishAndActivateProfileAsync(profiles, context, new(Guid.NewGuid(), Guid.NewGuid()),
+            requireReference: false, legacyBaseline: true, "rollback-guard-baseline");
+        await PublishAndActivateProfileAsync(profiles, context, new(Guid.NewGuid(), Guid.NewGuid()),
+            requireReference: true, legacyBaseline: false, "rollback-guard-required");
+        await using var runtimeSource = new NpgsqlDataSourceBuilder(await CreateRuntimeRoleAsync()).Build();
+        var orders = new PostgresOrderDraftStore(runtimeSource, clock, profilePolicySource: new ProfileOrderPolicySource());
+        var draft = (await orders.CreateAsync(context, CreateIntent("Manual program order",
+            new CustomerOrderContext(organizationId, programId)), "create", default)).Order!;
+        Assert.Equal(ProgramPolicyEnvelopeVersion,
+            await SingleReceiptSchemaVersionAsync(tenantId, accountId, draft.OrderId, "create-order-draft", "create"));
+        Assert.Equal(SetOrderProgramReferenceStatus.Updated,
+            (await new SetOrderProgramReference(orders).ExecuteAsync(context,
+                new SetOrderProgramReferenceRequest(draft.OrderId, draft.Revision, "PO-ROLLBACK-GUARD"),
+                "reference-key", default)).Status);
+        Assert.Equal(ProgramPolicyEnvelopeVersion,
+            await SingleReceiptSchemaVersionAsync(tenantId, accountId, draft.OrderId, "set-order-program-reference", "reference-key"));
+        // The reported defect exactly: a manual order with no commercial facts and an unchanged
+        // unit_code, whose version-six envelope the previous guard did not recognize.
+        Assert.Equal(0L, await CountRowsAsync("""
+            SELECT count(*) FROM orders.order_draft_lines WHERE tenant_id = @tenant_id
+            AND (commercial_facts IS NOT NULL OR unit_code !~ '^[A-Z0-9]{1,16}$')
+            """, tenantId));
+
+        await using var migration = CreateContext();
+        var script = migration.GetService<IMigrator>().GenerateScript("202610070001_OrderCommercialFacts", "202610030001_OrderCommitment");
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync();
+        await using var downgrade = new NpgsqlCommand(script, connection);
+        var error = await Assert.ThrowsAsync<PostgresException>(() => downgrade.ExecuteNonQueryAsync());
+        Assert.Equal(PostgresErrorCodes.RaiseException, error.SqlState);
+        Assert.Contains("202610070001_OrderCommercialFacts", await migration.Database.GetAppliedMigrationsAsync());
+    }
+
+    // Mirrors OrderReceiptSchemaVersions; asserted here so the shared set cannot drift unnoticed.
+    private const int ProgramPolicyEnvelopeVersion = 6;
+
+    private async Task<int> SingleReceiptSchemaVersionAsync(Guid tenantId, Guid accountId, Guid orderId,
+        string operation, string idempotencyKey)
+    {
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand("""
+            SELECT DISTINCT (response_json->>'schemaVersion')::int FROM orders.command_receipts
+            WHERE tenant_id=@tenant AND account_id=@account AND order_id=@order
+              AND operation=@operation AND idempotency_key=@key
+            """, connection);
+        command.Parameters.AddWithValue("tenant", tenantId); command.Parameters.AddWithValue("account", accountId);
+        command.Parameters.AddWithValue("order", orderId); command.Parameters.AddWithValue("operation", operation);
+        command.Parameters.AddWithValue("key", idempotencyKey);
+        return (int)(await command.ExecuteScalarAsync()
+            ?? throw new InvalidOperationException("The production writer did not emit a schema version."));
+    }
+
+    private async Task InsertReceiptEnvelopeAsync(Guid tenantId, Guid accountId, Guid orderId, int schemaVersion)
+    {
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand("""
+            INSERT INTO orders.command_receipts (tenant_id, account_id, operation, idempotency_key,
+                                                 fingerprint, order_id, response_json, created_at)
+            VALUES (@tenant, @account, 'order-draft-created', 'envelope', @fingerprint, @order,
+                    jsonb_build_object('schemaVersion', @version::int, 'operation', 'order-draft-created',
+                                       'resultType', 'order-draft-created', 'payload', '{}'::jsonb),
+                    '2026-10-07T12:00:00Z')
+            """, connection);
+        command.Parameters.AddWithValue("tenant", tenantId); command.Parameters.AddWithValue("account", accountId);
+        command.Parameters.AddWithValue("order", orderId); command.Parameters.AddWithValue("version", schemaVersion);
+        command.Parameters.AddWithValue("fingerprint", new string('a', 64));
+        await command.ExecuteNonQueryAsync();
     }
 
     [Fact]
