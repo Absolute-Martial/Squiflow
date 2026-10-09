@@ -107,7 +107,9 @@ Retained-fact readers must route through the pinned version, never through the c
 meaning. An unsupported retained version fails closed instead of being read with current
 semantics. `PricingOverridePolicy` stores envelope numbers only, so the semantics version belongs
 to the reading snapshot; the version defaults to 1 so facts written before the field existed read
-back as version 1.
+back as version 1. `QuotationRulesTests.FrozenVersionOneEvaluatorsStayCharacterized` pins the
+literal version-1 decisions, so editing the version-1 evaluator in place fails that test and must
+be repaired by adding a version rather than by rewriting retained meaning.
 
 Every override requires current `Pricing.Override` and a nonblank bounded reason.
 The immutable policy combines inclusive absolute minimum/maximum and optional

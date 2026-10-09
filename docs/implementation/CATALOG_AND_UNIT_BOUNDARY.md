@@ -95,6 +95,9 @@ moved `CurrentVersion`; version 1 stays reachable, so already-issued quotations
 and committed Orders keep validating. An unsupported retained version fails closed
 instead of being re-derived with current semantics. The retained default is version
 1, so facts written before the field was named keep their original meaning.
+`QuotationRulesTests.FrozenVersionOneEvaluatorsStayCharacterized` pins the literal
+version-1 base-quantity outcomes, so an in-place edit of that evaluator fails that
+test rather than silently changing what committed facts mean.
 
 All mutation commands have bounded caller-scoped idempotency keys and canonical
 fingerprints. Successful effects persist a receipt and replay the original

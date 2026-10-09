@@ -106,6 +106,53 @@ public sealed class QuotationRulesTests
         Assert.False(QuantityArithmetic.RoundingSupported(QuantityArithmetic.Version1, "awayFromZero"));
     }
 
+    // Characterization of the FROZEN version-1 evaluators. These literal outcomes are the durable
+    // contract every already-issued quotation and committed Order depends on, because their retained
+    // snapshots pin version 1 and are revalidated through it forever. Editing either evaluator in
+    // place changes these expected values and MUST fail here. The only permitted repair is a NEW
+    // version constant plus a NEW evaluator, leaving version 1 reachable for old facts.
+    [Fact]
+    public void FrozenVersionOneEvaluatorsStayCharacterized()
+    {
+        var policy = new PricingOverridePolicy(1, 0m, 100m, 10m, 20m, PricingOverridePolicySemantics.Version1);
+        const decimal basePrice = 10.005m;
+
+        // Version 1 measures the percentage envelope against the EXACT base price: 10.005 less 10%
+        // is exactly 9.0045 and 10.005 more 20% is exactly 12.006. The envelope is inclusive.
+        Assert.True(PricingOverridePolicySemantics.Contains(policy, 9.0045m, basePrice));
+        Assert.True(PricingOverridePolicySemantics.Contains(policy, 12.006m, basePrice));
+        Assert.False(PricingOverridePolicySemantics.Contains(policy, 9.0044m, basePrice));
+        Assert.False(PricingOverridePolicySemantics.Contains(policy, 12.0061m, basePrice));
+
+        // Absolute bounds are inclusive and independent of the percentage terms. This policy carries
+        // no percentage band, so the absolute bounds alone decide.
+        var absoluteOnly = new PricingOverridePolicy(2, 5m, 100m, envelopeSemanticsVersion: PricingOverridePolicySemantics.Version1);
+        Assert.True(PricingOverridePolicySemantics.Contains(absoluteOnly, 100m, basePrice));
+        Assert.False(PricingOverridePolicySemantics.Contains(absoluteOnly, 100.0001m, basePrice));
+        Assert.True(PricingOverridePolicySemantics.Contains(absoluteOnly, 5m, basePrice));
+        Assert.False(PricingOverridePolicySemantics.Contains(absoluteOnly, 4.9999m, basePrice));
+
+        // The decision this locks down: 9.006 against base 10.005 is INSIDE version 1's envelope.
+        // Rounding the base price to currency minor units first (the plausible future meaning) would
+        // compare against 10.01 and call it OUTSIDE. This is the exact historical corpus whose
+        // validity depends on version 1 keeping its original meaning.
+        Assert.True(PricingOverridePolicySemantics.Contains(policy, 9.006m, basePrice));
+        Assert.False(PricingOverridePolicySemantics.Contains(policy, 9.006m, decimal.Round(basePrice, 2, MidpointRounding.AwayFromZero)));
+        Assert.Equal(PricingOverridePolicySemantics.Version1, policy.EnvelopeSemanticsVersion);
+        // A policy snapshot built without the version argument still reads as the frozen legacy
+        // version, never as whatever version happens to be current at read time.
+        Assert.Equal(PricingOverridePolicySemantics.Version1,
+            new PricingOverridePolicy(1, 0m, 100m, 10m, 20m).EnvelopeSemanticsVersion);
+
+        // Version 1 quantity arithmetic rounds the final base quantity half-to-EVEN, once, at the
+        // target precision. 0.25 goes to 0.2 (even) and 0.35 goes to 0.4 (even); half-up would give
+        // 0.3 and 0.4, so the 0.25 case alone distinguishes the two meanings.
+        Assert.Equal(0.2m, CatalogQuantityConversion.Convert(QuantityArithmetic.Version1, 1, 4, 1, 1m, 4m));
+        Assert.Equal(0.4m, CatalogQuantityConversion.Convert(QuantityArithmetic.Version1, 1.4m, 4, 1, 1m, 4m));
+        Assert.Equal(0.3m, decimal.Round(0.25m, 1, MidpointRounding.AwayFromZero));
+        Assert.Equal(2m, CatalogQuantityConversion.Convert(QuantityArithmetic.Version1, 2, 4, 4, 1m, 1m));
+    }
+
     [Fact]
     public void RetainedBeyondPolicyDecisionIsHonouredFromTheRetainedValue()
     {
