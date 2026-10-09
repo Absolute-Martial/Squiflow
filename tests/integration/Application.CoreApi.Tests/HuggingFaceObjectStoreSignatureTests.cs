@@ -371,6 +371,37 @@ public sealed class HuggingFaceObjectStoreSignatureTests
         Assert.DoesNotContain(captured, request => request.Method == HttpMethod.Delete);
     }
 
+    [Fact]
+    public async Task PreconditionFailedPutReportsCorruptWhenTheStoredObjectHasTheExpectedLengthButDifferentBytes()
+    {
+        var payload = Payload();
+        // Same length as the payload, so the length check passes and only the digest disagrees.
+        // This is the case the verifying stream detects while the response body is drained.
+        // Same length as the payload, so the length check passes and only the digest disagrees.
+        // This is the case the verifying stream detects while the response body is drained.
+        var stored = payload.Select(value => value == (byte)'o' ? (byte)'O' : value).ToArray();
+        Assert.Equal(payload.Length, stored.Length);
+        Assert.NotEqual(Sha256Hex(payload), Sha256Hex(stored));
+        var captured = new List<CapturedRequest>();
+        using var http = ScriptedClient(captured, request => request.Method == HttpMethod.Put
+            ? Status(HttpStatusCode.PreconditionFailed)
+            : Body(HttpStatusCode.OK, stored));
+        var store = new HuggingFaceObjectStore(http, Configuration());
+        using var content = new MemoryStream(payload);
+
+        var result = await store.PutAsync(new ObjectStorePutRequest(
+            ObjectStoreKey.Create(ProbeKey), content, payload.Length, Sha256Hex(payload), "text/plain"),
+            CancellationToken.None);
+
+        // The stored bytes disagree with the expected digest, so this is a corrupt provider
+        // state reported through the adapter's own outcome vocabulary. Letting the verifying
+        // stream's InvalidDataException escape would skip the caller's reservation release and
+        // turn a modelled provider outcome into an unhandled 500.
+        Assert.Equal(ObjectStorePutOutcome.Corrupt, result.Outcome);
+        Assert.Null(result.Metadata);
+        Assert.DoesNotContain(captured, request => request.Method == HttpMethod.Delete);
+    }
+
     [Theory]
     [InlineData(429)]
     [InlineData(413)]
