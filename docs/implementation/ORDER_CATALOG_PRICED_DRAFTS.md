@@ -1,7 +1,8 @@
 # Catalog-priced Orders: COM-005/006/007 integration
 
 **Current state:** `PRODUCTION_HONEST` for the declared local scope after integrated
-host checks and the **1011-test** normal receiving gate. The transaction-bound publication pin and backend-loss
+host checks and the exact normal receiving gate recorded in `README.IMPLEMENTATION.md`.
+The transaction-bound publication pin and backend-loss
 regressions below are locally verified; no independent pin session remains.
 Manual-entry Orders retain their existing contract. Product version remains v0.0.1.
 
@@ -58,6 +59,18 @@ their values. Only arithmetic version 1 is understood today: Orders asserts that
 exact version rather than comparing against a moving "current version", so a later
 Catalog arithmetic revision must be added to the understood set deliberately instead
 of silently changing what retained facts mean.
+The host owns the commercial-facts wire records and maps Catalog/Pricing/Orders
+records explicitly; module enum types are never part of the public v1 contract.
+Price scope kind and price publication state serialize as explicit lowercase
+strings, so inserting a new module enum member cannot silently renumber an
+existing stored draft's response. `PriceScope.Precedence` is an internal selection
+ranking and is not published; it stays visible only through selection behavior and
+the ordering tests. Member names and member order of the commercial facts are
+unchanged; only the enum representation and the removal of `precedence` differ.
+The permanent guard is
+`OrderCommercialEndpointTests.CommercialFactsWireShapeCarriesNoModuleEnumOrdinalOrInternalPrecedence`,
+which asserts string `kind`/`state` values and the absence of any `precedence`
+member in the served commercial-facts subtree.
 
 Optional `ICustomerCanonicalDirectory` redirects customer IDs only while resolving
 new mutable content, after replay lookup. The original request fingerprint stays
@@ -283,6 +296,8 @@ pre-pin-authority correction added `ASlowAuthorizationProviderInTheCommitPathDoe
 and `AnIneligibleManualDraftNeverConsultsCommitAuthorityAtAll`; it is falsifiable —
 restoring authority resolution inside the pin makes the first of them fail on an
 observed advisory lock, not on elapsed time.
+Catalog PostgreSQL **8/8**, and Pricing PostgreSQL **11/11**. These are focused
+receiving evidence, not a combined host/normal-gate qualification.
 
 Requalify when Catalog/Pricing contracts, conversion arithmetic, precedence,
 policy/override semantics, pin participants, commit authority timing,

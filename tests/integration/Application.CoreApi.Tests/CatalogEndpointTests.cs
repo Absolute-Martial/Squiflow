@@ -29,6 +29,9 @@ public sealed class CatalogEndpointTests
         Assert.Equal("EA", document.RootElement.GetProperty("code").GetString());
         Assert.False(document.RootElement.TryGetProperty("tenantId", out _));
         var id = document.RootElement.GetProperty("unitId").GetGuid();
+        // The created unit URL is derived from the request URL and the created identity.
+        Assert.Equal($"{created.RequestMessage!.RequestUri!.AbsolutePath}/{id:D}",
+            created.Headers.Location!.OriginalString);
         using var readDenied = await setup.SendAsync($"units/{id:D}");
         Assert.Equal(HttpStatusCode.Forbidden, readDenied.StatusCode);
         Assert.Equal(1, setup.Store.Calls);
@@ -138,6 +141,8 @@ public sealed class CatalogEndpointTests
         using var itemResponse = await setup.SendAsync("items", $"{{\"code\":null,\"name\":\"Service\",\"description\":null,\"kind\":\"service\",\"baseUnitId\":\"{unit.UnitId:D}\",\"stockMode\":\"availabilityOnly\"}}");
         Assert.Equal(HttpStatusCode.Created, itemResponse.StatusCode);
         var item = setup.Store.Item!;
+        Assert.Equal($"{itemResponse.RequestMessage!.RequestUri!.AbsolutePath}/{item.ItemId:D}",
+            itemResponse.Headers.Location!.OriginalString);
         using var itemJson = JsonDocument.Parse(await itemResponse.Content.ReadAsStringAsync());
         Assert.Equal("unavailable", itemJson.RootElement.GetProperty("availability").GetString());
         setup.Store.Item = item with
