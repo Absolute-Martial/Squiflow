@@ -735,7 +735,12 @@ run-batch route mapping or ordering, the `import_executor_unavailable` /
 The owner accepted the recovery and consolidated-pricing contracts in
 `docs/review/PR_5_RECOVERY_AND_CONSOLIDATED_PRICING_DECISION_PROPOSAL.md`, including
 separate monitoring/recovery responsibilities in the current host. The prior
-2026-10-07 evidence is historical; the changed recovery path receives a new gate.
+2026-10-07 evidence is historical. The changed recovery path passed its new exact
+normal repository gate on 2026-10-11: **1,649/1,649 tests across all 28 projects**,
+zero failures/skips and zero Release warnings/errors. The declared local recovery
+responsibility is `PRODUCTION_HONEST`; live provider/deployment qualification
+remains `BLOCKED`. `docs/review/PR_5_REVIEW_RESOLUTION.md` records the receiving
+scope, permanent guard mapping and verification boundaries.
 Permanent guards now include `CustomerImportUploadRecoveryPostgresTests.cs`,
 `CustomerImportRecoveryMigrationPostgresTests.cs`, the controlled conditional
 retirement races in `HuggingFaceObjectStoreSignatureTests.cs`, and the autonomous

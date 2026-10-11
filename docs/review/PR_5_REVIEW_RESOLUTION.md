@@ -39,7 +39,18 @@ required quantity arithmetic/rounding while omitting only the supported additive
 legacy policy version. The Order commitment mutation gate explicitly selects its
 project; its two targeted mutants were killed.
 
-Receiving verification: the exact normal `./eng/verify.sh` gate is required before
-merge. Focused evidence and the mutation report are retained under
-`artifacts/pr5-review-20261011/`. Live Hugging Face provider evidence remains
-unrun and blocked; these local regressions do not qualify a live service.
+Local qualification on 2026-10-11: the exact normal `./eng/verify.sh` gate passed
+**1,649/1,649 tests across all 28 projects**, with zero failures/skips and zero
+Release warnings/errors. It ran from 11:52:23 to 12:16:33 UTC (1,449.7 seconds).
+The complete executable/test source remained unchanged throughout that run. The
+only concurrent repository change was the separately verified secret-scan
+exclusion configuration. Focused evidence, exact command/exit receipts, source
+manifests and the mutation report are retained under
+`artifacts/pr5-review-20261011/`.
+
+The pinned Gitleaks 8.30.1 scan passed across all 453 local Git commits with no
+findings. Exact history fingerprints exclude only the reviewed synthetic
+`approval-utf16` idempotency label and verified SHA-256 document provenance;
+new findings still fail. The Order mutation guard killed both targeted mutants.
+Live Hugging Face provider evidence remains unrun and blocked; these local
+regressions do not qualify a live service.
