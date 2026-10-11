@@ -220,8 +220,8 @@ BEGIN
     EXECUTE format('GRANT UPDATE (status, completed_at, last_error, authorization_revision, generation, worker_id, lease_expires_at, next_attempt_at) ON TABLE customers.import_work TO %I', runtime_role);
     EXECUTE format('GRANT UPDATE (source_object_key) ON TABLE customers.imports TO %I', runtime_role);
     EXECUTE format('GRANT UPDATE (reserved_bytes, retained_bytes, updated_at) ON TABLE customers.object_storage_usage TO %I', runtime_role);
-    EXECUTE format('GRANT UPDATE (state, failure_code, retirement_generation, retirement_lease_id, retirement_lease_expires_at) ON TABLE customers.import_source_objects TO %I', runtime_role);
-    EXECUTE format('GRANT UPDATE (state, updated_at) ON TABLE customers.object_storage_reservations TO %I', runtime_role);
+    EXECUTE format('GRANT UPDATE (state, failure_code, retirement_generation, retirement_lease_id, retirement_lease_expires_at, staging_expires_at, retirement_fenced) ON TABLE customers.import_source_objects TO %I', runtime_role);
+    EXECUTE format('GRANT UPDATE (state, updated_at, upload_generation, upload_lease_id, upload_lease_expires_at) ON TABLE customers.object_storage_reservations TO %I', runtime_role);
     EXECUTE format('GRANT EXECUTE ON FUNCTION customers.discover_runnable_import_tenants(uuid,integer) TO %I', runtime_role);
     EXECUTE format('GRANT UPDATE (name, status, revision, retired_at, retired_by_account_id) ON TABLE catalog.units TO %I', runtime_role);
     EXECUTE format('GRANT UPDATE (name, description, status, revision, retired_at, retired_by_account_id, availability, availability_changed_at, availability_changed_by_account_id) ON TABLE catalog.items TO %I', runtime_role);
@@ -300,9 +300,9 @@ BEGIN
                          AND target_column.column_name IN ('reserved_bytes', 'retained_bytes', 'updated_at'))
                       OR (target_column.schema_name = 'customers' AND target_column.table_name = 'import_source_objects'
                           AND target_column.column_name IN ('state', 'failure_code',
-                              'retirement_generation', 'retirement_lease_id', 'retirement_lease_expires_at'))
+                              'retirement_generation', 'retirement_lease_id', 'retirement_lease_expires_at', 'staging_expires_at', 'retirement_fenced'))
                      OR (target_column.schema_name = 'customers' AND target_column.table_name = 'object_storage_reservations'
-                         AND target_column.column_name IN ('state', 'updated_at')))) THEN
+                         AND target_column.column_name IN ('state', 'updated_at', 'upload_generation', 'upload_lease_id', 'upload_lease_expires_at')))) THEN
             RAISE EXCEPTION 'CoreApi runtime column privileges are unsafe on %', target_table;
         END IF;
     END LOOP;
@@ -417,9 +417,9 @@ BEGIN
                       AND target_column.column_name IN ('reserved_bytes', 'retained_bytes', 'updated_at'))
                    OR (target_column.schema_name = 'customers' AND target_column.table_name = 'import_source_objects'
                        AND target_column.column_name IN ('state', 'failure_code',
-                           'retirement_generation', 'retirement_lease_id', 'retirement_lease_expires_at'))
+                           'retirement_generation', 'retirement_lease_id', 'retirement_lease_expires_at', 'staging_expires_at', 'retirement_fenced'))
                   OR (target_column.schema_name = 'customers' AND target_column.table_name = 'object_storage_reservations'
-                      AND target_column.column_name IN ('state', 'updated_at'))
+                      AND target_column.column_name IN ('state', 'updated_at', 'upload_generation', 'upload_lease_id', 'upload_lease_expires_at'))
                  OR (target_column.schema_name = 'catalog' AND target_column.table_name = 'units'
                      AND target_column.column_name IN ('name', 'status', 'revision', 'retired_at', 'retired_by_account_id'))
                  OR (target_column.schema_name = 'catalog' AND target_column.table_name = 'items'

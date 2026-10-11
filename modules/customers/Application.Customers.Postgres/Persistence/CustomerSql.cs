@@ -64,10 +64,10 @@ internal static class CustomerSql
     internal static readonly string ResumeImportWork = Load(nameof(ResumeImportWork));
     internal static readonly string CompleteEmptyImport = Load(nameof(CompleteEmptyImport));
     internal static readonly string DiscoverImportTenants = Load(nameof(DiscoverImportTenants));
-    internal static readonly string FindImportSource = Load(nameof(FindImportSource));
     internal static readonly string FindImportSourceByImport = Load(nameof(FindImportSourceByImport));
     internal static readonly string FindImportSourceReservation = Load(nameof(FindImportSourceReservation));
     internal static readonly string FindImportSourceReservationById = Load(nameof(FindImportSourceReservationById));
+    internal static readonly string ClaimImportSourceUpload = Load(nameof(ClaimImportSourceUpload));
     internal static readonly string InsertImportSource = Load(nameof(InsertImportSource));
     internal static readonly string InsertImportSourceReservation = Load(nameof(InsertImportSourceReservation));
     internal static readonly string EnsureImportSourceUsage = Load(nameof(EnsureImportSourceUsage));

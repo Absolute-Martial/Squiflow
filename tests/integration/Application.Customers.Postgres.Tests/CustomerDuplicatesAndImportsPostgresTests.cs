@@ -321,9 +321,9 @@ public sealed partial class CustomerPostgresTests
 
         await FixtureSqlAsync($"""
             INSERT INTO customers.object_storage_reservations
-                (tenant_id, provider_scope, reservation_id, idempotency_key, fingerprint, object_key, byte_length, state, created_at, updated_at)
+                (tenant_id, provider_scope, reservation_id, idempotency_key, fingerprint, object_key, byte_length, state, created_at, updated_at, upload_generation, upload_lease_id, upload_lease_expires_at)
             VALUES ('{tenantId:D}', '{policy.ProviderScope}', '{Guid.CreateVersion7():D}', 'unknown-retirement-reservation', '{plan.Fingerprint}',
-                '{sourceMetadata.ObjectKey}', {plan.ByteLength}, 4, clock_timestamp(), clock_timestamp())
+                '{sourceMetadata.ObjectKey}', {plan.ByteLength}, 4, clock_timestamp(), clock_timestamp(), 1, '{Guid.NewGuid():D}', clock_timestamp()+interval '1 minute')
             """);
         Assert.Null(await store.ClaimExpiredSourceRetirementAsync(context, DateTimeOffset.UtcNow, CancellationToken.None));
         await FixtureSqlAsync("DELETE FROM customers.object_storage_reservations WHERE idempotency_key='unknown-retirement-reservation'");

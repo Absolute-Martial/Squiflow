@@ -1,4 +1,5 @@
 using System.Threading.Channels;
+using System.Diagnostics.Metrics;
 using Application.CoreApi.Authorization;
 using Application.CoreApi.ImportExecution;
 using Application.CoreApi.Storage;
@@ -250,6 +251,32 @@ public sealed class CustomerImportExecutorTests
         using var provider = services.BuildServiceProvider();
         if (invalid) Assert.Throws<OptionsValidationException>(() => provider.GetRequiredService<IOptions<HostOptions>>().Value);
         else Assert.Equal(TimeSpan.FromSeconds(30), provider.GetRequiredService<IOptions<HostOptions>>().Value.ShutdownTimeout);
+    }
+
+    [Fact]
+    public void RecoveryMonitoringSubscribersCannotPreventRecordingOrSubsequentRecoveryObservations()
+    {
+        using var monitor = new CustomerImportRecoveryMonitor();
+        using var listener = new MeterListener
+        {
+            InstrumentPublished = (instrument, observer) =>
+            {
+                if (instrument.Meter.Name == CustomerImportRecoveryMonitor.MeterName) observer.EnableMeasurementEvents(instrument);
+            },
+        };
+        var observed = 0;
+        listener.SetMeasurementEventCallback<long>((_, _, tags, _) =>
+        {
+            Assert.Single(tags.ToArray()); Assert.Equal("outcome", tags[0].Key);
+            Interlocked.Increment(ref observed);
+            throw new InvalidOperationException("Synthetic subscriber failure.");
+        });
+        listener.Start();
+        monitor.Observe(CustomerImportSourceRecoveryOutcome.Retired);
+        monitor.Observe(CustomerImportSourceRecoveryOutcome.Deferred);
+        monitor.ObserveFailure();
+        Assert.Equal(3, observed);
+        Assert.Equal(new CustomerImportRecoveryObservation(1, 1, 1), monitor.Read());
     }
 
     private static ServiceProvider ExecutorServices(ExecutorPorts ports)

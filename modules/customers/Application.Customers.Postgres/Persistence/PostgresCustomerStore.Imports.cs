@@ -12,6 +12,15 @@ public sealed partial class PostgresCustomerStore
     public async Task<CreateCustomerImportResult> CreateImportPlanAsync(TenantContext context,
         CustomerImportPlan plan, string idempotencyKey, CancellationToken cancellationToken)
     {
+        await using var session = await CustomerTenantDbSession.OpenAsync(dataSource, context.TenantId, cancellationToken).ConfigureAwait(false);
+        var result = await CreateImportPlanAsync(session, context, plan, idempotencyKey, cancellationToken).ConfigureAwait(false);
+        if (!result.IdempotencyKeyConflict) await session.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return result;
+    }
+
+    private async Task<CreateCustomerImportResult> CreateImportPlanAsync(CustomerTenantDbSession session,
+        TenantContext context, CustomerImportPlan plan, string idempotencyKey, CancellationToken cancellationToken)
+    {
         ArgumentNullException.ThrowIfNull(plan);
         if (plan.ContractVersion != CustomerImportCsv.ContractVersion || plan.Rows.Count > CustomerImportCsv.MaxRows
             || plan.ByteLength is < 0 or > CustomerImportCsv.MaxBytes || plan.ImportId == Guid.Empty
@@ -20,7 +29,6 @@ public sealed partial class PostgresCustomerStore
             || plan.Fingerprint != CustomerIdentityNormalization.Fingerprint("customer-import", plan.ContractVersion,
                 plan.ManifestHash, string.Join('|', plan.Rows.Select(row => $"{row.RowNumber}:{row.SourceRowHash}:{(int)row.Status}"))))
             throw new CustomerValidationException("import_plan_invalid", "Import plan is invalid.");
-        await using var session = await CustomerTenantDbSession.OpenAsync(dataSource, context.TenantId, cancellationToken).ConfigureAwait(false);
         var receipt = await FindImportReceiptAsync(session, context, idempotencyKey, cancellationToken).ConfigureAwait(false);
         if (receipt is not null) return await ImportReplayAsync(session, context, receipt.Value, plan, cancellationToken).ConfigureAwait(false);
         await using (var insert = session.CreateCommand(CustomerSql.InsertImport))
@@ -91,7 +99,6 @@ public sealed partial class PostgresCustomerStore
         }
         var validated = await LoadImportPlanAsync(session, context, plan.ImportId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Retained import plan disappeared.");
-        await session.CommitAsync(cancellationToken).ConfigureAwait(false);
         return new(plan.ImportId, true, false, false, validated);
     }
 

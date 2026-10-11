@@ -145,10 +145,19 @@ public sealed class CoreApiRuntimeRoleProvisioningTests : PostgresTestDatabase
             SET state = state, failure_code = failure_code,
                 retirement_generation = retirement_generation,
                 retirement_lease_id = retirement_lease_id,
-                retirement_lease_expires_at = retirement_lease_expires_at
+                retirement_lease_expires_at = retirement_lease_expires_at,
+                staging_expires_at = staging_expires_at, retirement_fenced = retirement_fenced
             WHERE false
             """;
         Assert.Equal(0, await allowedImportSourceLifecycleUpdate.ExecuteNonQueryAsync(CancellationToken.None));
+
+        await using var allowedUploadLeaseUpdate = runtime.CreateCommand();
+        allowedUploadLeaseUpdate.CommandText = """
+            UPDATE customers.object_storage_reservations SET state=state,updated_at=updated_at,
+                upload_generation=upload_generation,upload_lease_id=upload_lease_id,upload_lease_expires_at=upload_lease_expires_at
+            WHERE false
+            """;
+        Assert.Equal(0, await allowedUploadLeaseUpdate.ExecuteNonQueryAsync(CancellationToken.None));
 
         await using var allowedTenantRevisionUpdate = runtime.CreateCommand();
         allowedTenantRevisionUpdate.CommandText = "UPDATE tenancy.tenants SET revision = revision WHERE false";
@@ -219,6 +228,10 @@ public sealed class CoreApiRuntimeRoleProvisioningTests : PostgresTestDatabase
             "UPDATE customers.import_rows SET source_row_hash=source_row_hash WHERE false",
             "UPDATE customers.import_source_objects SET retention=retention WHERE false",
             "UPDATE customers.import_source_objects SET expires_at=expires_at WHERE false",
+            "UPDATE customers.object_storage_reservations SET account_id=account_id WHERE false",
+            "UPDATE customers.object_storage_reservations SET import_id=import_id WHERE false",
+            "UPDATE customers.object_storage_reservations SET idempotency_key=idempotency_key WHERE false",
+            "UPDATE customers.object_storage_reservations SET fingerprint=fingerprint WHERE false",
         })
         {
             await using var denied = new NpgsqlCommand(sql, runtime);

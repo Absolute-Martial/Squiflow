@@ -159,6 +159,103 @@ public sealed class HuggingFaceObjectStoreSignatureTests
         Assert.False(stalled.CanRead);
     }
 
+    [Fact]
+    public async Task RetirementMarkerSurvivesStaleCleanupAndLateConditionalUploads()
+    {
+        using var handler = new RetirementRaceHandler();
+        using var http = new HttpClient(handler); var store = new HuggingFaceObjectStore(http, Configuration());
+        var key = ObjectStoreKey.Create("qualification/retired.csv");
+        var stale = store.RetireAsync(key, default);
+        await handler.Paused.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        try
+        {
+            var current = await store.RetireAsync(key, default);
+            Assert.Equal(ObjectStorePutOutcome.Created, current.Outcome);
+            Assert.Equal(0, current.Metadata!.Length);
+            handler.Release.TrySetResult();
+            Assert.Equal(ObjectStorePutOutcome.OutcomeUnknown, (await stale).Outcome);
+            using var late = new MemoryStream(Payload());
+            var upload = await store.PutAsync(new(key, late, late.Length, Sha256Hex(Payload()), "text/csv"), default);
+            Assert.Equal(ObjectStorePutOutcome.Corrupt, upload.Outcome);
+            var retry = await store.RetireAsync(key, default);
+            Assert.Equal(ObjectStorePutOutcome.AlreadyExists, retry.Outcome);
+            Assert.Equal(ObjectStoreRetirement.EmptySha256, retry.Metadata!.Sha256);
+            Assert.Empty(handler.Body); Assert.Equal(0, handler.Deletes);
+        }
+        finally { handler.Release.TrySetResult(); await stale.WaitAsync(TimeSpan.FromSeconds(10)); }
+    }
+
+    [Fact]
+    public async Task RetirementDoesNotBlindlyOverwriteAnObjectWithoutAVersion()
+    {
+        var requests = new List<CapturedRequest>();
+        using var http = new HttpClient(new RecordingHandler(HttpStatusCode.OK, requests, _ =>
+            new(HttpStatusCode.OK) { Content = new ByteArrayContent(Payload()) }));
+        var result = await new HuggingFaceObjectStore(http, Configuration()).RetireAsync(ObjectStoreKey.Create("qualification/unversioned.csv"), default);
+        Assert.Equal(ObjectStorePutOutcome.Unavailable, result.Outcome);
+        Assert.All(requests, request => Assert.Equal(HttpMethod.Head, request.Method));
+    }
+
+    [Fact]
+    public async Task MissingObjectNeedsAConditionallyCreatedVerifiedMarkerBeforeRetirementSucceeds()
+    {
+        var requests = new List<CapturedRequest>(); var exists = false;
+        using var http = new HttpClient(new RecordingHandler(HttpStatusCode.OK, requests, request =>
+        {
+            if (request.Method == HttpMethod.Put)
+            {
+                Assert.Equal("*", request.Headers["If-None-Match"]); Assert.Empty(request.Body);
+                exists = true;
+                return new(HttpStatusCode.NoContent);
+            }
+            return new(exists ? HttpStatusCode.OK : HttpStatusCode.NotFound) { Content = new ByteArrayContent([]) };
+        }));
+        var result = await new HuggingFaceObjectStore(http, Configuration()).RetireAsync(ObjectStoreKey.Create("qualification/absent.csv"), default);
+        Assert.Equal(ObjectStorePutOutcome.Created, result.Outcome);
+        Assert.Equal(ObjectStoreRetirement.EmptySha256, result.Metadata!.Sha256);
+        Assert.Contains(requests, request => request.Method == HttpMethod.Get);
+        Assert.DoesNotContain(requests, request => request.Method == HttpMethod.Delete);
+    }
+
+    private sealed class RetirementRaceHandler : HttpMessageHandler
+    {
+        private readonly object _gate = new();
+        private byte[] _body = Payload();
+        private string _version = "\"source-v1\"";
+        private int _putCount;
+        internal int Deletes;
+        internal byte[] Body { get { lock (_gate) return _body.ToArray(); } }
+        internal TaskCompletionSource Paused { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if (request.Method == HttpMethod.Delete) { Interlocked.Increment(ref Deletes); throw new InvalidOperationException("Markers must not be deleted."); }
+            if (request.Method == HttpMethod.Put)
+            {
+                var bytes = await request.Content!.ReadAsByteArrayAsync(cancellationToken);
+                if (Interlocked.Increment(ref _putCount) == 1)
+                {
+                    Paused.TrySetResult();
+                    await Release.Task.WaitAsync(cancellationToken);
+                }
+                lock (_gate)
+                {
+                    if (request.Headers.Contains("If-None-Match") || request.Headers.GetValues("If-Match").Single() != _version)
+                        return new(HttpStatusCode.PreconditionFailed);
+                    _body = bytes; _version = "\"marker-v2\"";
+                    return new(HttpStatusCode.NoContent);
+                }
+            }
+            lock (_gate)
+            {
+                var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(_body) };
+                response.Headers.ETag = new(_version);
+                return response;
+            }
+        }
+    }
+
     private sealed class OpeningFailureContent : HttpContent
     {
         internal bool Disposed { get; private set; }

@@ -128,6 +128,33 @@ public sealed class CustomerDuplicateImportEndpointTests
     }
 
     [Theory]
+    [InlineData("idempotency_key_conflict", 409)]
+    [InlineData("import_source_busy", 503)]
+    public async Task SourceRetryFailuresReturnStableConflictOrRetryableStatusWithoutProviderDetails(string code, int status)
+    {
+        using var factory = new WhiteLabelApiFactory();
+        var actor = Guid.NewGuid(); var tenant = Guid.NewGuid(); var subject = Guid.NewGuid().ToString("N");
+        factory.Bind(subject, actor); factory.AddTenantMembership(actor, tenant, "Import tenant");
+        var source = new SourceEndpointStore(Source(1), code);
+        using var configured = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<ICustomerImportSourceStore>(); services.AddSingleton<ICustomerImportSourceStore>(source);
+            services.RemoveAll<IObjectStore>(); services.AddSingleton<IObjectStore>(new CountingObjectStore());
+            services.AddSingleton(CustomerImportSourcePolicy.Create("test/provider", 1_000_000));
+            services.RemoveAll<ITenantCustomerAuthorization>(); services.AddSingleton<ITenantCustomerAuthorization>(new EndpointCustomerAuthority(importAllowed: true));
+        }));
+        using var client = configured.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/tenants/{tenant:D}/customers/imports")
+        { Content = new StringContent("name\nRetry Fixture\n", Encoding.UTF8, "text/csv") };
+        request.Headers.Authorization = new("Bearer", factory.CreateToken(subject)); request.Headers.Add("Idempotency-Key", "retry");
+        using var response = await client.SendAsync(request);
+        Assert.Equal((HttpStatusCode)status, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains(code, body, StringComparison.Ordinal);
+        Assert.DoesNotContain("private-provider-details", body, StringComparison.Ordinal);
+    }
+
+    [Theory]
     [InlineData(1, 503)] // staged
     [InlineData(2, 503)] // quarantined
     [InlineData(4, 503)] // unavailable
@@ -892,7 +919,7 @@ public sealed class CustomerDuplicateImportEndpointTests
         }
     }
 
-    private sealed class SourceEndpointStore(CustomerImportSourceSnapshot snapshot) : ICustomerImportSourceStore
+    private sealed class SourceEndpointStore(CustomerImportSourceSnapshot snapshot, string? beginFailure = null) : ICustomerImportSourceStore
     {
         public int Reads { get; private set; }
 
@@ -905,7 +932,8 @@ public sealed class CustomerDuplicateImportEndpointTests
 
         public Task<CustomerImportSourceLease> BeginSourceAsync(TenantContext context, CustomerImportPlan plan,
             string idempotencyKey, CustomerImportRetention retention, CustomerImportSourcePolicy policy,
-            CancellationToken cancellationToken) => throw new NotSupportedException();
+            CancellationToken cancellationToken) => beginFailure is null ? throw new NotSupportedException()
+                : throw new CustomerValidationException(beginFailure, "private-provider-details");
 
         public Task<CreateCustomerImportResult> CompleteSourceAsync(TenantContext context, CustomerImportPlan plan,
             string idempotencyKey, CustomerImportRetention retention, CustomerImportSourcePolicy policy,
@@ -918,7 +946,7 @@ public sealed class CustomerDuplicateImportEndpointTests
         public Task<CustomerImportSourceRetirementLease?> ClaimExpiredSourceRetirementAsync(TenantContext context,
             DateTimeOffset now, CancellationToken cancellationToken) => throw new NotSupportedException();
 
-        public Task CompleteSourceRetirementAsync(TenantContext context, CustomerImportSourceRetirementLease lease,
+        public Task<bool> CompleteSourceRetirementAsync(TenantContext context, CustomerImportSourceRetirementLease lease,
             bool deleted, string? failureCode, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 

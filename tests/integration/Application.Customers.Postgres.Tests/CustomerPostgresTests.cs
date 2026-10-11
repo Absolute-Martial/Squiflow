@@ -438,6 +438,10 @@ public sealed partial class CustomerPostgresTests : IAsyncLifetime
                 EXECUTE 'GRANT UPDATE (reserved_bytes, retained_bytes, updated_at) ON customers.object_storage_usage TO application_customers_runtime';
                  EXECUTE 'GRANT UPDATE (state, failure_code, retirement_generation, retirement_lease_id, retirement_lease_expires_at) ON customers.import_source_objects TO application_customers_runtime';
                 EXECUTE 'GRANT UPDATE (state, updated_at) ON customers.object_storage_reservations TO application_customers_runtime';
+                IF EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='customers' AND table_name='object_storage_reservations' AND column_name='upload_generation') THEN
+                  EXECUTE 'GRANT UPDATE (upload_generation, upload_lease_id, upload_lease_expires_at) ON customers.object_storage_reservations TO application_customers_runtime';
+                  EXECUTE 'GRANT UPDATE (staging_expires_at, retirement_fenced) ON customers.import_source_objects TO application_customers_runtime';
+                END IF;
               END IF;
             END $grant_optional$;
             """;

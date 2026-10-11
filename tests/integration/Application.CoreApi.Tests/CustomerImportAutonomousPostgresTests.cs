@@ -56,9 +56,9 @@ public sealed class CustomerImportAutonomousPostgresTests : IAsyncLifetime
               TO application_import_executor_runtime;
             GRANT UPDATE(source_object_key) ON customers.imports TO application_import_executor_runtime;
             GRANT UPDATE(reserved_bytes,retained_bytes,updated_at) ON customers.object_storage_usage TO application_import_executor_runtime;
-            GRANT UPDATE(state,retention,expires_at,failure_code,retirement_generation,retirement_lease_id,retirement_lease_expires_at)
+            GRANT UPDATE(state,retention,expires_at,failure_code,retirement_generation,retirement_lease_id,retirement_lease_expires_at,staging_expires_at,retirement_fenced)
               ON customers.import_source_objects TO application_import_executor_runtime;
-            GRANT UPDATE(state,updated_at) ON customers.object_storage_reservations TO application_import_executor_runtime;
+            GRANT UPDATE(state,updated_at,upload_generation,upload_lease_id,upload_lease_expires_at) ON customers.object_storage_reservations TO application_import_executor_runtime;
             GRANT EXECUTE ON FUNCTION customers.discover_runnable_import_tenants(uuid,integer) TO application_import_executor_runtime;
             """);
     }
@@ -142,8 +142,10 @@ public sealed class CustomerImportAutonomousPostgresTests : IAsyncLifetime
         finally { await StopHostAsync(host); }
     }
 
-    [Fact]
-    public async Task AutonomousHostDiscoversExpiredSourceOnlyTenantAndRetiresWithControlledDeleteOutcome()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AutonomousHostRetiresSourcesEvenWhenBusinessImportAuthorizationIsUnavailable(bool authorityUnavailable)
     {
         var authorization = new ExecutorAuthorization();
         var observation = new WorkObservation();
@@ -161,7 +163,10 @@ public sealed class CustomerImportAutonomousPostgresTests : IAsyncLifetime
                 new MemoryStream(Encoding.UTF8.GetBytes("name\nExpired source only\n")), Guid.NewGuid(),
                 "expired-source-only", CancellationToken.None);
             Assert.True(result.Created);
+            if (authorityUnavailable)
+                await scope.ServiceProvider.GetRequiredService<ExecuteCustomerImport>().ExecuteAsync(context, new(result.ImportId), "accept-before-outage", default);
         }
+        authorization.Unavailable = authorityUnavailable;
         await SqlAsync("UPDATE customers.import_source_objects SET expires_at=clock_timestamp()-interval '1 second' WHERE tenant_id=@tenant");
 
         try
@@ -313,11 +318,12 @@ public sealed class CustomerImportAutonomousPostgresTests : IAsyncLifetime
             Guid tenantId, DateTimeOffset now, CancellationToken cancellationToken) =>
             _store.ClaimExpiredSourceRetirementAsync(tenantId, now, cancellationToken);
 
-        public async Task CompleteSourceRetirementAsync(Guid tenantId, CustomerImportSourceRetirementLease lease,
+        public async Task<bool> CompleteSourceRetirementAsync(Guid tenantId, CustomerImportSourceRetirementLease lease,
             bool deleted, string? failureCode, CancellationToken cancellationToken)
         {
-            await _store.CompleteSourceRetirementAsync(tenantId, lease, deleted, failureCode, cancellationToken);
-            observation.Completions.Writer.TryWrite(true);
+            var completed = await _store.CompleteSourceRetirementAsync(tenantId, lease, deleted, failureCode, cancellationToken);
+            observation.Completions.Writer.TryWrite(completed);
+            return completed;
         }
     }
 
@@ -357,10 +363,13 @@ public sealed class CustomerImportAutonomousPostgresTests : IAsyncLifetime
         public Task<ObjectStoreMetadataResult> GetMetadataAsync(ObjectStoreKey key, CancellationToken cancellationToken) =>
             Task.FromResult(new ObjectStoreMetadataResult(ObjectStoreMetadataOutcome.Unavailable));
 
-        public Task<ObjectStoreDeleteResult> DeleteAsync(ObjectStoreKey key, CancellationToken cancellationToken)
+        public Task<ObjectStoreDeleteResult> DeleteAsync(ObjectStoreKey key, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<ObjectStorePutResult> RetireAsync(ObjectStoreKey key, CancellationToken cancellationToken)
         {
             Deletes.Writer.TryWrite(true);
-            return Task.FromResult(new ObjectStoreDeleteResult(ObjectStoreDeleteOutcome.Deleted));
+            return Task.FromResult(new ObjectStorePutResult(ObjectStorePutOutcome.Created,
+                new(key, 0, ObjectStoreRetirement.EmptySha256, ObjectStoreRetirement.ContentType)));
         }
     }
 }

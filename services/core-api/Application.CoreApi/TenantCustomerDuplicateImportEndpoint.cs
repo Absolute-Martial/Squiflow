@@ -130,7 +130,9 @@ internal static class TenantCustomerDuplicateImportEndpoint
         }
         catch (CustomerValidationException error) when (error.Code == "import_too_large") { return TooLarge(); }
         catch (BadHttpRequestException error) when (error.StatusCode == 413) { return TooLarge(); }
-        catch (CustomerValidationException error) when (error.Code == "import_source_unavailable")
+        catch (CustomerValidationException error) when (error.Code == "idempotency_key_conflict")
+        { return TenantCustomerEndpoint.Conflict(); }
+        catch (CustomerValidationException error) when (error.Code is "import_source_unavailable" or "import_source_busy")
         { return TypedResults.Problem(statusCode: 503, title: "The import source could not be retained safely.", extensions: new Dictionary<string, object?> { ["code"] = error.Code }); }
         catch (CustomerValidationException error) { return Invalid(error); }
     }

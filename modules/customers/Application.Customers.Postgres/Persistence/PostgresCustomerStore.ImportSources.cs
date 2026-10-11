@@ -1,62 +1,33 @@
 using Application.Customers;
 using Application.Tenancy;
 using Npgsql;
+using NpgsqlTypes;
 
 namespace Application.Customers.Postgres;
 
 public sealed partial class PostgresCustomerStore
 {
-    public async Task<CustomerImportSourceLease> BeginSourceAsync(
-        TenantContext context,
-        CustomerImportPlan plan,
-        string idempotencyKey,
-        CustomerImportRetention retention,
-        CustomerImportSourcePolicy policy,
-        CancellationToken cancellationToken)
+    public async Task<CustomerImportSourceLease> BeginSourceAsync(TenantContext context, CustomerImportPlan plan,
+        string idempotencyKey, CustomerImportRetention retention, CustomerImportSourcePolicy policy, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(policy);
-        if (plan.ManifestHash.Length != 64 || plan.ByteLength is < 0 or > CustomerImportCsv.MaxBytes)
+        if (plan.ImportId == Guid.Empty || plan.ManifestHash.Length != 64 || plan.ManifestHash.Any(ch => !char.IsAsciiHexDigitLower(ch))
+            || plan.ByteLength is < 0 or > CustomerImportCsv.MaxBytes || !Enum.IsDefined(retention))
             throw new CustomerValidationException("import_plan_invalid", "Import plan source metadata is invalid.");
-
-        var objectKey = $"imports/{context.TenantId:D}/{plan.ImportId:N}/{plan.ManifestHash}.csv";
         var now = CurrentStorageTime();
-        await using var session = await CustomerTenantDbSession.OpenAsync(dataSource, context.TenantId, cancellationToken)
-            .ConfigureAwait(false);
-
-        var existingReceipt = await FindImportReceiptAsync(session, context, idempotencyKey, cancellationToken).ConfigureAwait(false);
-        if (existingReceipt is not null)
+        await using var session = await CustomerTenantDbSession.OpenAsync(dataSource, context.TenantId, cancellationToken).ConfigureAwait(false);
+        var receipt = await FindImportReceiptAsync(session, context, idempotencyKey, cancellationToken).ConfigureAwait(false);
+        if (receipt is not null)
         {
-            if (!string.Equals(existingReceipt.Value.Fingerprint, plan.Fingerprint, StringComparison.Ordinal))
-                throw new CustomerValidationException("idempotency_key_conflict", "The import idempotency key is bound to different content.");
-            var existing = await ReadSourceByImportAsync(session, context, existingReceipt.Value.ImportId, cancellationToken)
-                .ConfigureAwait(false)
-                ?? throw new CustomerValidationException("import_source_unavailable", "The existing import has no retained source.");
-            if (existing.State is CustomerImportSourceState.Retired or CustomerImportSourceState.RetirementPending)
-                throw new CustomerValidationException("import_source_unavailable", "The existing import source is no longer publishable.");
-            if (existing.Retention != retention)
-                throw new CustomerValidationException("idempotency_key_conflict", "Import retention is immutable for an existing idempotency key.");
-            await session.CommitAsync(cancellationToken).ConfigureAwait(false);
-            return new(Guid.Empty, existing.ObjectKey, existing.State != CustomerImportSourceState.Available, existing);
-        }
-
-        var existingSource = await ReadSourceAsync(session, context, objectKey, cancellationToken).ConfigureAwait(false);
-        if (existingSource is not null && (existingSource.ByteLength != plan.ByteLength
-            || !string.Equals(existingSource.Sha256, plan.ManifestHash, StringComparison.Ordinal)
-            || !string.Equals(existingSource.ProviderScope, policy.ProviderScope, StringComparison.Ordinal)))
-        {
-            throw new CustomerValidationException("import_source_conflict", "The immutable source key is bound to different bytes.");
-        }
-        if (existingSource is not null && existingSource.Retention != retention)
-            throw new CustomerValidationException("import_retention_conflict", "Import retention is immutable for a retained source.");
-        if (existingSource?.State is CustomerImportSourceState.Retired or CustomerImportSourceState.RetirementPending)
-            throw new CustomerValidationException("import_source_unavailable", "The existing import source is no longer publishable.");
-
-        if (existingSource?.State == CustomerImportSourceState.Available)
-        {
-            await session.CommitAsync(cancellationToken).ConfigureAwait(false);
-            return new(Guid.Empty, objectKey, false, existingSource);
+            if (!string.Equals(receipt.Value.Fingerprint, plan.Fingerprint, StringComparison.Ordinal)) throw SourceIntentConflict();
+            var existing = await ReadSourceByImportAsync(session, context, receipt.Value.ImportId, cancellationToken).ConfigureAwait(false)
+                ?? throw SourceUnavailable();
+            if (existing.Retention != retention) throw SourceIntentConflict();
+            if (existing.State != CustomerImportSourceState.Available || existing.ProviderScope != policy.ProviderScope)
+                throw SourceUnavailable();
+            return new(Guid.Empty, existing.ObjectKey, false, existing, receipt.Value.ImportId);
         }
 
         await using (var ensure = session.CreateCommand(CustomerSql.EnsureImportSourceUsage))
@@ -66,213 +37,231 @@ public sealed partial class PostgresCustomerStore
             ensure.Parameters.AddWithValue("now", now);
             await ensure.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
-
-        var reservation = await FindReservationAsync(session, context, policy.ProviderScope, idempotencyKey, cancellationToken)
-            .ConfigureAwait(false);
-        if (reservation is not null)
+        // A single lock order serializes allowance decisions and all publication/failure/retirement accounting.
+        var usage = await LockUsageAsync(session, context.TenantId, policy.ProviderScope, cancellationToken).ConfigureAwait(false);
+        var reservation = await FindReservationAsync(session, context, policy.ProviderScope, idempotencyKey, cancellationToken).ConfigureAwait(false);
+        var importId = reservation?.ImportId ?? plan.ImportId;
+        var objectKey = reservation?.ObjectKey ?? $"imports/{context.TenantId:D}/{importId:N}/{plan.ManifestHash}.csv";
+        var source = await LockSourceAsync(session, context.TenantId, objectKey, cancellationToken).ConfigureAwait(false);
+        if (reservation is not null && (reservation.Fingerprint != plan.Fingerprint || reservation.ByteLength != plan.ByteLength))
+            throw SourceIntentConflict();
+        if (source is not null)
         {
-            if (!string.Equals(reservation.Value.Fingerprint, plan.Fingerprint, StringComparison.Ordinal)
-                || !string.Equals(reservation.Value.ObjectKey, objectKey, StringComparison.Ordinal)
-                || reservation.Value.ByteLength != plan.ByteLength)
-                throw new CustomerValidationException("idempotency_key_conflict", "The import idempotency key is bound to different content.");
-            await session.CommitAsync(cancellationToken).ConfigureAwait(false);
-            return new(reservation.Value.ReservationId, objectKey,
-                reservation.Value.State != 2, existingSource);
+            if (source.Snapshot.Retention != retention) throw SourceIntentConflict();
+            if (source.Snapshot.ProviderScope != policy.ProviderScope || source.Snapshot.ByteLength != plan.ByteLength
+                || source.Snapshot.Sha256 != plan.ManifestHash) throw SourceIntentConflict();
+            if (source.Snapshot.State is CustomerImportSourceState.Retired or CustomerImportSourceState.RetirementPending
+                || source.StagingExpiresAt is null || source.StagingExpiresAt <= now) throw SourceUnavailable();
+            // A caller cannot adopt an unowned historical upload or another caller's explicit import ID.
+            if (reservation is null) throw SourceUnavailable();
         }
-
-        long maximum;
-        long reserved;
-        long retained;
-        await using (var usage = session.CreateCommand(CustomerSql.LockImportSourceUsage))
+        if (reservation?.LeaseExpiresAt > now)
+            throw new CustomerValidationException("import_source_busy", "The original import upload is still in progress.");
+        if (reservation?.State == 2) throw SourceUnavailable();
+        if (reservation is null || reservation.State == 3)
         {
-            SourceParameters(usage, context, policy.ProviderScope);
-            await using var reader = await usage.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-            if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-                throw new InvalidOperationException("Import source usage row disappeared after creation.");
-            maximum = reader.GetInt64(0); reserved = reader.GetInt64(1); retained = reader.GetInt64(2);
+            if (plan.ByteLength > usage.Maximum || usage.Reserved > usage.Maximum - plan.ByteLength
+                || usage.Retained > usage.Maximum - plan.ByteLength - usage.Reserved)
+                throw new CustomerValidationException("import_storage_capacity", "The retained import-byte allowance is exhausted.");
+            await ChangeUsageAsync(session, context, policy.ProviderScope, plan.ByteLength, now,
+                CustomerSql.ReserveImportSourceUsage, cancellationToken).ConfigureAwait(false);
         }
-
-        if (plan.ByteLength > maximum || reserved > maximum - plan.ByteLength || retained > maximum - plan.ByteLength - reserved)
-            throw new CustomerValidationException("import_storage_capacity", "The retained import-byte allowance is exhausted.");
-
-        var reservationId = Guid.CreateVersion7();
-        var expiresAt = retention == CustomerImportRetention.DefaultSevenDays
-            ? now.AddDays(7)
-            : (DateTimeOffset?)null;
-        if (existingSource is null)
+        if (source is null)
         {
-            await using var insertSource = session.CreateCommand(CustomerSql.InsertImportSource);
-            SourceParameters(insertSource, context, policy.ProviderScope);
-            insertSource.Parameters.AddWithValue("object_key", objectKey);
-            insertSource.Parameters.AddWithValue("byte_length", plan.ByteLength);
-            insertSource.Parameters.AddWithValue("sha256", plan.ManifestHash);
-            insertSource.Parameters.AddWithValue("content_type", "text/csv; charset=utf-8");
-            insertSource.Parameters.AddWithValue("retention", (int)retention);
-            insertSource.Parameters.AddWithValue("created_at", now);
-            insertSource.Parameters.Add("expires_at", NpgsqlTypes.NpgsqlDbType.TimestampTz).Value =
-                (object?)expiresAt ?? DBNull.Value;
-            await insertSource.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            await using var insert = session.CreateCommand(CustomerSql.InsertImportSource);
+            SourceParameters(insert, context, policy.ProviderScope);
+            insert.Parameters.AddWithValue("object_key", objectKey);
+            insert.Parameters.AddWithValue("byte_length", plan.ByteLength);
+            insert.Parameters.AddWithValue("sha256", plan.ManifestHash);
+            insert.Parameters.AddWithValue("content_type", "text/csv; charset=utf-8");
+            insert.Parameters.AddWithValue("retention", (int)retention);
+            insert.Parameters.AddWithValue("created_at", now);
+            insert.Parameters.Add("expires_at", NpgsqlDbType.TimestampTz).Value =
+                retention == CustomerImportRetention.DefaultSevenDays ? now.AddDays(7) : DBNull.Value;
+            insert.Parameters.AddWithValue("staging_expires_at", now.AddDays(7));
+            await insert.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
-
-        await using (var reserve = session.CreateCommand(CustomerSql.ReserveImportSourceUsage))
+        var reservationId = reservation?.ReservationId ?? Guid.CreateVersion7();
+        var leaseId = Guid.CreateVersion7();
+        var leaseExpiresAt = now.Add(CustomerImportSourceLease.DefaultLeaseDuration);
+        long generation;
+        await using (var command = session.CreateCommand(reservation is null ? CustomerSql.InsertImportSourceReservation : CustomerSql.ClaimImportSourceUpload))
         {
-            SourceParameters(reserve, context, policy.ProviderScope);
-            reserve.Parameters.AddWithValue("byte_length", plan.ByteLength);
-            reserve.Parameters.AddWithValue("now", now);
-            await reserve.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-        }
-        await using (var insertReservation = session.CreateCommand(CustomerSql.InsertImportSourceReservation))
-        {
-            SourceParameters(insertReservation, context, policy.ProviderScope);
-            insertReservation.Parameters.AddWithValue("reservation_id", reservationId);
-            insertReservation.Parameters.AddWithValue("key", idempotencyKey);
-            insertReservation.Parameters.AddWithValue("fingerprint", plan.Fingerprint);
-            insertReservation.Parameters.AddWithValue("object_key", objectKey);
-            insertReservation.Parameters.AddWithValue("byte_length", plan.ByteLength);
-            insertReservation.Parameters.AddWithValue("now", now);
-            if (await insertReservation.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false) == 0)
+            SourceParameters(command, context, policy.ProviderScope);
+            command.Parameters.AddWithValue("reservation_id", reservationId);
+            command.Parameters.AddWithValue("account_id", context.AccountId);
+            command.Parameters.AddWithValue("import_id", importId);
+            command.Parameters.AddWithValue("key", idempotencyKey);
+            command.Parameters.AddWithValue("fingerprint", plan.Fingerprint);
+            command.Parameters.AddWithValue("object_key", objectKey);
+            command.Parameters.AddWithValue("byte_length", plan.ByteLength);
+            command.Parameters.AddWithValue("now", now);
+            command.Parameters.AddWithValue("lease_id", leaseId);
+            command.Parameters.AddWithValue("lease_expires_at", leaseExpiresAt);
+            if (reservation is null)
             {
-                var concurrent = await FindReservationAsync(session, context, policy.ProviderScope, idempotencyKey, cancellationToken)
-                    .ConfigureAwait(false) ?? throw new InvalidOperationException("Import source reservation disappeared after a conflict.");
-                await session.RollbackAsync(cancellationToken).ConfigureAwait(false);
-                return new(concurrent.ReservationId, concurrent.ObjectKey, concurrent.State != 2, existingSource);
+                await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                generation = 1;
             }
+            else generation = (long)(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) ?? throw SourceUnavailable());
         }
-
         await session.CommitAsync(cancellationToken).ConfigureAwait(false);
-        return new(reservationId, objectKey, true, existingSource);
+        return new(reservationId, objectKey, true, source?.Snapshot, importId, generation, leaseId, leaseExpiresAt);
     }
 
-    public async Task<CreateCustomerImportResult> CompleteSourceAsync(
-        TenantContext context,
-        CustomerImportPlan plan,
-        string idempotencyKey,
-        CustomerImportRetention retention,
-        CustomerImportSourcePolicy policy,
-        CustomerImportSourceLease lease,
+    public async Task<CreateCustomerImportResult> CompleteSourceAsync(TenantContext context, CustomerImportPlan plan,
+        string idempotencyKey, CustomerImportRetention retention, CustomerImportSourcePolicy policy, CustomerImportSourceLease lease,
         CancellationToken cancellationToken)
     {
         var now = CurrentStorageTime();
-        await using (var session = await CustomerTenantDbSession.OpenAsync(dataSource, context.TenantId, cancellationToken)
-            .ConfigureAwait(false))
+        await using var session = await CustomerTenantDbSession.OpenAsync(dataSource, context.TenantId, cancellationToken).ConfigureAwait(false);
+        var receipt = await FindImportReceiptAsync(session, context, idempotencyKey, cancellationToken).ConfigureAwait(false);
+        if (receipt is not null)
         {
-            await using (var source = session.CreateCommand(CustomerSql.LockImportSource))
-            {
-                SourceParameters(source, context, policy.ProviderScope);
-                source.Parameters.AddWithValue("object_key", lease.ObjectKey);
-                await using var reader = await source.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-                if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-                    throw new CustomerValidationException("import_source_unavailable", "The import source reservation is missing.");
-                var sourceState = (CustomerImportSourceState)reader.GetInt32(0);
-                if (sourceState is CustomerImportSourceState.Retired or CustomerImportSourceState.RetirementPending)
-                    throw new CustomerValidationException("import_source_unavailable", "The import source is no longer publishable.");
-                if (reader.GetInt32(1) != (int)retention
-                    || reader.GetInt64(2) != plan.ByteLength
-                    || !string.Equals(reader.GetString(3), plan.ManifestHash, StringComparison.Ordinal))
-                    throw new CustomerValidationException("import_source_conflict", "The retained source metadata is immutable.");
-            }
-
-            await using (var available = session.CreateCommand(CustomerSql.MarkImportSourceAvailable))
-            {
-                available.Parameters.AddWithValue("tenant_id", context.TenantId);
-                available.Parameters.AddWithValue("object_key", lease.ObjectKey);
-                await available.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-            }
-
-            if (lease.ReservationId != Guid.Empty)
-            {
-                await using var reservation = session.CreateCommand(CustomerSql.FindImportSourceReservationById);
-                reservation.Parameters.AddWithValue("tenant_id", context.TenantId);
-                reservation.Parameters.AddWithValue("reservation_id", lease.ReservationId);
-                await using var reader = await reservation.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-                if (await reader.ReadAsync(cancellationToken).ConfigureAwait(false) && reader.GetInt32(2) is 1 or 4)
-                {
-                    var providerScope = reader.GetString(0);
-                    var byteLength = reader.GetInt64(1);
-                    await reader.DisposeAsync().ConfigureAwait(false);
-                    await using var commitUsage = session.CreateCommand(CustomerSql.CommitImportSourceUsage);
-                    SourceParameters(commitUsage, context, providerScope);
-                    commitUsage.Parameters.AddWithValue("byte_length", byteLength);
-                    commitUsage.Parameters.AddWithValue("now", now);
-                    await commitUsage.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-                    await using var commitReservation = session.CreateCommand(CustomerSql.CommitImportSourceReservation);
-                    SourceParameters(commitReservation, context, providerScope);
-                    commitReservation.Parameters.AddWithValue("reservation_id", lease.ReservationId);
-                    commitReservation.Parameters.AddWithValue("now", now);
-                    await commitReservation.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-                }
-            }
-            await session.CommitAsync(cancellationToken).ConfigureAwait(false);
+            var existing = await ReadSourceByImportAsync(session, context, receipt.Value.ImportId, cancellationToken).ConfigureAwait(false);
+            if (receipt.Value.Fingerprint != plan.Fingerprint || existing?.Retention != retention || existing.ObjectKey != lease.ObjectKey)
+                return new(plan.ImportId, false, false, true, plan);
+            return await ImportReplayAsync(session, context, receipt.Value, plan, cancellationToken).ConfigureAwait(false);
         }
+        await LockUsageAsync(session, context.TenantId, policy.ProviderScope, cancellationToken).ConfigureAwait(false);
+        var source = await LockSourceAsync(session, context.TenantId, lease.ObjectKey, cancellationToken).ConfigureAwait(false) ?? throw SourceUnavailable();
+        var reservation = await FindReservationByIdAsync(session, context.TenantId, lease.ReservationId, cancellationToken).ConfigureAwait(false);
+        if (!OwnsUpload(reservation, context, lease, now) || reservation!.Key != idempotencyKey
+            || reservation.Fingerprint != plan.Fingerprint || reservation.ImportId != plan.ImportId
+            || reservation.ProviderScope != policy.ProviderScope || source.StagingExpiresAt is null || source.StagingExpiresAt <= now
+            || source.Snapshot.State is CustomerImportSourceState.Retired or CustomerImportSourceState.RetirementPending)
+            throw SourceUnavailable();
+        if (source.Snapshot.Retention != retention || source.Snapshot.ByteLength != plan.ByteLength
+            || source.Snapshot.Sha256 != plan.ManifestHash || source.Snapshot.ProviderScope != policy.ProviderScope)
+            throw SourceIntentConflict();
 
-        var result = await CreateImportPlanAsync(context, plan, idempotencyKey, cancellationToken).ConfigureAwait(false);
-        if (result.IdempotencyKeyConflict)
-            return result;
-        await using var referenceSession = await CustomerTenantDbSession.OpenAsync(dataSource, context.TenantId, cancellationToken)
-            .ConfigureAwait(false);
-        await using (var reference = referenceSession.CreateCommand(CustomerSql.UpdateImportSourceKey))
+        var result = await CreateImportPlanAsync(session, context, plan, idempotencyKey, cancellationToken).ConfigureAwait(false);
+        if (result.IdempotencyKeyConflict) return result; // Disposing rolls back every effect in this transaction.
+        await using (var available = session.CreateCommand(CustomerSql.MarkImportSourceAvailable))
         {
-            reference.Parameters.AddWithValue("tenant_id", context.TenantId);
-            reference.Parameters.AddWithValue("import_id", result.ImportId);
+            available.Parameters.AddWithValue("tenant_id", context.TenantId);
+            available.Parameters.AddWithValue("object_key", lease.ObjectKey);
+            if (await available.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false) != 1) throw SourceUnavailable();
+        }
+        await ChangeUsageAsync(session, context, policy.ProviderScope, plan.ByteLength, now, CustomerSql.CommitImportSourceUsage, cancellationToken).ConfigureAwait(false);
+        await ChangeReservationAsync(session, context, lease, policy.ProviderScope, now, CustomerSql.CommitImportSourceReservation, cancellationToken).ConfigureAwait(false);
+        await using (var reference = session.CreateCommand(CustomerSql.UpdateImportSourceKey))
+        {
+            ImportParameters(reference, context.TenantId, result.ImportId);
             reference.Parameters.AddWithValue("object_key", lease.ObjectKey);
-            await reference.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            if (await reference.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false) != 1) throw SourceUnavailable();
         }
-        await referenceSession.CommitAsync(cancellationToken).ConfigureAwait(false);
+        await session.CommitAsync(cancellationToken).ConfigureAwait(false);
         return result;
     }
 
-    public async Task MarkSourceFailureAsync(
-        TenantContext context,
-        CustomerImportSourceLease lease,
-        CustomerImportSourceFailureKind failureKind,
-        string failureCode,
-        CancellationToken cancellationToken)
+    public async Task MarkSourceFailureAsync(TenantContext context, CustomerImportSourceLease lease,
+        CustomerImportSourceFailureKind failureKind, string failureCode, CancellationToken cancellationToken)
     {
-        await using var session = await CustomerTenantDbSession.OpenAsync(dataSource, context.TenantId, cancellationToken)
-            .ConfigureAwait(false);
-        var state = failureKind == CustomerImportSourceFailureKind.OutcomeUnknown ? 5 : 4;
-        await using (var source = session.CreateCommand(CustomerSql.MarkImportSourceFailure))
+        if (lease.ReservationId == Guid.Empty) return;
+        await using var session = await CustomerTenantDbSession.OpenAsync(dataSource, context.TenantId, cancellationToken).ConfigureAwait(false);
+        var reservation = await FindReservationByIdAsync(session, context.TenantId, lease.ReservationId, cancellationToken).ConfigureAwait(false);
+        if (reservation is null) return;
+        await LockUsageAsync(session, context.TenantId, reservation.ProviderScope, cancellationToken).ConfigureAwait(false);
+        var source = await LockSourceAsync(session, context.TenantId, lease.ObjectKey, cancellationToken).ConfigureAwait(false);
+        reservation = await FindReservationByIdAsync(session, context.TenantId, lease.ReservationId, cancellationToken).ConfigureAwait(false);
+        var now = CurrentStorageTime();
+        if (!OwnsUpload(reservation, context, lease, now) || source?.Snapshot.State is null
+            or CustomerImportSourceState.Available or CustomerImportSourceState.Retired or CustomerImportSourceState.RetirementPending) return;
+        await using (var failure = session.CreateCommand(CustomerSql.MarkImportSourceFailure))
         {
-            source.Parameters.AddWithValue("tenant_id", context.TenantId);
-            source.Parameters.AddWithValue("object_key", lease.ObjectKey);
-            source.Parameters.AddWithValue("state", state);
-            source.Parameters.AddWithValue("failure_code", failureCode.Length > 128 ? failureCode[..128] : failureCode);
-            await source.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            failure.Parameters.AddWithValue("tenant_id", context.TenantId);
+            failure.Parameters.AddWithValue("object_key", lease.ObjectKey);
+            failure.Parameters.AddWithValue("state", failureKind == CustomerImportSourceFailureKind.OutcomeUnknown ? 5 : 4);
+            failure.Parameters.AddWithValue("failure_code", failureCode.Length > 128 ? failureCode[..128] : failureCode);
+            await failure.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
-        if (lease.ReservationId != Guid.Empty)
-        {
-            await using var reservation = session.CreateCommand(CustomerSql.FindImportSourceReservationById);
-            reservation.Parameters.AddWithValue("tenant_id", context.TenantId);
-            reservation.Parameters.AddWithValue("reservation_id", lease.ReservationId);
-            await using var reader = await reservation.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-            if (await reader.ReadAsync(cancellationToken).ConfigureAwait(false) && reader.GetInt32(2) is 1 or 4)
-            {
-                var providerScope = reader.GetString(0); var byteLength = reader.GetInt64(1);
-                await reader.DisposeAsync().ConfigureAwait(false);
-                if (failureKind == CustomerImportSourceFailureKind.OutcomeUnknown)
-                {
-                    await using var unknown = session.CreateCommand(CustomerSql.MarkImportSourceReservationUnknown);
-                    unknown.Parameters.AddWithValue("tenant_id", context.TenantId);
-                    unknown.Parameters.AddWithValue("reservation_id", lease.ReservationId);
-                    unknown.Parameters.AddWithValue("now", CurrentStorageTime());
-                    await unknown.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-                }
-                else
-                {
-                    await using var releaseUsage = session.CreateCommand(CustomerSql.ReleaseImportSourceUsage);
-                    SourceParameters(releaseUsage, context, providerScope);
-                    releaseUsage.Parameters.AddWithValue("byte_length", byteLength);
-                    releaseUsage.Parameters.AddWithValue("now", CurrentStorageTime());
-                    await releaseUsage.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-                    await using var release = session.CreateCommand(CustomerSql.ReleaseImportSourceReservation);
-                    SourceParameters(release, context, providerScope);
-                    release.Parameters.AddWithValue("reservation_id", lease.ReservationId);
-                    release.Parameters.AddWithValue("now", CurrentStorageTime());
-                    await release.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-                }
-            }
-        }
+        if (failureKind == CustomerImportSourceFailureKind.ProvenAbsent)
+            await ChangeUsageAsync(session, context, reservation!.ProviderScope, reservation.ByteLength, now, CustomerSql.ReleaseImportSourceUsage, cancellationToken).ConfigureAwait(false);
+        await ChangeReservationAsync(session, context, lease, reservation!.ProviderScope, now,
+            failureKind == CustomerImportSourceFailureKind.OutcomeUnknown ? CustomerSql.MarkImportSourceReservationUnknown : CustomerSql.ReleaseImportSourceReservation,
+            cancellationToken).ConfigureAwait(false);
         await session.CommitAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private static CustomerValidationException SourceUnavailable() => new("import_source_unavailable", "The import source has no current upload authority.");
+    private static CustomerValidationException SourceIntentConflict() => new("idempotency_key_conflict", "Import content and retention are immutable for this caller's key.");
+
+    private sealed record SourceReservation(Guid ReservationId, string ProviderScope, string ObjectKey, long ByteLength,
+        int State, Guid AccountId, Guid ImportId, long Generation, Guid? LeaseId, DateTimeOffset? LeaseExpiresAt, string Key, string Fingerprint);
+    private sealed record LockedSource(CustomerImportSourceSnapshot Snapshot, DateTimeOffset? StagingExpiresAt);
+
+    private static bool OwnsUpload(SourceReservation? reservation, TenantContext context, CustomerImportSourceLease lease, DateTimeOffset now) =>
+        reservation is not null && reservation.AccountId == context.AccountId && reservation.ObjectKey == lease.ObjectKey
+        && reservation.ImportId == lease.ImportId && reservation.State is 1 or 4
+        && reservation.Generation == lease.Generation && lease.LeaseId != Guid.Empty && reservation.LeaseId == lease.LeaseId
+        && reservation.LeaseExpiresAt > now;
+
+    private static async Task<(long Maximum, long Reserved, long Retained)> LockUsageAsync(CustomerTenantDbSession session,
+        Guid tenantId, string providerScope, CancellationToken ct)
+    {
+        await using var command = session.CreateCommand(CustomerSql.LockImportSourceUsage);
+        SourceParameters(command, tenantId, providerScope);
+        await using var reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        if (!await reader.ReadAsync(ct).ConfigureAwait(false)) throw SourceUnavailable();
+        return (reader.GetInt64(0), reader.GetInt64(1), reader.GetInt64(2));
+    }
+
+    private static async Task<LockedSource?> LockSourceAsync(CustomerTenantDbSession session, Guid tenantId, string objectKey, CancellationToken ct)
+    {
+        await using var command = session.CreateCommand(CustomerSql.LockImportSource);
+        command.Parameters.AddWithValue("tenant_id", tenantId);
+        command.Parameters.AddWithValue("object_key", objectKey);
+        await using var reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        return await reader.ReadAsync(ct).ConfigureAwait(false)
+            ? new(ReadSource(reader), reader.IsDBNull(10) ? null : reader.GetFieldValue<DateTimeOffset>(10)) : null;
+    }
+
+    private static async Task<SourceReservation?> FindReservationAsync(CustomerTenantDbSession session, TenantContext context,
+        string providerScope, string key, CancellationToken ct)
+    {
+        await using var command = session.CreateCommand(CustomerSql.FindImportSourceReservation);
+        SourceParameters(command, context, providerScope);
+        command.Parameters.AddWithValue("account_id", context.AccountId);
+        command.Parameters.AddWithValue("key", key);
+        await using var reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        return await reader.ReadAsync(ct).ConfigureAwait(false)
+            ? new(reader.GetGuid(0), providerScope, reader.GetString(1), reader.GetInt64(2), reader.GetInt32(4), context.AccountId,
+                reader.GetGuid(5), reader.GetInt64(6), reader.IsDBNull(7) ? null : reader.GetGuid(7),
+                reader.IsDBNull(8) ? null : reader.GetFieldValue<DateTimeOffset>(8), key, reader.GetString(3)) : null;
+    }
+
+    private static async Task<SourceReservation?> FindReservationByIdAsync(CustomerTenantDbSession session, Guid tenantId, Guid id, CancellationToken ct)
+    {
+        await using var command = session.CreateCommand(CustomerSql.FindImportSourceReservationById);
+        command.Parameters.AddWithValue("tenant_id", tenantId);
+        command.Parameters.AddWithValue("reservation_id", id);
+        await using var reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        return await reader.ReadAsync(ct).ConfigureAwait(false)
+            ? new(id, reader.GetString(0), reader.GetString(1), reader.GetInt64(2), reader.GetInt32(3),
+                reader.IsDBNull(4) ? Guid.Empty : reader.GetGuid(4), reader.IsDBNull(5) ? Guid.Empty : reader.GetGuid(5), reader.GetInt64(6),
+                reader.IsDBNull(7) ? null : reader.GetGuid(7), reader.IsDBNull(8) ? null : reader.GetFieldValue<DateTimeOffset>(8),
+                reader.GetString(9), reader.GetString(10)) : null;
+    }
+
+    private static async Task ChangeUsageAsync(CustomerTenantDbSession session, TenantContext context, string providerScope,
+        long byteLength, DateTimeOffset now, string sql, CancellationToken ct)
+    {
+        await using var command = session.CreateCommand(sql);
+        SourceParameters(command, context, providerScope);
+        command.Parameters.AddWithValue("byte_length", byteLength);
+        command.Parameters.AddWithValue("now", now);
+        if (await command.ExecuteNonQueryAsync(ct).ConfigureAwait(false) != 1) throw SourceUnavailable();
+    }
+
+    private static async Task ChangeReservationAsync(CustomerTenantDbSession session, TenantContext context, CustomerImportSourceLease lease,
+        string providerScope, DateTimeOffset now, string sql, CancellationToken ct)
+    {
+        await using var command = session.CreateCommand(sql);
+        SourceParameters(command, context, providerScope);
+        command.Parameters.AddWithValue("reservation_id", lease.ReservationId);
+        command.Parameters.AddWithValue("now", now);
+        if (await command.ExecuteNonQueryAsync(ct).ConfigureAwait(false) != 1) throw SourceUnavailable();
     }
 
     public async Task<CustomerImportSourceSnapshot?> ReadSourceAsync(
@@ -311,7 +300,7 @@ public sealed partial class PostgresCustomerStore
         return result;
     }
 
-    public async Task CompleteSourceRetirementAsync(
+    public async Task<bool> CompleteSourceRetirementAsync(
         TenantContext context,
         CustomerImportSourceRetirementLease lease,
         bool deleted,
@@ -320,7 +309,7 @@ public sealed partial class PostgresCustomerStore
         => await CompleteSourceRetirementAsync(context.TenantId, lease, deleted, failureCode, cancellationToken)
             .ConfigureAwait(false);
 
-    public async Task CompleteSourceRetirementAsync(
+    public async Task<bool> CompleteSourceRetirementAsync(
         Guid tenantId,
         CustomerImportSourceRetirementLease lease,
         bool deleted,
@@ -332,6 +321,8 @@ public sealed partial class PostgresCustomerStore
         await using var session = await CustomerTenantDbSession.OpenAsync(dataSource, tenantId, cancellationToken)
             .ConfigureAwait(false);
         var state = deleted ? (int)CustomerImportSourceState.Retired : (int)CustomerImportSourceState.Orphaned;
+        await LockUsageAsync(session, tenantId, lease.ProviderScope, cancellationToken).ConfigureAwait(false);
+        bool completed;
         await using (var complete = session.CreateCommand(CustomerSql.CompleteImportSourceRetirement))
         {
             complete.Parameters.AddWithValue("tenant_id", tenantId);
@@ -343,9 +334,10 @@ public sealed partial class PostgresCustomerStore
             complete.Parameters.AddWithValue("deleted", deleted);
             complete.Parameters.Add("failure_code", NpgsqlTypes.NpgsqlDbType.Varchar).Value =
                 (object?)(failureCode is null ? DBNull.Value : failureCode.Length > 128 ? failureCode[..128] : failureCode) ?? DBNull.Value;
-            await complete.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            completed = true.Equals(await complete.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false));
         }
         await session.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return completed;
     }
 
     private static async Task<CustomerImportSourceSnapshot?> ReadSourceByImportAsync(
@@ -358,33 +350,11 @@ public sealed partial class PostgresCustomerStore
         return await reader.ReadAsync(cancellationToken).ConfigureAwait(false) ? ReadSource(reader) : null;
     }
 
-    private static async Task<CustomerImportSourceSnapshot?> ReadSourceAsync(
-        CustomerTenantDbSession session, TenantContext context, string objectKey, CancellationToken cancellationToken)
-    {
-        await using var command = session.CreateCommand(CustomerSql.FindImportSource);
-        command.Parameters.AddWithValue("tenant_id", context.TenantId);
-        command.Parameters.AddWithValue("object_key", objectKey);
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-        return await reader.ReadAsync(cancellationToken).ConfigureAwait(false) ? ReadSource(reader) : null;
-    }
-
     private static CustomerImportSourceSnapshot ReadSource(NpgsqlDataReader reader) => new(
         reader.GetString(0), reader.GetString(1), reader.GetInt64(2), reader.GetString(3), reader.GetString(4),
         (CustomerImportSourceState)reader.GetInt32(5), (CustomerImportRetention)reader.GetInt32(6),
         reader.GetFieldValue<DateTimeOffset>(7), reader.IsDBNull(8) ? null : reader.GetFieldValue<DateTimeOffset>(8),
         reader.IsDBNull(9) ? null : reader.GetString(9));
-
-    private static async Task<(Guid ReservationId, string ObjectKey, long ByteLength, string Fingerprint, int State)?> FindReservationAsync(
-        CustomerTenantDbSession session, TenantContext context, string providerScope, string key, CancellationToken cancellationToken)
-    {
-        await using var command = session.CreateCommand(CustomerSql.FindImportSourceReservation);
-        SourceParameters(command, context, providerScope);
-        command.Parameters.AddWithValue("key", key);
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-        return await reader.ReadAsync(cancellationToken).ConfigureAwait(false)
-            ? (reader.GetGuid(0), reader.GetString(1), reader.GetInt64(2), reader.GetString(3), reader.GetInt32(4))
-            : null;
-    }
 
     private static void SourceParameters(NpgsqlCommand command, TenantContext context, string providerScope) =>
         SourceParameters(command, context.TenantId, providerScope);

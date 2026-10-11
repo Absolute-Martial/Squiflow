@@ -8,7 +8,8 @@ internal sealed class CustomerImportHostedExecutor(
     IServiceScopeFactory scopes,
     CustomerImportExecutionConfiguration configuration,
     CustomerImportExecutionState state,
-    ILogger<CustomerImportHostedExecutor> logger) : BackgroundService
+    ILogger<CustomerImportHostedExecutor> logger,
+    CustomerImportRecoveryMonitor? monitoring = null) : BackgroundService
 {
     private readonly Guid _workerId = Guid.NewGuid();
     private static readonly Action<ILogger, string, Exception?> LogRetry = LoggerMessage.Define<string>(
@@ -43,17 +44,29 @@ internal sealed class CustomerImportHostedExecutor(
                             await using var scope = scopes.CreateAsyncScope();
                             await scope.ServiceProvider.GetRequiredService<RunCustomerImportBatch>()
                                 .ExecuteAsync(tenantId, _workerId, configuration.BatchRows, deadline.Token).ConfigureAwait(false);
-                            var sourceRetirement = scope.ServiceProvider.GetService<ReconcileCustomerImportSource>();
-                            if (sourceRetirement is not null)
-                            {
-                                await sourceRetirement.RetireOneExpiredAsync(
-                                    tenantId, DateTimeOffset.UtcNow, deadline.Token).ConfigureAwait(false);
-                            }
                         }
                         catch (Exception exception) when (IsRetryable(exception, stoppingToken))
                         {
                             // The runner drains/releases before returning. Never launch a detached
                             // retry, invent a row result, or log provider exception/source contents.
+                            LogRetry(logger, FailureCode(exception), null);
+                        }
+                        // Recovery has its own scope/deadline and cannot be skipped by a business
+                        // import's authorization outage. Monitoring only observes completed outcomes.
+                        try
+                        {
+                            using var deadline = Deadline(stoppingToken);
+                            await using var scope = scopes.CreateAsyncScope();
+                            var recovery = scope.ServiceProvider.GetService<ReconcileCustomerImportSource>();
+                            if (recovery is not null)
+                            {
+                                var outcome = await recovery.ReconcileOneExpiredAsync(tenantId, DateTimeOffset.UtcNow, deadline.Token).ConfigureAwait(false);
+                                monitoring?.Observe(outcome);
+                            }
+                        }
+                        catch (Exception exception) when (IsRetryable(exception, stoppingToken))
+                        {
+                            monitoring?.ObserveFailure();
                             LogRetry(logger, FailureCode(exception), null);
                         }
                     }

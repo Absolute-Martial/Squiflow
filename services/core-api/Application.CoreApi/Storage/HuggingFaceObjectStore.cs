@@ -40,10 +40,9 @@ internal sealed class HuggingFaceObjectStore(
             if (hashed.BytesRead != request.ExpectedLength || !CryptographicOperations.FixedTimeEquals(
                     Convert.FromHexString(actual), Convert.FromHexString(request.ExpectedSha256)))
             {
-                var deletion = await DeleteAsync(request.Key, cancellationToken).ConfigureAwait(false);
-                return new(deletion.Outcome == ObjectStoreDeleteOutcome.OutcomeUnknown
-                    ? ObjectStorePutOutcome.OutcomeUnknown
-                    : ObjectStorePutOutcome.Corrupt);
+                // Leave uncertain/corrupt bytes for fenced retirement. An unconditional
+                // delete here could remove a newer recovery marker after this upload lost ownership.
+                return new(ObjectStorePutOutcome.Corrupt);
             }
 
             return await VerifyRemoteAsync(request, cancellationToken).ConfigureAwait(false);
@@ -122,7 +121,8 @@ internal sealed class HuggingFaceObjectStore(
             if (response.Content.Headers.ContentLength is not { } length || length < 0)
                 return new(ObjectStoreMetadataOutcome.Unavailable);
             var contentType = response.Content.Headers.ContentType?.ToString() ?? "application/octet-stream";
-            return new(ObjectStoreMetadataOutcome.Found, new(key, length, "", contentType));
+            return new(ObjectStoreMetadataOutcome.Found,
+                new(key, length, "", contentType, response.Headers.ETag is { IsWeak: false } version ? version.Tag : null));
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -153,6 +153,35 @@ internal sealed class HuggingFaceObjectStore(
         {
             return new(ObjectStoreDeleteOutcome.OutcomeUnknown);
         }
+    }
+
+    public async Task<ObjectStorePutResult> RetireAsync(ObjectStoreKey key, CancellationToken cancellationToken)
+    {
+        var metadata = await GetMetadataAsync(key, cancellationToken).ConfigureAwait(false);
+        var marker = new ObjectStorePutRequest(key, Stream.Null, 0, ObjectStoreRetirement.EmptySha256,
+            ObjectStoreRetirement.ContentType);
+        if (metadata.Outcome == ObjectStoreMetadataOutcome.Found && metadata.Metadata is { Length: 0 })
+            return await VerifyExistingAsync(marker, cancellationToken).ConfigureAwait(false);
+        if (metadata.Outcome is not (ObjectStoreMetadataOutcome.Found or ObjectStoreMetadataOutcome.NotFound)
+            || (metadata.Outcome == ObjectStoreMetadataOutcome.Found && metadata.Metadata?.Version is null))
+            return new(ObjectStorePutOutcome.Unavailable);
+
+        using var request = CreateRequest(HttpMethod.Put, key, ObjectStoreRetirement.EmptySha256, ObjectStoreRetirement.ContentType);
+        request.Content = new ByteArrayContent([]);
+        request.Content.Headers.ContentType = new(ObjectStoreRetirement.ContentType);
+        request.Headers.TryAddWithoutValidation(metadata.Outcome == ObjectStoreMetadataOutcome.NotFound ? "If-None-Match" : "If-Match",
+            metadata.Outcome == ObjectStoreMetadataOutcome.NotFound ? "*" : metadata.Metadata!.Version);
+        try
+        {
+            using var response = await SendAsync(request, cancellationToken).ConfigureAwait(false);
+            if (response.StatusCode == HttpStatusCode.PreconditionFailed)
+                return new(ObjectStorePutOutcome.OutcomeUnknown);
+            if (!response.IsSuccessStatusCode) return new(MapPutFailure(response.StatusCode));
+            return await VerifyRemoteAsync(marker, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        { return new(ObjectStorePutOutcome.TimedOut); }
+        catch (HttpRequestException) { return new(ObjectStorePutOutcome.OutcomeUnknown); }
     }
 
     private async Task<ObjectStorePutResult> VerifyExistingAsync(ObjectStorePutRequest request, CancellationToken cancellationToken)

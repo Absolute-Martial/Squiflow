@@ -21,6 +21,7 @@ internal static class CustomerImportExecutionRegistration
                 "Object storage requires CustomerImports:Execution:Enabled=true; raw import sources are only ever deleted by the customer import executor.");
         services.AddSingleton(execution);
         services.AddSingleton<CustomerImportExecutionState>();
+        services.AddSingleton<CustomerImportRecoveryMonitor>();
         services.AddScoped<ICustomerImportAuthority, CurrentCustomerImportAuthority>();
         services.AddHostedService<CustomerImportHostedExecutor>();
         // Reuse the standard host shutdown setting; no independent detached shutdown mechanism.

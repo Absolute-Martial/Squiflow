@@ -426,7 +426,14 @@ public sealed record CustomerImportSourceLease(
     Guid ReservationId,
     string ObjectKey,
     bool UploadRequired,
-    CustomerImportSourceSnapshot? ExistingSource);
+    CustomerImportSourceSnapshot? ExistingSource,
+    Guid ImportId = default,
+    long Generation = 0,
+    Guid LeaseId = default,
+    DateTimeOffset? LeaseExpiresAt = null)
+{
+    public static readonly TimeSpan DefaultLeaseDuration = TimeSpan.FromMinutes(5);
+}
 
 public sealed record CustomerImportSourceRetirementLease(
     string ObjectKey,
@@ -482,7 +489,7 @@ public interface ICustomerImportSourceStore
         DateTimeOffset now,
         CancellationToken cancellationToken);
 
-    Task CompleteSourceRetirementAsync(
+    Task<bool> CompleteSourceRetirementAsync(
         TenantContext context,
         CustomerImportSourceRetirementLease lease,
         bool deleted,
@@ -500,7 +507,7 @@ public interface ICustomerImportSourceMaintenanceStore
         DateTimeOffset now,
         CancellationToken cancellationToken);
 
-    Task CompleteSourceRetirementAsync(
+    Task<bool> CompleteSourceRetirementAsync(
         Guid tenantId,
         CustomerImportSourceRetirementLease lease,
         bool deleted,
@@ -508,23 +515,37 @@ public interface ICustomerImportSourceMaintenanceStore
         CancellationToken cancellationToken);
 }
 
+public enum CustomerImportSourceRecoveryOutcome { NoWork, Retired, Deferred }
+
 public sealed class ReconcileCustomerImportSource(
     ICustomerImportSourceMaintenanceStore source,
-    IObjectStore objectStore)
+    IObjectStore objectStore,
+    CustomerImportSourcePolicy? policy = null)
 {
-    public async Task<bool> RetireOneExpiredAsync(
-        Guid tenantId,
-        DateTimeOffset now,
-        CancellationToken cancellationToken)
+    public async Task<bool> RetireOneExpiredAsync(Guid tenantId, DateTimeOffset now, CancellationToken cancellationToken) =>
+        await ReconcileOneExpiredAsync(tenantId, now, cancellationToken).ConfigureAwait(false)
+            == CustomerImportSourceRecoveryOutcome.Retired;
+
+    public async Task<CustomerImportSourceRecoveryOutcome> ReconcileOneExpiredAsync(
+        Guid tenantId, DateTimeOffset now, CancellationToken cancellationToken)
     {
         CustomerRules.RequireIdentity(tenantId, "tenant_id_invalid");
         var lease = await source.ClaimExpiredSourceRetirementAsync(tenantId, now, cancellationToken).ConfigureAwait(false);
-        if (lease is null) return false;
-        var result = await objectStore.DeleteAsync(ObjectStoreKey.Create(lease.ObjectKey), cancellationToken).ConfigureAwait(false);
-        var deleted = result.Outcome is ObjectStoreDeleteOutcome.Deleted or ObjectStoreDeleteOutcome.NotFound;
-        await source.CompleteSourceRetirementAsync(tenantId, lease, deleted,
-            deleted ? null : result.Outcome.ToString(), cancellationToken).ConfigureAwait(false);
-        return deleted;
+        if (lease is null) return CustomerImportSourceRecoveryOutcome.NoWork;
+        if (policy is null || !string.Equals(policy.ProviderScope, lease.ProviderScope, StringComparison.Ordinal))
+        {
+            await source.CompleteSourceRetirementAsync(tenantId, lease, false, "provider_scope_changed", cancellationToken)
+                .ConfigureAwait(false);
+            return CustomerImportSourceRecoveryOutcome.Deferred;
+        }
+        var result = await objectStore.RetireAsync(ObjectStoreKey.Create(lease.ObjectKey), cancellationToken).ConfigureAwait(false);
+        var fenced = result.Outcome is ObjectStorePutOutcome.Created or ObjectStorePutOutcome.AlreadyExists
+            && result.Metadata is { Length: 0 } marker
+            && string.Equals(marker.Key.Value, lease.ObjectKey, StringComparison.Ordinal)
+            && string.Equals(marker.Sha256, ObjectStoreRetirement.EmptySha256, StringComparison.Ordinal);
+        var completed = await source.CompleteSourceRetirementAsync(tenantId, lease, fenced,
+            fenced ? null : "retirement_unverified", cancellationToken).ConfigureAwait(false);
+        return fenced && completed ? CustomerImportSourceRecoveryOutcome.Retired : CustomerImportSourceRecoveryOutcome.Deferred;
     }
 }
 
@@ -624,6 +645,7 @@ public sealed class CreateCustomerImport(
             var normalizedKey = CustomerRules.NormalizeIdempotencyKey(idempotencyKey);
             var lease = await sourceStore.BeginSourceAsync(context, plan, normalizedKey, retention, sourcePolicy, cancellationToken)
                 .ConfigureAwait(false);
+            if (lease.ImportId != Guid.Empty) plan = plan with { ImportId = lease.ImportId };
             if (lease.UploadRequired)
             {
                 staged.Position = 0;
@@ -631,10 +653,9 @@ public sealed class CreateCustomerImport(
                     plan.ByteLength, plan.ManifestHash, "text/csv; charset=utf-8"), cancellationToken).ConfigureAwait(false);
                 if (put.Outcome is not (ObjectStorePutOutcome.Created or ObjectStorePutOutcome.AlreadyExists))
                 {
-                    var failure = put.Outcome is ObjectStorePutOutcome.OutcomeUnknown or ObjectStorePutOutcome.TimedOut
-                        ? CustomerImportSourceFailureKind.OutcomeUnknown
-                        : CustomerImportSourceFailureKind.ProvenAbsent;
-                    await sourceStore.MarkSourceFailureAsync(context, lease, failure, put.Outcome.ToString(), cancellationToken)
+                    // A failed response does not prove absence: a previous leased PUT may still finish.
+                    await sourceStore.MarkSourceFailureAsync(context, lease, CustomerImportSourceFailureKind.OutcomeUnknown,
+                        put.Outcome.ToString(), cancellationToken)
                         .ConfigureAwait(false);
                     throw new CustomerValidationException("import_source_unavailable", "The import source could not be retained safely.");
                 }

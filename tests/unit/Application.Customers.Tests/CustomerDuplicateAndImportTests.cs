@@ -49,20 +49,21 @@ public sealed class CustomerDuplicateAndImportTests
     }
 
     [Fact]
-    public async Task SourceRetirementKeepsAmbiguousDeletesRecoverable()
+    public async Task SourceRetirementRequiresAVerifiedMarkerAndKeepsUncertainEffectsRecoverable()
     {
         var tenantId = Guid.NewGuid();
         var lease = new CustomerImportSourceRetirementLease("imports/source.csv", "bucket", 42, new string('a', 64));
         var source = new RetirementStore(lease);
         var objectStore = new RetirementObjectStore(
-            new(ObjectStoreDeleteOutcome.OutcomeUnknown), new(ObjectStoreDeleteOutcome.NotFound));
-        var reconciler = new ReconcileCustomerImportSource(source, objectStore);
+            new(ObjectStorePutOutcome.OutcomeUnknown), new(ObjectStorePutOutcome.Created,
+                new(ObjectStoreKey.Create(lease.ObjectKey), 0, ObjectStoreRetirement.EmptySha256, ObjectStoreRetirement.ContentType)));
+        var reconciler = new ReconcileCustomerImportSource(source, objectStore, CustomerImportSourcePolicy.Create("bucket", 100));
 
         Assert.False(await reconciler.RetireOneExpiredAsync(tenantId, DateTimeOffset.UtcNow, CancellationToken.None));
-        Assert.Equal(("imports/source.csv", false, "OutcomeUnknown"), Assert.Single(source.Completions));
+        Assert.Equal(("imports/source.csv", false, "retirement_unverified"), Assert.Single(source.Completions));
         Assert.True(await reconciler.RetireOneExpiredAsync(tenantId, DateTimeOffset.UtcNow, CancellationToken.None));
         Assert.Equal(("imports/source.csv", true, null), source.Completions[1]);
-        Assert.Equal(2, objectStore.DeleteCalls);
+        Assert.Equal(2, objectStore.RetirementCalls);
     }
 
     [Theory]
@@ -215,18 +216,18 @@ public sealed class CustomerDuplicateAndImportTests
         public Task<CustomerImportSourceRetirementLease?> ClaimExpiredSourceRetirementAsync(
             Guid tenantId, DateTimeOffset now, CancellationToken cancellationToken) => Task.FromResult<CustomerImportSourceRetirementLease?>(lease);
 
-        public Task CompleteSourceRetirementAsync(Guid tenantId, CustomerImportSourceRetirementLease completion,
+        public Task<bool> CompleteSourceRetirementAsync(Guid tenantId, CustomerImportSourceRetirementLease completion,
             bool deleted, string? failureCode, CancellationToken cancellationToken)
         {
             Completions.Add((completion.ObjectKey, deleted, failureCode));
-            return Task.CompletedTask;
+            return Task.FromResult(true);
         }
     }
 
-    private sealed class RetirementObjectStore(params ObjectStoreDeleteResult[] results) : IObjectStore
+    private sealed class RetirementObjectStore(params ObjectStorePutResult[] results) : IObjectStore
     {
         private int _index;
-        public int DeleteCalls => _index;
+        public int RetirementCalls => _index;
 
         public Task<ObjectStorePutResult> PutAsync(ObjectStorePutRequest request, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
@@ -237,7 +238,9 @@ public sealed class CustomerDuplicateAndImportTests
         public Task<ObjectStoreMetadataResult> GetMetadataAsync(ObjectStoreKey key, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
-        public Task<ObjectStoreDeleteResult> DeleteAsync(ObjectStoreKey key, CancellationToken cancellationToken) =>
+        public Task<ObjectStoreDeleteResult> DeleteAsync(ObjectStoreKey key, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<ObjectStorePutResult> RetireAsync(ObjectStoreKey key, CancellationToken cancellationToken) =>
             Task.FromResult(results[Math.Min(_index++, results.Length - 1)]);
     }
 }

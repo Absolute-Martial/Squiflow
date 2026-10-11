@@ -101,7 +101,14 @@ public sealed record ObjectStoreMetadata(
     ObjectStoreKey Key,
     long Length,
     string Sha256,
-    string ContentType);
+    string ContentType,
+    string? Version = null);
+
+public static class ObjectStoreRetirement
+{
+    public const string EmptySha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+    public const string ContentType = "application/octet-stream";
+}
 
 public interface IObjectStore
 {
@@ -112,4 +119,10 @@ public interface IObjectStore
     Task<ObjectStoreMetadataResult> GetMetadataAsync(ObjectStoreKey key, CancellationToken cancellationToken);
 
     Task<ObjectStoreDeleteResult> DeleteAsync(ObjectStoreKey key, CancellationToken cancellationToken);
+
+    // Atomically replace observed bytes with a permanent zero-byte marker, or create it
+    // conditionally when absent. A stale request must never delete or replace a newer marker.
+    // Unsupported adapters fail closed; an ordinary delete is not retirement evidence.
+    Task<ObjectStorePutResult> RetireAsync(ObjectStoreKey key, CancellationToken cancellationToken) =>
+        Task.FromResult(new ObjectStorePutResult(ObjectStorePutOutcome.Unavailable));
 }

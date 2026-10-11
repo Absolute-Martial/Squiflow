@@ -79,11 +79,11 @@ internal static class ObjectStorageRegistration
         public Task<CustomerImportSourceRetirementLease?> ClaimExpiredSourceRetirementAsync(Guid tenantId,
             DateTimeOffset now, CancellationToken cancellationToken) => Task.FromResult<CustomerImportSourceRetirementLease?>(null);
 
-        public Task CompleteSourceRetirementAsync(TenantContext context, CustomerImportSourceRetirementLease lease,
+        public Task<bool> CompleteSourceRetirementAsync(TenantContext context, CustomerImportSourceRetirementLease lease,
             bool deleted, string? failureCode, CancellationToken cancellationToken) =>
             throw Unavailable();
 
-        public Task CompleteSourceRetirementAsync(Guid tenantId, CustomerImportSourceRetirementLease lease,
+        public Task<bool> CompleteSourceRetirementAsync(Guid tenantId, CustomerImportSourceRetirementLease lease,
             bool deleted, string? failureCode, CancellationToken cancellationToken) => throw Unavailable();
 
         private static CustomerValidationException Unavailable() =>
