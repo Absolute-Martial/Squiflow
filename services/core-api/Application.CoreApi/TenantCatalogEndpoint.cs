@@ -200,7 +200,8 @@ internal static class TenantCatalogEndpoint
         TenantCustomerEndpoint.ResolveAsync(tenantId, http, http.User,
             http.RequestServices.GetRequiredService<ResolveAccountBinding>(),
             http.RequestServices.GetRequiredService<ResolveTenantContext>(),
-            http.RequestServices.GetRequiredService<IAuthorizationService>(), ct);
+            http.RequestServices.GetRequiredService<IAuthorizationService>(), ct,
+            "The account is not permitted to perform this catalog operation in this tenant.");
 
     private static async Task<(T? Value, IResult? Failure)> ReadPayloadAsync<T>(HttpRequest request, CancellationToken ct)
     {

@@ -116,7 +116,7 @@ BEGIN
     EXECUTE format('GRANT UPDATE (status, completed_at, last_error, authorization_revision, generation, worker_id, lease_expires_at, next_attempt_at) ON TABLE customers.import_work TO %I', runtime_role);
     EXECUTE format('GRANT UPDATE (source_object_key) ON TABLE customers.imports TO %I', runtime_role);
     EXECUTE format('GRANT UPDATE (reserved_bytes, retained_bytes, updated_at) ON TABLE customers.object_storage_usage TO %I', runtime_role);
-    EXECUTE format('GRANT UPDATE (state, retention, expires_at, failure_code, retirement_generation, retirement_lease_id, retirement_lease_expires_at) ON TABLE customers.import_source_objects TO %I', runtime_role);
+    EXECUTE format('GRANT UPDATE (state, failure_code, retirement_generation, retirement_lease_id, retirement_lease_expires_at) ON TABLE customers.import_source_objects TO %I', runtime_role);
     EXECUTE format('GRANT UPDATE (state, updated_at) ON TABLE customers.object_storage_reservations TO %I', runtime_role);
     EXECUTE format('GRANT EXECUTE ON FUNCTION customers.discover_runnable_import_tenants(uuid,integer) TO %I', runtime_role);
     EXECUTE format('GRANT UPDATE (name, status, revision, retired_at, retired_by_account_id) ON TABLE catalog.units TO %I', runtime_role);
@@ -195,7 +195,7 @@ BEGIN
                      OR (target_column.schema_name = 'customers' AND target_column.table_name = 'object_storage_usage'
                          AND target_column.column_name IN ('reserved_bytes', 'retained_bytes', 'updated_at'))
                       OR (target_column.schema_name = 'customers' AND target_column.table_name = 'import_source_objects'
-                          AND target_column.column_name IN ('state', 'retention', 'expires_at', 'failure_code',
+                          AND target_column.column_name IN ('state', 'failure_code',
                               'retirement_generation', 'retirement_lease_id', 'retirement_lease_expires_at'))
                      OR (target_column.schema_name = 'customers' AND target_column.table_name = 'object_storage_reservations'
                          AND target_column.column_name IN ('state', 'updated_at')))) THEN
@@ -309,7 +309,7 @@ BEGIN
                   OR (target_column.schema_name = 'customers' AND target_column.table_name = 'object_storage_usage'
                       AND target_column.column_name IN ('reserved_bytes', 'retained_bytes', 'updated_at'))
                    OR (target_column.schema_name = 'customers' AND target_column.table_name = 'import_source_objects'
-                       AND target_column.column_name IN ('state', 'retention', 'expires_at', 'failure_code',
+                       AND target_column.column_name IN ('state', 'failure_code',
                            'retirement_generation', 'retirement_lease_id', 'retirement_lease_expires_at'))
                   OR (target_column.schema_name = 'customers' AND target_column.table_name = 'object_storage_reservations'
                       AND target_column.column_name IN ('state', 'updated_at'))

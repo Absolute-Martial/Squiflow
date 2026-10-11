@@ -82,6 +82,17 @@ public sealed class CoreApiRuntimeRoleProvisioningTests : PostgresTestDatabase
         allowedLineDelete.CommandText = "DELETE FROM orders.order_draft_lines WHERE false";
         Assert.Equal(0, await allowedLineDelete.ExecuteNonQueryAsync(CancellationToken.None));
 
+        await using var allowedImportSourceLifecycleUpdate = runtime.CreateCommand();
+        allowedImportSourceLifecycleUpdate.CommandText = """
+            UPDATE customers.import_source_objects
+            SET state = state, failure_code = failure_code,
+                retirement_generation = retirement_generation,
+                retirement_lease_id = retirement_lease_id,
+                retirement_lease_expires_at = retirement_lease_expires_at
+            WHERE false
+            """;
+        Assert.Equal(0, await allowedImportSourceLifecycleUpdate.ExecuteNonQueryAsync(CancellationToken.None));
+
         await using var allowedTenantRevisionUpdate = runtime.CreateCommand();
         allowedTenantRevisionUpdate.CommandText = "UPDATE tenancy.tenants SET revision = revision WHERE false";
         Assert.Equal(0, await allowedTenantRevisionUpdate.ExecuteNonQueryAsync(CancellationToken.None));
@@ -149,6 +160,8 @@ public sealed class CoreApiRuntimeRoleProvisioningTests : PostgresTestDatabase
             "UPDATE catalog.units SET precision=precision WHERE false",
             "UPDATE catalog.items SET base_unit_id=base_unit_id WHERE false",
             "UPDATE customers.import_rows SET source_row_hash=source_row_hash WHERE false",
+            "UPDATE customers.import_source_objects SET retention=retention WHERE false",
+            "UPDATE customers.import_source_objects SET expires_at=expires_at WHERE false",
         })
         {
             await using var denied = new NpgsqlCommand(sql, runtime);
