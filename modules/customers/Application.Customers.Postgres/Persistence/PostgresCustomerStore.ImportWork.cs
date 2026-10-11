@@ -50,7 +50,11 @@ public sealed partial class PostgresCustomerStore
         }
         if (row.Intent is null || row.Decision is null) throw new InvalidOperationException("Accepted import row has no validated decision.");
         row = row with { Intent = ValidateImportIntent(row.Intent) };
-        var status = CustomerImportRowStatus.Rejected;
+        // Every branch states its own terminal status. The retained row is the decision
+        // record an auditor reads, so a cause may not borrow another cause's status:
+        // `Rejected` means an operator declined this row, `Failed` means a system fault
+        // that needs operator review. There is deliberately no shared default.
+        var status = CustomerImportRowStatus.Failed;
         Guid? customerId = null;
         string? errorCode = null;
         await using (var savepoint = session.CreateCommand(CustomerSql.ImportSavepoint))
@@ -60,6 +64,8 @@ public sealed partial class PostgresCustomerStore
             switch (row.Decision)
             {
                 case CustomerImportDecisionKind.MapToExisting:
+                    // The accepted decision is immutable, so a target consolidated away
+                    // after acceptance is a system fault, not an operator rejection.
                     if (!row.MappingCustomerId.HasValue || !await CanonicalImportTargetAsync(session, currentContext, row.MappingCustomerId.Value, cancellationToken).ConfigureAwait(false))
                         errorCode = "mapping_target_unavailable";
                     else { status = CustomerImportRowStatus.MappedToExisting; customerId = row.MappingCustomerId; }
@@ -74,7 +80,7 @@ public sealed partial class PostgresCustomerStore
                     // released with that transaction/savepoint; no extra transaction boundary.
                     await LockCustomerCanonicalizationAsync(session, claim.TenantId, cancellationToken).ConfigureAwait(false);
                     if (!row.RequiresDecision && await HasImportDuplicateAsync(session, claim.TenantId, signals, cancellationToken).ConfigureAwait(false))
-                        errorCode = "new_duplicate_requires_new_plan";
+                    { status = CustomerImportRowStatus.Rejected; errorCode = "new_duplicate_requires_new_plan"; }
                     else
                     {
                         customerId = row.RowId ?? throw new InvalidOperationException("Import row has no stable identity.");
@@ -82,7 +88,8 @@ public sealed partial class PostgresCustomerStore
                         status = CustomerImportRowStatus.Imported;
                     }
                     break;
-                case CustomerImportDecisionKind.Reject: errorCode = "operator_rejected"; break;
+                case CustomerImportDecisionKind.Reject:
+                    status = CustomerImportRowStatus.Rejected; errorCode = "operator_rejected"; break;
                 default: throw new InvalidOperationException("Import decision is unsupported.");
             }
         }

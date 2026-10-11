@@ -2,11 +2,20 @@
 
 Task ID: COM-004
 Phase: 02-commercial-backend
-Status: PRODUCTION_HONEST
+Status: VERIFY_EXISTING
+Runtime state: BLOCKED
 Model: GPT-6.1 Sol
 Dependencies: COM-003
 Conditional dependencies: OPS-008 when import bytes are retained; OPS-003 when the accepted import uses background execution
 Release requirement: REQUIRED
+
+`Status` above is the scheduling value defined by
+[`ORCHESTRATOR.md`](../ORCHESTRATOR.md); runtime gate states are recorded on
+their own line and are owned by the focused owners. The task-level runtime state
+is **BLOCKED**: it declares the conditional dependency OPS-008, whose own runtime
+state is BLOCKED pending live Hugging Face provider evidence. Its local
+capability, CoreApi and PostgreSQL scope below is separately and locally
+qualified; that narrower state must not be read as task-level acceptance.
 
 COM-004 implementation and local qualification are **COMPLETE** for the declared
 capability, CoreApi and PostgreSQL contracts. Raw-source lifecycle, expiry-aware
@@ -29,9 +38,12 @@ Live Hugging Face upload, download, delete, conditional write, redirects/timeout
 
 This is local dirty-tree qualification, not commit/merge/PR integration, remote CI,
 coverage, live identity-provider qualification, deployment readiness or production
-acceptance. Incoming `eng/verify.sh` runs its unit/container project groups
-sequentially; this pass did not change that policy or serialize test cases to hide
-failures. Historical gate totals are preserved below only as historical evidence.
+acceptance. This pass also changed the gate's execution policy: `eng/verify.sh` now
+classifies test projects by their own Testcontainers dependency and runs the unit
+group and then the container group, one `dotnet test` per project, where the
+preceding script issued a single solution-wide `dotnet test`. No test case is
+serialized within a project. Historical gate totals are preserved below only as
+historical evidence.
 
 Implementation/local qualification complete; only the external provider qualification remains to be received. Apply [agent rules](../AGENT_RULES.md) and [handoff rules](../HANDOFF_AND_INTEGRATION.md).
 

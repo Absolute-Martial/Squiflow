@@ -4,7 +4,8 @@
 adapter are `PRODUCTION_HONEST` for the focused evidence below. CoreApi routes,
 independent pinned-model permissions, migration ordering, runtime grants and
 catalog-priced Orders integration are composed and `PRODUCTION_HONEST` for the
-declared local receiving scope after the **1011-test** normal gate. Actual numerical inventory
+declared local receiving scope after the exact normal gate recorded in
+`README.IMPLEMENTATION.md`. Actual numerical inventory
 authority remains `NOT_INTRODUCED`.
 
 This is the focused owner for COM-005. It records the accepted v0.0.1
