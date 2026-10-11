@@ -185,6 +185,9 @@ public sealed class PricingEndpointTests
         Assert.DoesNotContain("pricing_receipt_version_unsupported", problem, StringComparison.Ordinal);
         Assert.DoesNotContain("stable-unit", problem, StringComparison.Ordinal);
         Assert.Equal(0, fixture.Store.Effects);
+    }
+
+    [Fact]
     public async Task PricingProblemTitlesNamePricingAndNeverCustomerResources()
     {
         using var fixture = new PricingHostFixture();

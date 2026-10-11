@@ -190,6 +190,9 @@ public sealed partial class CustomerPostgresTests
             new ExecuteCustomerImport(store, new ImportAuthority(context)).ExecuteAsync(context, new(planned.ImportId), "accept", CancellationToken.None));
         Assert.Equal("legacy_plan_requires_replan", legacy.Code);
         Assert.Equal(0L, await CountAsync("customers.import_work"));
+    }
+
+    [Fact]
     public async Task ConsolidatedMappingTargetIsRecordedAsASystemFailureNotAnOperatorRejection()
     {
         await MigrateAsync();
