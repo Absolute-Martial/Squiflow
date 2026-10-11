@@ -2,6 +2,13 @@ namespace Application.Pricing;
 
 public interface IPricingPublicationStore
 {
+    Task<CreatePriceDraftResult?> FindCreateReplayAsync(PricingActorContext actor,
+        CreatePriceDraftRequest request, string idempotencyKey, CancellationToken cancellationToken) =>
+        Task.FromResult<CreatePriceDraftResult?>(null);
+    Task<PublishPriceResult?> FindPublishReplayAsync(PricingActorContext actor,
+        PublishPriceRequest request, string idempotencyKey, CancellationToken cancellationToken) =>
+        Task.FromResult<PublishPriceResult?>(null);
+
     Task<PriceRevision?> FindAsync(PricingActorContext actor, Guid revisionId, CancellationToken cancellationToken);
     Task<CreatePriceDraftResult> CreateDraftAsync(
         PricingActorContext actor,

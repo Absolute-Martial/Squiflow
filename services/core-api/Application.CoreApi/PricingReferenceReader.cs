@@ -8,7 +8,13 @@ namespace Application.CoreApi;
 internal sealed class PricingReferenceReader(ResolveTenantContext tenants, GetCatalogItem items, GetCatalogUnit units,
     GetCustomerIndividual individuals, GetCustomerOrganization organizations, GetCustomerProgram programs, GetCatalogConversion conversions) : IPricingReferenceReader
 {
-    public async Task<string> RequireCompatibleUnitAsync(PricingActorContext actor, Guid itemId, Guid unitId, long? conversionRevision, CancellationToken ct)
+    public Task<string> RequireCompatibleUnitAsync(PricingActorContext actor, Guid itemId, Guid unitId, long? conversionRevision, CancellationToken ct) =>
+        RequireUnitAsync(actor, itemId, unitId, conversionRevision, requireActive: true, ct);
+
+    public Task<string> RequireHistoricalUnitAsync(PricingActorContext actor, Guid itemId, Guid unitId, long? conversionRevision, CancellationToken ct) =>
+        RequireUnitAsync(actor, itemId, unitId, conversionRevision, requireActive: false, ct);
+
+    private async Task<string> RequireUnitAsync(PricingActorContext actor, Guid itemId, Guid unitId, long? conversionRevision, bool requireActive, CancellationToken ct)
     {
         if (itemId == Guid.Empty || unitId == Guid.Empty)
             throw new PricingValidationException("catalog_identity_invalid", "Stable item and unit identities are required.");
@@ -17,7 +23,7 @@ internal sealed class PricingReferenceReader(ResolveTenantContext tenants, GetCa
         var unit = await units.ExecuteAsync(tenant, unitId, ct);
         if (item is null || unit is null || item.TenantId != actor.TenantId || unit.TenantId != actor.TenantId)
             throw new PricingValidationException("catalog_fact_not_found", "Catalog item/unit not found in this tenant.");
-        if (item.Status != CatalogEntityStatus.Active || unit.Status != CatalogEntityStatus.Active)
+        if (requireActive && (item.Status != CatalogEntityStatus.Active || unit.Status != CatalogEntityStatus.Active))
             throw new PricingValidationException("catalog_unit_incompatible", "Pricing requires an active compatible Catalog item/unit.");
         if (item.BaseUnitId == unitId)
         {
@@ -26,7 +32,7 @@ internal sealed class PricingReferenceReader(ResolveTenantContext tenants, GetCa
             return unit.Code;
         }
         var target = await units.ExecuteAsync(tenant, item.BaseUnitId, ct);
-        if (!conversionRevision.HasValue || target is null || target.TenantId != actor.TenantId || target.Status != CatalogEntityStatus.Active)
+        if (!conversionRevision.HasValue || target is null || target.TenantId != actor.TenantId || (requireActive && target.Status != CatalogEntityStatus.Active))
             throw new PricingValidationException("catalog_conversion_required", "Non-base pricing units require an explicit compatible Catalog conversion revision.");
         var conversion = await conversions.ExecuteAsync(tenant, unitId, item.BaseUnitId, conversionRevision.Value, ct);
         if (conversion is null || conversion.TenantId != actor.TenantId || conversion.SourceUnitId != unitId ||
@@ -35,13 +41,20 @@ internal sealed class PricingReferenceReader(ResolveTenantContext tenants, GetCa
         return unit.Code;
     }
 
-    public async Task RequireContextAsync(PricingActorContext actor, PriceSelectionContext context, CancellationToken ct)
+    public Task RequireContextAsync(PricingActorContext actor, PriceSelectionContext context, CancellationToken ct) =>
+        RequireContextAsync(actor, context, requireActive: true, ct);
+
+    public Task RequireHistoricalContextAsync(PricingActorContext actor, PriceSelectionContext context, CancellationToken ct) =>
+        RequireContextAsync(actor, context, requireActive: false, ct);
+
+    private async Task RequireContextAsync(PricingActorContext actor, PriceSelectionContext context, bool requireActive, CancellationToken ct)
     {
         var tenant = await RequireTenantAsync(actor, ct);
         if (context.CustomerId.HasValue)
         {
             var customer = await individuals.ExecuteAsync(tenant, context.CustomerId.Value, ct);
-            if (customer is null || customer.TenantId != actor.TenantId || customer.Availability != CustomerIndividualAvailability.Active || customer.RedirectTargetIndividualId.HasValue)
+            if (customer is null || customer.TenantId != actor.TenantId || (requireActive &&
+                (customer.Availability != CustomerIndividualAvailability.Active || customer.RedirectTargetIndividualId.HasValue)))
                 throw new PricingValidationException("pricing_customer_invalid", "Customer is not a current active tenant-owned individual.");
         }
         if (context.OrganizationId.HasValue)

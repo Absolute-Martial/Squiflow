@@ -8,6 +8,40 @@ namespace Application.CoreApi.Tests;
 public sealed class PricingReferenceReaderTests
 {
     [Fact]
+    public async Task RetiredReferencesPreserveSavedRetriesAndHistoryButRefuseNewEffects()
+    {
+        using var fixture = new PricingHostFixture(realReferences: true);
+        fixture.Permissions.Edit = true;
+        fixture.Permissions.Publish = true;
+        fixture.Permissions.View = true;
+        using var created = await fixture.PostAsync("drafts", fixture.DraftBody(), "saved-draft");
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var originalDraft = await created.Content.ReadAsStringAsync();
+        using var json = System.Text.Json.JsonDocument.Parse(originalDraft);
+        var revisionId = json.RootElement.GetProperty("revisionId").GetGuid();
+        using var published = await fixture.PostAsync($"revisions/{revisionId:D}/publish", new { }, "saved-publication");
+        Assert.Equal(HttpStatusCode.OK, published.StatusCode);
+        var originalPublication = await published.Content.ReadAsStringAsync();
+        fixture.Catalog.Item = fixture.Catalog.Item with { Status = CatalogEntityStatus.Retired };
+        fixture.Catalog.Unit = fixture.Catalog.Unit with { Status = CatalogEntityStatus.Retired };
+        using var draftReplay = await fixture.PostAsync("drafts", fixture.DraftBody(), "saved-draft");
+        Assert.Equal(originalDraft, await draftReplay.Content.ReadAsStringAsync());
+        Assert.Equal("true", draftReplay.Headers.GetValues("Idempotency-Replayed").Single());
+        using var publicationReplay = await fixture.PostAsync($"revisions/{revisionId:D}/publish", new { }, "saved-publication");
+        Assert.Equal(originalPublication, await publicationReplay.Content.ReadAsStringAsync());
+        using var history = await fixture.PostAsync("history", new { itemId = fixture.Item, unitId = fixture.Unit, currencyCode = "USD" });
+        Assert.Equal(HttpStatusCode.OK, history.StatusCode);
+        using var historyJson = System.Text.Json.JsonDocument.Parse(await history.Content.ReadAsStringAsync());
+        Assert.Single(historyJson.RootElement.GetProperty("items").EnumerateArray());
+        using var fresh = await fixture.PostAsync("drafts", fixture.DraftBody(), "new-draft");
+        Assert.Equal(HttpStatusCode.BadRequest, fresh.StatusCode);
+        Assert.Equal(2, fixture.Store.Effects);
+        fixture.Permissions.Edit = false;
+        using var revoked = await fixture.PostAsync("drafts", fixture.DraftBody(), "saved-draft");
+        Assert.Equal(HttpStatusCode.Forbidden, revoked.StatusCode);
+    }
+
+    [Fact]
     public async Task AdapterValidatesTenantOwnedActiveCompatibleUnitsBeforeDraftEffects()
     {
         using var fixture = new PricingHostFixture(realReferences: true);

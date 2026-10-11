@@ -17,6 +17,10 @@ public interface IPricingReferenceReader
 {
     Task<string> RequireCompatibleUnitAsync(PricingActorContext actor, Guid itemId, Guid unitId, long? conversionRevision, CancellationToken ct);
     Task RequireContextAsync(PricingActorContext actor, PriceSelectionContext context, CancellationToken ct);
+    Task<string> RequireHistoricalUnitAsync(PricingActorContext actor, Guid itemId, Guid unitId, long? conversionRevision, CancellationToken ct) =>
+        RequireCompatibleUnitAsync(actor, itemId, unitId, conversionRevision, ct);
+    Task RequireHistoricalContextAsync(PricingActorContext actor, PriceSelectionContext context, CancellationToken ct) =>
+        RequireContextAsync(actor, context, ct);
 }
 
 public sealed record PricingPolicySnapshot(Guid TenantId, PricingOverridePolicy Policy, Guid CreatedByAccountId, DateTimeOffset CreatedAt);
@@ -51,6 +55,8 @@ public sealed class PricingApplication(IPricingPublicationStore publication, Pri
         if (request.Validity.ValidFrom == default || request.Validity.ValidFrom.Ticks % 10 != 0 ||
             (request.Validity.ValidTo.HasValue && request.Validity.ValidTo.Value.Ticks % 10 != 0))
             throw new PricingValidationException("pricing_validity_invalid", "Validity requires explicit microsecond-precision timestamps.");
+        var replay = await publication.FindCreateReplayAsync(actor, request, key, ct).ConfigureAwait(false);
+        if (replay is not null) return replay;
         await references.RequireContextAsync(actor, ContextFor(request.Scope), ct).ConfigureAwait(false);
         var code = await references.RequireCompatibleUnitAsync(actor, request.ItemId, request.UnitId, request.UnitConversionRevision, ct).ConfigureAwait(false);
         return await publication.CreateDraftAsync(actor, request with { UnitCode = code }, key, ct).ConfigureAwait(false);
@@ -58,6 +64,8 @@ public sealed class PricingApplication(IPricingPublicationStore publication, Pri
 
     public async Task<PublishPriceResult> PublishAsync(PricingActorContext actor, PublishPriceRequest request, string key, CancellationToken ct)
     {
+        var replay = await publication.FindPublishReplayAsync(actor, request, key, ct).ConfigureAwait(false);
+        if (replay is not null) return replay;
         var draft = await publication.FindAsync(actor, request.RevisionId, ct).ConfigureAwait(false);
         if (draft is null) return new(PublishPriceStatus.NotFound, null);
         RequireBookScope(draft.Key.Scope);

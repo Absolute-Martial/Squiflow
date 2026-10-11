@@ -377,6 +377,20 @@ internal sealed class PricingHostStore(Guid tenant, Guid account, DateTimeOffset
     internal int CandidateReads { get; private set; }
     internal int Effects { get; private set; }
     internal string? UnreadableReceiptKey { get; set; }
+    public Task<CreatePriceDraftResult?> FindCreateReplayAsync(PricingActorContext actor, CreatePriceDraftRequest request, string key, CancellationToken ct)
+    {
+        if (!_receipts.TryGetValue(("create", key), out var retained)) return Task.FromResult<CreatePriceDraftResult?>(null);
+        var snapshot = (PriceRevision)retained.Snapshot;
+        var fingerprint = (request with { UnitCode = string.IsNullOrEmpty(request.UnitCode) ? snapshot.Key.UnitCode : request.UnitCode }).Fingerprint;
+        return Task.FromResult<CreatePriceDraftResult?>(new(retained.Fingerprint == fingerprint ? CreatePriceDraftStatus.Replayed : CreatePriceDraftStatus.IdempotencyKeyConflict,
+            retained.Fingerprint == fingerprint ? snapshot : null));
+    }
+    public Task<PublishPriceResult?> FindPublishReplayAsync(PricingActorContext actor, PublishPriceRequest request, string key, CancellationToken ct)
+    {
+        if (!_receipts.TryGetValue(("publish", key), out var retained)) return Task.FromResult<PublishPriceResult?>(null);
+        return Task.FromResult<PublishPriceResult?>(new(retained.Fingerprint == request.Fingerprint ? PublishPriceStatus.Replayed : PublishPriceStatus.IdempotencyKeyConflict,
+            retained.Fingerprint == request.Fingerprint ? (PriceRevision)retained.Snapshot : null));
+    }
     public Task<PriceRevision?> FindAsync(PricingActorContext actor, Guid revisionId, CancellationToken ct) => Task.FromResult(_prices.GetValueOrDefault(revisionId));
     public Task<CreatePriceDraftResult> CreateDraftAsync(PricingActorContext actor, CreatePriceDraftRequest request, string key, CancellationToken ct)
     {

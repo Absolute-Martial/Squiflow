@@ -20,6 +20,33 @@ public sealed partial class PostgresPricingStore(
     };
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
 
+    public async Task<CreatePriceDraftResult?> FindCreateReplayAsync(PricingActorContext actor,
+        CreatePriceDraftRequest request, string idempotencyKey, CancellationToken cancellationToken)
+    {
+        RequireIdempotencyKey(idempotencyKey);
+        await using var session = await PricingTenantDbSession.OpenAsync(dataSource, actor.TenantId, cancellationToken).ConfigureAwait(false);
+        var receipt = await FindReceiptAsync(session, actor, CreateDraftOperation, idempotencyKey, cancellationToken).ConfigureAwait(false);
+        if (receipt is null) return null;
+        var envelope = DeserializeReceipt<CreatePriceDraftStatus>(receipt.Value.ResponseJson);
+        // HTTP derives the immutable unit code from Catalog. A saved retry uses its retained code.
+        var fingerprint = (request with { UnitCode = string.IsNullOrEmpty(request.UnitCode) ? envelope.Snapshot.Key.UnitCode : request.UnitCode }).Fingerprint;
+        var replay = await ReplayCreateAsync(session, actor, receipt.Value, fingerprint, cancellationToken).ConfigureAwait(false);
+        await session.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return replay;
+    }
+
+    public async Task<PublishPriceResult?> FindPublishReplayAsync(PricingActorContext actor,
+        PublishPriceRequest request, string idempotencyKey, CancellationToken cancellationToken)
+    {
+        RequireIdempotencyKey(idempotencyKey);
+        await using var session = await PricingTenantDbSession.OpenAsync(dataSource, actor.TenantId, cancellationToken).ConfigureAwait(false);
+        var receipt = await FindReceiptAsync(session, actor, PublishOperation, idempotencyKey, cancellationToken).ConfigureAwait(false);
+        if (receipt is null) return null;
+        var replay = await ReplayPublishAsync(session, actor, receipt.Value, request.Fingerprint, cancellationToken).ConfigureAwait(false);
+        await session.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return replay;
+    }
+
     public async Task<CreatePriceDraftResult> CreateDraftAsync(
         PricingActorContext actor,
         CreatePriceDraftRequest request,

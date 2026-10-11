@@ -74,6 +74,19 @@ public sealed class PricingPostgresStoreTests : PricingPostgresTestDatabase
         Assert.Equal(published.Price, replayAfterRetire.Price);
         var originalDraftReplay = await store.CreateDraftAsync(actor, request, "draft-key", CancellationToken.None);
         Assert.Equal(PricePublicationState.Draft, originalDraftReplay.Price!.State);
+        var transportRetry = request with { UnitCode = "" };
+        var savedCreate = await store.FindCreateReplayAsync(actor, transportRetry, "draft-key", default);
+        Assert.Equal(CreatePriceDraftStatus.Replayed, savedCreate!.Status);
+        Assert.Equal(created.Price, savedCreate.Price);
+        Assert.Equal(CreatePriceDraftStatus.IdempotencyKeyConflict,
+            (await store.FindCreateReplayAsync(actor, transportRetry with { BaseUnitPrice = 99 }, "draft-key", default))!.Status);
+        Assert.Null(await store.FindCreateReplayAsync(new(TenantA, Guid.NewGuid()), transportRetry, "draft-key", default));
+        Assert.Null(await store.FindCreateReplayAsync(new(TenantB, Account), transportRetry, "draft-key", default));
+        var savedPublication = await store.FindPublishReplayAsync(actor, new(created.Price.RevisionId), "publish-key", default);
+        Assert.Equal(PublishPriceStatus.Replayed, savedPublication!.Status);
+        Assert.Equal(published.Price, savedPublication.Price);
+        Assert.Equal(PublishPriceStatus.IdempotencyKeyConflict,
+            (await store.FindPublishReplayAsync(actor, new(Guid.NewGuid()), "publish-key", default))!.Status);
         Assert.Equal(2, history.Count);
         Assert.Equal(
             [PricePublicationState.Superseded, PricePublicationState.Retired],
@@ -100,6 +113,28 @@ public sealed class PricingPostgresStoreTests : PricingPostgresTestDatabase
         var candidates = await store.GetPublishedCandidatesAsync(
              actor, new PriceLookupRequest(Item, "EA", "USD", Unit), CancellationToken.None);
         Assert.Single(candidates);
+    }
+
+    [Fact]
+    public async Task ConversionRevisionChangeRequiresExplicitSupersessionWithinTheEconomicFamily()
+    {
+        await ApplyPricingSchemaAsync(); await SeedAuthorityAsync(TenantA, Account);
+        await using var source = await CreateRuntimeDataSourceAsync();
+        var store = new PostgresPricingStore(source, new FixedTimeProvider(Now)); var actor = new PricingActorContext(TenantA, Account);
+        var original = (await store.CreateDraftAsync(actor, Draft(PriceScope.Default(), 10) with { UnitConversionRevision = 1 }, "original", default)).Price!;
+        await store.PublishAsync(actor, new(original.RevisionId), "publish-original", default);
+        var independent = (await store.CreateDraftAsync(actor, Draft(PriceScope.Default(), 20) with { UnitConversionRevision = 2 }, "other-family", default)).Price!;
+        Assert.Equal(PublishPriceStatus.PublicationConflict, (await store.PublishAsync(actor, new(independent.RevisionId), "overlap", default)).Status);
+        var replacement = (await store.CreateDraftAsync(actor, Draft(PriceScope.Default(), 20) with
+        { UnitConversionRevision = 2, PriceId = original.PriceId }, "replacement", default)).Price!;
+        var published = await store.PublishAsync(actor, new(replacement.RevisionId, original.RevisionId), "explicit-supersession", default);
+        Assert.Equal(PublishPriceStatus.Published, published.Status);
+        Assert.Equal(original.PriceId, published.Price!.PriceId);
+        var retained = (await store.FindAsync(actor, original.RevisionId, default))!;
+        Assert.Equal(PricePublicationState.Superseded, retained.State); Assert.Equal(1, retained.Key.UnitConversionRevision);
+        Assert.Empty(await store.GetPublishedCandidatesAsync(actor, new(Item, "EA", "USD", Unit, new(UnitConversionRevision: 1), at: Now), default));
+        Assert.Equal(replacement.RevisionId, Assert.Single(await store.GetPublishedCandidatesAsync(actor,
+            new(Item, "EA", "USD", Unit, new(UnitConversionRevision: 2), at: Now), default)).RevisionId);
     }
 
     [Fact]

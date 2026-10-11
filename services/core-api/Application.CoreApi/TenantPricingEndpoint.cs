@@ -24,7 +24,7 @@ internal static class TenantPricingEndpoint
         {
             var body = payload.Value!;
             var scope = ParseScope(body.Scope, body.TargetId);
-            var request = new CreatePriceDraftRequest(body.ItemId, "UNIT", body.CurrencyCode ?? "", scope,
+            var request = new CreatePriceDraftRequest(body.ItemId, string.Empty, body.CurrencyCode ?? "", scope,
                 body.BaseUnitPrice, new PriceValidity(body.ValidFrom.ToUniversalTime(), body.ValidTo?.ToUniversalTime()), body.UnitId, body.PriceId, body.ConversionRevision);
             var result = await pricing.CreateDraftAsync(Actor(access.Context!), request, key!, ct);
             if (result.Status == CreatePriceDraftStatus.IdempotencyKeyConflict) return IdempotencyConflict();
@@ -154,8 +154,8 @@ internal static class TenantPricingEndpoint
             var actor = Actor(access.Context!);
             var context = new PriceSelectionContext(body.CustomerId, body.ProgramId, body.OrganizationId, WholesaleApplicable: body.WholesaleApplicable, UnitConversionRevision: body.ConversionRevision);
             PricingApplication.RequirePublicContext(context);
-            await references.RequireContextAsync(actor, context, ct);
-            var code = await references.RequireCompatibleUnitAsync(actor, body.ItemId, body.UnitId, body.ConversionRevision, ct);
+            await references.RequireHistoricalContextAsync(actor, context, ct);
+            var code = await references.RequireHistoricalUnitAsync(actor, body.ItemId, body.UnitId, body.ConversionRevision, ct);
             var rows = await store.ListRevisionsAsync(actor, new PriceLookupRequest(body.ItemId, code, body.CurrencyCode ?? "", body.UnitId,
                 context, body.Limit, body.AfterRevision), ct);
             foreach (var row in rows) RequireTenant(row, tenantId);
