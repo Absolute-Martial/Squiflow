@@ -1,7 +1,8 @@
 # Catalog-priced Orders: COM-005/006/007 integration
 
 **Current state:** `PRODUCTION_HONEST` for the declared local scope after integrated
-host checks and the **1011-test** normal receiving gate. The transaction-bound publication pin and backend-loss
+host checks and the exact normal receiving gate recorded in `README.IMPLEMENTATION.md`.
+The transaction-bound publication pin and backend-loss
 regressions below are locally verified; no independent pin session remains.
 Manual-entry Orders retain their existing contract. Product version remains v0.0.1.
 
@@ -295,6 +296,8 @@ pre-pin-authority correction added `ASlowAuthorizationProviderInTheCommitPathDoe
 and `AnIneligibleManualDraftNeverConsultsCommitAuthorityAtAll`; it is falsifiable —
 restoring authority resolution inside the pin makes the first of them fail on an
 observed advisory lock, not on elapsed time.
+Catalog PostgreSQL **8/8**, and Pricing PostgreSQL **11/11**. These are focused
+receiving evidence, not a combined host/normal-gate qualification.
 
 Requalify when Catalog/Pricing contracts, conversion arithmetic, precedence,
 policy/override semantics, pin participants, commit authority timing,

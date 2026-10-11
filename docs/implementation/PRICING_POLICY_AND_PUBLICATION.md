@@ -18,8 +18,10 @@ that arithmetic. Current repository inventory is in `README.IMPLEMENTATION.md`.
 | Quotation/agreement owning-fact integration | `NOT_INTRODUCED` | COM-009 is absent. No client ID or price-book publication may pretend to be a committed fact. |
 | Discount calculation, approval workflow, arbitrary wholesale tiers | `NOT_INTRODUCED` | No expression language, guessed eligibility GUID or universal maker/checker rule. |
 
-The normal **1011-test** repository gate supplies combined receiving evidence;
-earlier standalone checks alone did not qualify the HTTP surface. This does not
+The exact normal repository gate supplies combined receiving evidence; its current
+total is recorded in `README.IMPLEMENTATION.md` and its task-level result in
+`docs/development-tasks/TASK_STATUS.md`. Earlier standalone checks alone did not
+qualify the HTTP surface. This does not
 claim remote CI, live deployment or absent quotation/discount/approval capabilities.
 
 ## Identity, immutable revisions and compatibility
