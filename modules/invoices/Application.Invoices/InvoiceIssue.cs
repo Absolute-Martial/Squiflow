@@ -487,6 +487,15 @@ public sealed class IssueInvoice(
                     return (null, new InvoiceIssueResult(InvoiceIssueStatus.InvalidDebtor));
                 }
 
+                // A consolidated-away identity is not a current debtor. The redirect is a
+                // forward pointer to the surviving individual; selecting the source would
+                // freeze an issued invoice naming an identity that no longer exists as a
+                // customer, under its pre-consolidation display name.
+                if (individual.RedirectTargetIndividualId.HasValue)
+                {
+                    return (null, new InvoiceIssueResult(InvoiceIssueStatus.InvalidDebtor));
+                }
+
                 if (individual.Availability == CustomerIndividualAvailability.Inactive)
                 {
                     return (null, new InvoiceIssueResult(

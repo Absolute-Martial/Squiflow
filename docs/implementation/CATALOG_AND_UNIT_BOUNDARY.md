@@ -4,7 +4,8 @@
 adapter are `PRODUCTION_HONEST` for the focused evidence below. CoreApi routes,
 independent pinned-model permissions, migration ordering, runtime grants and
 catalog-priced Orders integration are composed and `PRODUCTION_HONEST` for the
-declared local receiving scope after the **1011-test** normal gate. Actual numerical inventory
+declared local receiving scope after the exact normal gate recorded in
+`README.IMPLEMENTATION.md`. Actual numerical inventory
 authority remains `NOT_INTRODUCED`.
 
 This is the focused owner for COM-005. It records the accepted v0.0.1
@@ -78,8 +79,13 @@ operations:
 `CatalogLineFacts` retains item ID/code/name, unit ID/code/name, quantity,
 unit precision, item and source-unit revisions, base-unit code/name/precision/
 revision, rounded base quantity, conversion source/target IDs and exact ratio/
-revision, quantity arithmetic version, and rounding mode. A new line requires an
-active item and both active units; a different source unit requires an explicit
+revision, quantity arithmetic version, and rounding mode. The arithmetic version and
+rounding mode are required parameters published as `QuantityArithmetic.Version1` and
+`QuantityArithmetic.Version1Rounding`, so no consumer re-declares them and an absent
+retained field cannot be read as the value the engine produced. Each understood
+version gets its own constant beside version 1; a later version never overwrites it.
+A new line requires an active item and both active units; a different source unit
+requires an explicit
 direct conversion revision to the item's base unit. Availability-only selection
 also requires explicit available state. Retired records remain readable but
 are unavailable for new selection. `Available` means this catalog selection is

@@ -29,6 +29,9 @@ public sealed class CatalogEndpointTests
         Assert.Equal("EA", document.RootElement.GetProperty("code").GetString());
         Assert.False(document.RootElement.TryGetProperty("tenantId", out _));
         var id = document.RootElement.GetProperty("unitId").GetGuid();
+        // The created unit URL is derived from the request URL and the created identity.
+        Assert.Equal($"{created.RequestMessage!.RequestUri!.AbsolutePath}/{id:D}",
+            created.Headers.Location!.OriginalString);
         using var readDenied = await setup.SendAsync($"units/{id:D}");
         Assert.Equal(HttpStatusCode.Forbidden, readDenied.StatusCode);
         Assert.Equal(1, setup.Store.Calls);
@@ -118,7 +121,8 @@ public sealed class CatalogEndpointTests
         using var read = await setup.SendAsync(path + "?revision=1");
         Assert.Equal(HttpStatusCode.OK, read.StatusCode);
         setup.Store.Selection = new(CatalogLineFactsStatus.Available, new CatalogLineFacts(item, null, source, "Item", "ALT", "Alternate", 1m,
-            2, 1, 1, new(source, target, 1, 1m, 8m), "BASE", "Base", 2, 1, 0.12m));
+            2, 1, 1, new(source, target, 1, 1m, 8m), QuantityArithmetic.Version1, QuantityArithmetic.Version1Rounding,
+            "BASE", "Base", 2, 1, 0.12m));
         using var selection = await setup.SendAsync("line-facts", $"{{\"itemId\":\"{item:D}\",\"unitId\":\"{source:D}\",\"quantity\":1,\"conversionRevision\":1}}", key: null);
         Assert.Equal(HttpStatusCode.OK, selection.StatusCode);
         using var selected = JsonDocument.Parse(await selection.Content.ReadAsStringAsync());
@@ -137,6 +141,8 @@ public sealed class CatalogEndpointTests
         using var itemResponse = await setup.SendAsync("items", $"{{\"code\":null,\"name\":\"Service\",\"description\":null,\"kind\":\"service\",\"baseUnitId\":\"{unit.UnitId:D}\",\"stockMode\":\"availabilityOnly\"}}");
         Assert.Equal(HttpStatusCode.Created, itemResponse.StatusCode);
         var item = setup.Store.Item!;
+        Assert.Equal($"{itemResponse.RequestMessage!.RequestUri!.AbsolutePath}/{item.ItemId:D}",
+            itemResponse.Headers.Location!.OriginalString);
         using var itemJson = JsonDocument.Parse(await itemResponse.Content.ReadAsStringAsync());
         Assert.Equal("unavailable", itemJson.RootElement.GetProperty("availability").GetString());
         setup.Store.Item = item with

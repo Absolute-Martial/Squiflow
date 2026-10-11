@@ -35,7 +35,10 @@ public sealed class TenantCustomerEndpointTests : IClassFixture<WhiteLabelApiFac
         using var conflict = Post(basePath, "org-one", "Other");
         using var conflicting = await client.SendAsync(conflict);
         Assert.Equal(HttpStatusCode.Conflict, conflicting.StatusCode);
-        Assert.Contains("idempotency_key_conflict", await conflicting.Content.ReadAsStringAsync());
+        using var conflictingProblem = JsonDocument.Parse(await conflicting.Content.ReadAsStringAsync());
+        Assert.Equal("idempotency_key_conflict", conflictingProblem.RootElement.GetProperty("code").GetString());
+        Assert.Equal("Idempotency key conflict.", conflictingProblem.RootElement.GetProperty("title").GetString());
+        Assert.Contains("customer request", conflictingProblem.RootElement.GetProperty("detail").GetString());
         var orgPath = $"{basePath}/{organization.OrganizationId:D}";
         using var got = await client.GetAsync(orgPath);
         Assert.Equal(HttpStatusCode.OK, got.StatusCode);
@@ -70,6 +73,9 @@ public sealed class TenantCustomerEndpointTests : IClassFixture<WhiteLabelApiFac
         Assert.Equal(HttpStatusCode.BadRequest, crossParentCursor.StatusCode);
         using var wrongParent = await client.GetAsync($"{basePath}/{Guid.NewGuid():D}/programs/{program.ProgramId:D}");
         Assert.Equal(HttpStatusCode.NotFound, wrongParent.StatusCode);
+        using var wrongParentProblem = JsonDocument.Parse(await wrongParent.Content.ReadAsStringAsync());
+        Assert.Equal("program_not_found", wrongParentProblem.RootElement.GetProperty("code").GetString());
+        Assert.Equal("Customer resource not found.", wrongParentProblem.RootElement.GetProperty("title").GetString());
         using var unknownParentList = await client.GetAsync($"{basePath}/{Guid.NewGuid():D}/programs");
         Assert.Equal(HttpStatusCode.NotFound, unknownParentList.StatusCode);
         using var otherTenant = await client.GetAsync($"/api/v1/tenants/{Guid.NewGuid():D}/customers/organizations/{organization.OrganizationId:D}");
@@ -288,7 +294,9 @@ public sealed class TenantCustomerEndpointTests : IClassFixture<WhiteLabelApiFac
         using var missing = OrderPost(orders, "missing-customer", Guid.NewGuid());
         using var missingResponse = await client.SendAsync(missing);
         Assert.Equal(HttpStatusCode.NotFound, missingResponse.StatusCode);
-        Assert.Contains("customer_context_not_found", await missingResponse.Content.ReadAsStringAsync());
+        using var missingProblem = JsonDocument.Parse(await missingResponse.Content.ReadAsStringAsync());
+        Assert.Equal("customer_context_not_found", missingProblem.RootElement.GetProperty("code").GetString());
+        Assert.Equal("Customer context not found.", missingProblem.RootElement.GetProperty("title").GetString());
         using var malformed = OrderPost(orders, "malformed-customer", org.OrganizationId);
         malformed.Content = JsonContent.Create(new
         {

@@ -144,6 +144,62 @@ public sealed class InvoiceIssueTests
         Assert.Equal(0, invoiceStore.CommitCount);
     }
 
+    [Fact]
+    public async Task ConsolidatedAwayIndividualIsNotASelectableDebtor()
+    {
+        var tenant = await CreateContextAsync();
+        var sourceId = Guid.NewGuid();
+        var survivorId = Guid.NewGuid();
+        var orderStore = new TestOrderStore { Snapshot = CommittedOrder(tenant) };
+        var customers = new TestCustomerStore();
+        // Active and otherwise valid, but it now carries a forward redirect to the survivor.
+        customers.Individuals[sourceId] = RedirectedIndividual(
+            tenant, sourceId, "Pre-consolidation name", survivorId);
+        var invoiceStore = new InMemoryInvoiceIssueStore();
+        var useCase = CreateUseCase(new TestAuthority(), invoiceStore, orderStore, customers);
+
+        var result = await useCase.ExecuteAsync(
+            tenant,
+            new IssueInvoiceRequest(
+                orderStore.Snapshot.OrderId,
+                orderStore.Snapshot.Revision,
+                new InvoiceDebtorSelection.Individual(sourceId),
+                "redirected-individual"),
+            CancellationToken.None);
+
+        // Rejected as an invalid debtor rather than frozen as issued fact: an issued invoice
+        // is immutable, so accepting a merged-away identity would permanently mint a document
+        // naming a customer that no longer exists, under its pre-consolidation name.
+        Assert.Equal(InvoiceIssueStatus.InvalidDebtor, result.Status);
+        Assert.Null(result.RequiredDecision);
+        Assert.Equal(0, invoiceStore.CommitCount);
+    }
+
+    [Fact]
+    public async Task SurvivorOfAConsolidationRemainsASelectableDebtor()
+    {
+        var tenant = await CreateContextAsync();
+        var survivorId = Guid.NewGuid();
+        var orderStore = new TestOrderStore { Snapshot = CommittedOrder(tenant) };
+        var customers = new TestCustomerStore();
+        customers.Individuals[survivorId] = Individual(
+            tenant, survivorId, "Survivor", CustomerIndividualAvailability.Active, revision: 9);
+        var invoiceStore = new InMemoryInvoiceIssueStore();
+        var useCase = CreateUseCase(new TestAuthority(), invoiceStore, orderStore, customers);
+
+        var result = await useCase.ExecuteAsync(
+            tenant,
+            new IssueInvoiceRequest(
+                orderStore.Snapshot.OrderId,
+                orderStore.Snapshot.Revision,
+                new InvoiceDebtorSelection.Individual(survivorId),
+                "survivor-individual"),
+            CancellationToken.None);
+
+        Assert.Equal(InvoiceIssueStatus.Issued, result.Status);
+        Assert.Equal(1, invoiceStore.CommitCount);
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(99)]
@@ -558,7 +614,8 @@ public sealed class InvoiceIssueTests
         Guid individualId,
         string name,
         CustomerIndividualAvailability availability,
-        long revision) =>
+        long revision,
+        Guid? redirectTargetIndividualId = null) =>
         new(
             individualId,
             tenant.TenantId,
@@ -570,7 +627,21 @@ public sealed class InvoiceIssueTests
             tenant.AccountId,
             new DateTimeOffset(2026, 10, 1, 0, 0, 0, TimeSpan.Zero),
             null,
-            null);
+            null,
+            RedirectTargetIndividualId: redirectTargetIndividualId);
+
+    private static CustomerIndividualSnapshot RedirectedIndividual(
+        TenantContext tenant,
+        Guid individualId,
+        string name,
+        Guid redirectTargetIndividualId) =>
+        Individual(
+            tenant,
+            individualId,
+            name,
+            CustomerIndividualAvailability.Active,
+            revision: 4,
+            redirectTargetIndividualId: redirectTargetIndividualId);
 
     private static async Task<TenantContext> CreateContextAsync() =>
         (await new ResolveTenantContext(new ActiveMembershipDirectory())

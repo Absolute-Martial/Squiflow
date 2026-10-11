@@ -401,6 +401,67 @@ public sealed class OpenFgaTenantAuthorizationTests : IAsyncLifetime
                 pricingOnlyAccountId, tenantId, CancellationToken.None));
     }
 
+    // Returns the grantable relation a computed relation is gated behind when it is exactly
+    // "member AND <grantable relation>", and null for every directly assignable relation.
+    private static string? MembershipGatedGrant(JsonNode? relation)
+    {
+        var children = relation?["intersection"]?["child"]?.AsArray();
+        if (children is null || children.Count != 2) return null;
+        var operands = children
+            .Select(child => child?["computedUserset"]?["relation"]?.GetValue<string>())
+            .ToArray();
+        return operands[0] == "member" && operands[1] is { } grant && grant != "member" ? grant : null;
+    }
+
+    [Fact]
+    public async Task EveryCatalogPermissionHasItsPersistedAndMembershipGatedComputedRelationInTheTenantModel()
+    {
+        var model = JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(
+            AppContext.BaseDirectory,
+            "OpenFga",
+            "tenant-authorization-model.json")))!.AsObject();
+        var tenantRelations = model["type_definitions"]!.AsArray()
+            .Select(node => node!.AsObject())
+            .Single(node => node["type"]!.GetValue<string>() == "tenant")["relations"]!.AsObject();
+
+        // TenantPermissionCatalog is the only list of grantable permissions. Every entry is written
+        // as a persisted tuple relation and answered by exactly one membership-gated computed
+        // relation. The computed name is derived from the model rather than restated, so nothing
+        // would fail here if the catalog, the model or the two stopped agreeing.
+        var gated = tenantRelations
+            .Select(relation => (Computed: relation.Key, Grant: MembershipGatedGrant(relation.Value)))
+            .Where(relation => relation.Grant is not null)
+            .ToArray();
+        Assert.Equal(gated.Length, gated.Select(relation => relation.Grant).Distinct(StringComparer.Ordinal).Count());
+        var computedByGrant = gated.ToDictionary(relation => relation.Grant!, relation => relation.Computed, StringComparer.Ordinal);
+        foreach (var definition in TenantPermissionCatalog.All)
+        {
+            Assert.True(tenantRelations.ContainsKey(definition.Relation),
+                $"The tenant authorization model has no persisted relation for catalog permission {definition.PermissionId}.");
+            Assert.True(computedByGrant.TryGetValue(definition.Relation, out var computed),
+                $"The tenant authorization model has no membership-gated computed relation for catalog permission {definition.PermissionId}.");
+            Assert.StartsWith("can_", computed, StringComparison.Ordinal);
+        }
+
+        var catalogRelations = TenantPermissionCatalog.All
+            .Select(definition => definition.Relation)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        // A membership-gated computed relation that no catalog permission can grant is unreachable
+        // model surface that a later reviewer would misread as a granted permission.
+        Assert.Equal(catalogRelations, computedByGrant.Keys.Order(StringComparer.Ordinal).ToArray());
+
+        // Conversely the tenant type must not carry a directly assignable relation that the
+        // catalog does not offer, or a tuple could grant a permission the application never offers.
+        Assert.Equal(
+            catalogRelations.Prepend("member").Order(StringComparer.Ordinal).ToArray(),
+            tenantRelations.Select(relation => relation.Key)
+                .Where(name => !name.StartsWith("can_", StringComparison.Ordinal))
+                .Order(StringComparer.Ordinal)
+                .ToArray());
+    }
+
 
     [Fact]
     public async Task AdministrationProviderReconcilesGrantRevokeAndTenantScopedCustomRoleAgainstPinnedModel()

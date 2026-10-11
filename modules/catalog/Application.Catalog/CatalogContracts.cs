@@ -109,6 +109,18 @@ public sealed record CatalogConversionFacts(
     decimal Numerator,
     decimal Denominator);
 
+// Quantity arithmetic is Catalog-owned and versioned. Each understood version is its
+// own named constant: a later version is added beside this one, never substituted for
+// it, so a fact frozen under version 1 stays verifiable by version 1 forever.
+public static class QuantityArithmetic
+{
+    public const int Version1 = 1;
+    public const string Version1Rounding = "toEven";
+}
+
+// The arithmetic version and rounding are required, not defaulted. A defaulted record
+// parameter makes an absent durable field indistinguishable from an explicit value,
+// so a truncated or legacy payload would silently be read as version 1.
 public sealed record CatalogLineFacts(
     Guid ItemId,
     string? ItemCode,
@@ -121,13 +133,13 @@ public sealed record CatalogLineFacts(
     long ItemRevision,
     long UnitRevision,
     CatalogConversionFacts Conversion,
+    int QuantityArithmeticVersion,
+    string QuantityRounding,
     string? BaseUnitCode = null,
     string? BaseUnitName = null,
     int? BaseUnitPrecision = null,
     long? BaseUnitRevision = null,
-    decimal? BaseQuantity = null,
-    int QuantityArithmeticVersion = 1,
-    string QuantityRounding = "toEven");
+    decimal? BaseQuantity = null);
 
 public enum CreateCatalogUnitStatus
 {

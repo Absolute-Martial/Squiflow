@@ -15,10 +15,10 @@ internal static class TenantPricingEndpoint
         ResolveAccountBinding account, ResolveTenantContext tenant, IAuthorizationService authorization,
         PricingApplication pricing, CancellationToken ct)
     {
-        var access = await TenantCustomerEndpoint.ResolveAsync(tenantId, http, principal, account, tenant, authorization, ct);
+        var access = await TenantCustomerEndpoint.ResolveAsync(tenantId, http, principal, account, tenant, authorization, ct, DeniedDetail);
         if (access.Failure is not null) return access.Failure;
         if (!TryKey(http, out var key)) return InvalidKey();
-        var payload = await TenantCustomerEndpoint.ReadPayloadAsync<PricingDraftPayload>(http.Request, ct, strict: true);
+        var payload = await TenantCustomerEndpoint.ReadPayloadAsync<PricingDraftPayload>(http.Request, CapabilityProblemTitles.Pricing, ct, strict: true);
         if (payload.Failure is not null) return payload.Failure;
         try
         {
@@ -27,7 +27,7 @@ internal static class TenantPricingEndpoint
             var request = new CreatePriceDraftRequest(body.ItemId, "UNIT", body.CurrencyCode ?? "", scope,
                 body.BaseUnitPrice, new PriceValidity(body.ValidFrom.ToUniversalTime(), body.ValidTo?.ToUniversalTime()), body.UnitId, body.PriceId, body.ConversionRevision);
             var result = await pricing.CreateDraftAsync(Actor(access.Context!), request, key!, ct);
-            if (result.Status == CreatePriceDraftStatus.IdempotencyKeyConflict) return TenantCustomerEndpoint.Conflict();
+            if (result.Status == CreatePriceDraftStatus.IdempotencyKeyConflict) return IdempotencyConflict();
             var price = result.Price ?? throw new InvalidOperationException("Pricing create returned no snapshot.");
             RequireTenant(price, tenantId);
             var response = ToResponse(price);
@@ -41,16 +41,16 @@ internal static class TenantPricingEndpoint
         ResolveAccountBinding account, ResolveTenantContext tenant, IAuthorizationService authorization,
         PricingApplication pricing, CancellationToken ct)
     {
-        var access = await TenantCustomerEndpoint.ResolveAsync(tenantId, http, principal, account, tenant, authorization, ct);
+        var access = await TenantCustomerEndpoint.ResolveAsync(tenantId, http, principal, account, tenant, authorization, ct, DeniedDetail);
         if (access.Failure is not null) return access.Failure;
         if (!TryKey(http, out var key)) return InvalidKey();
-        var payload = await TenantCustomerEndpoint.ReadPayloadAsync<PricingPublishPayload>(http.Request, ct, strict: true);
+        var payload = await TenantCustomerEndpoint.ReadPayloadAsync<PricingPublishPayload>(http.Request, CapabilityProblemTitles.Pricing, ct, strict: true);
         if (payload.Failure is not null) return payload.Failure;
         try
         {
             var result = await pricing.PublishAsync(Actor(access.Context!), new PublishPriceRequest(revisionId, payload.Value!.SupersedeRevisionId), key!, ct);
             if (result.Status == PublishPriceStatus.NotFound) return MissingRevision();
-            if (result.Status == PublishPriceStatus.IdempotencyKeyConflict) return TenantCustomerEndpoint.Conflict();
+            if (result.Status == PublishPriceStatus.IdempotencyKeyConflict) return IdempotencyConflict();
             if (result.Status is PublishPriceStatus.RevisionConflict or PublishPriceStatus.PublicationConflict)
                 return Conflict(result.Status == PublishPriceStatus.PublicationConflict ? "pricing_publication_conflict" : "pricing_revision_conflict");
             var price = result.Price ?? throw new InvalidOperationException("Pricing publication returned no snapshot.");
@@ -65,16 +65,16 @@ internal static class TenantPricingEndpoint
         ResolveAccountBinding account, ResolveTenantContext tenant, IAuthorizationService authorization,
         IPricingPublicationStore store, CancellationToken ct)
     {
-        var access = await TenantCustomerEndpoint.ResolveAsync(tenantId, http, principal, account, tenant, authorization, ct);
+        var access = await TenantCustomerEndpoint.ResolveAsync(tenantId, http, principal, account, tenant, authorization, ct, DeniedDetail);
         if (access.Failure is not null) return access.Failure;
         if (!TryKey(http, out var key)) return InvalidKey();
-        var payload = await TenantCustomerEndpoint.ReadPayloadAsync<PricingRetirePayload>(http.Request, ct, strict: true);
+        var payload = await TenantCustomerEndpoint.ReadPayloadAsync<PricingRetirePayload>(http.Request, CapabilityProblemTitles.Pricing, ct, strict: true);
         if (payload.Failure is not null) return payload.Failure;
         try
         {
             var result = await store.RetireAsync(Actor(access.Context!), new RetirePriceRequest(revisionId), key!, ct);
             if (result.Status == RetirePriceStatus.NotFound) return MissingRevision();
-            if (result.Status == RetirePriceStatus.IdempotencyKeyConflict) return TenantCustomerEndpoint.Conflict();
+            if (result.Status == RetirePriceStatus.IdempotencyKeyConflict) return IdempotencyConflict();
             if (result.Status == RetirePriceStatus.RevisionConflict) return Conflict("pricing_revision_conflict");
             var price = result.Price ?? throw new InvalidOperationException("Pricing retirement returned no snapshot.");
             RequireTenant(price, tenantId);
@@ -88,9 +88,9 @@ internal static class TenantPricingEndpoint
         ResolveAccountBinding account, ResolveTenantContext tenant, IAuthorizationService authorization,
         ITenantPricingAuthorization permissions, PricingApplication pricing, CancellationToken ct)
     {
-        var access = await TenantCustomerEndpoint.ResolveAsync(tenantId, http, principal, account, tenant, authorization, ct);
+        var access = await TenantCustomerEndpoint.ResolveAsync(tenantId, http, principal, account, tenant, authorization, ct, DeniedDetail);
         if (access.Failure is not null) return access.Failure;
-        var payload = await TenantCustomerEndpoint.ReadPayloadAsync<PricingSelectionPayload>(http.Request, ct, strict: true);
+        var payload = await TenantCustomerEndpoint.ReadPayloadAsync<PricingSelectionPayload>(http.Request, CapabilityProblemTitles.Pricing, ct, strict: true);
         if (payload.Failure is not null) return payload.Failure;
         try
         {
@@ -128,7 +128,7 @@ internal static class TenantPricingEndpoint
         ResolveAccountBinding account, ResolveTenantContext tenant, IAuthorizationService authorization,
         IPricingPublicationStore store, CancellationToken ct)
     {
-        var access = await TenantCustomerEndpoint.ResolveAsync(tenantId, http, principal, account, tenant, authorization, ct);
+        var access = await TenantCustomerEndpoint.ResolveAsync(tenantId, http, principal, account, tenant, authorization, ct, DeniedDetail);
         if (access.Failure is not null) return access.Failure;
         try
         {
@@ -144,9 +144,9 @@ internal static class TenantPricingEndpoint
         ResolveAccountBinding account, ResolveTenantContext tenant, IAuthorizationService authorization,
         IPricingPublicationStore store, IPricingReferenceReader references, CancellationToken ct)
     {
-        var access = await TenantCustomerEndpoint.ResolveAsync(tenantId, http, principal, account, tenant, authorization, ct);
+        var access = await TenantCustomerEndpoint.ResolveAsync(tenantId, http, principal, account, tenant, authorization, ct, DeniedDetail);
         if (access.Failure is not null) return access.Failure;
-        var payload = await TenantCustomerEndpoint.ReadPayloadAsync<PricingHistoryPayload>(http.Request, ct, strict: true);
+        var payload = await TenantCustomerEndpoint.ReadPayloadAsync<PricingHistoryPayload>(http.Request, CapabilityProblemTitles.Pricing, ct, strict: true);
         if (payload.Failure is not null) return payload.Failure;
         try
         {
@@ -168,7 +168,7 @@ internal static class TenantPricingEndpoint
         ResolveAccountBinding account, ResolveTenantContext tenant, IAuthorizationService authorization,
         IPricingPolicyStore policies, CancellationToken ct)
     {
-        var access = await TenantCustomerEndpoint.ResolveAsync(tenantId, http, principal, account, tenant, authorization, ct);
+        var access = await TenantCustomerEndpoint.ResolveAsync(tenantId, http, principal, account, tenant, authorization, ct, DeniedDetail);
         if (access.Failure is not null) return access.Failure;
         var snapshot = await policies.GetCurrentPolicyAsync(Actor(access.Context!), ct);
         if (snapshot is not null && snapshot.TenantId != tenantId) throw new InvalidOperationException("Pricing policy tenant mismatch.");
@@ -179,17 +179,17 @@ internal static class TenantPricingEndpoint
         ResolveAccountBinding account, ResolveTenantContext tenant, IAuthorizationService authorization,
         IPricingPolicyStore policies, CancellationToken ct)
     {
-        var access = await TenantCustomerEndpoint.ResolveAsync(tenantId, http, principal, account, tenant, authorization, ct);
+        var access = await TenantCustomerEndpoint.ResolveAsync(tenantId, http, principal, account, tenant, authorization, ct, DeniedDetail);
         if (access.Failure is not null) return access.Failure;
         if (!TryKey(http, out var key)) return InvalidKey();
-        var payload = await TenantCustomerEndpoint.ReadPayloadAsync<PricingPolicyPayload>(http.Request, ct, strict: true);
+        var payload = await TenantCustomerEndpoint.ReadPayloadAsync<PricingPolicyPayload>(http.Request, CapabilityProblemTitles.Pricing, ct, strict: true);
         if (payload.Failure is not null) return payload.Failure;
         try
         {
             var body = payload.Value!;
             var result = await policies.PublishPolicyAsync(Actor(access.Context!), new PublishPricingPolicyRequest(body.ExpectedRevision,
                 body.MinimumUnitPrice, body.MaximumUnitPrice, body.MaximumDecreasePercent, body.MaximumIncreasePercent), key!, ct);
-            if (result.Status == PublishPricingPolicyStatus.IdempotencyKeyConflict) return TenantCustomerEndpoint.Conflict();
+            if (result.Status == PublishPricingPolicyStatus.IdempotencyKeyConflict) return IdempotencyConflict();
             if (result.Status == PublishPricingPolicyStatus.RevisionConflict) return Conflict("pricing_policy_revision_conflict");
             if (result.Snapshot is null || result.Snapshot.TenantId != tenantId) throw new InvalidOperationException("Pricing policy publication returned inconsistent facts.");
             if (result.Status == PublishPricingPolicyStatus.Replayed) Replay(http);
@@ -213,17 +213,29 @@ internal static class TenantPricingEndpoint
     { if (value.TenantId != tenantId) throw new InvalidOperationException("Pricing operation returned another tenant's facts."); }
     private static bool TryKey(HttpContext http, out string? key) => TenantCustomerEndpoint.TryKey(http.Request, out key) &&
         !string.IsNullOrWhiteSpace(key) && key.Length <= 128 && !key.Any(char.IsControl);
-    private static ProblemHttpResult InvalidKey() => TenantCustomerEndpoint.Invalid("idempotency_key_invalid", "One bounded Idempotency-Key is required.");
+    private const string DeniedDetail =
+        "The account is not permitted to perform this pricing operation in this tenant.";
+
+    private static ProblemHttpResult InvalidKey() => TenantCustomerEndpoint.Invalid(
+        CapabilityProblemTitles.Pricing, "idempotency_key_invalid", "One bounded Idempotency-Key is required.");
     private static void Replay(HttpContext http) => http.Response.Headers.Append("Idempotency-Replayed", "true");
-    private static ProblemHttpResult MissingRevision() => TenantCustomerEndpoint.NotFound("pricing_revision_not_found", "Price revision not found in this tenant.");
+    private static ProblemHttpResult MissingRevision() => TypedResults.Problem(statusCode: 404,
+        title: "Price revision not found.", detail: "Price revision not found in this tenant.",
+        extensions: new Dictionary<string, object?> { ["code"] = "pricing_revision_not_found" });
+    private static ProblemHttpResult MissingPolicy() => TypedResults.Problem(statusCode: 404,
+        title: "Pricing policy not found.", detail: "No pricing policy is published.",
+        extensions: new Dictionary<string, object?> { ["code"] = "pricing_policy_missing" });
+    private static ProblemHttpResult IdempotencyConflict() => TenantCustomerEndpoint.Conflict(
+        "The Idempotency-Key has already been used for a different pricing request.");
     private static ProblemHttpResult Conflict(string code) => TypedResults.Problem(statusCode: 409, title: "Pricing command conflicts with current facts.",
         extensions: new Dictionary<string, object?> { ["code"] = code });
     private static ProblemHttpResult Unavailable() => TypedResults.Problem(statusCode: 503, title: "Authorization is temporarily unavailable.",
         extensions: new Dictionary<string, object?> { ["code"] = "authorization_unavailable" });
     private static ProblemHttpResult Invalid(ArgumentException error) => error is PricingValidationException validation
         ? validation.Code == "tenant_access_invalid" ? TenantRequestAccess.Problem(validation.Code, validation.Message)
-            : TenantCustomerEndpoint.Invalid(validation.Code, validation.Message)
-        : TenantCustomerEndpoint.Invalid("pricing_request_invalid", "Pricing request contains invalid values.");
+            : TenantCustomerEndpoint.Invalid(CapabilityProblemTitles.Pricing, validation.Code, validation.Message)
+        : TenantCustomerEndpoint.Invalid(CapabilityProblemTitles.Pricing, "pricing_request_invalid",
+            "Pricing request contains invalid values.");
     private static PricingRevisionResponse ToResponse(PriceRevision value) => new(value.PriceId, value.RevisionId, value.RevisionNumber,
         value.Key.ItemId, value.Key.UnitId, value.Key.UnitCode, value.Key.CurrencyCode, value.Key.Scope.Kind.ToString(), value.Key.Scope.TargetId,
         value.BaseUnitPrice, value.Validity.ValidFrom, value.Validity.ValidTo, value.State.ToString(), value.CreatedAt, value.PublishedAt, value.RetiredAt, value.Key.UnitConversionRevision);

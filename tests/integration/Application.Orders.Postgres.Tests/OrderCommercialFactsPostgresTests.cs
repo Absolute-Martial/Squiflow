@@ -156,7 +156,8 @@ public sealed partial class OrderMigrationAndRlsTests
         var now = new DateTimeOffset(2026, 10, 7, 12, 0, 0, TimeSpan.Zero);
         var conversion = new CatalogConversionFacts(unit, baseUnit, 3, 5m, 2m);
         var catalog = new CatalogLineFacts(item, "SKU", unit, name, unitCode, "Box", 2m, 4, revision, 1,
-            conversion, "EA", "Each", 4, 1, 5m);
+            conversion, QuantityArithmetic.Version1, QuantityArithmetic.Version1Rounding,
+            "EA", "Each", 4, 1, 5m);
         var price = new PriceRevision(context.TenantId, Guid.NewGuid(), revision,
             new(item, unitCode, currency, PriceScope.Default(), unit, conversion.Revision), 1.2345m,
             new(now.AddDays(-1)), PricePublicationState.Published, context.AccountId, now.AddDays(-1), now.AddDays(-1));
