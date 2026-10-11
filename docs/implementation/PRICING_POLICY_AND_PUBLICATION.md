@@ -50,6 +50,16 @@ supersede one published same-key/same-family revision; otherwise a same-scope
 validity overlap is a conflict. No newest-record-wins selection exists.
 Current lifecycle may change; complete immutable command snapshots do not.
 
+Current host authorization still precedes caller-scoped receipt reads. Exact create
+and publish retries read immutable receipts before checking today's reference
+availability; retirement cannot change a saved outcome or permit changed intent.
+Price history validates tenant ownership and pinned conversion compatibility while
+allowing retired item/unit and historical customer references. New drafts,
+publication effects and current selection continue to require active references.
+Conversion revision is compatibility evidence within the stable economic family,
+not another publication dimension: moving to a new conversion revision explicitly
+supersedes the prior published revision in that same family.
+
 The additive `202610060002_StableUnitsAndPolicy` migration preserves older rows
 and assigns their existing revision identity as their family identity. It does
 **not** guess Catalog IDs from old unit strings. Legacy unit-less facts remain

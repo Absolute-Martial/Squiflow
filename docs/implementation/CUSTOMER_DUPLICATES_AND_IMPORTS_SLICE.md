@@ -184,15 +184,61 @@ does not log provider response bodies or credentials, and maps timeout/permissio
 capacity/unknown outcomes to owned results.
 
 PostgreSQL retains source object metadata, state (`staged`, `quarantined`, `available`,
-`unavailable`, `orphaned`, `retired`, `retirement-pending`), default seven-day or
-explicit archival retention, and one tenant/provider-scoped byte reservation/accounting
-row. Reservation admission locks the usage row, is semantic-idempotent by the import
-key, and retains unknown effects for reconciliation. Expired default objects are claimed
-and retired only when no active/unknown reservation remains; the import plan, manifest,
-row hashes, decisions and results remain after raw bytes retire. Source download is a
-separate protected route and checks current tenant/import permission plus available
-metadata; object keys alone never authorize access. Staged/quarantined/orphaned bytes
-are not published.
+`unavailable`, `orphaned`, `retired`, `retirement-pending`) and tenant/provider byte
+accounting. Reservations are scoped to tenant, operator account and idempotency
+key. A matching retry recovers the original import ID and immutable source key;
+changed bytes or retention conflict. A durable five-minute upload lease and
+monotonic generation prevent stale writers from publishing, releasing allowance
+or changing a successor's state. An in-progress matching retry returns the safe,
+retryable `import_source_busy` response.
+
+Validated rows, their caller-scoped receipt, source availability, source link and
+reserved-to-retained byte accounting commit in one PostgreSQL transaction. Failed
+publication rolls all five effects back. A provider error does not prove absence;
+uncertain uploads retain their reservation. A proven-absent reservation must
+reacquire allowance before a new upload can begin.
+
+Until that source plan is durably accepted, its bytes are seven-day staging even
+when archival retention was requested. Atomic publication clears the staging
+expiry: accepted archives are indefinite; accepted default sources retain their
+original seven-day expiry. Private bounded discovery visits source-only tenants,
+including expired staged/unavailable/uncertain uploads and abandoned archives.
+Cleanup waits for active upload ownership to expire and uses recoverable,
+generation-fenced cleanup leases. It preserves plans, manifests, rows, receipts,
+decisions and historical results.
+
+Physical retirement removes customer bytes and establishes a permanent zero-byte
+marker at the source key. The adapter uses an atomic conditional replacement of
+the observed object version, or conditional creation when absent. A blind
+DELETE followed by marker creation would allow a delayed DELETE to remove a
+newer marker. Existing markers are verified through the empty-body hash and are
+never deleted by recovery; stale conditional writes and late `If-None-Match` CSV
+uploads cannot replace them. Missing-object metadata alone is insufficient.
+Only verified retirement under the current cleanup lease atomically releases
+reserved/retained bytes once and terminalizes reservations. Uncertain effects,
+unsupported conditional writes or a changed provider scope remain retryable with
+accounting intact. Live conditional-write/marker behavior still requires OPS-007
+and OPS-008 evidence; no alternate provider is silently substituted.
+
+The additive `20261011090000_CustomerImportUploadRecovery` migration backfills
+exact legacy source/receipt links and caller provenance under tenant context and
+forced RLS. Ambiguous reservations remain ownerless and recover through private
+retirement. Downgrade refuses to discard new provenance, staging or markers.
+Runtime grants permit only lifecycle, accounting and lease fields to change;
+account/import identity, keys, hashes, byte lengths and retention remain immutable.
+Source download checks current tenant/import permission and expiry-aware available
+metadata; object keys alone never authorize access. Staged/quarantined/orphaned
+bytes are not published.
+
+Monitoring and automatic recovery are separate responsibilities within CoreApi.
+`CustomerImportRecoveryMonitor` owns only observations and the
+`Application.CustomerImportRecovery` meter with the stable `outcome` tag; it has
+no persistence, provider or command authority. `ReconcileCustomerImportSource`
+owns retirement decisions and durable transitions. The hosted executor gives
+business execution and recovery independent scopes/deadlines so an authorization
+outage cannot skip cleanup. A failing telemetry subscriber cannot roll back
+retirement, stop the host or prevent subsequent recovery. No new deployed service
+or public maintenance endpoint is introduced.
 
 The explicit transport election is the single bounded header
 `X-Tenant-Import-Retention: default|archive`; absence means the seven-day default.
@@ -462,7 +508,9 @@ custom shutdown timer/configuration or unbounded concurrency setting.
   `20261007110000_CustomerForwardCanonicalization`, then the additive
   `20261007180000_CustomerImportRawSourceLifecycle`, which creates the
   `object_storage_usage`, `import_source_objects` and
-  `object_storage_reservations` objects the deployment grant below depends on.
+  `object_storage_reservations` objects, followed by
+  `20261011090000_CustomerImportUploadRecovery` for caller provenance, upload leases,
+  staging expiry and retirement fences. The updated deployment grant requires both.
 - `20261007110000_CustomerForwardCanonicalization` changes trigger/function
   semantics only, retaining their previous
   immutable EF target model and the current snapshot. No runtime UPDATE/DELETE on
@@ -681,3 +729,21 @@ readiness check asserts the admission signal rather than a provider round trip.
 Requalify on any change to the object-storage/execution configuration link, the
 run-batch route mapping or ordering, the `import_executor_unavailable` /
 `authorization_unavailable` problem codes, or the readiness check set.
+
+### PR #5 recovery requalification (2026-10-11)
+
+The owner accepted the recovery and consolidated-pricing contracts in
+`docs/review/PR_5_RECOVERY_AND_CONSOLIDATED_PRICING_DECISION_PROPOSAL.md`, including
+separate monitoring/recovery responsibilities in the current host. The prior
+2026-10-07 evidence is historical; the changed recovery path receives a new gate.
+Permanent guards now include `CustomerImportUploadRecoveryPostgresTests.cs`,
+`CustomerImportRecoveryMigrationPostgresTests.cs`, the controlled conditional
+retirement races in `HuggingFaceObjectStoreSignatureTests.cs`, and the autonomous
+authorization-outage and monitoring-subscriber regressions. Requalify on changes
+to transaction boundaries, idempotency scope, lease generations, conditional
+provider semantics, discovery/RLS, accounting grants or host operation ordering.
+
+Consolidation preserves original customer price history without automatic
+carryover; new work uses the survivor's applicable prices. Explicit retirement
+and replacement require independent Pricing authority. The Pricing owner remains
+`docs/implementation/PRICING_POLICY_AND_PUBLICATION.md`.
