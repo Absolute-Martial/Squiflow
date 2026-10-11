@@ -195,11 +195,8 @@ public sealed partial class OrderMigrationAndRlsTests
         var error = await Assert.ThrowsAsync<PostgresException>(() => downgrade.ExecuteNonQueryAsync());
         Assert.Contains("committed orders exist", error.MessageText, StringComparison.Ordinal);
         Assert.Contains("202610030001_OrderCommitment", await schema.Database.GetAppliedMigrationsAsync());
-        // EF executes each migration transaction independently. An empty additive
-        // commercial column may have been removed before the older commitment
-        // downgrade refuses; roll that safe additive schema forward before using
-        // the current binary's line reader. The retained commitment was not erased.
-        await schema.GetService<IMigrator>().MigrateAsync("202610070001_OrderCommercialFacts");
+        // The generated historical script refused before any destructive DDL. The
+        // current schema remains intact; do not downgrade unrelated later migrations.
         Assert.Equal(OrderDraftState.Committed, (await store.FindAsync(context, original.OrderId, CancellationToken.None))!.State);
         Assert.Null(new OrderDraftRevision().TargetModel.FindEntityType("Application.Orders.Postgres.OrderDraftRow")!.FindProperty("CommittedAt"));
         Assert.NotNull(new OrderCommitment().TargetModel.FindEntityType("Application.Orders.Postgres.OrderDraftRow")!.FindProperty("CommittedAt"));
