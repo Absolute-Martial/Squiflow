@@ -208,7 +208,7 @@ public sealed class CatalogOrderDraftTests
     public async Task RetainedFactsMissingDurableQuantityArithmeticAreRejectedInsteadOfReadAsVersionOne(string absentField)
     {
         var fixture = await Fixture.CreateAsync();
-        var created = (await fixture.Application.CreateAsync(fixture.Context, fixture.Request, "create", new(false, false), default)).Order!;
+        var created = (await fixture.Application.CreateAsync(fixture.Context, fixture.Request, "create", new(false), default)).Order!;
         OrderCommercialFactsValidation.RequireValid(created);
 
         // Reproduce a durable payload that lost an arithmetic field. Catalog requires
@@ -224,6 +224,8 @@ public sealed class CatalogOrderDraftTests
         else
             Assert.NotEqual(retained.QuantityRounding, catalog.QuantityRounding);
         Assert.Throws<InvalidOperationException>(() => OrderCommercialFactsValidation.RequireValid(truncated));
+    }
+
     // Mirrors the production commit sequence exactly: external current authority is
     // resolved first, then the pinned comparison consumes that decision.
     private static async Task<bool> CompatibleAsync(OrderCommercialCommitGuard guard, TenantContext context, OrderDraftSnapshot order)
