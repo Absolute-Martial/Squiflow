@@ -20,6 +20,13 @@ public sealed partial class PostgresCustomerStore
             cancellationToken).ConfigureAwait(false);
         if (receipt is not null) return CreateReplay(receipt.Value, intent);
 
+        // An individual insert publishes the same canonical duplicate signals that
+        // consolidation, duplicate resolution, representative mutation and import row
+        // acceptance serialize on, so it joins the same tenant canonicalization gate
+        // instead of racing those readers. Canonical uniqueness is deliberately not
+        // claimed here; this gate only orders the writers.
+        await LockCustomerCanonicalizationAsync(session, context.TenantId, cancellationToken).ConfigureAwait(false);
+
         var individual = new CustomerIndividualSnapshot(Guid.CreateVersion7(), context.TenantId,
             intent.DisplayName, intent.Email, intent.Phone, CustomerIndividualAvailability.Active, 1,
             context.AccountId, CurrentStorageTime(), null, null, null, null, intent.CustomerType,
