@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Application.Catalog;
 using Application.Customers;
 using Application.Pricing;
@@ -24,6 +25,48 @@ public sealed class CatalogOrderDraftTests
         Assert.Equal(2m, retained.Catalog.BaseQuantity);
         Assert.Equal("Each", retained.Catalog.BaseUnitName);
         OrderCommercialFactsValidation.RequireValid(result.Order);
+    }
+
+    [Fact]
+    public async Task ApprovalSubjectRoundTripComparesNestedCommercialFactsByValue()
+    {
+        var fixture = await Fixture.CreateAsync();
+        var created = await fixture.Application.CreateAsync(fixture.Context, fixture.Request, "create", new(false, false), default);
+        var order = created.Order! with
+        {
+            CustomerContext = new(Guid.NewGuid(), Guid.NewGuid()),
+            ProgramPolicy = new(Guid.NewGuid(), Guid.NewGuid(), true),
+            ExternalProgramReference = "PO-1",
+        };
+        var subject = OrderApprovalRules.CreateSubject(order, order.CreatedByAccountId);
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        var rehydrated = JsonSerializer.Deserialize<OrderApprovalSubject>(JsonSerializer.Serialize(subject, options), options)!;
+        var originalCandidates = order.Lines[0].CommercialFacts!.PriceSelection.Explanation.Candidates;
+        var rehydratedCandidates = rehydrated.Order.Lines[0].CommercialFacts!.PriceSelection.Explanation.Candidates;
+
+        Assert.NotSame(order.Lines, rehydrated.Order.Lines);
+        Assert.NotSame(originalCandidates, rehydratedCandidates);
+        Assert.True(OrderApprovalRules.Matches(rehydrated, order));
+
+        var changedCandidates = rehydratedCandidates
+            .Select((candidate, index) => index == 0 ? candidate with { RevisionNumber = candidate.RevisionNumber + 1 } : candidate)
+            .ToArray();
+        var facts = order.Lines[0].CommercialFacts!;
+        var changedOrder = order with
+        {
+            Lines = [order.Lines[0] with
+            {
+                CommercialFacts = facts with
+                {
+                    PriceSelection = facts.PriceSelection with
+                    {
+                        Explanation = facts.PriceSelection.Explanation with { Candidates = changedCandidates },
+                    },
+                },
+            }],
+        };
+
+        Assert.False(OrderApprovalRules.Matches(rehydrated, changedOrder));
     }
 
     [Fact]

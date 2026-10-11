@@ -344,6 +344,28 @@ and evidence owners: `ORDER_COMMITMENT_SLICE.md` and
   `docs/domain/BUSINESS_MODEL.md`; the contract-only implementation owner is
   `docs/implementation/INVOICE_ISSUE_CONTRACT.md`; invoice persistence remains absent.
 
+### First invoice issue contract completion, 2026-10-10
+
+- The owner accepted one complete invoice per committed Order. A second or partial
+  invoice is rejected; no line allocation/remainder model is introduced.
+- An invoiceable Order must have frozen organization attribution. That organization
+  scopes an increasing numeric reference ordinal even when the selected debtor is
+  its program or an individual. The retained invoice identity is a separate
+  tenant-wide GUID. Gaps are allowed; this is not a gapless or fiscal-numbering
+  promise. An unattributed Order is ineligible.
+- Invoice business date is the UTC calendar date of the authoritative server
+  `issuedAt` instant, which is also retained. Callers cannot supply dates or request
+  backdating/future-dating; no tenant timezone is introduced by this choice.
+- Only an active individual billing record can be selected for a new invoice.
+  Later status changes do not alter issued snapshots.
+- These choices close COM-019's business decisions, not implementation evidence.
+  The existing host-neutral partial-invoice behavior is `BLOCKED` receiving
+  qualification until aligned to these rules; durable invoice persistence remains
+  absent. Exact printable syntax, tax/fiscal requirements, and compliance remain
+  open/non-claims. `docs/implementation/INVOICE_ISSUE_CONTRACT.md` owns the exact
+  behavior; COM-021 owns PostgreSQL issue persistence and COM-022 separately owns
+  API authority and live provider qualification.
+
 ### Initial Owner and tenant suspension, 2026-10-03
 
 - The first Owner is an immutable initial-membership bootstrap designation until
@@ -361,3 +383,31 @@ and evidence owners: `ORDER_COMMITMENT_SLICE.md` and
 - The separately authorized operator records acceptance/rejection/expiry against one exact issued offer. Acceptance must be current and within its half-open validity interval. Accepted prices freeze through one atomic, idempotent conversion to a linked Order draft; order commitment remains separate. An accepted quotation cannot be superseded or rewritten.
 - Owner clarification: the latest unsuperseded offer may be rejected after its expiry if it has no terminal response yet. Expiry may be explicitly recorded at or after `validUntil`; reads do not record it.
 - Focused owner: `docs/implementation/QUOTATIONS_AND_CONVERSION.md`. These closed choices do not qualify runtime, storage, delivery, legal signature or a customer portal.
+
+- COM-012/COM-013 contract accepted by the owner on 2026-10-09: a pinned required-program-approval setting requires independent approval of the exact Order revision before commitment, with separate submit/view/decide/recovery grants, no self/automatic approval, current-Owner reassignment/cancellation with recent Web authentication, immutable request/subject/decision facts and retained v1 compatibility. Focused owner: `docs/implementation/ORDER_APPROVAL_AND_ADMISSION.md`; accepted package: `docs/review/COM_012_013_DECISION_PROPOSAL.md`. Implementation receiving qualification remains separate.
+
+
+## First service work and operator-recorded pickup - accepted 2026-10-09
+
+The owner accepted [COM-014/015's bounded contract](../review/COM_014_015_DECISION_PROPOSAL.md): one committed program Order containing one catalog-priced non-stock service line, retained unit/precision and no conversion, exact partial completion and pickup, explicit blocking dispositions and attributable resolution. Four independent permissions govern view, work, handoff and correction; correction additionally requires current initial-Owner status and recent trusted Tenant Web strong authentication. Original events and receipts are immutable. Neither work nor pickup changes frozen Order financial facts or creates billing, payment, stock, artwork, return or document effects. The [focused fulfillment owner](../implementation/ORDER_SERVICE_FULFILLMENT.md) owns the exact contract and native receiving obligations, with local qualification recorded in the [receiving receipt](../review/COM_014_015_IMPLEMENTATION_RECEIPT.md); this decision does not qualify an observed customer journey or a deployment.
+
+## Owner-selected purchasing and pickup audit — 2026-10-10
+
+The owner accepted [COM-016's proposed supplier-service contract](../review/COM_016_DECISION_PROPOSAL.md) and [OPS-013's pickup-journal profile](../review/OPS_013_DECISION_PROPOSAL.md). Purchasing covers one informal non-stock supplier service, exact partial receipts, NPR two-decimal costs/payables, partial cash/bank payments, recorded supplier refunds, six independent permissions and recent initial-Owner corrections; supplier/customer balances remain independent. The [purchasing owner](../implementation/PURCHASING_SUPPLIER_SERVICE_SLICE.md) governs implementation. The [audit owner](../implementation/BUSINESS_AUDIT_PICKUP_PROFILE.md) reuses existing pickup journal/receipts with indefinite retention, no automatic deletion/runtime maintenance, append-only corrections and current Fulfillment viewer access. Neither acceptance is runtime qualification; native evidence and normal gates remain required.
+
+## Outsourcing deferred until customer settlement — 2026-10-10
+
+The owner selected deferral under [COM-017's proposal](../review/COM_017_DECISION_PROPOSAL.md). Outsourced production remains `NOT_INTRODUCED`: no receipt allocation, completion link or implicit progress is introduced. Activation requires qualified invoice issuance and receivable/payment/allocation/settlement prerequisites (COM-019–025), followed by owner selection of the concrete outsourced case and its discrepancy, access and correction contract. Existing in-house Fulfillment and supplier-service Purchasing remain independent.
+
+## Customer receivables, manual payments and settlement — 2026-10-10
+
+The owner accepted [COM-023–025's proposed contract](../review/COM_023_025_DECISION_PROPOSAL.md):
+atomic one-per-invoice recognition and validated historical backfill; frozen
+independent debtor balances; exact NPR four-decimal cash/bank receipt evidence;
+a different operator's confirmation; unique tenant/channel bank references;
+explicit same-debtor allocations and visible unapplied funds; and linked full
+reversals requiring current initial-Owner correction authority plus recent trusted
+strong authentication. Original payment/allocation facts remain immutable. This
+accepts the named business choices only; receivable/payment runtime is not yet
+introduced or qualified. COM-017 remains deferred until actual customer settlement
+is qualified, then its concrete outsourced case still requires selection.

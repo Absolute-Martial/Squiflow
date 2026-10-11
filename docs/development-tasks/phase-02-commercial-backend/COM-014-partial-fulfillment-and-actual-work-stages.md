@@ -2,12 +2,12 @@
 
 Task ID: COM-014
 Phase: 02-commercial-backend
-Status: DECISION_REQUIRED
-Model: GPT-6.1 Sol
+Status: VERIFY_EXISTING
+Model: GPT-6 Luna (high)
 Dependencies: COM-013
 Release requirement: REQUIRED
 
-Planned assignment only. Apply [agent rules](../AGENT_RULES.md) and [handoff rules](../HANDOFF_AND_INTEGRATION.md).
+The owner accepted the [first service-work and pickup contract](../../review/COM_014_015_DECISION_PROPOSAL.md). Its [focused owner](../../implementation/ORDER_SERVICE_FULFILLMENT.md) is locally `PRODUCTION_HONEST` for the selected case under the [receiving receipt](../../review/COM_014_015_IMPLEMENTATION_RECEIPT.md); repeat its guards on requalification triggers. `VERIFY_EXISTING` is the planning status for source/evidence review, not runtime qualification. Apply [agent rules](../AGENT_RULES.md) and [handoff rules](../HANDOFF_AND_INTEGRATION.md).
 
 ## Outcome
 
@@ -23,7 +23,7 @@ Allowed areas: fulfillment-owned quantity/stage facts, protected transitions and
 
 ## Decisions/prerequisites
 
-Choose real steps, quantity/unit identity, accepted tolerance, actor, deadlines and discrepancy handling. Decide multiple handoffs and whether deposits can gate work; money remains owned by payment/credit tasks.
+The owner-selected one-line service case, retained units/precision, zero tolerance, separate partial pickup, dispositions/resolutions and independent permissions are accepted in the focused contract. It selects no deadline, deposit, artwork, stock or invoice gate. Verify that scope; do not reopen those choices or broaden it. Other cases and payment/credit meanings remain separate.
 
 ## Acceptance and edge cases
 

@@ -188,7 +188,7 @@ public sealed class ProjectBoundariesTests
         foreach (var (capability, folder) in new[]
                  {
                       ("Customers", "customers"), ("Orders", "orders"),
-                      ("Catalog", "catalog"), ("Pricing", "pricing"), ("Quotations", "quotations"),
+                      ("Catalog", "catalog"), ("Pricing", "pricing"), ("Quotations", "quotations"), ("Purchasing", "purchasing"), ("Invoices", "invoices"),
                      ("IdentityAccess", "identity-access"), ("Tenancy", "tenancy"),
                  })
         {

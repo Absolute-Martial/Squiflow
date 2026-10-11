@@ -2,10 +2,13 @@
 
 Task ID: OPS-011
 Phase: 03-runtime-operations
-Status: PRODUCTION_HONEST
+Status: VERIFY_EXISTING
 Model: GPT-6.1 Sol
 Dependencies: OPS-001, OPS-007
 Release requirement: REQUIRED
+
+Cross-track prerequisites: OPS-007
+## Qualification
 
 The declared durable PostgreSQL raw-import-byte accounting scope is
 `PRODUCTION_HONEST`: tenant/provider reservation admission, semantic replay,
@@ -19,7 +22,6 @@ Current evidence/guards are owned by
 [CUSTOMER_DUPLICATES_AND_IMPORTS_SLICE.md](../../implementation/CUSTOMER_DUPLICATES_AND_IMPORTS_SLICE.md).
 No repository integration or production acceptance is inferred.
 
-Cross-track prerequisites: OPS-007
 
 ## Outcome
 

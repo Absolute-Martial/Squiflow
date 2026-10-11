@@ -27,6 +27,92 @@ public sealed class OpenFgaTenantAuthorizationTests : IAsyncLifetime
         .Build();
 
     [Fact]
+    public async Task InvoiceIssueAndViewUseIndependentDirectAndRoleGrantsInTheReadBackPinnedModel()
+    {
+        using var admin = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{_server.GetMappedPublicPort(OpenFgaPort)}") };
+        var storeId = await CreateStoreAsync(admin);
+        var modelJson = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "OpenFga", "tenant-authorization-model.json"));
+        var pinnedModelId = await WriteModelAsync(admin, storeId, modelJson);
+        using (var readback = await admin.GetAsync($"/stores/{storeId}/authorization-models/{pinnedModelId}"))
+        {
+            readback.EnsureSuccessStatusCode();
+            using var document = JsonDocument.Parse(await readback.Content.ReadAsStringAsync());
+            var model = document.RootElement.GetProperty("authorization_model");
+            Assert.Equal(pinnedModelId, model.GetProperty("id").GetString());
+            var tenantType = model.GetProperty("type_definitions").EnumerateArray().Single(type => type.GetProperty("type").GetString() == "tenant");
+            foreach (var relation in new[] { "invoice_issuer", "invoice_viewer", "can_issue_invoice", "can_view_invoices" })
+                Assert.True(tenantType.GetProperty("relations").TryGetProperty(relation, out _));
+        }
+        var configuration = OpenFgaAuthorizationConfiguration.From(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Authorization:OpenFga:ApiUrl"] = admin.BaseAddress.AbsoluteUri,
+            ["Authorization:OpenFga:StoreId"] = storeId,
+            ["Authorization:OpenFga:AuthorizationModelId"] = pinnedModelId,
+            ["Authorization:OpenFga:RequestTimeoutSeconds"] = "5",
+            ["Authorization:OpenFga:MaximumRetries"] = "0",
+            ["Authorization:OpenFga:MinimumRetryDelayMilliseconds"] = "100",
+            ["Authorization:OpenFga:CredentialMethod"] = "None",
+        }).Build());
+        using var client = new OpenFgaClient(configuration.ToClientConfiguration());
+        ITenantInvoiceAuthorization invoices = new OpenFgaTenantAuthorization(client, configuration,
+            NullLogger<OpenFgaTenantAuthorization>.Instance);
+        var tenant = Guid.NewGuid();
+        var issuer = Guid.NewGuid();
+        var viewer = Guid.NewGuid();
+        var roleIssuer = Guid.NewGuid();
+        var roleViewer = Guid.NewGuid();
+        await WriteTenantRelationAsync(admin, storeId, pinnedModelId, issuer, tenant, "invoice_issuer");
+        await WriteTenantRelationAsync(admin, storeId, pinnedModelId, viewer, tenant, "invoice_viewer");
+        Assert.True(await invoices.IsAllowedAsync(issuer, tenant, TenantInvoicePermission.Issue, default));
+        Assert.False(await invoices.IsAllowedAsync(issuer, tenant, TenantInvoicePermission.View, default));
+        Assert.True(await invoices.IsAllowedAsync(viewer, tenant, TenantInvoicePermission.View, default));
+        Assert.False(await invoices.IsAllowedAsync(viewer, tenant, TenantInvoicePermission.Issue, default));
+        // The host supplies a contextual member only after durable current membership admission.
+        Assert.False(await CheckRelationAsync(client, configuration, $"user:{issuer:N}", "can_issue_invoice", $"tenant:{tenant:N}"));
+        Assert.False(await CheckRelationAsync(client, configuration, $"user:{viewer:N}", "can_view_invoices", $"tenant:{tenant:N}"));
+        await WriteTenantRelationAsync(admin, storeId, pinnedModelId, issuer, tenant, "member");
+        Assert.True(await CheckRelationAsync(client, configuration, $"user:{issuer:N}", "can_issue_invoice", $"tenant:{tenant:N}"));
+        await DeleteTenantRelationAsync(admin, storeId, pinnedModelId, issuer, tenant, "member");
+        Assert.False(await CheckRelationAsync(client, configuration, $"user:{issuer:N}", "can_issue_invoice", $"tenant:{tenant:N}"));
+
+        foreach (var (actor, grant) in new[] { (roleIssuer, "invoice_issuer"), (roleViewer, "invoice_viewer") })
+        {
+            var role = Guid.NewGuid();
+            using var response = await admin.PostAsJsonAsync($"/stores/{storeId}/write", new
+            {
+                writes = new
+                {
+                    tuple_keys = new[]
+                {
+                    new { user = $"user:{actor:N}", relation = "assignee", @object = $"role:{tenant:N}_{role:N}" },
+                    new { user = RoleUserset(tenant, role), relation = grant, @object = $"tenant:{tenant:N}" },
+                }
+                },
+                authorization_model_id = pinnedModelId,
+            });
+            response.EnsureSuccessStatusCode();
+        }
+        Assert.True(await invoices.IsAllowedAsync(roleIssuer, tenant, TenantInvoicePermission.Issue, default));
+        Assert.False(await invoices.IsAllowedAsync(roleIssuer, tenant, TenantInvoicePermission.View, default));
+        Assert.True(await invoices.IsAllowedAsync(roleViewer, tenant, TenantInvoicePermission.View, default));
+        Assert.False(await invoices.IsAllowedAsync(roleViewer, tenant, TenantInvoicePermission.Issue, default));
+        await DeleteTenantRelationAsync(admin, storeId, pinnedModelId, issuer, tenant, "invoice_issuer");
+        Assert.False(await invoices.IsAllowedAsync(issuer, tenant, TenantInvoicePermission.Issue, default));
+        Assert.True(await invoices.IsAllowedAsync(viewer, tenant, TenantInvoicePermission.View, default));
+
+        var later = JsonNode.Parse(modelJson)!;
+        var tenantNode = later["type_definitions"]!.AsArray().Single(type => type!["type"]!.GetValue<string>() == "tenant")!;
+        foreach (var relation in new[] { "invoice_issuer", "can_issue_invoice" })
+        {
+            tenantNode["relations"]!.AsObject().Remove(relation);
+            tenantNode["metadata"]!["relations"]!.AsObject().Remove(relation);
+        }
+        var laterModelId = await WriteModelAsync(admin, storeId, later.ToJsonString());
+        Assert.NotEqual(pinnedModelId, laterModelId);
+        Assert.True(await invoices.IsAllowedAsync(roleIssuer, tenant, TenantInvoicePermission.Issue, default));
+    }
+
+    [Fact]
     public async Task RealServerRequiresPersistedOrderPermissionsAndUsesPinnedModel()
     {
         var apiUrl = $"http://127.0.0.1:{_server.GetMappedPublicPort(OpenFgaPort)}";

@@ -15,7 +15,7 @@ public sealed partial class PostgresOrderDraftStore
         command.Parameters.AddWithValue("tenant_id", tenantId); command.Parameters.AddWithValue("order_id", orderId);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
         return await reader.ReadAsync(cancellationToken).ConfigureAwait(false)
-            ? (new(reader.GetGuid(0), reader.GetGuid(1), reader.GetBoolean(2)), reader.IsDBNull(3) ? null : reader.GetString(3), reader.GetBoolean(4)) : null;
+            ? (new(reader.GetGuid(0), reader.GetGuid(1), reader.GetBoolean(2), reader.GetBoolean(5)), reader.IsDBNull(3) ? null : reader.GetString(3), reader.GetBoolean(4)) : null;
     }
 
     private static async Task<(bool Found, OrderProgramPolicyFacts? Policy)> ReadCreationProgramPolicyAsync(OrderTenantDbSession session,
@@ -68,6 +68,7 @@ public sealed partial class PostgresOrderDraftStore
         command.Parameters.AddWithValue("tenant_id", order.TenantId); command.Parameters.AddWithValue("order_id", order.OrderId);
         command.Parameters.AddWithValue("profile_id", policy.ProfileId); command.Parameters.AddWithValue("policy_revision_id", policy.PolicyRevisionId);
         command.Parameters.AddWithValue("require_reference", policy.RequireReferenceForProgramOrders);
+        command.Parameters.AddWithValue("require_approval", policy.RequireApprovalForProgramOrders);
         command.Parameters.Add(new NpgsqlParameter("external_reference", NpgsqlDbType.Text) { Value = (object?)order.ExternalProgramReference ?? DBNull.Value });
         command.Parameters.AddWithValue("bound_at", order.CreatedAt);
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
@@ -120,7 +121,7 @@ public sealed partial class PostgresOrderDraftStore
             if (await update.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false) != 1) throw new InvalidOperationException("The locked Order policy disappeared.");
         }
         order = order with { Revision = order.Revision + 1, ExternalProgramReference = reference };
-        if (!await TryInsertReceiptAsync(session, tenantContext.AccountId, ProgramReferenceOperation, idempotencyKey, fingerprint, order, _timeProvider.GetUtcNow(), cancellationToken).ConfigureAwait(false))
+        if (!await TryInsertReceiptAsync(session, tenantContext.AccountId, ProgramReferenceOperation, idempotencyKey, fingerprint, order, UtcNow(), cancellationToken).ConfigureAwait(false))
         {
             receipt = await FindReceiptAsync(session, tenantContext.TenantId, tenantContext.AccountId, ProgramReferenceOperation, idempotencyKey, cancellationToken).ConfigureAwait(false)
                 ?? throw new InvalidOperationException("The Order reference receipt disappeared after a conflict.");

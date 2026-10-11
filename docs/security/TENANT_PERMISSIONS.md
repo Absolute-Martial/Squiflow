@@ -129,6 +129,53 @@ Override still requires its own current capability, reason and policy evidence.
 Background import rechecks original actor availability, membership, provider grant
 and authoritative authorization revision before each row; acceptance is not a grant.
 
+### COM-016 supplier-service purchasing permissions — accepted 2026-10-10
+
+The selected bounded Purchasing capability adds six independent tenant permissions.
+They remain ordinary delegable business grants: initial-Owner status, Staff status,
+or membership alone grants none of them. Every computed relation intersects the
+current tenant member relation, and custom roles can contain these permissions only
+through the existing bounded permission catalog. `purchasing.correct` is necessary
+but not sufficient for corrections; the protected host operation separately requires
+the current initial Owner and recent trusted Tenant Web authentication.
+
+| Stable permission ID | Persisted relation | Computed permission |
+|---|---|---|
+| `purchasing.supplier.view` | `supplier_viewer` | `can_view_purchasing_suppliers` |
+| `purchasing.supplier.manage` | `supplier_editor` | `can_manage_purchasing_suppliers` |
+| `purchasing.request.record` | `purchase_request_recorder` | `can_record_purchase_requests` |
+| `purchasing.receipt.record` | `purchase_receiver` | `can_record_purchase_receipts` |
+| `purchasing.payment.record` | `supplier_payer` | `can_record_supplier_payments` |
+| `purchasing.correct` | `purchasing_corrector` | `can_correct_purchasing` |
+
+### COM-022 invoice permissions
+
+Invoice issuance and historical financial reads use separate tenant business
+permissions. Neither Order, Customers, Fulfillment, Purchasing, initial-Owner nor
+Platform Admin authority implies either permission. Current membership is required
+in addition to the persisted grant on every command, replay and read. Both may be
+delegated directly or through the existing bounded custom-role protocol.
+
+| Stable permission ID | Persisted relation | Computed permission |
+|---|---|---|
+| `invoices.issue` | `invoice_issuer` | `can_issue_invoice` |
+| `invoices.view` | `invoice_viewer` | `can_view_invoices` |
+
+Issuing authority permits the selected debtor to be resolved for issuance; it
+does not grant Customers browsing or invoice viewing. Issue replies contain only
+the invoice identity. Frozen financial facts and the invoice linked to an Order
+require invoice-view authority. Provider unavailability fails closed. The
+[invoice owner](../implementation/INVOICE_ISSUE_CONTRACT.md) owns the business
+contract; these new runtime paths are receiving qualification until their actual
+PostgreSQL/OpenFGA/API evidence and normal repository gate pass.
+
+These permissions authorize only the bounded supplier-service request, receipt,
+payment/refund and correction operations in
+`docs/implementation/PURCHASING_SUPPLIER_SERVICE_SLICE.md`. They do not create
+customer payment authority, inventory authority, a general procurement feature, or
+automatic Owner grants. Qualification remains pending until the accepted slice's
+native evidence and normal repository gate pass.
+
 Deploy the new immutable model and pin its explicit ID before enabling these
 surfaces. Older models lacking the new computed relations fail closed; the app
 does not upgrade models or fabricate business tuples at startup. Real OpenFGA
@@ -503,3 +550,16 @@ contact fields and does not grant debtor assignment, invoice, payment or login
 binding authority. Replays recheck current account, membership and permission.
 Publication of the changed tenant model requires operators to configure its exact
 new model ID explicitly; a server's latest model is never selected implicitly.
+
+## COM-012/013 approval permissions
+
+The [Order approval owner](../implementation/ORDER_APPROVAL_AND_ADMISSION.md) defines the accepted independent program-Order approval/admission contract. The compiled catalog/model adds four ordinary delegable rights; no existing tuple, Owner/Staff default or custom role expands automatically.
+
+| Permission | Persisted relation | Computed permission |
+|---|---|---|
+| `orders.approvals.submit` | `order_approval_submitter` | `can_submit_order_approval` |
+| `orders.approvals.view` | `order_approval_viewer` | `can_view_order_approvals` |
+| `orders.approvals.decide` | `order_approval_decider` | `can_decide_order_approval` |
+| `orders.approvals.recover` | `order_approval_recoverer` | `can_recover_order_approval` |
+
+Each computed permission intersects current membership and supports direct and tenant-scoped custom-role grants. Submission/normal decision also require approval-view and Order-view. Requester cancellation uses submit authority plus actual requester identity. Recovery mutation additionally checks the current initial Owner and existing recent Tenant Web authentication; discovery requires approval-view plus current Owner/recovery scope, without step-up. Full subjects/history require Order-view; metadata visibility never grants financial disclosure. Existing policy edit/publish delegates are explicitly authorized to manage the new typed approval setting. Model deployment and pinning remain explicit; older models fail closed.

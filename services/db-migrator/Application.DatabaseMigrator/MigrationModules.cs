@@ -28,6 +28,9 @@ internal static class MigrationModules
         new("catalog", 260, typeof(CatalogDbContext), CatalogPostgresMigrations.CreateContext),
         new("pricing", 275, typeof(PricingDbContext), PricingPostgresMigrations.CreateContext),
         new("orders", 300, typeof(OrderDbContext), OrdersPostgresMigrations.CreateContext),
+        new("purchasing", 375, typeof(Application.Purchasing.Postgres.PurchasingDbContext), Application.Purchasing.Postgres.PurchasingPostgresRegistration.CreateContext),
+        new("invoices", 400, typeof(Application.Invoices.Postgres.InvoicesDbContext), Application.Invoices.Postgres.InvoicesPostgresRegistration.CreateContext),
+        new("fulfillment", 350, typeof(Application.Fulfillment.Postgres.FulfillmentDbContext), Application.Fulfillment.Postgres.FulfillmentPostgresRegistration.CreateContext),
         new("quotations", 325, typeof(Application.Quotations.Postgres.QuotationDbContext), Application.Quotations.Postgres.QuotationsPostgresRegistration.CreateContext),
     ]);
 

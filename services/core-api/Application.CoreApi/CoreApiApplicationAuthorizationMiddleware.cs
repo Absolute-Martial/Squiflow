@@ -86,7 +86,16 @@ internal static class CoreApiApplicationAuthorizationMiddleware
             EndpointAccess.AuthorizedTenantOrderHistory or
             EndpointAccess.AuthorizedTenantCatalogOrderCreation or
             EndpointAccess.AuthorizedTenantCatalogOrderRevision or
-            EndpointAccess.AuthorizedTenantOrderActions =>
+            EndpointAccess.AuthorizedTenantOrderActions or
+            EndpointAccess.OrderApprovalSubmit or
+            EndpointAccess.OrderApprovalView or
+            EndpointAccess.OrderApprovalDecide or
+            EndpointAccess.OrderApprovalCancel or
+            EndpointAccess.OrderApprovalRecover or
+            EndpointAccess.OrderFulfillmentView or
+            EndpointAccess.OrderFulfillmentWorkRecord or
+            EndpointAccess.OrderFulfillmentHandoffRecord or
+            EndpointAccess.OrderFulfillmentCorrect =>
                 new TenantOrderResource(tenantContext, cancellationToken),
 
             EndpointAccess.AuthorizedCustomerOrganizationCreation or
@@ -123,8 +132,19 @@ internal static class CoreApiApplicationAuthorizationMiddleware
             EndpointAccess.AuthorizedTenantProfilePolicyPublish =>
                 new TenantCustomerResource(tenantContext, cancellationToken),
 
+            EndpointAccess.PurchasingView or
+            EndpointAccess.PurchasingSupplierManage or
+            EndpointAccess.PurchasingRequestRecord or
+            EndpointAccess.PurchasingReceiptRecord or
+            EndpointAccess.PurchasingPaymentRecord or
+            EndpointAccess.PurchasingCorrect =>
+                new TenantPurchasingResource(tenantContext, cancellationToken),
+
             EndpointAccess.AuthorizedTenantRoleAdministration =>
                 new TenantAuthorizationAdministrationResource(tenantContext, cancellationToken),
+
+            EndpointAccess.InvoiceIssue or EndpointAccess.InvoiceView =>
+                new TenantInvoiceResource(tenantContext, cancellationToken),
 
             _ => throw new InvalidOperationException(
                 $"Core API access classification {access} has no application-authorization resource contract."),

@@ -146,6 +146,8 @@ internal static class TenantProfileEndpoints
                 return Conflict("idempotency_key_conflict");
             case ProfileCommandStatus.InvalidBaseline:
                 return Conflict("tenant_profile_baseline_invalid");
+            case ProfileCommandStatus.UnsupportedPolicyVersion:
+                return Conflict("tenant_profile_policy_version_incompatible");
             case ProfileCommandStatus.BaselineAlreadySelected:
                 return Conflict("tenant_profile_baseline_already_selected");
             default:

@@ -23,6 +23,8 @@ Allowed areas: payment/receivable-owned allocation and explicit deallocation/cor
 
 ## Decisions/prerequisites
 
+The owner accepted [COM-023–025's same-debtor allocation/reversal contract](../../review/COM_023_025_DECISION_PROPOSAL.md) on 2026-10-10; do not introduce cross-debtor pooling or another correction path.
+
 Decide permitted payer/debtor relationships, explicit cross-invoice allocation authority, rounding and reversal after reconciliation. Cross-debtor use requires an accepted rule; do not invent organization-wide pooling for independent program/individual debts.
 
 ## Acceptance and edge cases

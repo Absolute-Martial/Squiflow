@@ -5,10 +5,10 @@ Phase: 02-commercial-backend
 Status: CONDITIONAL
 Model: GPT-6.1 Sol
 Dependencies: COM-014, COM-016
-Conditional dependencies: COM-015 when supplied artwork/input approval is required; OPS-008 when supplied input bytes are retained
+Conditional dependencies: COM-015 when supplied artwork/input approval is required; OPS-008 when supplied input bytes are retained; COM-025 after owner-selected deferral until customer settlement exists
 Release requirement: CONDITIONAL
 
-Planned assignment only. Apply [agent rules](../AGENT_RULES.md) and [handoff rules](../HANDOFF_AND_INTEGRATION.md).
+The owner deferred activation on 2026-10-10 until customer settlement exists under [the decision proposal](../../review/COM_017_DECISION_PROPOSAL.md). Outsourced production remains `NOT_INTRODUCED`; no implicit Fulfillment/Purchasing effect exists. Apply [agent rules](../AGENT_RULES.md) and [handoff rules](../HANDOFF_AND_INTEGRATION.md).
 
 ## Outcome
 
@@ -24,7 +24,7 @@ Allowed areas: bounded fulfillment-to-purchasing links, supplied input/evidence,
 
 ## Decisions/prerequisites
 
-Activation needs the outsourced production case and its handoff/discrepancy rules. Retained artwork/input requires COM-015 and OPS-008 when applicable. Do not add a cost-plus pricing rule unless explicitly selected.
+Activation requires qualified customer settlement through COM-019–025, then owner selection of the outsourced production case and its handoff/discrepancy rules. Retained artwork/input requires COM-015 and OPS-008 when applicable. Do not add a cost-plus pricing rule unless explicitly selected.
 
 Omission from full completion requires an explicit owner disposition, safe absence behavior and an activation trigger.
 

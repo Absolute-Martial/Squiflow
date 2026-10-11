@@ -6,6 +6,8 @@ namespace Application.Orders.Postgres;
 public sealed partial class PostgresOrderDraftStore
 {
     private const int ProgramPolicyReceiptSchemaVersion = 6;
+    private const int ApprovalPolicyReceiptSchemaVersion = 7;
+    private const int ApprovalCommitmentReceiptSchemaVersion = 8;
     private const int CommercialReceiptSchemaVersion = 4;
     private const int QuotationReceiptSchemaVersion = 5;
     public async Task<CreateOrderDraftResult?> FindCreateReceiptAsync(Application.Tenancy.TenantContext context,
@@ -55,7 +57,8 @@ public sealed partial class PostgresOrderDraftStore
         command.Parameters.AddWithValue("order_id", order.OrderId);
         command.Parameters.AddWithValue("response_json", JsonSerializer.Serialize(
             new OrderReceiptEnvelope(
-                order.ProgramPolicy is not null ? ProgramPolicyReceiptSchemaVersion :
+                order.ApprovalEvidence is not null ? ApprovalCommitmentReceiptSchemaVersion :
+                order.ProgramPolicy is not null ? ApprovalPolicyReceiptSchemaVersion :
                 order.QuotationOrigin is not null ? QuotationReceiptSchemaVersion :
                 order.Lines.Any(line => line.CommercialFacts is not null) ? CommercialReceiptSchemaVersion :
                 operation == CommitOperation ? CommitmentReceiptSchemaVersion : order.CustomerContext is null
@@ -148,6 +151,7 @@ public sealed partial class PostgresOrderDraftStore
         var order = ReadReceiptSnapshot(receipt, CommitOperation);
         await RequireRetainedProgramPolicyAsync(session, context.TenantId, order, ct).ConfigureAwait(false);
         await RequireAcceptedQuotationFactsAsync(context, order, ct).ConfigureAwait(false);
+        await RequireRetainedApprovalCommitAsync(session, order, ct).ConfigureAwait(false);
         return new(CommitOrderDraftStatus.Replayed, order);
     }
 
@@ -175,10 +179,11 @@ public sealed partial class PostgresOrderDraftStore
             {
                 if (version.ValueKind != JsonValueKind.Number
                     || !version.TryGetInt32(out var schemaVersion)
-                    || schemaVersion is not (LegacyReceiptSchemaVersion or CustomerAttributionReceiptSchemaVersion or CommitmentReceiptSchemaVersion or CommercialReceiptSchemaVersion or QuotationReceiptSchemaVersion or ProgramPolicyReceiptSchemaVersion)
-                    || (schemaVersion is not (CommercialReceiptSchemaVersion or QuotationReceiptSchemaVersion or ProgramPolicyReceiptSchemaVersion) && (schemaVersion == CommitmentReceiptSchemaVersion) != (expectedOperation == CommitOperation))
-                    || (expectedOperation == ProgramReferenceOperation && schemaVersion != ProgramPolicyReceiptSchemaVersion)
-                    || (expectedOperation == QuotationCreateOperation && schemaVersion is not (QuotationReceiptSchemaVersion or ProgramPolicyReceiptSchemaVersion))
+                    || schemaVersion is not (LegacyReceiptSchemaVersion or CustomerAttributionReceiptSchemaVersion or CommitmentReceiptSchemaVersion or CommercialReceiptSchemaVersion or QuotationReceiptSchemaVersion or ProgramPolicyReceiptSchemaVersion or ApprovalPolicyReceiptSchemaVersion or ApprovalCommitmentReceiptSchemaVersion)
+                    || (schemaVersion is not (CommercialReceiptSchemaVersion or QuotationReceiptSchemaVersion or ProgramPolicyReceiptSchemaVersion or ApprovalPolicyReceiptSchemaVersion or ApprovalCommitmentReceiptSchemaVersion) && (schemaVersion == CommitmentReceiptSchemaVersion) != (expectedOperation == CommitOperation))
+                    || (schemaVersion == ApprovalCommitmentReceiptSchemaVersion && expectedOperation != CommitOperation)
+                    || (expectedOperation == ProgramReferenceOperation && schemaVersion is not (ProgramPolicyReceiptSchemaVersion or ApprovalPolicyReceiptSchemaVersion))
+                    || (expectedOperation == QuotationCreateOperation && schemaVersion is not (QuotationReceiptSchemaVersion or ProgramPolicyReceiptSchemaVersion or ApprovalPolicyReceiptSchemaVersion))
                     || (schemaVersion == QuotationReceiptSchemaVersion && expectedOperation is not (QuotationCreateOperation or CommitOperation or AbandonOperation))
                     || operation.ValueKind != JsonValueKind.String
                     || !string.Equals(operation.GetString(), expectedOperation, StringComparison.Ordinal)
@@ -195,11 +200,13 @@ public sealed partial class PostgresOrderDraftStore
                     receipt,
                     expectedOperation,
                     requireLifecycleFields: true,
-                    requireCustomerContext: schemaVersion is CommitmentReceiptSchemaVersion or CommercialReceiptSchemaVersion or QuotationReceiptSchemaVersion or ProgramPolicyReceiptSchemaVersion
+                    requireCustomerContext: schemaVersion is CommitmentReceiptSchemaVersion or CommercialReceiptSchemaVersion or QuotationReceiptSchemaVersion or ProgramPolicyReceiptSchemaVersion or ApprovalPolicyReceiptSchemaVersion or ApprovalCommitmentReceiptSchemaVersion
                         ? null : schemaVersion == CustomerAttributionReceiptSchemaVersion,
-                    requireCommercialFacts: schemaVersion is QuotationReceiptSchemaVersion or ProgramPolicyReceiptSchemaVersion ? null : schemaVersion == CommercialReceiptSchemaVersion,
-                    requireQuotationOrigin: expectedOperation == QuotationCreateOperation ? true : schemaVersion == ProgramPolicyReceiptSchemaVersion ? null : schemaVersion == QuotationReceiptSchemaVersion,
-                    requireProgramPolicy: schemaVersion == ProgramPolicyReceiptSchemaVersion);
+                    requireCommercialFacts: schemaVersion is QuotationReceiptSchemaVersion or ProgramPolicyReceiptSchemaVersion or ApprovalPolicyReceiptSchemaVersion or ApprovalCommitmentReceiptSchemaVersion ? null : schemaVersion == CommercialReceiptSchemaVersion,
+                    requireQuotationOrigin: expectedOperation == QuotationCreateOperation ? true : schemaVersion is ProgramPolicyReceiptSchemaVersion or ApprovalPolicyReceiptSchemaVersion or ApprovalCommitmentReceiptSchemaVersion ? null : schemaVersion == QuotationReceiptSchemaVersion,
+                    requireProgramPolicy: schemaVersion is ProgramPolicyReceiptSchemaVersion or ApprovalPolicyReceiptSchemaVersion or ApprovalCommitmentReceiptSchemaVersion,
+                    requireApprovalPolicy: schemaVersion is ApprovalPolicyReceiptSchemaVersion or ApprovalCommitmentReceiptSchemaVersion,
+                    requireApprovalEvidence: schemaVersion == ApprovalCommitmentReceiptSchemaVersion);
             }
 
             if (expectedOperation is CommitOperation or QuotationCreateOperation or ProgramReferenceOperation)
@@ -226,7 +233,9 @@ public sealed partial class PostgresOrderDraftStore
         bool? requireCustomerContext,
         bool? requireCommercialFacts,
         bool? requireQuotationOrigin = false,
-        bool requireProgramPolicy = false)
+        bool requireProgramPolicy = false,
+        bool requireApprovalPolicy = false,
+        bool requireApprovalEvidence = false)
     {
         foreach (var property in new[]
                  {
@@ -260,6 +269,11 @@ public sealed partial class PostgresOrderDraftStore
 
         var order = element.Deserialize<OrderDraftSnapshot>(SnapshotJsonOptions)
             ?? throw InvalidReceipt();
+        if (requireApprovalPolicy && (!element.GetProperty("programPolicy").TryGetProperty("requireApprovalForProgramOrders", out var approvalRequired) ||
+                approvalRequired.ValueKind is not (JsonValueKind.True or JsonValueKind.False)) ||
+            !requireApprovalPolicy && order.ProgramPolicy?.RequireApprovalForProgramOrders == true ||
+            (order.ApprovalEvidence is not null) != requireApprovalEvidence)
+            throw InvalidReceipt();
         var expectedState = expectedOperation switch
         {
             CreateOperation => OrderDraftState.Draft,
@@ -303,6 +317,7 @@ public sealed partial class PostgresOrderDraftStore
 
         if (order.ProgramPolicy is not null) OrderProgramReference.RequireValidStored(order.ProgramPolicy, order.ExternalProgramReference);
         OrderCommercialFactsValidation.RequireValid(order);
+        OrderApprovalRules.RequireValidEvidence(order);
         return order;
     }
 

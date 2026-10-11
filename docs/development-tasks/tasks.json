@@ -639,7 +639,7 @@
       "task_id": "COM-003",
       "title": "Duplicate detection and deliberate customer consolidation",
       "phase": "02-commercial-backend",
-      "status": "DECISION_REQUIRED",
+      "status": "READY_AFTER_DEPENDENCIES",
       "model": "GPT-6.1 Sol",
       "release_requirement": "REQUIRED",
       "dependencies": [
@@ -653,9 +653,9 @@
       "task_id": "COM-004",
       "title": "Bounded onboarding customer import",
       "phase": "02-commercial-backend",
-      "status": "CONDITIONAL",
+      "status": "VERIFY_EXISTING",
       "model": "GPT-6.1 Sol",
-      "release_requirement": "CONDITIONAL",
+      "release_requirement": "REQUIRED",
       "dependencies": [
         "COM-003"
       ],
@@ -676,7 +676,7 @@
       "task_id": "COM-005",
       "title": "Tenant product and service catalog with explicit units",
       "phase": "02-commercial-backend",
-      "status": "DECISION_REQUIRED",
+      "status": "READY_AFTER_DEPENDENCIES",
       "model": "GPT-6.1 Sol",
       "release_requirement": "REQUIRED",
       "dependencies": [
@@ -691,7 +691,7 @@
       "task_id": "COM-006",
       "title": "Resolve price selection and override policy contracts",
       "phase": "02-commercial-backend",
-      "status": "DECISION_REQUIRED",
+      "status": "READY_AFTER_DEPENDENCIES",
       "model": "GPT-6.1 Sol",
       "release_requirement": "REQUIRED",
       "dependencies": [
@@ -786,38 +786,38 @@
       "task_id": "COM-012",
       "title": "Approval decisions and human continuation",
       "phase": "02-commercial-backend",
-      "status": "READY_AFTER_DEPENDENCIES",
-      "model": "GPT-6.1 Sol",
+      "status": "VERIFY_EXISTING",
+      "model": "GPT-6 Luna (high)",
       "release_requirement": "REQUIRED",
       "dependencies": [
         "COM-011",
         "ADM-010"
       ],
       "conditional_dependencies": [],
-      "write_scope": "Allowed areas: capability-owned approval request/decision facts, bounded work inbox and recovery commands with protected API/persistence and focused tests. Exclude generic task management and notification-as-authority; external delivery belongs to OPS-010 if selected.",
+      "write_scope": "Allowed areas: read-only verification of the introduced Orders approval/admission source, its protected APIs, persistence and existing evidence against the accepted contract. Report concrete gaps and exact receiving checks; any implementation changes require a separate bounded assignment. Exclude generic task management and notification-as-authority; external delivery belongs to OPS-010 if selected.",
       "file": "phase-02-commercial-backend/COM-012-approval-decisions-and-human-continuation.md"
     },
     {
       "task_id": "COM-013",
       "title": "Current policy admission for committed orders",
       "phase": "02-commercial-backend",
-      "status": "READY_AFTER_DEPENDENCIES",
-      "model": "GPT-6.1 Sol",
+      "status": "VERIFY_EXISTING",
+      "model": "GPT-6 Luna (high)",
       "release_requirement": "REQUIRED",
       "dependencies": [
         "COM-008",
         "COM-012"
       ],
       "conditional_dependencies": [],
-      "write_scope": "Allowed areas: Orders-owned admission orchestration, versioned prerequisite evidence, protected guidance and transactional receipt compatibility. Reuse implemented commitment; exclude stock reservation, invoice posting and a new generic acceptance lifecycle.",
+      "write_scope": "Allowed areas: read-only verification of current Orders admission, retained evidence, protected routes, transaction/receipt compatibility and supported historical profiles against the accepted contract. Report concrete gaps and exact receiving checks; any implementation changes require a separate bounded assignment. Exclude stock reservation, invoice posting and a new generic acceptance lifecycle.",
       "file": "phase-02-commercial-backend/COM-013-current-policy-admission-for-committed-orders.md"
     },
     {
       "task_id": "COM-014",
       "title": "Partial fulfillment and actual work stages",
       "phase": "02-commercial-backend",
-      "status": "DECISION_REQUIRED",
-      "model": "GPT-6.1 Sol",
+      "status": "VERIFY_EXISTING",
+      "model": "GPT-6 Luna (high)",
       "release_requirement": "REQUIRED",
       "dependencies": [
         "COM-013"
@@ -830,8 +830,8 @@
       "task_id": "COM-015",
       "title": "Artwork approval and accountable handoff",
       "phase": "02-commercial-backend",
-      "status": "READY_AFTER_DEPENDENCIES",
-      "model": "GPT-6.1 Sol",
+      "status": "VERIFY_EXISTING",
+      "model": "GPT-6 Luna (high)",
       "release_requirement": "REQUIRED",
       "dependencies": [
         "COM-014"
@@ -853,14 +853,14 @@
       "task_id": "COM-016",
       "title": "Practical purchasing receipts and supplier payables",
       "phase": "02-commercial-backend",
-      "status": "CONDITIONAL",
-      "model": "GPT-6.1 Sol",
+      "status": "VERIFY_EXISTING",
+      "model": "GPT-6 Luna (high)",
       "release_requirement": "CONDITIONAL",
       "dependencies": [
         "COM-005"
       ],
       "conditional_dependencies": [],
-      "write_scope": "Allowed areas: purchasing-owned supplier identity/contact, informal request, partial receipt, actual cost/payable and supplier payment facts with focused tests. Include useful order links; exclude mandatory formal PO approval, general ledger, tax and generic procurement infrastructure.",
+      "write_scope": "Allowed areas: the introduced Purchasing capability, PostgreSQL adapter/migrations/runtime grants, CoreApi composition, and focused test/build evidence needed to qualify this exact case. Verify tenant-owned supplier identity, informal requests, partial receipts/cancellation, exact costs/payables, payments/refunds/corrections, current authority and bounded protected reads. Exclude formal purchase approval, multi-line purchasing, tracked inventory (COM-018), outsourcing (COM-017), resale pricing, tax, general ledger, customer balances, provider-side supplier APIs and generic procurement infrastructure.",
       "file": "phase-02-commercial-backend/COM-016-practical-purchasing-receipts-and-supplier-payables.md"
     },
     {
@@ -882,6 +882,10 @@
         {
           "task_id": "OPS-008",
           "condition": "OPS-008 when supplied input bytes are retained"
+        },
+        {
+          "task_id": "COM-025",
+          "condition": "COM-025 after owner-selected deferral until customer settlement exists"
         }
       ],
       "write_scope": "Allowed areas: bounded fulfillment-to-purchasing links, supplied input/evidence, partial outsourced completion and cost explanation. Reuse purchasing and pricing contracts; exclude invented supplier design activity and a manufacturing engine.",
@@ -911,7 +915,7 @@
       "task_id": "COM-019",
       "title": "Close the first invoice contract decisions",
       "phase": "02-commercial-backend",
-      "status": "DECISION_REQUIRED",
+      "status": "VERIFY_EXISTING",
       "model": "GPT-6.1 Sol",
       "release_requirement": "REQUIRED",
       "dependencies": [
@@ -926,7 +930,7 @@
       "title": "Host-neutral invoice and bill-to invariants",
       "phase": "02-commercial-backend",
       "status": "VERIFY_EXISTING",
-      "model": "GPT-6.1 Sol",
+      "model": "GPT-6 Luna (high)",
       "release_requirement": "REQUIRED",
       "dependencies": [
         "COM-019"
@@ -970,7 +974,7 @@
       "task_id": "COM-023",
       "title": "Receivable posting balances and debtor-scoped reads",
       "phase": "02-commercial-backend",
-      "status": "DECISION_REQUIRED",
+      "status": "READY_AFTER_DEPENDENCIES",
       "model": "GPT-6.1 Sol",
       "release_requirement": "REQUIRED",
       "dependencies": [
@@ -984,7 +988,7 @@
       "task_id": "COM-024",
       "title": "Manual payment recording and reconciliation",
       "phase": "02-commercial-backend",
-      "status": "DECISION_REQUIRED",
+      "status": "READY_AFTER_DEPENDENCIES",
       "model": "GPT-6.1 Sol",
       "release_requirement": "REQUIRED",
       "dependencies": [
@@ -1285,7 +1289,7 @@
       "task_id": "OPS-007",
       "title": "Qualify the owned object store adapter and migration boundary",
       "phase": "03-runtime-operations",
-      "status": "READY_AFTER_DEPENDENCIES",
+      "status": "VERIFY_EXISTING",
       "model": "GPT-6.1 Sol",
       "release_requirement": "REQUIRED",
       "dependencies": [
@@ -1300,7 +1304,7 @@
       "task_id": "OPS-008",
       "title": "Protect streamed uploads metadata and quarantine",
       "phase": "03-runtime-operations",
-      "status": "CONDITIONAL",
+      "status": "VERIFY_EXISTING",
       "model": "GPT-6.1 Sol",
       "release_requirement": "CONDITIONAL",
       "dependencies": [
@@ -1348,7 +1352,7 @@
       "task_id": "OPS-011",
       "title": "Reserve and reconcile the first durable usage meter",
       "phase": "03-runtime-operations",
-      "status": "READY_AFTER_DEPENDENCIES",
+      "status": "VERIFY_EXISTING",
       "model": "GPT-6.1 Sol",
       "release_requirement": "REQUIRED",
       "dependencies": [
@@ -1379,15 +1383,15 @@
       "task_id": "OPS-013",
       "title": "Retain and read capability-owned business audit",
       "phase": "03-runtime-operations",
-      "status": "READY_AFTER_DEPENDENCIES",
-      "model": "GPT-6.1 Sol",
+      "status": "VERIFY_EXISTING",
+      "model": "GPT-6 Luna (high)",
       "release_requirement": "REQUIRED",
       "dependencies": [
         "GATE-001",
         "COM-001"
       ],
       "conditional_dependencies": [],
-      "write_scope": "Allowed areas: selected commercial capability/provider transaction, audit schema/retention, CoreApi read and regression tests. Reuse valid retained business receipts where sufficient. Exclude a universal event store and administrative audit reads already owned by ADM-023. Keep neutral `Application.*` identities and product version `v0.0.1`. No empty future projects or unrelated changes.",
+      "write_scope": "Allowed areas: existing Fulfillment/PostgreSQL event and receipt behavior, CoreApi protected history, runtime grants, migrations and focused tests/evidence for this one pickup profile. Verify event/receipt atomicity, append-only enforcement, replay, tenant-scoped bounded history and independence from telemetry. Exclude other commercial transitions, broad audit projections, ADM-023 administrative reads, a universal event store, new audit service, automatic retention/cleanup and legal-forensics or tamper-evident claims.",
       "file": "phase-03-runtime-operations/OPS-013-retain-and-read-capability-owned-business-audit.md"
     },
     {
@@ -2050,6 +2054,7 @@
         "ADM-025",
         "ADM-032",
         "ADM-034",
+        "COM-004",
         "COM-032",
         "OPS-006",
         "OPS-009",
@@ -2097,10 +2102,6 @@
         {
           "task_id": "ADM-033",
           "condition": "ADM-033 when feature release controls are selected"
-        },
-        {
-          "task_id": "COM-004",
-          "condition": "COM-004 when customer import is selected"
         },
         {
           "task_id": "COM-016",

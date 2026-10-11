@@ -1,6 +1,6 @@
 namespace Application.Orders.Postgres;
 
-internal static class OrderSql
+internal static partial class OrderSql
 {
     internal static readonly string ReadCreationPolicyPresence = Load(nameof(ReadCreationPolicyPresence));
     internal static readonly string ReadCreationReceipt = Load(nameof(ReadCreationReceipt));

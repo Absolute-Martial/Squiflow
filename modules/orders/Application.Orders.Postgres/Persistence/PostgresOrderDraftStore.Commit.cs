@@ -70,6 +70,7 @@ public sealed partial class PostgresOrderDraftStore
                 return new(CommitOrderDraftStatus.CommercialFactsConflict, null);
         }
 
+        OrderApprovalEvidence? approvalEvidence = null;
         if (beforeCommit is { State: OrderDraftState.Draft } && beforeCommit.Revision == request.ExpectedRevision)
         {
             if (profilePolicySource is not null && (beforeCommit.ProgramPolicy is null ||
@@ -78,9 +79,12 @@ public sealed partial class PostgresOrderDraftStore
                 return new(CommitOrderDraftStatus.ProfileUnavailable, null);
             if (OrderProgramReference.IsMissing(beforeCommit))
                 return new(CommitOrderDraftStatus.ProgramReferenceRequired, null);
+            var admission = await AssessApprovalAdmissionAsync(session, beforeCommit, cancellationToken).ConfigureAwait(false);
+            if (admission.Status != CommitOrderDraftStatus.Committed) return new(admission.Status, null);
+            approvalEvidence = admission.Evidence;
         }
 
-        var committedAt = _timeProvider.GetUtcNow();
+        var committedAt = UtcNow();
         var changed = await TryCommitOrderAsync(
             session, tenantContext, request, committedAt, cancellationToken)
             .ConfigureAwait(false);
@@ -114,6 +118,8 @@ public sealed partial class PostgresOrderDraftStore
                 status, null);
         }
 
+        if (approvalEvidence is not null)
+            await InsertApprovalCommitEvidenceAsync(session, tenantContext.TenantId, request.OrderId, approvalEvidence, cancellationToken).ConfigureAwait(false);
         var order = await FindOrderAsync(
             session, tenantContext.TenantId, request.OrderId, cancellationToken)
             .ConfigureAwait(false)

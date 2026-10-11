@@ -28,7 +28,7 @@ dotnet test tests/integration/Application.Orders.Postgres.Tests/Application.Orde
 dotnet test tests/integration/Application.Customers.Postgres.Tests/Application.Customers.Postgres.Tests.csproj --configuration Release
 ```
 
-ADM-002 specifically exercises deadline versus caller cancellation, response-started behavior, permit release, protected no-store and public-route preservation. COM-020 checks immutable invoice facts, four-decimal ToEven validation, authority-before-replay and explicit undecided-policy outcomes. COM-021's new PostgreSQL suite must prove atomic invoice/number/receipt, tenant isolation, races and lost-response retry; it does not exist until that assignment earns it.
+ADM-002 specifically exercises deadline versus caller cancellation, response-started behavior, permit release, protected no-store and public-route preservation. COM-020 checks immutable full-Order invoice facts, organization ordinal, UTC date, active debtor eligibility, four-decimal ToEven validation and authority-before-replay. COM-021's earned PostgreSQL suite must prove atomic invoice/number/receipt, tenant isolation, races, uncertain commit and lost-response recovery. COM-022 separately proves independent issue/view authority through actual pinned OpenFGA and native API/provider cases.
 
 ## Future hosts and external checks
 

@@ -16,5 +16,6 @@ internal sealed class OrderProfilePolicySource : IOrderProfilePolicySource
         Guid tenantId, OrderProgramPolicyFacts policy, CancellationToken cancellationToken) =>
         Facts(await PostgresProfileStore.ResolveRetainedForOrderAsync(connection, transaction, tenantId, policy.ProfileId, cancellationToken).ConfigureAwait(false)) == policy;
     private static OrderProgramPolicyFacts? Facts(TenantProfileSnapshot? snapshot) => snapshot is null ? null :
-        new(snapshot.ProfileId, snapshot.Policy.PolicyRevisionId, snapshot.Policy.RequireReferenceForProgramOrders);
+        new(snapshot.ProfileId, snapshot.Policy.PolicyRevisionId, snapshot.Policy.RequireReferenceForProgramOrders,
+            snapshot.Policy.RequireApprovalForProgramOrders);
 }

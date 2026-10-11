@@ -480,7 +480,7 @@ public sealed partial class OrderMigrationAndRlsTests
             receiptVersion.CommandText = "SELECT response_json->>'schemaVersion' FROM orders.command_receipts WHERE tenant_id=@tenant AND order_id=@order AND operation='create-order-draft'";
             receiptVersion.Parameters.AddWithValue("tenant", tenantId);
             receiptVersion.Parameters.AddWithValue("order", created.OrderId);
-            Assert.Equal("6", await receiptVersion.ExecuteScalarAsync());
+            Assert.Equal("7", await receiptVersion.ExecuteScalarAsync());
         }
 
         await ExecuteOwnerSqlAsync("ALTER TABLE orders.program_order_metadata DISABLE TRIGGER guard_program_order_metadata");

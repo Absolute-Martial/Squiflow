@@ -2,10 +2,13 @@
 
 Task ID: OPS-008
 Phase: 03-runtime-operations
-Status: BLOCKED
+Status: VERIFY_EXISTING
 Model: GPT-6.1 Sol
 Dependencies: OPS-007, OPS-011
 Release requirement: CONDITIONAL
+
+Qualification consumers: COM-015 and WEB-011 consume accepted artwork references after this upload boundary qualifies.
+## Qualification
 
 Local implementation and qualification are complete for the declared neutral,
 CoreApi and PostgreSQL consumer contracts. The exact 1045-test gate passed with
@@ -23,7 +26,6 @@ Current evidence/guards are owned by
 [CUSTOMER_DUPLICATES_AND_IMPORTS_SLICE.md](../../implementation/CUSTOMER_DUPLICATES_AND_IMPORTS_SLICE.md).
 No repository integration or production acceptance is inferred.
 
-Qualification consumers: COM-015 and WEB-011 consume accepted artwork references after this upload boundary qualifies.
 
 COM-004 is the first selected consumer. This owner now covers only its canonical
 `customer-import/v1` raw source; artwork, arbitrary attachments and generic file

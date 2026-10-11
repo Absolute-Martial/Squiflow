@@ -62,6 +62,40 @@ internal interface ITenantPricingAuthorization
     Task<bool> CanOverrideBeyondPolicyAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken);
 }
 
+internal enum TenantOrderApprovalPermission
+{
+    Submit,
+    View,
+    Decide,
+    Recover,
+}
+
+internal interface ITenantOrderApprovalAuthorization
+{
+    Task<bool> IsAllowedAsync(
+        Guid accountId,
+        Guid tenantId,
+        TenantOrderApprovalPermission permission,
+        CancellationToken cancellationToken);
+}
+
+internal enum TenantOrderFulfillmentPermission
+{
+    View,
+    RecordWork,
+    RecordHandoff,
+    Correct,
+}
+
+internal interface ITenantOrderFulfillmentAuthorization
+{
+    Task<bool> IsAllowedAsync(
+        Guid accountId,
+        Guid tenantId,
+        TenantOrderFulfillmentPermission permission,
+        CancellationToken cancellationToken);
+}
+
 internal enum TenantProfilePolicyPermission
 {
     View,
@@ -84,6 +118,10 @@ internal sealed class OpenFgaTenantAuthorization(
     ITenantCustomerAuthorization,
     ITenantCatalogAuthorization,
     ITenantPricingAuthorization,
+    ITenantOrderApprovalAuthorization,
+    ITenantOrderFulfillmentAuthorization,
+    ITenantPurchasingAuthorization,
+    ITenantInvoiceAuthorization,
     ITenantProfilePolicyAuthorization
 {
     internal Task<bool> CheckQuotationAsync(Guid account, Guid tenant, Application.Quotations.QuotationCapability capability, CancellationToken ct) =>
@@ -131,6 +169,14 @@ internal sealed class OpenFgaTenantAuthorization(
     private const string ViewTenantProfilePolicyRelation = "can_view_tenant_profile_policy";
     private const string EditTenantProfilePolicyRelation = "can_edit_tenant_profile_policy";
     private const string PublishTenantProfilePolicyRelation = "can_publish_tenant_profile_policy";
+    private const string SubmitOrderApprovalRelation = "can_submit_order_approval";
+    private const string ViewOrderApprovalsRelation = "can_view_order_approvals";
+    private const string DecideOrderApprovalRelation = "can_decide_order_approval";
+    private const string RecoverOrderApprovalRelation = "can_recover_order_approval";
+    private const string ViewOrderFulfillmentRelation = "can_view_order_fulfillment";
+    private const string RecordOrderWorkRelation = "can_record_order_work";
+    private const string RecordOrderHandoffRelation = "can_record_order_handoff";
+    private const string CorrectOrderFulfillmentRelation = "can_correct_order_fulfillment";
     private static readonly Meter Meter = new("Application.CoreApi.Authorization", "0.1.0");
     private static readonly Counter<long> Decisions = Meter.CreateCounter<long>("application.authorization.decisions");
     private static readonly Histogram<double> Duration = Meter.CreateHistogram<double>(
@@ -275,6 +321,56 @@ internal sealed class OpenFgaTenantAuthorization(
             _ => throw new ArgumentOutOfRangeException(nameof(permission)),
         }, cancellationToken);
 
+    Task<bool> ITenantOrderApprovalAuthorization.IsAllowedAsync(
+        Guid accountId,
+        Guid tenantId,
+        TenantOrderApprovalPermission permission,
+        CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, permission switch
+        {
+            TenantOrderApprovalPermission.Submit => SubmitOrderApprovalRelation,
+            TenantOrderApprovalPermission.View => ViewOrderApprovalsRelation,
+            TenantOrderApprovalPermission.Decide => DecideOrderApprovalRelation,
+            TenantOrderApprovalPermission.Recover => RecoverOrderApprovalRelation,
+            _ => throw new ArgumentOutOfRangeException(nameof(permission)),
+        }, cancellationToken);
+
+    Task<bool> ITenantOrderFulfillmentAuthorization.IsAllowedAsync(
+        Guid accountId,
+        Guid tenantId,
+        TenantOrderFulfillmentPermission permission,
+        CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, permission switch
+        {
+            TenantOrderFulfillmentPermission.View => ViewOrderFulfillmentRelation,
+            TenantOrderFulfillmentPermission.RecordWork => RecordOrderWorkRelation,
+            TenantOrderFulfillmentPermission.RecordHandoff => RecordOrderHandoffRelation,
+            TenantOrderFulfillmentPermission.Correct => CorrectOrderFulfillmentRelation,
+            _ => throw new ArgumentOutOfRangeException(nameof(permission)),
+        }, cancellationToken);
+
+    Task<bool> ITenantPurchasingAuthorization.IsAllowedAsync(Guid accountId, Guid tenantId,
+        TenantPurchasingPermission permission, CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, permission switch
+        {
+            TenantPurchasingPermission.View => "can_view_purchasing_suppliers",
+            TenantPurchasingPermission.ManageSupplier => "can_manage_purchasing_suppliers",
+            TenantPurchasingPermission.RecordRequest => "can_record_purchase_requests",
+            TenantPurchasingPermission.RecordReceipt => "can_record_purchase_receipts",
+            TenantPurchasingPermission.RecordPayment => "can_record_supplier_payments",
+            TenantPurchasingPermission.Correct => "can_correct_purchasing",
+            _ => throw new ArgumentOutOfRangeException(nameof(permission)),
+        }, cancellationToken);
+
+    Task<bool> ITenantInvoiceAuthorization.IsAllowedAsync(Guid accountId, Guid tenantId,
+        TenantInvoicePermission permission, CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, permission switch
+        {
+            TenantInvoicePermission.Issue => "can_issue_invoice",
+            TenantInvoicePermission.View => "can_view_invoices",
+            _ => throw new ArgumentOutOfRangeException(nameof(permission)),
+        }, cancellationToken);
+
     private async Task<bool> CheckAsync(
         Guid accountId,
         Guid tenantId,
@@ -404,6 +500,54 @@ internal sealed class ViewTenantWorkspaceAuthorizationHandler(
                 resource.TenantContext.AccountId,
                 resource.TenantContext.TenantId,
                 resource.CancellationToken))
+        {
+            context.Succeed(requirement);
+        }
+    }
+}
+
+internal sealed record TenantOrderApprovalRequirement(TenantOrderApprovalPermission Permission)
+    : IAuthorizationRequirement;
+
+internal sealed class TenantOrderApprovalAuthorizationHandler(
+    ITenantOrderApprovalAuthorization authorization)
+    : AuthorizationHandler<TenantOrderApprovalRequirement, TenantOrderResource>
+{
+    protected override async Task HandleRequirementAsync(
+        AuthorizationHandlerContext context,
+        TenantOrderApprovalRequirement requirement,
+        TenantOrderResource resource)
+    {
+        if (context.User.Identity?.IsAuthenticated is true &&
+            await authorization.IsAllowedAsync(
+                resource.TenantContext.AccountId,
+                resource.TenantContext.TenantId,
+                requirement.Permission,
+                resource.CancellationToken).ConfigureAwait(false))
+        {
+            context.Succeed(requirement);
+        }
+    }
+}
+
+internal sealed record TenantOrderFulfillmentRequirement(TenantOrderFulfillmentPermission Permission)
+    : IAuthorizationRequirement;
+
+internal sealed class TenantOrderFulfillmentAuthorizationHandler(
+    ITenantOrderFulfillmentAuthorization authorization)
+    : AuthorizationHandler<TenantOrderFulfillmentRequirement, TenantOrderResource>
+{
+    protected override async Task HandleRequirementAsync(
+        AuthorizationHandlerContext context,
+        TenantOrderFulfillmentRequirement requirement,
+        TenantOrderResource resource)
+    {
+        if (context.User.Identity?.IsAuthenticated is true &&
+            await authorization.IsAllowedAsync(
+                resource.TenantContext.AccountId,
+                resource.TenantContext.TenantId,
+                requirement.Permission,
+                resource.CancellationToken).ConfigureAwait(false))
         {
             context.Succeed(requirement);
         }

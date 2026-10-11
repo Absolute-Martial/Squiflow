@@ -37,13 +37,18 @@ public sealed class OrderDraftBodyBoundsTests : IClassFixture<WhiteLabelApiFacto
     public async Task CreateAndRevisionEnforceActualStreamBoundsWithoutContentLength(bool revise, int bytes, bool useKestrel, string charset)
     {
         var probe = new BodyLengthProbe(clearBufferedContentLength: !useKestrel);
-        using var host = _factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
-            services.AddSingleton<IStartupFilter>(probe)));
+        using var host = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseUrls("http://127.0.0.1:0");
+            builder.ConfigureTestServices(services => services.AddSingleton<IStartupFilter>(probe));
+        });
         // TestServer buffers HttpContent and fills Content-Length. Exercise the real
         // HTTP/1.1 chunked transport so a declared-length check cannot mask this boundary.
         if (useKestrel)
             host.UseKestrel(0);
         using var client = host.CreateClient();
+        // Keep the configured synthetic host while binding an ephemeral IPv4 socket.
+        client.DefaultRequestHeaders.Host = "localhost";
         var account = Guid.NewGuid();
         var tenant = Guid.NewGuid();
         var subject = account.ToString("D");

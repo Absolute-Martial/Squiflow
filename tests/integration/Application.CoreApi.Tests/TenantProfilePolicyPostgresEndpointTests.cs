@@ -45,7 +45,7 @@ public sealed class TenantProfilePolicyPostgresEndpointTests
                 GRANT SELECT ON ALL TABLES IN SCHEMA profiles TO policy_http_runtime;
                 GRANT SELECT ON tenancy.tenants,tenancy.memberships,tenancy.tenant_authorization_state TO policy_http_runtime;
                 GRANT INSERT ON profiles.policy_heads,profiles.policy_revisions,profiles.command_receipts TO policy_http_runtime;
-                GRANT UPDATE(revision,require_reference,published_policy_id) ON profiles.policy_heads TO policy_http_runtime;
+                GRANT UPDATE(revision,require_reference,require_approval,published_policy_id) ON profiles.policy_heads TO policy_http_runtime;
                 """;
             setup.Parameters.AddWithValue("account", accountId); setup.Parameters.AddWithValue("tenant", tenantId);
             await setup.ExecuteNonQueryAsync();

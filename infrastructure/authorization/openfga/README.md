@@ -32,6 +32,23 @@ The checked-in policy permits one retry for the idempotent `Check` operation on 
 
 Never point the application at an implicit latest model. Publishing a newer model has no runtime effect until its identifier is deliberately configured. Rollback restores the previously qualified model ID and compatible application deployment; it does not delete model history.
 
+## Invoice relation rollout
+
+COM-022 adds independent `invoice_issuer` and `invoice_viewer` tenant relations,
+each accepting the existing direct-user or `role#assignee` grant form.
+`can_issue_invoice` and `can_view_invoices` intersect their respective grant with
+current membership. There is no automatic initial-Owner or Platform Admin grant.
+
+Before activating invoice routes in a deployment, publish the exact updated
+tenant model, read back its immutable returned model ID, and deliberately repin
+CoreApi to that ID. Exercise issuer-only and viewer-only allowed cases, absent
+grant and absent membership denials, custom-role grants, and grant revocation
+against that pin. Rollback pairs compatible code with its previous model pin.
+Publishing this file alone does not activate a deployment. The repository's real
+OpenFGA regressions qualify local model behavior; deployment smoke evidence is a
+separate claim. The [invoice owner](../../../docs/implementation/INVOICE_ISSUE_CONTRACT.md)
+owns the bounded issue/read scope and qualification state.
+
 ## Platform Admin authorization model
 
 `platform-authorization-model.json` is the separate immutable OpenFGA contract used by the private AdminApi. It currently defines the Platform Admin authority relations, including the ADM-006 registry reads:

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Routing;
+using Application.CoreApi.Authorization;
 
 namespace Application.CoreApi;
 
@@ -49,7 +50,9 @@ internal static class CoreApiEndpointAccessValidation
 
                 var expected = CoreApiApplicationAuthorizationContract.RequirementsFor(classifications[0].Access);
                 if (!applicationAuthorization[0].Requirements.Select(requirement => requirement.GetType())
-                    .SequenceEqual(expected.Select(requirement => requirement.GetType())))
+                    .SequenceEqual(expected.Select(requirement => requirement.GetType())) ||
+                    !applicationAuthorization[0].Requirements.OfType<TenantInvoiceRequirement>().Select(requirement => requirement.Permission)
+                        .SequenceEqual(expected.OfType<TenantInvoiceRequirement>().Select(requirement => requirement.Permission)))
                 {
                     throw new InvalidOperationException(
                         "Core API route application authorization must match its declared access contract.");

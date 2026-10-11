@@ -2,7 +2,7 @@
 
 Task ID: COM-023
 Phase: 02-commercial-backend
-Status: DECISION_REQUIRED
+Status: READY_AFTER_DEPENDENCIES
 Model: GPT-6.1 Sol
 Dependencies: COM-022
 Release requirement: REQUIRED
@@ -22,6 +22,8 @@ Recheck `README.IMPLEMENTATION.md`, scoped `AGENTS.md`, [business model](../../d
 Allowed areas: receivable-owned posting integrated atomically with new invoice issue, unique invoice linkage, consistent projections and bounded protected reads with focused tests. Include organization/program/individual context without collapsing independently owing debtors; exclude general ledger and automatic collections.
 
 ## Decisions/prerequisites
+
+The owner accepted the bounded first case in [COM-023–025's proposal](../../review/COM_023_025_DECISION_PROPOSAL.md) on 2026-10-10. Its exact rules govern implementation; later financial variants remain unselected.
 
 Decide receivable recognition, historical issued-invoice backfill/reconciliation and balance derivation. Prior issue qualification did not introduce accounting; extend its owner deliberately and prove exactly one receivable per invoice. Business date/aging semantics follow COM-019.
 

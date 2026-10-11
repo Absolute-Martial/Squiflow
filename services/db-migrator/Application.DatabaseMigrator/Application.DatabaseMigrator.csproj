@@ -4,6 +4,9 @@
     <NoWarn>$(NoWarn);CA1303</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../../../modules/purchasing/Application.Purchasing.Postgres/Application.Purchasing.Postgres.csproj" />
+    <ProjectReference Include="../../../modules/invoices/Application.Invoices.Postgres/Application.Invoices.Postgres.csproj" />
+    <ProjectReference Include="../../../modules/fulfillment/Application.Fulfillment.Postgres/Application.Fulfillment.Postgres.csproj" />
     <PackageReference Include="Npgsql" />
   </ItemGroup>
   <ItemGroup>

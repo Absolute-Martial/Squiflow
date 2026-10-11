@@ -16,7 +16,9 @@ public static class OrdersPostgresRegistration
                 serviceProvider.GetRequiredService<NpgsqlDataSource>()));
         services.AddScoped(provider => new PostgresOrderDraftStore(
             provider.GetRequiredService<NpgsqlDataSource>(), provider.GetService<TimeProvider>(),
-            provider.GetService<IOrderCommercialCommitGuard>(), provider.GetRequiredService<IOrderProfilePolicySource>()));
+            provider.GetService<IOrderCommercialCommitGuard>(), provider.GetRequiredService<IOrderProfilePolicySource>(),
+            provider.GetService<IOrderApprovalAuthority>()));
+        services.AddScoped<IOrderApprovalStore>(provider => provider.GetRequiredService<PostgresOrderDraftStore>());
         services.AddScoped<IOrderProgramReferenceStore>(provider => provider.GetRequiredService<PostgresOrderDraftStore>());
         services.AddScoped<SetOrderProgramReference>();
         services.AddScoped<IOrderDraftStore>(provider => provider.GetRequiredService<PostgresOrderDraftStore>());

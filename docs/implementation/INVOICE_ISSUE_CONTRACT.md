@@ -1,13 +1,15 @@
 # Invoice issue contract
 
 **Product version:** v0.0.1\
-**Status:** host-neutral issue behavior has focused pure-contract evidence; combined qualification remains `BLOCKED` pending independent review and the revised normal gate; durable invoice runtime remains `NOT_INTRODUCED`  
+**Status:** owner-accepted issue contract on 2026-10-10; COM-020–022 host-neutral, PostgreSQL and CoreApi issue/read responsibilities are introduced and `BLOCKED` receiving qualification until integrated evidence passes
 **Focused owner:** Invoices, limited to issuance of retained invoice facts from a committed Order
 
-This owner defines the smallest invoice-issue boundary supported by current source
-and accepted business decisions. It does not add an endpoint, project, migration,
-provider adapter, authorization tuple or frontend. Before implementation, the
-blocking choices under **Decisions required before implementation** must be closed.
+This owner defines the smallest invoice-issue boundary supported by accepted
+business decisions. COM-019's choices are closed. COM-020 aligns the existing
+host-neutral capability, COM-021 adds atomic PostgreSQL persistence and COM-022
+adds separately protected issue and immutable-fact reads. Their integration is
+receiving qualification; project or route existence is not evidence of a passed
+gate. Receivables, payments and a frontend remain `NOT_INTRODUCED`.
 
 ## Source and authority inspected
 
@@ -39,11 +41,11 @@ The semantic issue command, independent of any future HTTP shape, needs only:
 
 - the current tenant/account context established from active membership;
 - one committed `orderId` and its `expectedOrderRevision`;
-- debtor selection: omitted/default organization, the committed order's attributed
-  program, or one explicitly selected individual billing-record identity;
+- debtor selection: omitted/default organization, the committed Order's attributed
+  program, or one explicitly selected active individual billing-record identity;
 - one caller-scoped idempotency key;
-- the business date input or derivation required by the still-open business-date
-  decision below.
+- no caller-supplied date; the business date is derived from the UTC calendar date
+  of the authoritative server issue instant.
 
 The caller does **not** supply invoice prices, totals, currency, customer names,
 issue timestamp, invoice identity or business reference. Those are authoritative
@@ -52,7 +54,7 @@ facts resolved or allocated by the owning capabilities.
 A successful issue must retain an immutable invoice snapshot sufficient to explain
 that issue without dereferencing mutable current state:
 
-- tenant invoice identity;
+- tenant-wide invoice GUID;
 - source Order identity and the exact committed Order revision used;
 - committed customer attribution identities from the Order;
 - invoice currency code `NPR`;
@@ -65,8 +67,9 @@ that issue without dereferencing mutable current state:
   identity, observed revision and display name are retained;
 - issuing account identity;
 - authoritative server issue timestamp in UTC;
-- invoice business date once its authority is decided;
-- the allocated organization-scoped business reference once its rule is decided.
+- invoice business date derived from the UTC date of the authoritative issue instant;
+- frozen organization identity used to scope its numeric reference ordinal;
+- allocated increasing numeric ordinal for that organization (gaps are allowed).
 
 Optional individual email/phone are intentionally not invoice facts in this
 smallest slice. If a later printable/legal document needs contact or address facts,
@@ -80,12 +83,15 @@ credit/reissue and cancellation semantics are outside this contract.
 
 ## Debtor validation and current authority
 
-Invoice issuance requires a distinct current billing permission. Order create,
-view, edit, price, commit, customer create/view and individual-availability grants
-are not substitutes. A future authorization model should follow the existing
-pattern of active account + current tenant membership + one persisted tenant grant,
-for example `invoice_issuer` producing `can_issue_invoice`; exact relation naming is
-an implementation detail, not an additional business role.
+Invoice issuance requires distinct current billing authority. Order create, view,
+edit, price, commit, customer create/view and individual-availability grants are
+not substitutes. The host-neutral `IInvoiceIssueAuthority` port checks that
+authority on every call; COM-022 uses the separate `invoices.issue` / `invoice_issuer` /
+`can_issue_invoice` authority defined by the [permission owner](../security/TENANT_PERMISSIONS.md).
+Invoice viewing uses independent `invoices.view` / `invoice_viewer` /
+`can_view_invoices` authority. Current initial-Owner or Platform Admin status
+grants neither permission by implication. CoreApi/OpenFGA qualification remains
+part of the receiving gate.
 
 Current membership and billing permission must be rechecked on every attempt,
 including idempotent replay, before a retained invoice receipt is disclosed.
@@ -101,10 +107,10 @@ contracts, never direct reads of Customers provider tables:
 - program selection is valid only for the exact program frozen on the committed
   Order and therefore its owning organization; a sibling program is not silently
   substituted;
-- individual selection must resolve the exact tenant-owned individual record and
-  freeze its source identity/revision/display name. Whether `inactive` forbids a
-  new selection is intentionally unresolved below because current Customers
-  documentation does not assign that state debtor-eligibility meaning.
+- individual selection must resolve the exact tenant-owned active individual
+  record and freeze its source identity/revision/display name. An inactive
+  individual is ineligible for a new invoice; later availability changes do not
+  alter an already-issued snapshot.
 
 Wrong-tenant/missing customer identities must not be distinguishable through
 financial issue results. The individual billing record remains independent of
@@ -125,10 +131,10 @@ committed unit price from current settings. Arithmetic validation uses the accep
 `decimal(19,4)` rules: round each applicable line amount to four decimals with
 `MidpointRounding.ToEven`, then sum the rounded line totals.
 
-The cardinality/allocation rule between one Order and invoices is **not yet
-accepted**. Until the partial/multiple-invoicing decision below is closed, no
-schema uniqueness rule, line-allocation model, "already invoiced" outcome or
-remaining-balance behavior may be invented.
+Exactly one complete invoice may be issued per committed Order. A partial invoice
+or another invoice for that Order is ineligible. Enforce this invariant at the
+transaction boundary, not with a host-side pre-check. There is no line-allocation,
+remainder, or multiple-invoice model in this contract.
 
 Quotation identity is not an issue prerequisite. Fulfillment is an independent
 effect and is neither checked nor created by this contract.
@@ -138,21 +144,21 @@ effect and is neither checked nor created by this contract.
 Invoices owns invoice identity and business-reference allocation. HTTP handlers,
 Orders, Customers and document/PDF rendering must not mint invoice numbers.
 
-The accepted uniqueness requirements are:
+The accepted identifiers are:
 
-- an internal invoice identity is unique within its tenant and remains stable;
-- a second organization-scoped business reference or sequence exists and is
-  retained with the issued invoice;
+- a tenant-wide invoice GUID that remains stable;
+- an increasing numeric ordinal unique within the frozen attributed organization,
+  retained as a second internal business reference;
+- a required organization attribution on every invoiceable Order. That frozen
+  organization scopes the ordinal even when the selected debtor is its program or
+  an individual; an unattributed Order is ineligible;
 - allocation is committed atomically with the invoice and its idempotency receipt,
   so an exact replay returns the same identity/reference and does not consume a
   second reference.
 
-The exact reference/sequence rule is still blocking. In particular, the repository
-has not decided the scope anchor for an individual debtor or an Order with no
-organization attribution, whether the value is a sequence or another reference,
-or the allocation/gap behavior under failed/concurrent issuance. Printable syntax
-and jurisdiction-specific fiscal numbering remain outside this bounded slice even
-after the internal business-reference rule is settled.
+Gaps in organization ordinals are allowed and carry no implied invoice state. This
+contract does not promise gapless numbering. The ordinal has no accepted printable
+syntax and makes no jurisdictional, tax, or fiscal-numbering claim.
 
 ## Business date and authoritative timestamp
 
@@ -160,19 +166,18 @@ after the internal business-reference rule is settled.
 transaction and replayed unchanged. It is not caller supplied and is not the
 invoice business date.
 
-The invoice business date is a separate retained fact. The repository intentionally
-has not yet chosen whether it is supplied by an authorized operator or derived
-from a tenant/business timezone, nor any backdating/future-date bounds. That exact
-choice is required before implementation; client locale, browser clock and server
-UTC date must not be silently treated as the business rule.
+The invoice business date is the UTC calendar date of `issuedAt`, the authoritative
+server issue instant. Persist both facts. No tenant timezone, client locale,
+browser clock, caller date, backdating, or future-dating rule participates in the
+first issue contract.
 
 ## Concurrency, caller-scoped idempotency and recovery
 
 Issue idempotency follows the current mutation pattern: scope is tenant + current
 account + operation kind + normalized key. The semantic fingerprint includes every
 caller-controlled business choice, including Order identity, expected revision and
-debtor selection. If business date is later defined as caller-supplied, it is also
-fingerprint input; if it is server-derived, the resulting date is retained output.
+debtor selection. The derived UTC business date is retained output and is not
+caller intent.
 Generated invoice identity, business reference and server timestamp are results and
 are not fingerprint input.
 
@@ -187,12 +192,9 @@ RLS, using only parameterized SQL kept in adapter-owned embedded `.sql` resource
 A failed transaction retains none of those effects. If a caller loses the response
 or cancellation races with commit, retrying the same key is the recovery path.
 
-Concurrent different-key attempts against the same Order must be serialized by the
-chosen invoice/order allocation invariant, not by an optimistic pre-check in the
-host. If the accepted model is one full invoice per Order, only one durable issue
-may win. If partial/multiple invoices are accepted instead, allocation must prevent
-concurrent over-invoicing. The repository must choose between those models before
-code or constraints are written.
+Concurrent different-key attempts against the same Order must be serialized by
+the one-full-invoice-per-Order invariant, not by an optimistic pre-check in the
+host. Only one durable issue may win.
 
 ## Historical replay and safe failure outcomes
 
@@ -202,17 +204,17 @@ Orders/Customers to rebuild the debtor or amounts. Receipt envelopes are version
 supported old versions preserve their original meaning and unsupported or
 inconsistent versions fail closed rather than being guessed.
 
-The future application contract needs explicit non-success outcomes for at least:
-missing/invisible source, Order not committed, Order revision conflict, unsupported
-Order currency, invalid debtor-for-Order selection, idempotency-key conflict and
-provider/storage unavailability. The exact invoice-allocation conflict outcome
-cannot be named until the partial/multiple rule is decided. If inactive individuals
-become ineligible, that condition also needs a stable non-disclosing outcome.
+The application contract needs explicit non-success outcomes for at least:
+missing/invisible source, unattributed Order, Order not committed, Order revision
+conflict, unsupported Order currency, invalid debtor-for-Order selection, inactive
+individual, already-invoiced Order, idempotency-key conflict and provider/storage
+unavailability. These outcomes must not disclose another tenant's data.
 
 Failures must not disclose another tenant's existence, Customer contact payloads,
 raw authorization-provider detail, SQL/provider internals, idempotency keys or
-full financial line payloads in diagnostics. Resource bounds for any later ingress
-must follow the existing bounded-reader pattern; no endpoint is introduced here.
+full financial line payloads in diagnostics. CoreApi ingress follows the existing bounded-reader pattern: at most 8 KiB and
+JSON depth six, no unknown or duplicate properties and no caller-supplied
+financial/generated facts.
 
 ## Explicit non-claims
 
@@ -228,113 +230,89 @@ It also does not claim that current Customers organization/program names or
 individual contact fields will remain immutable forever; the invoice snapshot is
 what protects historical issued truth if those capabilities later grow edit paths.
 
-## Decisions required before implementation
+## Owner-accepted first-issue choices, 2026-10-10
 
-These are business/contract decisions, not implementation details that an agent may
-choose silently:
+The owner accepted these five choices through COM-019:
 
-1. **Order-to-invoice allocation:** one full invoice per committed Order, or
-   partial/multiple invoices. If partial/multiple is chosen, define selectable
-   lines/quantities, rounding of partial quantities, cumulative allocation limits,
-   completion/remainder semantics and concurrent allocation behavior.
-2. **Organization-scoped business reference:** define the organization that scopes
-   the second identifier when the debtor is an individual and decide whether an
-   unattributed committed Order is invoiceable at all. Then choose reference versus
-   sequence semantics and allocation/gap behavior. Printable/fiscal format can stay
-   deferred.
-3. **Invoice business date authority:** operator-supplied versus tenant-timezone
-   derived, including required timezone and allowed past/future bounds.
-4. **Inactive individual eligibility:** decide whether an inactive individual may
-   be selected for a new invoice. Historical invoices remain valid/readable either
-   way.
+1. **Order allocation:** one complete invoice per committed Order. A partial
+   invoice or second invoice is rejected; no line allocation or remainder model is
+   introduced.
+2. **Organization anchor:** an invoiceable Order must carry frozen organization
+   attribution. That organization scopes the reference ordinal even when the
+   selected debtor is its program or an individual. An unattributed Order is
+   rejected.
+3. **Identity/reference:** retain a tenant-wide invoice GUID plus an increasing
+   numeric ordinal scoped per attributed organization. Gaps are allowed. No
+   printable syntax, gapless promise, or fiscal-numbering claim is selected.
+4. **Business date:** derive the date from the UTC calendar date of the authoritative
+   server issue instant; retain the full issue timestamp separately. No caller date,
+   tenant timezone, backdating, or future-dating is accepted.
+5. **Individual eligibility:** only an active individual billing record may be
+   selected for a new invoice. Inactive records are rejected; existing issued
+   snapshots are unchanged.
 
-No durable persistence/numbering/date implementation should begin until these four choices are accepted,
-because they change persistence constraints, concurrency, idempotency fingerprints
-or current debtor validation.
+These accepted decisions unblock contract-alignment work, not persistence. Before
+durable issuance, the host-neutral implementation must enforce these rules and
+receive the relevant focused qualification. COM-021 then adds only the atomic
+PostgreSQL issuance boundary; COM-022 separately adds and qualifies invoice API
+authority. Tax/fiscal compliance, receivables, payments, documents, rendering and
+delivery remain outside COM-019–021.
 
 ## Features that may remain outside this bounded slice
 
-The following do not block a minimal issue implementation once the four decisions
-above are closed: printable number syntax, jurisdiction-specific tax/fiscal rules,
+The following remain outside this bounded slice: printable number syntax,
+jurisdiction-specific tax/fiscal rules,
 customer addresses/contacts on printed documents, program billing defaults,
 quotation linkage, invoice correction/credit flows, receivable/payment accounting,
 consolidated billing, fulfillment integration, PDF/print/delivery and multi-currency.
 
-## Host-neutral implementation note
+## Receiving implementation and read boundary
 
-`Application.Invoices` now implements only the provider-neutral behavior that can be
-expressed without choosing the unresolved allocation, numbering or business-date
-rules: current billing-authority checking through a capability port, replay-before-
-mutable-read idempotency flow, committed Order/revision/NPR validation, decimal
-19,4 + `ToEven` arithmetic verification, tenant-scoped debtor resolution through
-current Customers public queries, immutable issued-fact contracts and explicit safe
-outcomes. The atomic issue-store port is intentionally unimplemented; its future
-adapter must own invoice identity/reference/date/timestamp allocation and durable
-receipt persistence under the accepted decisions. Inactive individual selection
-returns `ContractDecisionRequired` rather than silently treating inactive as either
-eligible or ineligible. No endpoint, PostgreSQL adapter, migration or OpenFGA SDK
-integration is introduced by this slice.
+The existing host-neutral orchestration preserves authority-before-replay and
+replay-before-mutable-source ordering. Its accepted-contract deltas use a narrow
+invoice source port and reusable invoice-owned source/debtor validation. Orders
+owns the retained financial observation and validates its own policy, approval
+and commercial evidence. Invoice source reading does not re-admit an already
+committed quotation or select current prices. Customers owns borrowed current
+debtor observations; mutable individual rows are held through issue validation.
 
-Retained debtor facts must carry a `Kind` matching their concrete supported record;
-contradictory or undefined kinds fail constructor validation before admission as
-issued facts. Individual resolution accepts the known `Active` state and preserves
-the explicit `Inactive -> ContractDecisionRequired` outcome. An unsupported
-availability returned by the Customers query fails fast with a static
-`InvalidOperationException`, consistent with other unsupported capability-port
-statuses. It never produces an issue candidate or calls the issue store's commit
-operation. Rejecting an unknown contract value does not decide inactive eligibility.
+The PostgreSQL adapter owns versioned immutable headers, typed full lines,
+organization ordinal allocation and actor-scoped issue receipts. Production
+composition uses the held connection/transaction for owned source and current
+authority observations. It must not acquire nested pool leases while holding its
+invoice transaction. Independent view-authorized reads return retained invoice
+facts without resolving current Orders or Customers.
 
-Focused correction evidence first reproduced eight adversarial failures against the pre-fix source, then passed with the constructor/resolution guards. The ignored raw runtime artifacts are not carried in this source archive; the current tracked evidence summary is [COM-020 current-head evidence](../production-completion-review/evidence/COM-020.md). On current HEAD the complete focused invoice suite passed 25/25 and the architecture suite passed 14/14 before the combined-gate transport was lost. These are pure orchestration, fact-validation and dependency-direction checks, not PostgreSQL, OpenFGA or durable invoice evidence. The earlier combined gate predates these corrections and does not qualify GATE-001 for current source.
+CoreApi exposes `POST /api/v1/tenants/{tenantId}/orders/{orderId}/invoice` with
+expected Order revision, optional tagged debtor choice and required
+`Idempotency-Key`. A new issue returns 201, exact replay 200, and only the invoice
+identity; financial content is not an issue-permission side effect. Separate
+view authority protects `GET /api/v1/tenants/{tenantId}/invoices/{invoiceId}` and
+`GET /api/v1/tenants/{tenantId}/orders/{orderId}/invoice`. Protected success,
+denial and errors remain `no-store`.
 
-## Proposed file and dependency map
+These are introduced receiving responsibilities, not qualification claims. Pure
+unit tests, actual PostgreSQL and pinned OpenFGA/native API regressions, one exact
+normal repository gate and independent affected-host publications are required.
+The prior donor 25-case evidence remains historical and qualifies only its old
+scope. COM-023–025's first settlement contract was owner accepted on 2026-10-10 under
+[its focused owner](CUSTOMER_RECEIVABLES_PAYMENTS_AND_SETTLEMENT.md). Its runtime
+remains absent pending qualified invoice prerequisites and its own implementation/evidence.
 
-The host-neutral `Application.Invoices` project and its focused unit-test project now
-exist. Provider/host paths below remain proposed and are not introduced by this
-slice.
+## Introduced file and dependency map
 
-```text
-modules/invoices/
-  Application.Invoices/
-    Application.Invoices.csproj
-    InvoiceIssue.cs                 # command/result, invariant validation, idempotency intent
-    InvoiceSnapshot.cs              # retained issued facts, no provider/HTTP types
-    dependencies:
-      -> Application.Orders
-      -> Application.Customers
-      -> Application.Tenancy
+These are the earned boundaries under receiving qualification:
 
-  Application.Invoices.Postgres/
-    Application.Invoices.Postgres.csproj
-    Persistence/...
-    Migrations/...
-    Sql/IssueInvoice.sql
-    Sql/FindIssueReceipt.sql
-    dependencies:
-      -> Application.Invoices
-      -> existing EF Core/Npgsql packages already used by capability PostgreSQL adapters
-
-modules/orders/Application.Orders/
-  CommittedOrderInvoiceFacts.cs     # proposed narrow public query; committed immutable facts only
-
-modules/customers/Application.Customers/
-  InvoiceDebtorFacts.cs             # proposed narrow debtor-resolution query; no billing authority
-
-services/core-api/Application.CoreApi/       # only when ingress is separately introduced
-  -> Application.Invoices.Postgres
-  -> pinned OpenFGA adapter adds the dedicated invoice-issue permission
-
-authorization model
-  infrastructure/authorization/openfga/tenant-authorization-model.json
-
-database migrator
-  services/db-migrator/Application.DatabaseMigrator/
-  -> Application.Invoices.Postgres migration contribution
-
-tests (when implementation begins)
-  unit/Application.Invoices.Tests/
-  integration/Application.Invoices.Postgres.Tests/
-  integration/Application.CoreApi.Tests/    # only with an HTTP issue surface
-```
+| Boundary | Owned source |
+|---|---|
+| Host-neutral invoice meaning | `modules/invoices/Application.Invoices/InvoiceIssue.cs`, `InvoiceReads.cs`; neutral Orders/Customers/Tenancy references |
+| Invoice provider isolation | `modules/invoices/Application.Invoices.Postgres/`; existing EF Core/Npgsql packages, owned migrations and embedded SQL |
+| Frozen Order observation | `modules/orders/Application.Orders/OrderFinancialSourceFacts.cs` and Orders-owned borrowed PostgreSQL reader |
+| Current debtor observation | Customers-owned borrowed PostgreSQL billing reader; no financial permission meaning |
+| API/provider composition | CoreApi `InvoiceRoutes`, `InvoiceSourceReader`, `InvoiceAuthority` and independent invoice authorization |
+| Model and grants | Checked-in tenant OpenFGA model and `deploy/database/grant-core-api-runtime.sql` |
+| Migration activation | Existing DatabaseMigrator registry, invoice contribution at order 400 |
+| Recurring evidence | Existing invoice unit suite, earned invoice PostgreSQL suite, focused CoreApi and architecture suites |
 
 No new external package is justified by this contract. The application project
 owns financial issue meaning; Orders and Customers expose only the narrow facts

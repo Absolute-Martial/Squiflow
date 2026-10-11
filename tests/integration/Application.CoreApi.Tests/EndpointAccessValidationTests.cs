@@ -62,6 +62,25 @@ public sealed class EndpointAccessValidationTests : IClassFixture<WhiteLabelApiF
 
 
     [Fact]
+    public void InvoiceIssueAndViewDeclareExactlyTheirIndependentRequirement()
+    {
+        foreach (var (access, permission) in new[]
+        {
+            (EndpointAccess.InvoiceIssue, TenantInvoicePermission.Issue),
+            (EndpointAccess.InvoiceView, TenantInvoicePermission.View),
+        })
+        {
+            var requirement = Assert.IsType<TenantInvoiceRequirement>(Assert.Single(CoreApiApplicationAuthorizationContract.RequirementsFor(access)));
+            Assert.Equal(permission, requirement.Permission);
+            var metadata = new CoreApiApplicationAuthorizationMetadata(access, [requirement]);
+            ValidateTenant(new EndpointAccessMetadata(access), new AuthorizeAttribute(), metadata);
+            Assert.Throws<InvalidOperationException>(() => ValidateTenant(new EndpointAccessMetadata(access), new AuthorizeAttribute(),
+                new CoreApiApplicationAuthorizationMetadata(access,
+                    [new TenantInvoiceRequirement(permission == TenantInvoicePermission.Issue ? TenantInvoicePermission.View : TenantInvoicePermission.Issue)])));
+        }
+    }
+
+    [Fact]
     public async Task RuntimeAuthorizationUsesTheValidatedEndpointDeclaration()
     {
         var access = EndpointAccess.AuthorizedTenantOrderCreation;

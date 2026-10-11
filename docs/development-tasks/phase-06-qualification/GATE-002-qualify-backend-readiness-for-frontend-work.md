@@ -4,8 +4,8 @@ Task ID: GATE-002
 Phase: 06-qualification
 Status: READY_AFTER_DEPENDENCIES
 Model: GPT-6.1 Sol
-Dependencies: GATE-001, ADM-013, ADM-016, ADM-023, ADM-024, ADM-025, ADM-032, ADM-034, COM-032, OPS-006, OPS-009, OPS-012, OPS-013, OPS-020
-Conditional dependencies: ADM-003 when additional route/readiness/admission safeguards are needed; ADM-005 when provider onboarding is selected; ADM-022 when a real runtime implementation variant is selected; ADM-026 when identity recovery is selected; ADM-027 when custom domains are selected; ADM-028 when a key-lifecycle contract is selected; ADM-029 when a key-lifecycle runtime is selected; ADM-030 when support access is selected; ADM-031 when resource scope is selected; ADM-033 when feature release controls are selected; COM-004 when customer import is selected; COM-016 when purchasing is selected; COM-017 when outsourcing is selected; COM-018 when tracked stock is selected; COM-026 when provider payments are selected; COM-027 when credit is selected; OPS-005 when scheduling is selected; OPS-008 when managed uploads are selected; OPS-010 when external notification is selected
+Dependencies: GATE-001, ADM-013, ADM-016, ADM-023, ADM-024, ADM-025, ADM-032, ADM-034, COM-004, COM-032, OPS-006, OPS-009, OPS-012, OPS-013, OPS-020
+Conditional dependencies: ADM-003 when additional route/readiness/admission safeguards are needed; ADM-005 when provider onboarding is selected; ADM-022 when a real runtime implementation variant is selected; ADM-026 when identity recovery is selected; ADM-027 when custom domains are selected; ADM-028 when a key-lifecycle contract is selected; ADM-029 when a key-lifecycle runtime is selected; ADM-030 when support access is selected; ADM-031 when resource scope is selected; ADM-033 when feature release controls are selected; COM-016 when purchasing is selected; COM-017 when outsourcing is selected; COM-018 when tracked stock is selected; COM-026 when provider payments are selected; COM-027 when credit is selected; OPS-005 when scheduling is selected; OPS-008 when managed uploads are selected; OPS-010 when external notification is selected
 Release requirement: REQUIRED
 
 ## Outcome

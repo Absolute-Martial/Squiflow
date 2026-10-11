@@ -11,6 +11,7 @@ namespace Application.Profiles.Postgres;
 public sealed class PostgresProfileStore(NpgsqlDataSource source, TimeProvider clock) : IProfileStore
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { MaxDepth = 16, UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow, RespectRequiredConstructorParameters = true, RespectNullableAnnotations = true };
+    static PostgresProfileStore() => JsonOptions.Converters.Add(new PublishedTenantPolicyJsonConverter());
     public async Task<TenantPolicyState?> GetPolicyAsync(TenantContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -32,21 +33,27 @@ public sealed class PostgresProfileStore(NpgsqlDataSource source, TimeProvider c
     {
         ArgumentNullException.ThrowIfNull(context); ArgumentNullException.ThrowIfNull(request);
         TenantProfileRules.RequireExpectedRevision(request.ExpectedRevision); TenantProfileRules.RequireAuthorizationRevision(observedAuthorizationRevision);
-        var fingerprint = TenantProfileRules.Fingerprint("edit-policy", Revision(request.ExpectedRevision), request.RequireReferenceForProgramOrders ? "true" : "false");
+        var fingerprint = request.RequireApprovalForProgramOrders is null
+            ? TenantProfileRules.Fingerprint("edit-policy", Revision(request.ExpectedRevision), request.RequireReferenceForProgramOrders ? "true" : "false")
+            : TenantProfileRules.Fingerprint("edit-policy", Revision(request.ExpectedRevision), request.RequireReferenceForProgramOrders ? "true" : "false",
+                request.RequireApprovalForProgramOrders.Value ? "true" : "false");
         return MutateAsync(context.TenantId, context.AccountId, null, "edit-policy", idempotencyKey, fingerprint, observedAuthorizationRevision,
             async (connection, transaction, ct) =>
             {
                 var previous = await ReadPolicyStateAsync(connection, transaction, context.TenantId, ct).ConfigureAwait(false);
                 if ((previous?.Revision ?? 0) != request.ExpectedRevision) return new(ProfileCommandStatus.RevisionConflict);
-                var state = new TenantPolicyState(context.TenantId, checked(request.ExpectedRevision + 1), request.RequireReferenceForProgramOrders, previous?.PublishedPolicyRevisionId);
+                var state = new TenantPolicyState(context.TenantId, checked(request.ExpectedRevision + 1), request.RequireReferenceForProgramOrders,
+                    previous?.PublishedPolicyRevisionId, request.RequireApprovalForProgramOrders ?? previous?.RequireApprovalForProgramOrders ?? false);
                 await using var command = Command(previous is null ?
                     ProfileSql.InsertPolicyHead : ProfileSql.UpdatePolicyHead, connection, transaction,
-                    ("tenant", context.TenantId), ("revision", state.Revision), ("required", state.RequireReferenceForProgramOrders), ("expected", request.ExpectedRevision));
+                    ("tenant", context.TenantId), ("revision", state.Revision), ("required", state.RequireReferenceForProgramOrders),
+                    ("approval", state.RequireApprovalForProgramOrders), ("expected", request.ExpectedRevision));
                 RequireOne(await command.ExecuteNonQueryAsync(ct).ConfigureAwait(false));
                 return new(ProfileCommandStatus.Edited, state);
             }, result =>
             {
-                if (result.PolicyState?.Revision != request.ExpectedRevision + 1 || result.PolicyState.RequireReferenceForProgramOrders != request.RequireReferenceForProgramOrders)
+                if (result.PolicyState?.Revision != request.ExpectedRevision + 1 || result.PolicyState.RequireReferenceForProgramOrders != request.RequireReferenceForProgramOrders ||
+                    result.PolicyState.RequireApprovalForProgramOrders != (request.RequireApprovalForProgramOrders ?? result.PolicyState.RequireApprovalForProgramOrders))
                     throw InvalidFacts();
             }, cancellationToken);
     }
@@ -63,15 +70,17 @@ public sealed class PostgresProfileStore(NpgsqlDataSource source, TimeProvider c
                 if (previous is null) return new(ProfileCommandStatus.NotFound);
                 if (previous.Revision != request.ExpectedRevision) return new(ProfileCommandStatus.RevisionConflict);
                 var policy = new PublishedTenantPolicy(Guid.CreateVersion7(), context.TenantId, checked(previous.Revision + 1),
-                    previous.RequireReferenceForProgramOrders, context.AccountId, Now(), observedAuthorizationRevision);
+                    previous.RequireReferenceForProgramOrders, context.AccountId, Now(), observedAuthorizationRevision,
+                    TenantProfileRules.SupportedPolicyVersion, previous.RequireApprovalForProgramOrders);
                 await using (var insert = Command(ProfileSql.InsertPolicyRevision,
                     connection, transaction, ("tenant", context.TenantId), ("id", policy.PolicyRevisionId), ("revision", policy.Revision),
-                    ("required", policy.RequireReferenceForProgramOrders), ("facts", Serialize(policy, 8192))))
+                    ("required", policy.RequireReferenceForProgramOrders), ("approval", policy.RequireApprovalForProgramOrders), ("facts", Serialize(policy, 8192))))
                     RequireOne(await insert.ExecuteNonQueryAsync(ct).ConfigureAwait(false));
                 await using (var update = Command(ProfileSql.PublishPolicyHead, connection, transaction,
                     ("tenant", context.TenantId), ("revision", policy.Revision), ("id", policy.PolicyRevisionId), ("expected", request.ExpectedRevision)))
                     RequireOne(await update.ExecuteNonQueryAsync(ct).ConfigureAwait(false));
-                return new(ProfileCommandStatus.PolicyPublished, new(context.TenantId, policy.Revision, policy.RequireReferenceForProgramOrders, policy.PolicyRevisionId), policy);
+                return new(ProfileCommandStatus.PolicyPublished, new(context.TenantId, policy.Revision, policy.RequireReferenceForProgramOrders,
+                    policy.PolicyRevisionId, policy.RequireApprovalForProgramOrders), policy);
             }, result =>
             {
                 if (result.PublishedPolicy?.Revision != request.ExpectedRevision + 1 || result.PublishedPolicy.PublishedByAccountId != context.AccountId)
@@ -109,7 +118,8 @@ public sealed class PostgresProfileStore(NpgsqlDataSource source, TimeProvider c
                 if ((authority?.Revision ?? 0) != request.ExpectedAuthorityRevision) return new(ProfileCommandStatus.RevisionConflict);
                 var policy = await ReadPublishedPolicyAsync(connection, transaction, request.TenantId, request.PublishedPolicyRevisionId, ct).ConfigureAwait(false);
                 if (policy is null) return new(ProfileCommandStatus.NotFound);
-                if (request.IsLegacyBaseline && policy.RequireReferenceForProgramOrders) return new(ProfileCommandStatus.InvalidBaseline);
+                if (policy.Version != TenantProfileRules.SupportedPolicyVersion) return new(ProfileCommandStatus.UnsupportedPolicyVersion);
+                if (request.IsLegacyBaseline && (policy.RequireReferenceForProgramOrders || policy.RequireApprovalForProgramOrders)) return new(ProfileCommandStatus.InvalidBaseline);
                 var selection = CommercialFeatureCatalog.Catalog.Compile([]);
                 var profile = new TenantProfileSnapshot(TenantProfileRules.SupportedVersion, Guid.CreateVersion7(), request.TenantId,
                     selection.CatalogFingerprint, selection.SelectionFingerprint, selection.EffectiveFeatureIds, policy, access.PrincipalId, access.DeviceId, Now(),
@@ -143,7 +153,7 @@ public sealed class PostgresProfileStore(NpgsqlDataSource source, TimeProvider c
                 if ((authority?.Revision ?? 0) != request.ExpectedAuthorityRevision) return new(ProfileCommandStatus.RevisionConflict);
                 var profile = await ReadProfileAsync(connection, transaction, request.TenantId, request.ProfileId, ct).ConfigureAwait(false);
                 if (profile is null) return new(ProfileCommandStatus.NotFound);
-                if (request.AsLegacyBaseline && (!profile.IsLegacyBaseline || profile.Policy.RequireReferenceForProgramOrders)) return new(ProfileCommandStatus.InvalidBaseline);
+                if (request.AsLegacyBaseline && (!profile.IsLegacyBaseline || profile.Policy.RequireReferenceForProgramOrders || profile.Policy.RequireApprovalForProgramOrders)) return new(ProfileCommandStatus.InvalidBaseline);
                 if (request.AsLegacyBaseline && authority?.LegacyBaselineProfileId is not null) return new(ProfileCommandStatus.BaselineAlreadySelected);
                 var next = new TenantProfileAuthority(request.TenantId, checked(request.ExpectedAuthorityRevision + 1),
                     request.AsLegacyBaseline ? authority?.ActiveProfileId : profile.ProfileId,
@@ -214,7 +224,8 @@ public sealed class PostgresProfileStore(NpgsqlDataSource source, TimeProvider c
             }
         }
         var result = await mutate(connection, transaction, ct).ConfigureAwait(false);
-        if (result.Status is ProfileCommandStatus.NotFound or ProfileCommandStatus.RevisionConflict or ProfileCommandStatus.InvalidBaseline or ProfileCommandStatus.BaselineAlreadySelected) return result;
+        if (result.Status is ProfileCommandStatus.NotFound or ProfileCommandStatus.RevisionConflict or ProfileCommandStatus.InvalidBaseline or
+            ProfileCommandStatus.BaselineAlreadySelected or ProfileCommandStatus.UnsupportedPolicyVersion) return result;
         await ValidateResultAsync(connection, transaction, tenantId, operation, result, ct).ConfigureAwait(false); validateIntent(result);
         await using (var insert = Command(ProfileSql.InsertCommandReceipt,
             connection, transaction, ("tenant", tenantId), ("actor", actorId), ("kind", kind), ("device", deviceId ?? (object)DBNull.Value),
@@ -231,7 +242,7 @@ public sealed class PostgresProfileStore(NpgsqlDataSource source, TimeProvider c
         await using (var reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false))
         {
             if (!await reader.ReadAsync(ct).ConfigureAwait(false)) return null;
-            state = new(tenantId, reader.GetInt64(0), reader.GetBoolean(1), reader.IsDBNull(2) ? null : reader.GetGuid(2));
+            state = new(tenantId, reader.GetInt64(0), reader.GetBoolean(1), reader.IsDBNull(3) ? null : reader.GetGuid(3), reader.GetBoolean(2));
         }
         if (state.Revision < 1) throw InvalidFacts();
         if (state.PublishedPolicyRevisionId is { } id)
@@ -248,7 +259,10 @@ public sealed class PostgresProfileStore(NpgsqlDataSource source, TimeProvider c
         if (!await reader.ReadAsync(ct).ConfigureAwait(false)) return null;
         var policy = Deserialize<PublishedTenantPolicy>(reader.GetString(3), 8192);
         TenantProfileRules.ValidatePolicy(policy, tenantId);
-        if (policy.PolicyRevisionId != id || policy.Revision != reader.GetInt64(0) || policy.RequireReferenceForProgramOrders != reader.GetBoolean(1) || reader.GetInt32(2) != 1) throw InvalidFacts();
+        var policyVersion = reader.GetInt32(2);
+        if (policy.PolicyRevisionId != id || policy.Revision != reader.GetInt64(0) || policy.RequireReferenceForProgramOrders != reader.GetBoolean(1) ||
+            policy.RequireApprovalForProgramOrders != reader.GetBoolean(4) ||
+            policyVersion != (policy.Version == TenantProfileRules.LegacyPolicyVersion ? 1 : 2)) throw InvalidFacts();
         return policy;
     }
     private static async Task<TenantProfileSnapshot?> ReadProfileAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, Guid tenantId, Guid id, CancellationToken ct)
@@ -259,7 +273,9 @@ public sealed class PostgresProfileStore(NpgsqlDataSource source, TimeProvider c
         {
             if (!await reader.ReadAsync(ct).ConfigureAwait(false)) return null;
             profile = Deserialize<TenantProfileSnapshot>(reader.GetString(3), 16384); TenantProfileRules.ValidateProfile(profile, tenantId);
-            if (profile.ProfileId != id || profile.Policy.PolicyRevisionId != reader.GetGuid(0) || profile.IsLegacyBaseline != reader.GetBoolean(1) || reader.GetInt32(2) != 1) throw InvalidFacts();
+            var profileVersion = profile.Version == TenantProfileRules.LegacyVersion ? 1 : 2;
+            if (profile.ProfileId != id || profile.Policy.PolicyRevisionId != reader.GetGuid(0) || profile.IsLegacyBaseline != reader.GetBoolean(1) ||
+                reader.GetInt32(2) != profileVersion) throw InvalidFacts();
         }
         var policy = await ReadPublishedPolicyAsync(connection, transaction, tenantId, profile.Policy.PolicyRevisionId, ct).ConfigureAwait(false);
         if (policy != profile.Policy) throw InvalidFacts();
@@ -284,7 +300,7 @@ public sealed class PostgresProfileStore(NpgsqlDataSource source, TimeProvider c
         if (authority.LegacyBaselineProfileId is { } legacy)
         {
             var profile = await ReadProfileAsync(connection, transaction, tenantId, legacy, ct).ConfigureAwait(false);
-            if (profile is null || !profile.IsLegacyBaseline || profile.Policy.RequireReferenceForProgramOrders) throw InvalidFacts();
+            if (profile is null || !profile.IsLegacyBaseline || profile.Policy.RequireReferenceForProgramOrders || profile.Policy.RequireApprovalForProgramOrders) throw InvalidFacts();
         }
     }
     private static async Task WriteAuthorityAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, TenantProfileAuthority authority, bool create, long expected, CancellationToken ct)
@@ -325,7 +341,8 @@ public sealed class PostgresProfileStore(NpgsqlDataSource source, TimeProvider c
         if (operation == "edit-policy" && (result.PolicyState is null || result.PublishedPolicy is not null || result.Profile is not null || result.Authority is not null) ||
             operation == "publish-policy" && (result.PolicyState is null || result.PublishedPolicy is null || result.Profile is not null || result.Authority is not null ||
                 result.PolicyState.PublishedPolicyRevisionId != result.PublishedPolicy.PolicyRevisionId || result.PolicyState.Revision != result.PublishedPolicy.Revision ||
-                result.PolicyState.RequireReferenceForProgramOrders != result.PublishedPolicy.RequireReferenceForProgramOrders) ||
+                result.PolicyState.RequireReferenceForProgramOrders != result.PublishedPolicy.RequireReferenceForProgramOrders ||
+                result.PolicyState.RequireApprovalForProgramOrders != result.PublishedPolicy.RequireApprovalForProgramOrders) ||
             operation is "publish-profile" or "activate-profile" or "select-legacy-baseline" && (result.Profile is null || result.Authority is null || result.PolicyState is not null) ||
             operation == "publish-profile" && result.PublishedPolicy != result.Profile?.Policy ||
             operation is "activate-profile" or "select-legacy-baseline" && result.PublishedPolicy is not null) throw InvalidFacts();
@@ -359,11 +376,29 @@ public sealed class PostgresProfileStore(NpgsqlDataSource source, TimeProvider c
         if (Encoding.UTF8.GetByteCount(json) > maximumBytes) throw InvalidFacts();
         try
         {
+            using var document = JsonDocument.Parse(json, new JsonDocumentOptions { MaxDepth = 16 });
+            RequireUniqueProperties(document.RootElement);
             return JsonSerializer.Deserialize<T>(json, JsonOptions) ?? throw InvalidFacts();
         }
         catch (JsonException)
         {
             throw InvalidFacts();
+        }
+    }
+    private static void RequireUniqueProperties(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var property in element.EnumerateObject())
+            {
+                if (!names.Add(property.Name)) throw InvalidFacts();
+                RequireUniqueProperties(property.Value);
+            }
+        }
+        else if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in element.EnumerateArray()) RequireUniqueProperties(item);
         }
     }
     private static string Serialize<T>(T value, int maximumBytes)

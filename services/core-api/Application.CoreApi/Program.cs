@@ -470,6 +470,10 @@ app.MapPricingEndpoints();
 app.MapCatalogOrderEndpoints();
 app.MapQuotationEndpoints();
 app.MapOrderProgramReferenceRoutes();
+app.MapOrderApprovalRoutes();
+app.MapFulfillmentRoutes();
+app.MapPurchasingRoutes();
+app.MapInvoiceRoutes();
 app.MapCustomerRepresentativeEndpoints();
 app.MapTenantProfilePolicyEndpoints();
 

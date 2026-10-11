@@ -21,6 +21,78 @@ public sealed class TenantAuthorizationAdministrationTests
     }
 
     [Fact]
+    public void OrderApprovalPermissionsAreIndependentAndDelegable()
+    {
+        var expected = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["orders.approvals.submit"] = "order_approval_submitter",
+            ["orders.approvals.view"] = "order_approval_viewer",
+            ["orders.approvals.decide"] = "order_approval_decider",
+            ["orders.approvals.recover"] = "order_approval_recoverer",
+        };
+
+        foreach (var (permissionId, relation) in expected)
+        {
+            Assert.True(TenantPermissionCatalog.TryGet(permissionId, out var permission));
+            Assert.Equal(relation, permission.Relation);
+            Assert.True(permission.DelegableByInitialOwner);
+        }
+    }
+
+    [Fact]
+    public void OrderFulfillmentPermissionsAreIndependentAndDelegable()
+    {
+        var expected = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["orders.fulfillment.view"] = "order_fulfillment_viewer",
+            ["orders.fulfillment.work.record"] = "work_recorder",
+            ["orders.fulfillment.handoff.record"] = "handoff_recorder",
+            ["orders.fulfillment.correct"] = "corrector",
+        };
+
+        foreach (var (permissionId, relation) in expected)
+        {
+            Assert.True(TenantPermissionCatalog.TryGet(permissionId, out var permission));
+            Assert.Equal(relation, permission.Relation);
+            Assert.True(permission.DelegableByInitialOwner);
+        }
+    }
+
+    [Fact]
+    public void PurchasingPermissionsAreIndependentAndDelegable()
+    {
+        var expected = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["purchasing.supplier.view"] = "supplier_viewer",
+            ["purchasing.supplier.manage"] = "supplier_editor",
+            ["purchasing.request.record"] = "purchase_request_recorder",
+            ["purchasing.receipt.record"] = "purchase_receiver",
+            ["purchasing.payment.record"] = "supplier_payer",
+            ["purchasing.correct"] = "purchasing_corrector",
+        };
+
+        Assert.Equal(expected.Count, expected.Values.Distinct(StringComparer.Ordinal).Count());
+        foreach (var (permissionId, relation) in expected)
+        {
+            Assert.True(TenantPermissionCatalog.TryGet(permissionId, out var permission));
+            Assert.Equal(relation, permission.Relation);
+            Assert.True(permission.DelegableByInitialOwner);
+        }
+    }
+
+    [Fact]
+    public void InvoiceIssueAndViewPermissionsAreIndependentAndDelegable()
+    {
+        Assert.True(TenantPermissionCatalog.TryGet("invoices.issue", out var issue));
+        Assert.True(TenantPermissionCatalog.TryGet("invoices.view", out var view));
+        Assert.Equal("invoice_issuer", issue.Relation);
+        Assert.Equal("invoice_viewer", view.Relation);
+        Assert.NotEqual(issue.Relation, view.Relation);
+        Assert.True(issue.DelegableByInitialOwner);
+        Assert.True(view.DelegableByInitialOwner);
+    }
+
+    [Fact]
     public void RolePermissionsAreNormalizedDeduplicatedAndOrdered()
     {
         var permissions = TenantPermissionCatalog.NormalizeRolePermissions(

@@ -34,12 +34,12 @@ public sealed class MigrationRegistryTests
 
         Assert.Equal(migrationProjects, registeredProjects);
         Assert.Equal(
-            [typeof(IdentityAccessDbContext), typeof(TenancyDbContext), typeof(PlatformAdministrationDbContext), typeof(ProfileDbContext), typeof(CustomerDbContext), typeof(CatalogDbContext), typeof(PricingDbContext), typeof(OrderDbContext), typeof(Application.Quotations.Postgres.QuotationDbContext)],
+            [typeof(IdentityAccessDbContext), typeof(TenancyDbContext), typeof(PlatformAdministrationDbContext), typeof(ProfileDbContext), typeof(CustomerDbContext), typeof(CatalogDbContext), typeof(PricingDbContext), typeof(OrderDbContext), typeof(Application.Quotations.Postgres.QuotationDbContext), typeof(Application.Fulfillment.Postgres.FulfillmentDbContext), typeof(Application.Purchasing.Postgres.PurchasingDbContext), typeof(Application.Invoices.Postgres.InvoicesDbContext)],
             MigrationModules.All.Select(module => module.DbContextType));
         Assert.Equal(
-            ["identity-access", "tenancy", "platform-administration", "profiles", "customers", "catalog", "pricing", "orders", "quotations"],
+            ["identity-access", "tenancy", "platform-administration", "profiles", "customers", "catalog", "pricing", "orders", "quotations", "fulfillment", "purchasing", "invoices"],
             MigrationModules.All.Select(module => module.Name));
-        Assert.Equal([100, 200, 225, 240, 250, 260, 275, 300, 325], MigrationModules.All.Select(module => module.Order));
+        Assert.Equal([100, 200, 225, 240, 250, 260, 275, 300, 325, 350, 375, 400], MigrationModules.All.Select(module => module.Order));
 
         var solution = File.ReadAllText(Path.Combine(root, "Application.slnx"));
         foreach (var project in migrationProjects)

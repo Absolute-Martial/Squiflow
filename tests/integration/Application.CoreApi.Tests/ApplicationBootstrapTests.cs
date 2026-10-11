@@ -274,11 +274,12 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
         string issuer = Authority,
         string audience = Audience,
         DateTime? expires = null,
-        SecurityKey? signingKey = null)
+        SecurityKey? signingKey = null,
+        IEnumerable<Claim>? extraClaims = null)
     {
-        var claims = subject is null
-            ? Array.Empty<Claim>()
-            : [new Claim("sub", subject)];
+        var claims = new List<Claim>();
+        if (subject is not null) claims.Add(new Claim("sub", subject));
+        if (extraClaims is not null) claims.AddRange(extraClaims);
         var descriptor = new SecurityTokenDescriptor
         {
             Issuer = issuer,

@@ -2,11 +2,13 @@
 
 Task ID: COM-004
 Phase: 02-commercial-backend
-Status: PRODUCTION_HONEST
+Status: VERIFY_EXISTING
 Model: GPT-6.1 Sol
 Dependencies: COM-003
 Conditional dependencies: OPS-008 when import bytes are retained; OPS-003 when the accepted import uses background execution
 Release requirement: REQUIRED
+
+## Qualification
 
 COM-004 implementation and local qualification are **COMPLETE** for the declared
 capability, CoreApi and PostgreSQL contracts. Raw-source lifecycle, expiry-aware

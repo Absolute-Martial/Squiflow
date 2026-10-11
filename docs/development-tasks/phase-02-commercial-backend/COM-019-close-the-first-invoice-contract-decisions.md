@@ -2,7 +2,7 @@
 
 Task ID: COM-019
 Phase: 02-commercial-backend
-Status: DECISION_REQUIRED
+Status: VERIFY_EXISTING
 Model: GPT-6.1 Sol
 Dependencies: COM-001
 Release requirement: REQUIRED
@@ -11,7 +11,7 @@ Planned assignment only. Apply [agent rules](../AGENT_RULES.md) and [handoff rul
 
 ## Outcome
 
-Complete the current invoice contract decisions and examples before durable schema or APIs harden the four remaining contract choices.
+Record the owner-accepted first invoice contract, examples, and implementation handoff before durable schema or APIs harden its semantics. Decision work was completed on 2026-10-10; the existing host-neutral implementation remains `BLOCKED` receiving qualification until aligned to the accepted contract. Durable invoice runtime remains `NOT_INTRODUCED`.
 
 ## Current basis and canonical inputs
 
@@ -23,15 +23,19 @@ Allowed areas: focused invoice owner and accepted/open decision updates only; de
 
 ## Decisions/prerequisites
 
-Already accepted: NPR displayed as रु; decimal(19,4), line ToEven to four decimals then sum; organization default, independent program or explicit individual debtor under separate billing authority; freeze per invoice. Close four blockers: full versus partial/multiple allocation; organization reference anchor (including individual/unattributed Orders), reference/sequence and gap behavior; business-date authority/bounds; inactive-individual eligibility. Printable/fiscal syntax can remain open.
+Owner accepted on 2026-10-10: one complete invoice per committed Order; invoiceable Orders require frozen organization attribution, which anchors an increasing per-organization numeric ordinal even for program or individual debtors; retain that ordinal with a tenant-wide invoice GUID and allow gaps; derive business date from the UTC calendar date of the server issue instant without caller dating; permit only active individual bill-to records. No printable syntax, gapless numbering, tax/fiscal rule, or compliance claim is accepted. Preserve earlier accepted NPR, decimal(19,4), per-line ToEven rounding then sum, organization-default/program-or-individual debtor choice under separate billing authority, and issue-time fact freeze. The current host-neutral code supports a partial-invoice donor shape and `ContractDecisionRequired` for inactive individuals, so it remains `BLOCKED` receiving qualification pending deltas. The business authority remains a distinct check through the existing `IInvoiceIssueAuthority` port; COM-022 owns live CoreApi/OpenFGA relation design and qualification. COM-021 adds PostgreSQL issuance only, not an endpoint, receivable, payment, or document effect.
 
 ## Acceptance and edge cases
 
-- Tenant-wide unique invoice identity differs from organization-scoped reference/sequence.
-- Exact printable format stays open until explicitly selected; no fiscal numbering claim is invented.
+- A tenant-wide invoice GUID differs from the increasing numeric ordinal scoped to the Order's frozen organization; gaps are allowed.
+- An unattributed Order is ineligible; the same ordinal anchor applies when the selected debtor is its program or an individual.
+- Exactly one full invoice may issue from a committed Order; a second issue and partial invoicing are rejected.
+- Business date is the UTC calendar date of server `issuedAt`; no caller date, tenant timezone, backdating, or future-dating is used.
+- An inactive individual cannot be selected for a new issue; previously issued snapshots do not change.
+- Exact printable format stays open; no gapless, fiscal-numbering, or legal-compliance claim is invented.
 - Per-invoice debtor choice never changes future program defaults.
 - Program attribution and operator login cannot implicitly select the debtor.
-- Committed source revision and NPR are required; draft, abandoned and non-NPR Orders are ineligible.
+- Committed source revision, frozen organization attribution and NPR are required; draft, abandoned, unattributed and non-NPR Orders are ineligible.
 - No initial tax is explicit scope, not tax exemption or legal compliance.
 
 ## Security/static review
@@ -40,7 +44,7 @@ Review billing-selection authority, cross-tenant/program relationships and finan
 
 ## Dynamic verification and unavailable-environment handling
 
-Provide concrete organization, independent program, individual, partial invoice and duplicate issue examples. Validate midpoint/overflow examples against the existing arithmetic contract; document decisions without claiming runtime tests. Run `./eng/verify.sh` when available. Without SDK/Docker/credentials, implement tests, finish static review and hand off exact unrun commands/expected outcomes; do not qualify unrun runtime claims.
+Record examples: an attributed organization Order defaults to that organization and can issue once in full; an attributed program or active individual may be selected while the same organization scopes the ordinal; an inactive individual and an unattributed Order are rejected; a second invoice for the same Order is rejected; exact same-key retry returns the original GUID, ordinal, UTC date and frozen facts. Validate midpoint/overflow examples against the existing arithmetic contract when executing implementation work; this decision handoff claims no new test/build/runtime qualification. COM-020 must implement and qualify the accepted host-neutral deltas; COM-021 must prove actual PostgreSQL atomicity, numbering and recovery; COM-022 later qualifies live API authority.
 
 ## Handoff
 
@@ -53,7 +57,7 @@ Execute COM-019 as a contract-decision assignment only.
 Read current owners and applicable instructions.
 Inspect existing callers and tests; preserve incoming work.
 Close listed decisions before dependent contracts.
-Return the four proposed choices and examples for owner acceptance; do not choose policy silently.
+Apply the owner-accepted 2026-10-10 choices in the focused invoice owner and decision records; preserve the host-neutral and durable-runtime qualification boundaries.
 Review security, authority, durability and concurrency.
 Update focused behavior/decision documentation.
 Run available checks; name exact unrun checks.

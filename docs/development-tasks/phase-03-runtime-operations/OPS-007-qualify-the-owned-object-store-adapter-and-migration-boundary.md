@@ -2,10 +2,13 @@
 
 Task ID: OPS-007
 Phase: 03-runtime-operations
-Status: BLOCKED
+Status: VERIFY_EXISTING
 Model: GPT-6.1 Sol
 Dependencies: GATE-001, COM-001
 Release requirement: REQUIRED
+
+Cross-track prerequisites: COM-001
+## Qualification
 
 Local implementation and qualification are complete for the declared neutral,
 CoreApi and PostgreSQL consumer contracts. The exact 1045-test gate passed with
@@ -23,7 +26,6 @@ Current evidence/guards are owned by
 [CUSTOMER_DUPLICATES_AND_IMPORTS_SLICE.md](../../implementation/CUSTOMER_DUPLICATES_AND_IMPORTS_SLICE.md).
 No repository integration or production acceptance is inferred.
 
-Cross-track prerequisites: COM-001
 
 ## Outcome
 
