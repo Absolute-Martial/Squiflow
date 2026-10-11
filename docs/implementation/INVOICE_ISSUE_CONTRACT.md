@@ -1,7 +1,7 @@
 # Invoice issue contract
 
 **Product version:** v0.0.1\
-**Status:** owner-accepted issue contract on 2026-10-10; COM-020–022 host-neutral, PostgreSQL and CoreApi issue/read responsibilities are introduced and `BLOCKED` receiving qualification until integrated evidence passes  
+**Status:** owner-accepted issue contract on 2026-10-10; COM-020–022 host-neutral, PostgreSQL and CoreApi issue/read responsibilities are introduced and `BLOCKED` receiving qualification until integrated evidence passes
 **Focused owner:** Invoices, limited to issuance of retained invoice facts from a committed Order
 
 This owner defines the smallest invoice-issue boundary supported by accepted
