@@ -239,6 +239,8 @@ public sealed partial class OrderMigrationAndRlsTests
     [InlineData(4)]
     [InlineData(5)]
     [InlineData(6)]
+    [InlineData(7)]
+    [InlineData(8)]
     public async Task CommercialSchemaRollbackRefusesEveryRetainedReceiptEnvelopeVersion(int schemaVersion)
     {
         await ApplyOrderSchemaAsync();
@@ -277,7 +279,7 @@ public sealed partial class OrderMigrationAndRlsTests
         Assert.Equal(PostgresErrorCodes.RaiseException, error.SqlState);
         Assert.Contains("202610070001_OrderCommercialFacts", await migration.Database.GetAppliedMigrationsAsync());
         // The guard recognizes the shared set exactly, not a hand-maintained copy of part of it.
-        Assert.Contains($"response_json->>'schemaVersion' IN ('1', '2', '3', '4', '5', '6')", script, StringComparison.Ordinal);
+        Assert.Contains($"response_json->>'schemaVersion' IN ('1', '2', '3', '4', '5', '6', '7', '8')", script, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -300,13 +302,13 @@ public sealed partial class OrderMigrationAndRlsTests
         var orders = new PostgresOrderDraftStore(runtimeSource, clock, profilePolicySource: new ProfileOrderPolicySource());
         var draft = (await orders.CreateAsync(context, CreateIntent("Manual program order",
             new CustomerOrderContext(organizationId, programId)), "create", default)).Order!;
-        Assert.Equal(ProgramPolicyEnvelopeVersion,
+        Assert.Equal(7,
             await SingleReceiptSchemaVersionAsync(tenantId, accountId, draft.OrderId, "create-order-draft", "create"));
         Assert.Equal(SetOrderProgramReferenceStatus.Updated,
             (await new SetOrderProgramReference(orders).ExecuteAsync(context,
                 new SetOrderProgramReferenceRequest(draft.OrderId, draft.Revision, "PO-ROLLBACK-GUARD"),
                 "reference-key", default)).Status);
-        Assert.Equal(ProgramPolicyEnvelopeVersion,
+        Assert.Equal(7,
             await SingleReceiptSchemaVersionAsync(tenantId, accountId, draft.OrderId, "set-order-program-reference", "reference-key"));
         // The reported defect exactly: a manual order with no commercial facts and an unchanged
         // unit_code, whose version-six envelope the previous guard did not recognize.

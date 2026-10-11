@@ -58,10 +58,9 @@ public sealed partial class OrderMigrationAndRlsTests
         Assert.Equal(2, history!.Items.Count); Assert.NotNull(history.Items[1].Order.QuotationOrigin);
         Assert.Equivalent(original, (await limited.ConvertAsync(context, issued.QuotationId, new(issued.CurrentIssued.RevisionId, accepted.Version), "repeat", default)).Quotation!.Conversion!.OriginalOrder);
     }
-    // Retained quotation facts must remain readable and committable after the envelope or quantity
-    // predicate SEMANTICS change. The retained snapshot pins the semantics version whose evaluator
-    // produced its decision, so this proves the pinned evaluator is reached rather than the current
-    // one, and that facts stored before the version existed read back as version 1.
+    // Supported retained facts keep their pinned quantity semantics through the whole
+    // conversion/commit path. A legacy absent policy-envelope version reads as version 1;
+    // required quantity arithmetic and rounding facts must remain present.
     [Fact]
     public async Task IssuedQuotationStaysReadableAndCommittableAfterAPredicateSemanticsChange()
     {
@@ -79,18 +78,15 @@ public sealed partial class OrderMigrationAndRlsTests
         Assert.Equal(QuantityArithmetic.Version1Rounding, line.Catalog.QuantityRounding);
         Assert.Equal(PricingOverridePolicySemantics.Version1, retained.Explanation.Policy!.EnvelopeSemanticsVersion);
 
-        // Rewrite the immutable stored facts into the shape written before these version fields
-        // existed. Every later read must treat them as version 1, not as current semantics.
+        // Only the additive policy envelope version may be absent in a supported legacy
+        // fixture. Quantity arithmetic/rounding have always been required retained facts.
         await using (var owner = new NpgsqlConnection(ConnectionString))
         {
             await owner.OpenAsync();
             await using var legacy = new NpgsqlCommand("""
                 ALTER TABLE quotations.issued DISABLE TRIGGER immutable_issued;
                 UPDATE quotations.issued SET facts = jsonb_set(
-                    jsonb_set(
-                        jsonb_set(facts, '{Offer,Lines,0,Catalog}',
-                            (facts#>'{Offer,Lines,0,Catalog}') - 'QuantityArithmeticVersion' - 'QuantityRounding'),
-                        '{Offer,Lines,0,PriceSelection,Explanation,Policy}',
+                    jsonb_set(facts, '{Offer,Lines,0,PriceSelection,Explanation,Policy}',
                         (facts#>'{Offer,Lines,0,PriceSelection,Explanation,Policy}') - 'EnvelopeSemanticsVersion'),
                     '{TenantId}', to_jsonb(@tenant::text));
                 ALTER TABLE quotations.issued ENABLE TRIGGER immutable_issued;
