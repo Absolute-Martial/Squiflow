@@ -238,6 +238,9 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
 
     public int GetCustomerStoreCallCount(Guid tenantId) => _customers.CallCount(tenantId);
 
+    public void ConsolidateCustomerIndividual(Guid tenantId, Guid sourceId, Guid canonicalId) =>
+        _customers.ConsolidateIndividual(tenantId, sourceId, canonicalId);
+
     public int GetOrderFindCount(Guid tenantId) => _orders.GetFindCount(tenantId);
 
     public int GetOrderListCount(Guid tenantId) => _orders.GetListCount(tenantId);

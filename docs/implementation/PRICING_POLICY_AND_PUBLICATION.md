@@ -18,8 +18,10 @@ that arithmetic. Current repository inventory is in `README.IMPLEMENTATION.md`.
 | Quotation/agreement owning-fact integration | `NOT_INTRODUCED` | COM-009 is absent. No client ID or price-book publication may pretend to be a committed fact. |
 | Discount calculation, approval workflow, arbitrary wholesale tiers | `NOT_INTRODUCED` | No expression language, guessed eligibility GUID or universal maker/checker rule. |
 
-The normal **1011-test** repository gate supplies combined receiving evidence;
-earlier standalone checks alone did not qualify the HTTP surface. This does not
+The exact normal repository gate supplies combined receiving evidence; its current
+total is recorded in `README.IMPLEMENTATION.md` and its task-level result in
+`docs/development-tasks/TASK_STATUS.md`. Earlier standalone checks alone did not
+qualify the HTTP surface. This does not
 claim remote CI, live deployment or absent quotation/discount/approval capabilities.
 
 ## Identity, immutable revisions and compatibility
@@ -55,6 +57,13 @@ readable by revision but are not candidates or newly publishable. Explicit new
 stable-unit revisions are required. Version-2 receipts contain full snapshots;
 the earlier unqualified revision-ID-only receipt format is retained but safely
 reported as unsupported for replay, never reconstructed from changed lifecycle.
+An unreadable retained receipt is a server-contract fault, not client input: the
+store raises `PricingStoredContractException`, which deliberately does not
+inherit `ArgumentException`, so a host that maps validation exceptions to `4xx`
+cannot report a deployed-code/retained-data incompatibility as a caller fault.
+It reaches the CoreApi failure contract as a retryable-class server error with a
+non-leaking `internal_error` code, matching the Catalog and Orders receipt
+conditions. Client-input pricing validation mappings are unchanged.
 No release/deployment compatibility is inferred for that former standalone code.
 
 ## Selection and trusted context

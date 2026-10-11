@@ -396,6 +396,71 @@ public sealed partial class OrderMigrationAndRlsTests
         await AssertCommercialPoolIsCleanAsync(second);
     }
 
+    [Fact]
+    public async Task ASlowAuthorizationProviderInTheCommitPathDoesNotHoldThePublicationPin()
+    {
+        await ApplyOrderSchemaAsync();
+        var account = Guid.NewGuid(); var tenant = Guid.NewGuid();
+        await SeedAuthorityRowsAsync(account, tenant);
+        var runtime = await CreateCommercialRuntimeAsync();
+        await using var committer = CommercialSource(runtime, "slow-authority-commit", 2);
+        await using var publisher = CommercialSource(runtime, "slow-authority-publisher", 1);
+        var context = await ResolveContextAsync(tenant, account);
+        var fixture = await CreateCommercialFixtureAsync(committer, context);
+        var authority = new SlowOverrideAuthority(new(), new());
+        var orders = new PostgresOrderDraftStore(committer, new FixedTimeProvider(), CommercialGuard(committer, authority));
+        var original = (await orders.CreateAsync(context,
+            await RealOverriddenCommercialIntentAsync(committer, context, fixture), "create", default)).Order!;
+        Assert.Equal(0, authority.Reads); // The store create path never consults commit authority.
+        Assert.NotNull(original.Lines[0].CommercialFacts!.PriceSelection.Explanation.Override);
+
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var commit = new CommitOrderDraft(orders).ExecuteAsync(context, new(original.OrderId, 1), "commit", deadline.Token);
+        await authority.Entered.WaitAsync(TimeSpan.FromSeconds(10));
+        // The external authorization read is outstanding and Orders holds the header row
+        // lock. It must not hold any advisory lock yet, in particular not the shared one.
+        await AssertNoPublicationPinAsync("slow-authority-commit");
+        Assert.False(commit.IsCompleted);
+        // Block the publisher at its own row lock so its granted pin state stays
+        // observable, then prove the exclusive publication pin is granted while the
+        // commit is still waiting on the authorization provider.
+        await using var admin = new NpgsqlConnection(ConnectionString);
+        await admin.OpenAsync();
+        await using var rowHold = await admin.BeginTransactionAsync();
+        await HoldCatalogItemRowAsync(admin, rowHold, fixture.Item.ItemId);
+        var rename = ExecuteCommercialMutationAsync(publisher, context, fixture, "rename-item", deadline.Token);
+        await WaitForPublicationLockAsync("slow-authority-publisher", granted: true, "ExclusiveLock");
+        Assert.False(commit.IsCompleted);
+        await rowHold.RollbackAsync();
+        await rename.WaitAsync(TimeSpan.FromSeconds(20));
+        Assert.False(commit.IsCompleted);
+        authority.Release();
+
+        var committed = await commit.WaitAsync(TimeSpan.FromSeconds(20));
+        Assert.Equal(CommitOrderDraftStatus.Committed, committed.Status);
+        Assert.Equal(1, authority.Reads);
+        Assert.Equal(OrderDraftState.Committed, (await orders.FindAsync(context, original.OrderId, default))!.State);
+        Assert.Equal(2, await CountReceiptsAsync(tenant));
+        await AssertCommercialPoolIsCleanAsync(committer);
+    }
+
+    [Fact]
+    public async Task AnIneligibleManualDraftNeverConsultsCommitAuthorityAtAll()
+    {
+        await ApplyOrderSchemaAsync();
+        var account = Guid.NewGuid(); var tenant = Guid.NewGuid();
+        await SeedAuthorityRowsAsync(account, tenant);
+        var runtime = await CreateCommercialRuntimeAsync();
+        await using var source = CommercialSource(runtime, "manual-commit-authority", 1);
+        var context = await ResolveContextAsync(tenant, account);
+        var authority = new SlowOverrideAuthority(new(), new());
+        var orders = new PostgresOrderDraftStore(source, new FixedTimeProvider(), CommercialGuard(source, authority));
+        var manual = (await orders.CreateAsync(context, CreateIntent("Manual draft"), "create", default)).Order!;
+        Assert.Equal(CommitOrderDraftStatus.Committed,
+            (await new CommitOrderDraft(orders).ExecuteAsync(context, new(manual.OrderId, 1), "commit", default)).Status);
+        Assert.Equal(0, authority.Reads);
+    }
+
     private async Task<string> CreateCommercialRuntimeAsync()
     {
         var runtime = await CreateRuntimeRoleAsync();
@@ -526,6 +591,18 @@ public sealed partial class OrderMigrationAndRlsTests
         return pid;
     }
 
+    private async Task AssertNoPublicationPinAsync(string applicationName)
+    {
+        await using var monitor = new NpgsqlConnection(ConnectionString);
+        await monitor.OpenAsync();
+        await using var probe = new NpgsqlCommand("""
+            SELECT count(*) FROM pg_locks l JOIN pg_stat_activity a ON a.pid=l.pid
+            WHERE a.application_name=@name AND l.locktype='advisory'
+            """, monitor);
+        probe.Parameters.AddWithValue("name", applicationName);
+        Assert.Equal(0L, await probe.ExecuteScalarAsync());
+    }
+
     private async Task TerminateCommercialBackendAsync(int pid)
     {
         await using var admin = new NpgsqlConnection(ConnectionString);
@@ -545,6 +622,13 @@ public sealed partial class OrderMigrationAndRlsTests
     {
         await using var block = new NpgsqlCommand("SELECT revision_id FROM pricing.price_revisions WHERE revision_id=@id FOR UPDATE", admin, transaction);
         block.Parameters.AddWithValue("id", revision);
+        await block.ExecuteScalarAsync();
+    }
+
+    private static async Task HoldCatalogItemRowAsync(NpgsqlConnection admin, NpgsqlTransaction transaction, Guid itemId)
+    {
+        await using var block = new NpgsqlCommand("SELECT id FROM catalog.items WHERE id=@id FOR UPDATE", admin, transaction);
+        block.Parameters.AddWithValue("id", itemId);
         await block.ExecuteScalarAsync();
     }
 
@@ -572,13 +656,34 @@ public sealed partial class OrderMigrationAndRlsTests
         }
     }
 
-    private OrderCommercialCommitGuard CommercialGuard(NpgsqlDataSource source)
+    private OrderCommercialCommitGuard CommercialGuard(NpgsqlDataSource source, IOrderPricingAuthorityReader? authority = null)
     {
         var catalog = new PostgresCatalogStore(source, new FixedTimeProvider());
         var pricing = new PostgresPricingStore(source, new FixedTimeProvider());
         var references = new CommercialReferences(catalog, ResolveContextAsync);
         return new(new(catalog),
-            new(pricing, new(pricing), pricing, references, new FixedTimeProvider()), new NoOverrideAuthority());
+            new(pricing, new(pricing), pricing, references, new FixedTimeProvider()),
+            authority ?? new NoOverrideAuthority());
+    }
+
+    private const decimal CommercialOverrideUnitPrice = 10m;
+    private const string CommercialOverrideReason = "Approved commercial exception";
+
+    private async Task<OrderDraftIntent> RealOverriddenCommercialIntentAsync(NpgsqlDataSource source, TenantContext context, CommercialFixture fixture)
+    {
+        var catalog = (await new PostgresCatalogStore(source).SelectLineFactsAsync(context,
+            new(fixture.Item.ItemId, fixture.Unit.UnitId, 2, 1), default)).Facts!;
+        var pricing = new PostgresPricingStore(source, new FixedTimeProvider());
+        var application = new PricingApplication(pricing, new(pricing), pricing,
+            new CommercialReferences(new(source), ResolveContextAsync), new FixedTimeProvider());
+        var selected = Assert.IsType<PriceResolved>(await application.ResolveAsync(new(context.TenantId, context.AccountId),
+            fixture.Item.ItemId, fixture.Unit.UnitId, "USD", new(UnitConversionRevision: 1), null, null, false, false, default));
+        // A within-policy override: the retained evidence records BeyondPolicy=false, so the
+        // guard resolves only the ordinary override permission, which this test stalls.
+        var overridden = Assert.IsType<PriceResolved>(PriceSelectionEngine.ApplyOverride(selected,
+            new(CommercialOverrideUnitPrice, CommercialOverrideReason, true, true)));
+        Assert.False(overridden.Explanation.Override!.BeyondPolicy);
+        return IntentFromSelection(catalog, overridden);
     }
 
     private async Task<OrderDraftIntent> RealCommercialIntentAsync(NpgsqlDataSource source, TenantContext context, CommercialFixture fixture)
@@ -622,6 +727,23 @@ public sealed partial class OrderMigrationAndRlsTests
             throw new InvalidOperationException("These real-source fixtures have no override requiring authority.");
     }
 
+    // Stands in for a degraded external authorization provider. It holds the commit
+    // outside any database lock until released; a real provider is bounded by the
+    // adapter's own request timeout.
+    private sealed class SlowOverrideAuthority(TaskCompletionSource entered, TaskCompletionSource release) : IOrderPricingAuthorityReader
+    {
+        internal Task Entered { get; } = entered.Task;
+        internal void Release() => release.TrySetResult();
+        internal int Reads { get; private set; }
+        public async Task<OrderPricingAuthority> ReadAsync(TenantContext context, CancellationToken ct)
+        {
+            Reads++;
+            entered.TrySetResult();
+            await release.Task.WaitAsync(TimeSpan.FromSeconds(30), ct);
+            return new(true);
+        }
+    }
+
     private sealed class CommercialReferences(PostgresCatalogStore catalog, Func<Guid, Guid, Task<TenantContext>> resolve) : IPricingReferenceReader
     {
         public async Task<string> RequireCompatibleUnitAsync(PricingActorContext actor, Guid itemId, Guid unitId, long? revision, CancellationToken ct)
@@ -653,12 +775,16 @@ public sealed partial class OrderMigrationAndRlsTests
         internal TaskCompletionSource Compared { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         internal TaskCompletionSource Continue { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         internal int Calls { get; private set; }
-        public async Task<bool> IsCompatibleAsync(TenantContext context, OrderDraftSnapshot order, CancellationToken ct)
+        public Task<OrderCommercialCommitAuthority> ResolveCurrentAuthorityAsync(
+            TenantContext context, OrderDraftSnapshot order, CancellationToken ct) =>
+            production.ResolveCurrentAuthorityAsync(context, order, ct);
+        public async Task<bool> IsCompatibleAsync(TenantContext context, OrderDraftSnapshot order,
+            OrderCommercialCommitAuthority currentAuthority, CancellationToken ct)
         {
             Calls++;
             Entered.TrySetResult();
             if (pauseBeforeComparison) await Compare.Task.WaitAsync(TimeSpan.FromSeconds(15), ct);
-            var compatible = await production.IsCompatibleAsync(context, order, ct);
+            var compatible = await production.IsCompatibleAsync(context, order, currentAuthority, ct);
             Assert.True(compatible);
             Compared.TrySetResult();
             await Continue.Task.WaitAsync(TimeSpan.FromSeconds(15), ct);
