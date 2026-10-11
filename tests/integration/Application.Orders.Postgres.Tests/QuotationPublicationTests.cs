@@ -58,6 +58,77 @@ public sealed partial class OrderMigrationAndRlsTests
         Assert.Equal(2, history!.Items.Count); Assert.NotNull(history.Items[1].Order.QuotationOrigin);
         Assert.Equivalent(original, (await limited.ConvertAsync(context, issued.QuotationId, new(issued.CurrentIssued.RevisionId, accepted.Version), "repeat", default)).Quotation!.Conversion!.OriginalOrder);
     }
+    // Retained quotation facts must remain readable and committable after the envelope or quantity
+    // predicate SEMANTICS change. The retained snapshot pins the semantics version whose evaluator
+    // produced its decision, so this proves the pinned evaluator is reached rather than the current
+    // one, and that facts stored before the version existed read back as version 1.
+    [Fact]
+    public async Task IssuedQuotationStaysReadableAndCommittableAfterAPredicateSemanticsChange()
+    {
+        await ApplyOrderSchemaAsync();
+        var account = Guid.NewGuid(); var tenant = Guid.NewGuid(); await SeedAuthorityRowsAsync(account, tenant);
+        await using var source = CommercialSource(await CreateCommercialRuntimeAsync(), "quote-semantics-version", 6);
+        var context = await ResolveContextAsync(tenant, account); var fixture = await CreateCommercialFixtureAsync(source, context);
+        var (application, _) = QuoteApplication(source);
+        var draft = (await application.CreateAsync(context, new(QuotationPriceMode.Catalog, "Semantics-pinned offer", "USD",
+            new FixedTimeProvider().GetUtcNow().AddDays(1), [new(2, ItemId: fixture.Item.ItemId,
+            UnitId: fixture.Unit.UnitId, ConversionRevision: 1)]), "quote-create", default)).Quotation!;
+        var issued = (await application.IssueAsync(context, draft.QuotationId, draft.Version, "quote-issue", default)).Quotation!;
+        var offer = issued.CurrentIssued!.Offer; var line = offer.Lines[0]; var retained = line.PriceSelection!;
+        Assert.Equal(QuantityArithmetic.Version1, line.Catalog!.QuantityArithmeticVersion);
+        Assert.Equal(QuantityArithmetic.Version1Rounding, line.Catalog.QuantityRounding);
+        Assert.Equal(PricingOverridePolicySemantics.Version1, retained.Explanation.Policy!.EnvelopeSemanticsVersion);
+
+        // Rewrite the immutable stored facts into the shape written before these version fields
+        // existed. Every later read must treat them as version 1, not as current semantics.
+        await using (var owner = new NpgsqlConnection(ConnectionString))
+        {
+            await owner.OpenAsync();
+            await using var legacy = new NpgsqlCommand("""
+                ALTER TABLE quotations.issued DISABLE TRIGGER immutable_issued;
+                UPDATE quotations.issued SET facts = jsonb_set(
+                    jsonb_set(
+                        jsonb_set(facts, '{Offer,Lines,0,Catalog}',
+                            (facts#>'{Offer,Lines,0,Catalog}') - 'QuantityArithmeticVersion' - 'QuantityRounding'),
+                        '{Offer,Lines,0,PriceSelection,Explanation,Policy}',
+                        (facts#>'{Offer,Lines,0,PriceSelection,Explanation,Policy}') - 'EnvelopeSemanticsVersion'),
+                    '{TenantId}', to_jsonb(@tenant::text));
+                ALTER TABLE quotations.issued ENABLE TRIGGER immutable_issued;
+                """, owner);
+            legacy.Parameters.AddWithValue("tenant", tenant); await legacy.ExecuteNonQueryAsync();
+        }
+
+        // The detail read, issued history, response read and convert replay all revalidate retained facts.
+        Assert.Equal(issued.CurrentIssued.Offer.Total, (await application.FindAsync(context, issued.QuotationId, default))!.CurrentIssued!.Offer.Total);
+        Assert.Single((await application.ListIssuedAsync(context, issued.QuotationId, 0, 10, default)).Items);
+        var quotes = new PostgresQuotationStore(source, new QuoteIssueClock(), new QuoteConversionWriter());
+        var customers = new PostgresCustomerStore(source);
+        var catalog = new PostgresCatalogStore(source, new FixedTimeProvider());
+        var prices = new PostgresPricingStore(source, new FixedTimeProvider());
+        var pricing = new PricingApplication(prices, new(prices), prices, new CommercialReferences(catalog, ResolveContextAsync), new FixedTimeProvider());
+        var clock = new QuoteIssueClock();
+        var limited = new QuotationApplication(quotes, new(new(catalog), pricing, new(customers), new ResponseOnlyQuoteAuthority(), customers));
+        var reloaded = await application.FindAsync(context, issued.QuotationId, default);
+        Assert.Equal(QuantityArithmetic.Version1, reloaded!.CurrentIssued!.Offer.Lines[0].Catalog!.QuantityArithmeticVersion);
+        Assert.Equal(PricingOverridePolicySemantics.Version1, reloaded.CurrentIssued.Offer.Lines[0].PriceSelection!.Explanation.Policy!.EnvelopeSemanticsVersion);
+        var accepted = (await limited.AcceptAsync(context, issued.QuotationId,
+            new(issued.CurrentIssued.RevisionId, reloaded.Version, "Synthetic customer response", "Synthetic customer"), "accept", default)).Quotation!;
+        clock.At = issued.CurrentIssued.Offer.ValidUntil.AddDays(10);
+        var converted = (await limited.ConvertAsync(context, issued.QuotationId,
+            new(issued.CurrentIssued.RevisionId, accepted.Version), "convert", default)).Quotation!;
+        var original = converted.Conversion!.OriginalOrder;
+
+        // The whole historical Order commit path revalidates the same retained facts.
+        var orderStore = new PostgresOrderDraftStore(source, clock,
+            new OrderCommercialCommitGuard(new(catalog), pricing, new NoOverrideAuthority(), quotes));
+        var committed = await orderStore.CommitAsync(context, new(original.OrderId, 1),
+            "commit-semantics", QuotationRules.Fingerprint("commit-semantics"), default);
+        Assert.Equal(CommitOrderDraftStatus.Committed, committed.Status);
+        Assert.Equivalent(original.Lines, committed.Order!.Lines);
+        Assert.Equivalent(original, (await limited.ConvertAsync(context, issued.QuotationId,
+            new(issued.CurrentIssued.RevisionId, accepted.Version), "repeat", default)).Quotation!.Conversion!.OriginalOrder);
+    }
+
     [Fact]
     public async Task QuoteIssueUsesActualCurrentSourcesAndNeverRepricesAStaleDraft()
     {

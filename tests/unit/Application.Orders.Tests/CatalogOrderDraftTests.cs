@@ -181,6 +181,74 @@ public sealed class CatalogOrderDraftTests
         Assert.Equal(facts, created.Lines[0].CommercialFacts!.Catalog);
     }
 
+    // Retained commercial facts must survive a later change to the envelope or quantity-arithmetic
+    // PREDICATE semantics. The retained snapshot pins the semantics version whose evaluator produced
+    // its decision, so this reads the pinned evaluator rather than the reader's current meaning.
+    [Fact]
+    public async Task RetainedCommercialFactsStayValidAfterAPredicateSemanticsChange()
+    {
+        var fixture = await Fixture.CreateAsync();
+        // Version 1 compares 0.9995 less 10% exactly, giving 0.89955, so 0.8996 is in-envelope. Rounding
+        // the base price to currency minor units first, the plausible future meaning, gives 0.9
+        // and would call this issued order beyond-policy.
+        fixture.Pricing.Policy = new(1, 0, 100, 10, 20);
+        fixture.Pricing.Candidates.Clear();
+        fixture.Pricing.Candidates.Add(new(fixture.Context.TenantId, fixture.Price.RevisionId, 1,
+            fixture.Price.Key, 0.9995m, fixture.Price.Validity, PricePublicationState.Published,
+            fixture.Context.AccountId, fixture.Price.CreatedAt, fixture.Price.PublishedAt));
+        fixture.Catalog.Facts = fixture.Catalog.Facts! with { Quantity = 1m, BaseQuantity = 1m };
+        Assert.True(fixture.Pricing.Policy.Contains(0.8996m, 0.9995m));
+        Assert.False(fixture.Pricing.Policy.Contains(0.8996m, decimal.Round(0.9995m, 2, MidpointRounding.AwayFromZero)));
+        var request = fixture.Request with
+        {
+            Lines = [fixture.Request.Lines[0] with
+            { Quantity = 1m, OverridePrice = 0.8996m, OverrideReason = "Synthetic commercial exception" }]
+        };
+        var created = (await fixture.Application.CreateAsync(fixture.Context, request, "create", new(true, true), default)).Order!;
+        var retained = created.Lines[0].CommercialFacts!;
+        Assert.False(retained.PriceSelection.Explanation.Override!.BeyondPolicy);
+        Assert.Equal(QuantityArithmetic.Version1, retained.Catalog.QuantityArithmeticVersion);
+        Assert.Equal(QuantityArithmetic.Version1Rounding, retained.Catalog.QuantityRounding);
+        Assert.Equal(PricingOverridePolicySemantics.Version1, retained.PriceSelection.Explanation.Policy!.EnvelopeSemanticsVersion);
+        OrderCommercialFactsValidation.RequireValid(created);
+        // Orders deliberately never re-derives BeyondPolicy: it validates the frozen envelope for
+        // internal consistency only. This is the asymmetry that must never be reintroduced on the
+        // Orders side, and it is why this test cannot regress on a policy predicate semantics change.
+        OrderCommercialFactsValidation.RequireValid(WithOverride(created, beyondPolicy: true));
+
+        // An unreadable pinned arithmetic version fails closed rather than using current meaning.
+        Assert.Throws<InvalidOperationException>(() => OrderCommercialFactsValidation.RequireValid(created with
+        {
+            Lines = [created.Lines[0] with { CommercialFacts = retained with
+            { Catalog = retained.Catalog with { QuantityArithmeticVersion = UnsupportedSemanticsVersion } } }]
+        }));
+        Assert.Throws<InvalidOperationException>(() => OrderCommercialFactsValidation.RequireValid(created with
+        {
+            Lines = [created.Lines[0] with { CommercialFacts = retained with
+            { Catalog = retained.Catalog with { QuantityRounding = "awayFromZero" } } }]
+        }));
+        Assert.Throws<PricingValidationException>(() => PricingOverridePolicySemantics.Contains(
+            new PricingOverridePolicy(1, 0, 100, 10, 20, UnsupportedSemanticsVersion), 0.8996m, 0.9995m));
+    }
+
+    private const int UnsupportedSemanticsVersion = int.MaxValue;
+
+    private static OrderDraftSnapshot WithOverride(OrderDraftSnapshot order, bool beyondPolicy)
+    {
+        var line = order.Lines[0]; var facts = line.CommercialFacts!;
+        return order with
+        {
+            Lines = [line with { CommercialFacts = facts with
+            {
+                PriceSelection = facts.PriceSelection with
+                {
+                    Explanation = facts.PriceSelection.Explanation with
+                    { Override = facts.PriceSelection.Explanation.Override! with { BeyondPolicy = beyondPolicy } }
+                }
+            } }]
+        };
+    }
+
     [Theory]
     [InlineData(1, true, false, true)]
     [InlineData(1, false, false, false)]
