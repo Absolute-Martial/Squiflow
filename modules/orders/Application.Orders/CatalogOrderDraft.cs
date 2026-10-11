@@ -25,7 +25,11 @@ public sealed record CatalogOrderDraftRequest(string Summary, string CurrencyCod
 public sealed record ReviseCatalogOrderDraftRequest(Guid OrderId, long ExpectedRevision, CatalogOrderDraftRequest Draft);
 
 // Only a trusted current-authority adapter constructs this input; no wire DTO accepts it.
-public sealed record OrderPricingAuthority(bool CanOverride, bool CanOverrideBeyondPolicy);
+// It deliberately carries the ordinary override permission only. Elevated authority is a
+// separate current external decision resolved through IOrderPricingAuthorityReader at the
+// point the current selection actually requires it, never as a field some adapter could
+// satisfy from a stale cache.
+public sealed record OrderPricingAuthority(bool CanOverride);
 
 public interface IOrderDraftReceiptReader
 {
@@ -82,9 +86,13 @@ public sealed class CatalogOrderDraftApplication(IOrderDraftStore store, IOrderD
         {
             var canonical = await canonicalCustomers.ResolveCurrentCustomerAsync(context, requestedCustomer, ct).ConfigureAwait(false)
                 ?? throw new OrderCommercialSelectionException("pricing_customer_invalid");
-            if (canonical.TenantId != context.TenantId || canonical.IndividualId == Guid.Empty ||
-                canonical.Availability != CustomerIndividualAvailability.Active || canonical.RedirectTargetIndividualId.HasValue)
+            if (canonical.TenantId != context.TenantId || canonical.IndividualId == Guid.Empty)
                 throw new InvalidOperationException("The canonical customer directory returned inconsistent current facts.");
+            // A survivor that has since become inactive or been redirected forward is an
+            // ordinary current business state, not an impossible internal one. Reject the
+            // selection the same way the sibling pricing context check rejects it.
+            if (canonical.Availability != CustomerIndividualAvailability.Active || canonical.RedirectTargetIndividualId.HasValue)
+                throw new OrderCommercialSelectionException("pricing_customer_invalid");
             request = request with { CustomerId = canonical.IndividualId };
         }
         if (request.CustomerContext is { } customer &&
@@ -108,7 +116,7 @@ public sealed class CatalogOrderDraftApplication(IOrderDraftStore store, IOrderD
                 request.CurrencyCode, priceContext, null, null, false, false, ct).ConfigureAwait(false);
             if (line.OverridePrice is { } overridePrice)
             {
-                var canBeyond = authority.CanOverrideBeyondPolicy;
+                var canBeyond = false;
                 if (authority.CanOverride && currentPricingAuthority is not null &&
                     PriceContracts.PriceSelectionEngine.RequiresElevatedOverride(result, overridePrice))
                     canBeyond = await currentPricingAuthority.CanOverrideBeyondPolicyAsync(context, ct).ConfigureAwait(false);
@@ -199,8 +207,14 @@ public sealed class CatalogOrderDraftApplication(IOrderDraftStore store, IOrderD
 // Catalog/Pricing facts inside its effect/receipt transaction until commit/rollback.
 // The guard must not acquire a second publication pin on another connection:
 // a queued exclusive publisher would wait on the caller and block that second pin.
-// False rejects without refreshing retained facts; failures propagate and roll back.
+// External current authority is resolved first, through ResolveCurrentAuthorityAsync,
+// so no provider call is ever made while that pin is held. False rejects without
+// refreshing retained facts; failures propagate and roll back.
 public interface IOrderCommercialCommitGuard
 {
-    Task<bool> IsCompatibleAsync(TenantContext context, OrderDraftSnapshot order, CancellationToken ct);
+    Task<OrderCommercialCommitAuthority> ResolveCurrentAuthorityAsync(
+        TenantContext context, OrderDraftSnapshot order, CancellationToken ct);
+
+    Task<bool> IsCompatibleAsync(TenantContext context, OrderDraftSnapshot order,
+        OrderCommercialCommitAuthority currentAuthority, CancellationToken ct);
 }

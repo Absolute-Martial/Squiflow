@@ -593,7 +593,7 @@ public sealed partial class PostgresPricingStore(
         var receipt = JsonSerializer.Deserialize<ReceiptEnvelope<TStatus>>(json, ReceiptJsonOptions)
             ?? throw new InvalidOperationException("The pricing command receipt is malformed.");
         if (receipt.Version != 2 || receipt.Snapshot is null)
-            throw new PricingValidationException("pricing_receipt_version_unsupported", "This retained receipt predates the immutable stable-unit contract.");
+            throw new PricingStoredContractException("pricing_receipt_version_unsupported", "This retained receipt predates the immutable stable-unit contract.");
         return receipt;
     }
 

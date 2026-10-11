@@ -2,15 +2,25 @@
 
 Task ID: OPS-011
 Phase: 03-runtime-operations
-Status: PRODUCTION_HONEST
+Status: VERIFY_EXISTING
+Runtime state: BLOCKED
 Model: GPT-6.1 Sol
 Dependencies: OPS-001, OPS-007
 Release requirement: REQUIRED
 
+`Status` above is the scheduling value defined by
+[`ORCHESTRATOR.md`](../ORCHESTRATOR.md); runtime gate states are recorded on
+their own line and are owned by the focused owners. The task-level runtime state
+is **BLOCKED**: its dependencies OPS-001 and OPS-007 are not accepted, and two
+of its own acceptance items below (policy lowering below current usage, and
+counter-drift repair from retained authoritative facts) are not implemented. Per
+`AGENTS.md` a `BLOCKED` responsibility is not carried forward as later
+hardening.
+
 The declared durable PostgreSQL raw-import-byte accounting scope is
-`PRODUCTION_HONEST`: tenant/provider reservation admission, semantic replay,
-unknown-outcome retention and fenced one-time usage release are locally qualified.
-Real Customers PostgreSQL 51/51 and the exact 1045-test gate passed with zero
+locally qualified: tenant/provider reservation admission, semantic replay,
+unknown-outcome retention and fenced one-time usage release are exercised and
+guarded. Real Customers PostgreSQL 51/51 and the exact 1045-test gate passed with zero
 failures/skips and zero Release warnings/errors. Remote physical-byte accounting
 and provider ambiguous-effect reconciliation are not claimed by this local state;
 those remain live OPS-007/OPS-008 obligations. Live Hugging Face upload, download, delete, conditional write, redirects/timeouts, finite capacity, asymmetric provider/database failure and remote reconciliation remain unrun and NOT qualified. Checked-in `ObjectStorage.Enabled=false`; no nonempty relevant provider runtime configuration variables were visible. No private credential, substitute provider or fallback byte archive was introduced.
@@ -53,9 +63,9 @@ provider delete returns success or not-found.
 - Concurrent reservations cannot oversubscribe the accepted hard limit.
 - Idempotent retries neither double reserve nor double count completed consumption.
 - Cancel/failure releases only provably unused reservation; ambiguous effects remain reconcilable.
-- Policy lowered below current usage preserves business state and blocks/degrades only new consumption as declared.
-- Counter drift is detected/repaired from retained authoritative facts without erasing usage.
-- Window/timezone/reset changes and duplicate reset work cannot grant double allowance.
+- Policy lowered below current usage preserves business state and blocks/degrades only new consumption as declared. **Not implemented.** The retained usage row is created once with `EnsureImportSourceUsage` (`INSERT ... ON CONFLICT DO NOTHING`), so a lowered configured `MaximumRetainedBytes` never reaches an existing tenant/provider row.
+- Counter drift is detected/repaired from retained authoritative facts without erasing usage. **Not implemented.** No repair or reconciliation path for `reserved_bytes`/`retained_bytes` exists outside the fenced release path.
+- Window/timezone/reset changes and duplicate reset work cannot grant double allowance. Not applicable to the current total-bytes scope; no windowed meter is introduced.
 
 ## Security/static review
 

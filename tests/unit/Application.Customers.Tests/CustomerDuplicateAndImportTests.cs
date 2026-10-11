@@ -122,6 +122,25 @@ public sealed class CustomerDuplicateAndImportTests
     }
 
     [Fact]
+    public void ConsolidatedSourceIsNeverOfferedAsALiveDiscoveryCandidate()
+    {
+        var tenant = Guid.NewGuid();
+        var target = CustomerDuplicateSignals.Create("Alice Smith", "shared@example.test");
+        var signals = CustomerDuplicateSignals.Create("Alice Smith", "shared@example.test");
+        var live = new CustomerIndividualSnapshot(Guid.NewGuid(), tenant, "Alice Smith", "shared@example.test", null,
+            CustomerIndividualAvailability.Active, 1, Guid.NewGuid(), DateTimeOffset.UtcNow, null, null);
+        var consolidated = new CustomerIndividualSnapshot(Guid.NewGuid(), tenant, "Alice Smith", "shared@example.test", null,
+            CustomerIndividualAvailability.Active, 3, Guid.NewGuid(), DateTimeOffset.UtcNow, null, null,
+            RedirectTargetIndividualId: live.IndividualId);
+        var otherTenant = live with { TenantId = Guid.NewGuid() };
+
+        var matches = CustomerDuplicateMatcher.Discover(tenant, target,
+            [new(live, signals), new(consolidated, signals), new(otherTenant, signals)], null, 10, false);
+
+        Assert.Equal(live.IndividualId, Assert.Single(matches).Customer.IndividualId);
+    }
+
+    [Fact]
     public async Task ResolveAuthorityRejectsConsolidationOutcome()
     {
         var store = new NoCallResolutionStore();
