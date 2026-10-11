@@ -112,7 +112,7 @@ public sealed class OrderApprovalEndpointTests(WhiteLabelApiFactory baseline) : 
         var bytes = Encoding.Unicode.GetBytes("{\"expectedOrderRevision\":1,\"assignedAccountId\":\"" + Guid.NewGuid() + "\"}");
         using var request = new HttpRequestMessage(HttpMethod.Post, SubmitPath(tenant, Guid.NewGuid()));
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        request.Headers.Add("Idempotency-Key", "approval-utf16");
+        request.Headers.Add("Idempotency-Key", "utf16");
         request.Content = new ByteArrayContent(bytes);
         request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json") { CharSet = "utf-16" };
         using var response = await client.SendAsync(request);
