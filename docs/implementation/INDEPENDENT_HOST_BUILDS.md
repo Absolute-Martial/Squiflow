@@ -115,6 +115,15 @@ mutation job are independent GitHub jobs. Host matrix `fail-fast` is disabled.
 Failure of one host does not erase another host's independently produced result.
 The repository compatibility job remains the integrated signal.
 
+The repository job has a 60-minute budget for the complete coverage-enabled
+gate; host and mutation jobs retain their 30-minute budgets. On 2026-10-11,
+GitHub run `38138736532` reached the former 30-minute limit while the normal
+PostgreSQL suites were progressing, after the completed suites had passed.
+The expanded commercial test graph needs room to finish coverage collection and
+review. This changes only the job deadline: every test, coverage review and
+failure condition remains required. Requalify the budget when the test graph or
+runner changes.
+
 Coverage and mutation artifacts contain source/testing diagnostics and are kept
 for 14 days. They must not contain production credentials or unrestricted
 customer payloads. Current tests use synthetic/test data. Published host artifacts
