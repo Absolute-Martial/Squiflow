@@ -293,8 +293,8 @@
       "application.adminbootstrap": {
         "type": "Project",
         "dependencies": {
-          "Application.PlatformAdministration": "[0.1.0, )",
-          "Application.PlatformAdministration.Postgres": "[0.1.0, )",
+          "Application.PlatformAdministration": "[0.0.1, )",
+          "Application.PlatformAdministration.Postgres": "[0.0.1, )",
           "OpenFga.Sdk": "[0.10.4, )"
         }
       },
@@ -304,13 +304,13 @@
       "application.platformadministration": {
         "type": "Project",
         "dependencies": {
-          "Application.IdentityAccess": "[0.1.0, )"
+          "Application.IdentityAccess": "[0.0.1, )"
         }
       },
       "application.platformadministration.postgres": {
         "type": "Project",
         "dependencies": {
-          "Application.PlatformAdministration": "[0.1.0, )",
+          "Application.PlatformAdministration": "[0.0.1, )",
           "Microsoft.EntityFrameworkCore": "[10.0.8, )",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.1, )"
         }

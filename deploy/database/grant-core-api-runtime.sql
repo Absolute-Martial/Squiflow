@@ -1,4 +1,4 @@
--- Apply after the IdentityAccess, Tenancy, Customers and Orders migrations. This file is
+-- Apply after all registered module migrations, including Catalog and Pricing. This file is
 -- intentionally usable inside one transaction by both psql and provider tests.
 DO $provision$
 DECLARE
@@ -6,6 +6,7 @@ DECLARE
     role_record pg_roles%ROWTYPE;
     target_schema text;
     target_table text;
+    target_column record;
 BEGIN
     IF runtime_role IS NULL THEN
         RAISE EXCEPTION 'CoreApi runtime role was not supplied';
@@ -28,18 +29,11 @@ BEGIN
     IF EXISTS (SELECT 1 FROM pg_database WHERE datname = current_database() AND datdba = role_record.oid)
        OR EXISTS (
            SELECT 1 FROM pg_namespace
-           WHERE nspname IN ('identity_access', 'tenancy', 'customers', 'orders') AND nspowner = role_record.oid)
+            WHERE nspname IN ('identity_access', 'tenancy', 'customers', 'catalog', 'pricing', 'orders', 'profiles', 'fulfillment', 'purchasing') AND nspowner = role_record.oid)
        OR EXISTS (
            SELECT 1 FROM pg_class AS c
            JOIN pg_namespace AS n ON n.oid = c.relnamespace
-           WHERE n.nspname IN ('identity_access', 'tenancy', 'customers', 'orders')
-             AND c.relname IN ('accounts', 'external_identity_bindings', 'tenants', 'memberships',
-                               'organizations', 'programs', 'organization_receipts', 'program_receipts',
-                               'individuals', 'individual_command_receipts',
-                               'order_drafts', 'order_draft_lines', 'command_receipts',
-                               'tenant_authorization_state', 'tenant_authorization_proposals',
-                               'tenant_permission_grants', 'custom_roles', 'custom_role_assignments',
-                               'tenant_authorization_events', 'owner_transfer_receipts')
+            WHERE n.nspname IN ('identity_access', 'tenancy', 'customers', 'catalog', 'pricing', 'orders', 'profiles', 'fulfillment', 'purchasing')
              AND c.relowner = role_record.oid) THEN
         RAISE EXCEPTION 'CoreApi runtime role must not own the database, schemas or application tables';
     END IF;
@@ -47,16 +41,93 @@ BEGIN
         SELECT 1 FROM pg_class AS c
         JOIN pg_namespace AS n ON n.oid = c.relnamespace
         WHERE ((n.nspname = 'orders'
-                AND c.relname IN ('order_drafts', 'order_draft_lines', 'command_receipts'))
+                AND c.relname IN ('order_drafts', 'order_draft_lines', 'command_receipts', 'quotation_origins', 'program_order_metadata', 'approval_requests', 'approval_events', 'approval_commit_evidence'))
+            OR (n.nspname = 'fulfillment' AND c.relname IN ('works','events','entry_activity','command_receipts'))
+            OR (n.nspname = 'profiles'
+                AND c.relname IN ('policy_heads', 'policy_revisions', 'publications', 'authority', 'command_receipts'))
             OR (n.nspname = 'customers'
                 AND c.relname IN ('organizations', 'programs', 'organization_receipts', 'program_receipts',
-                                  'individuals', 'individual_command_receipts')))
+                                   'individuals', 'individual_command_receipts',
+                                   'representatives', 'representative_command_receipts',
+                                   'duplicate_cases', 'duplicate_command_receipts', 'customer_redirects',
+                                   'imports', 'import_rows', 'import_work', 'object_storage_usage',
+                                   'import_source_objects', 'object_storage_reservations'))
+            OR (n.nspname = 'catalog' AND c.relname IN ('units', 'items', 'unit_conversions', 'command_receipts'))
+            OR (n.nspname = 'pricing' AND c.relname IN ('price_revisions', 'command_receipts', 'override_policies')))
           AND (NOT c.relrowsecurity OR NOT c.relforcerowsecurity)) THEN
         RAISE EXCEPTION 'Tenant-owned runtime tables must have forced row level security';
     END IF;
 
+    FOREACH target_table IN ARRAY ARRAY[
+        'fulfillment.works', 'fulfillment.events',
+        'fulfillment.entry_activity', 'fulfillment.command_receipts'] LOOP
+        IF to_regclass(target_table) IS NULL
+           OR NOT EXISTS (
+               SELECT 1 FROM pg_class AS c
+               WHERE c.oid = to_regclass(target_table)
+                 AND c.relrowsecurity AND c.relforcerowsecurity) THEN
+            RAISE EXCEPTION 'CoreApi fulfillment table is missing or lacks forced row level security: %', target_table;
+        END IF;
+        IF has_table_privilege(runtime_role, target_table, 'UPDATE')
+           OR has_table_privilege(runtime_role, target_table, 'DELETE')
+           OR has_table_privilege(runtime_role, target_table, 'TRUNCATE')
+           OR has_table_privilege(runtime_role, target_table, 'TRIGGER')
+           OR has_table_privilege(runtime_role, target_table, 'REFERENCES') THEN
+            RAISE EXCEPTION 'CoreApi runtime role has unsafe effective fulfillment table privileges: %', target_table;
+        END IF;
+        FOR target_column IN
+            SELECT a.attname AS column_name
+            FROM pg_attribute AS a
+            WHERE a.attrelid = to_regclass(target_table)
+              AND a.attnum > 0 AND NOT a.attisdropped
+        LOOP
+            IF has_column_privilege(runtime_role, target_table, target_column.column_name, 'REFERENCES')
+               OR (has_column_privilege(runtime_role, target_table, target_column.column_name, 'UPDATE')
+                    AND NOT ((target_table = 'fulfillment.works'
+                         AND target_column.column_name IN ('revision', 'snapshot', 'updated_at'))
+                     OR (target_table = 'fulfillment.entry_activity'
+                         AND target_column.column_name IN ('active', 'voided_by')))) THEN
+                RAISE EXCEPTION 'CoreApi runtime role has unsafe effective fulfillment column privileges on %.%',
+                    target_table, target_column.column_name;
+            END IF;
+        END LOOP;
+    END LOOP;
+
+    FOREACH target_table IN ARRAY ARRAY[
+        'purchasing.suppliers', 'purchasing.supplier_events', 'purchasing.supplier_command_receipts',
+        'purchasing.purchases', 'purchasing.purchase_events', 'purchasing.purchase_command_receipts'] LOOP
+        IF to_regclass(target_table) IS NULL
+           OR NOT EXISTS (
+               SELECT 1 FROM pg_class AS c
+               WHERE c.oid = to_regclass(target_table)
+                 AND c.relrowsecurity AND c.relforcerowsecurity) THEN
+            RAISE EXCEPTION 'CoreApi purchasing table is missing or lacks forced row level security: %', target_table;
+        END IF;
+        IF has_table_privilege(runtime_role, target_table, 'UPDATE')
+           OR has_table_privilege(runtime_role, target_table, 'DELETE')
+           OR has_table_privilege(runtime_role, target_table, 'TRUNCATE')
+           OR has_table_privilege(runtime_role, target_table, 'TRIGGER')
+           OR has_table_privilege(runtime_role, target_table, 'REFERENCES') THEN
+            RAISE EXCEPTION 'CoreApi runtime role has unsafe effective purchasing table privileges: %', target_table;
+        END IF;
+        FOR target_column IN
+            SELECT a.attname AS column_name
+            FROM pg_attribute AS a
+            WHERE a.attrelid = to_regclass(target_table)
+              AND a.attnum > 0 AND NOT a.attisdropped
+        LOOP
+            IF has_column_privilege(runtime_role, target_table, target_column.column_name, 'REFERENCES')
+               OR (has_column_privilege(runtime_role, target_table, target_column.column_name, 'UPDATE')
+                    AND NOT (target_table IN ('purchasing.suppliers', 'purchasing.purchases')
+                         AND target_column.column_name IN ('revision', 'snapshot', 'updated_at'))) THEN
+                RAISE EXCEPTION 'CoreApi runtime role has unsafe effective purchasing column privileges on %.%',
+                    target_table, target_column.column_name;
+            END IF;
+        END LOOP;
+    END LOOP;
+
     EXECUTE format('GRANT CONNECT ON DATABASE %I TO %I', current_database(), runtime_role);
-    FOREACH target_schema IN ARRAY ARRAY['identity_access', 'tenancy', 'customers', 'orders'] LOOP
+    FOREACH target_schema IN ARRAY ARRAY['identity_access', 'tenancy', 'customers', 'catalog', 'pricing', 'orders', 'profiles', 'fulfillment', 'purchasing'] LOOP
         EXECUTE format('GRANT USAGE ON SCHEMA %I TO %I', target_schema, runtime_role);
     END LOOP;
     FOREACH target_table IN ARRAY ARRAY[
@@ -94,15 +165,68 @@ BEGIN
         'customers.organizations', 'customers.programs',
         'customers.organization_receipts', 'customers.program_receipts',
         'customers.individuals', 'customers.individual_command_receipts',
-        'orders.order_drafts', 'orders.order_draft_lines', 'orders.command_receipts'] LOOP
+        'customers.representatives', 'customers.representative_command_receipts',
+        'customers.duplicate_cases', 'customers.duplicate_command_receipts', 'customers.customer_redirects',
+         'customers.imports', 'customers.import_rows', 'customers.import_work',
+         'customers.object_storage_usage', 'customers.import_source_objects', 'customers.object_storage_reservations',
+        'catalog.units', 'catalog.items', 'catalog.unit_conversions', 'catalog.command_receipts',
+        'pricing.price_revisions', 'pricing.command_receipts', 'pricing.override_policies',
+        'orders.order_drafts', 'orders.order_draft_lines', 'orders.command_receipts', 'orders.quotation_origins',
+        'orders.approval_requests', 'orders.approval_events', 'orders.approval_commit_evidence'] LOOP
         EXECUTE format('GRANT SELECT, INSERT ON TABLE %s TO %I', target_table, runtime_role);
     END LOOP;
+    -- The policy aggregate is the only profile state CoreApi may write. The other
+    -- profile rows are read-only authority/facts; all profile writes stay tenant-RLS scoped.
+    EXECUTE format('GRANT INSERT ON TABLE profiles.policy_heads TO %I', runtime_role);
+    EXECUTE format('GRANT INSERT ON TABLE profiles.policy_revisions TO %I', runtime_role);
+    EXECUTE format('GRANT INSERT ON TABLE profiles.command_receipts TO %I', runtime_role);
+    EXECUTE format('GRANT UPDATE (revision, require_reference, require_approval, published_policy_id) ON TABLE profiles.policy_heads TO %I', runtime_role);
+    FOREACH target_table IN ARRAY ARRAY[
+        'profiles.policy_heads', 'profiles.policy_revisions', 'profiles.publications',
+        'profiles.authority', 'profiles.command_receipts'] LOOP
+        EXECUTE format('GRANT SELECT ON TABLE %s TO %I', target_table, runtime_role);
+    END LOOP;
+    -- CoreApi binds a newly committed Order using only non-baseline fields and can
+    -- later edit only the customer-supplied reference.
+    EXECUTE format('GRANT SELECT ON TABLE orders.program_order_metadata TO %I', runtime_role);
+    EXECUTE format('GRANT INSERT (tenant_id, order_id, profile_id, policy_revision_id, require_reference, require_approval, external_reference, bound_at) ON TABLE orders.program_order_metadata TO %I', runtime_role);
+    EXECUTE format('GRANT UPDATE (external_reference) ON TABLE orders.program_order_metadata TO %I', runtime_role);
+    EXECUTE format('GRANT UPDATE (assigned_id, revision, state, updated_at) ON TABLE orders.approval_requests TO %I', runtime_role);
+    FOREACH target_table IN ARRAY ARRAY['fulfillment.works','fulfillment.events','fulfillment.entry_activity','fulfillment.command_receipts'] LOOP
+        EXECUTE format('GRANT SELECT,INSERT ON TABLE %s TO %I',target_table,runtime_role);
+    END LOOP;
+    EXECUTE format('GRANT UPDATE(revision,snapshot,updated_at) ON TABLE fulfillment.works TO %I',runtime_role);
+    EXECUTE format('GRANT UPDATE(active,voided_by) ON TABLE fulfillment.entry_activity TO %I',runtime_role);
+    FOREACH target_table IN ARRAY ARRAY[
+        'purchasing.suppliers', 'purchasing.supplier_events', 'purchasing.supplier_command_receipts',
+        'purchasing.purchases', 'purchasing.purchase_events', 'purchasing.purchase_command_receipts'] LOOP
+        EXECUTE format('GRANT SELECT, INSERT ON TABLE %s TO %I', target_table, runtime_role);
+    END LOOP;
+    EXECUTE format('GRANT UPDATE(revision,snapshot,updated_at) ON TABLE purchasing.suppliers TO %I',runtime_role);
+    EXECUTE format('GRANT UPDATE(revision,snapshot,updated_at) ON TABLE purchasing.purchases TO %I',runtime_role);
+
+
     EXECUTE format(
         'GRANT UPDATE (summary, currency_code, total, customer_organization_id, customer_program_id, state, revision, abandoned_at, abandoned_by_account_id, committed_at, committed_by_account_id) ON TABLE orders.order_drafts TO %I',
         runtime_role);
     EXECUTE format(
-        'GRANT UPDATE (availability, revision, availability_changed_at, availability_changed_by_account_id) ON TABLE customers.individuals TO %I',
+        'GRANT UPDATE (display_name, email, phone, normalized_name, normalized_email, normalized_phone, redirect_target_individual_id, availability, revision, availability_changed_at, availability_changed_by_account_id, contact_changed_at, contact_changed_by_account_id) ON TABLE customers.individuals TO %I',
         runtime_role);
+    EXECUTE format(
+        'GRANT UPDATE (individual_id, availability, revision, changed_at, changed_by_account_id) ON TABLE customers.representatives TO %I',
+        runtime_role);
+    EXECUTE format('GRANT UPDATE (evidence, outcome, resolved_by_account_id, resolved_at, reason) ON TABLE customers.duplicate_cases TO %I', runtime_role);
+    EXECUTE format('GRANT UPDATE (requires_decision, duplicate_evidence, decision, mapping_customer_id, status, customer_id, error_code, error_message, processed_at, attempts) ON TABLE customers.import_rows TO %I', runtime_role);
+    EXECUTE format('GRANT UPDATE (status, completed_at, last_error, authorization_revision, generation, worker_id, lease_expires_at, next_attempt_at) ON TABLE customers.import_work TO %I', runtime_role);
+    EXECUTE format('GRANT UPDATE (source_object_key) ON TABLE customers.imports TO %I', runtime_role);
+    EXECUTE format('GRANT UPDATE (reserved_bytes, retained_bytes, updated_at) ON TABLE customers.object_storage_usage TO %I', runtime_role);
+    EXECUTE format('GRANT UPDATE (state, failure_code, retirement_generation, retirement_lease_id, retirement_lease_expires_at, staging_expires_at, retirement_fenced) ON TABLE customers.import_source_objects TO %I', runtime_role);
+    EXECUTE format('GRANT UPDATE (state, updated_at, upload_generation, upload_lease_id, upload_lease_expires_at) ON TABLE customers.object_storage_reservations TO %I', runtime_role);
+    EXECUTE format('GRANT EXECUTE ON FUNCTION customers.discover_runnable_import_tenants(uuid,integer) TO %I', runtime_role);
+    EXECUTE format('GRANT UPDATE (name, status, revision, retired_at, retired_by_account_id) ON TABLE catalog.units TO %I', runtime_role);
+    EXECUTE format('GRANT UPDATE (name, description, status, revision, retired_at, retired_by_account_id, availability, availability_changed_at, availability_changed_by_account_id) ON TABLE catalog.items TO %I', runtime_role);
+    EXECUTE format('GRANT UPDATE (state, published_at, retired_at) ON TABLE pricing.price_revisions TO %I', runtime_role);
+    EXECUTE format('GRANT USAGE ON SEQUENCE pricing.price_revision_number_seq TO %I', runtime_role);
     EXECUTE format('GRANT DELETE ON TABLE orders.order_draft_lines TO %I', runtime_role);
 END
 $provision$;
@@ -118,7 +242,7 @@ BEGIN
        OR has_database_privilege(runtime_role, current_database(), 'CREATE') THEN
         RAISE EXCEPTION 'CoreApi runtime database privileges are unsafe';
     END IF;
-    FOREACH target_schema IN ARRAY ARRAY['identity_access', 'tenancy', 'customers', 'orders'] LOOP
+    FOREACH target_schema IN ARRAY ARRAY['identity_access', 'tenancy', 'customers', 'catalog', 'pricing', 'orders', 'profiles', 'fulfillment', 'purchasing'] LOOP
         IF NOT has_schema_privilege(runtime_role, target_schema, 'USAGE')
            OR has_schema_privilege(runtime_role, target_schema, 'CREATE') THEN
             RAISE EXCEPTION 'CoreApi runtime schema privileges are unsafe';
@@ -134,8 +258,10 @@ BEGIN
             OR (n.nspname = 'tenancy' AND c.relname IN ('tenants', 'memberships'))
             OR (n.nspname = 'customers' AND c.relname IN (
                 'organizations', 'programs', 'organization_receipts', 'program_receipts',
-                'individuals', 'individual_command_receipts'))
-            OR (n.nspname = 'orders' AND c.relname IN ('order_drafts', 'order_draft_lines', 'command_receipts')))
+                'individuals', 'individual_command_receipts',
+                'representatives', 'representative_command_receipts', 'imports',
+                'object_storage_usage', 'import_source_objects', 'object_storage_reservations'))
+            OR (n.nspname = 'orders' AND c.relname IN ('order_drafts', 'order_draft_lines', 'command_receipts', 'quotation_origins')))
           AND a.attnum > 0 AND NOT a.attisdropped
     LOOP
         target_table := format('%I.%I', target_column.schema_name, target_column.table_name);
@@ -161,8 +287,22 @@ BEGIN
                            'state', 'revision', 'abandoned_at', 'abandoned_by_account_id',
                            'committed_at', 'committed_by_account_id'))
                     OR (target_column.schema_name = 'customers' AND target_column.table_name = 'individuals'
-                        AND target_column.column_name IN ('availability', 'revision',
-                            'availability_changed_at', 'availability_changed_by_account_id')))) THEN
+                        AND target_column.column_name IN ('display_name', 'email', 'phone', 'availability', 'revision',
+                            'normalized_name', 'normalized_email', 'normalized_phone', 'redirect_target_individual_id',
+                            'availability_changed_at', 'availability_changed_by_account_id',
+                            'contact_changed_at', 'contact_changed_by_account_id'))
+                     OR (target_column.schema_name = 'customers' AND target_column.table_name = 'representatives'
+                         AND target_column.column_name IN ('individual_id', 'availability', 'revision',
+                             'changed_at', 'changed_by_account_id'))
+                     OR (target_column.schema_name = 'customers' AND target_column.table_name = 'imports'
+                         AND target_column.column_name = 'source_object_key')
+                     OR (target_column.schema_name = 'customers' AND target_column.table_name = 'object_storage_usage'
+                         AND target_column.column_name IN ('reserved_bytes', 'retained_bytes', 'updated_at'))
+                      OR (target_column.schema_name = 'customers' AND target_column.table_name = 'import_source_objects'
+                          AND target_column.column_name IN ('state', 'failure_code',
+                              'retirement_generation', 'retirement_lease_id', 'retirement_lease_expires_at', 'staging_expires_at', 'retirement_fenced'))
+                     OR (target_column.schema_name = 'customers' AND target_column.table_name = 'object_storage_reservations'
+                         AND target_column.column_name IN ('state', 'updated_at', 'upload_generation', 'upload_lease_id', 'upload_lease_expires_at')))) THEN
             RAISE EXCEPTION 'CoreApi runtime column privileges are unsafe on %', target_table;
         END IF;
     END LOOP;
@@ -173,11 +313,19 @@ BEGIN
         'customers.organizations', 'customers.programs',
         'customers.organization_receipts', 'customers.program_receipts',
         'customers.individuals', 'customers.individual_command_receipts',
-        'orders.order_drafts', 'orders.order_draft_lines', 'orders.command_receipts'] LOOP
+        'customers.representatives', 'customers.representative_command_receipts',
+        'customers.duplicate_cases', 'customers.duplicate_command_receipts', 'customers.customer_redirects',
+        'customers.imports', 'customers.import_rows', 'customers.import_work',
+        'customers.object_storage_usage', 'customers.import_source_objects', 'customers.object_storage_reservations',
+        'catalog.units', 'catalog.items', 'catalog.unit_conversions', 'catalog.command_receipts',
+        'pricing.price_revisions', 'pricing.command_receipts', 'pricing.override_policies',
+        'orders.order_drafts', 'orders.order_draft_lines', 'orders.command_receipts', 'orders.quotation_origins',
+        'orders.approval_requests', 'orders.approval_events', 'orders.approval_commit_evidence'] LOOP
         IF has_table_privilege(runtime_role, target_table, 'DELETE')
                <> (target_table = 'orders.order_draft_lines')
            OR has_table_privilege(runtime_role, target_table, 'TRUNCATE')
            OR has_table_privilege(runtime_role, target_table, 'REFERENCES')
+           OR has_any_column_privilege(runtime_role, target_table, 'REFERENCES')
            OR has_table_privilege(runtime_role, target_table, 'TRIGGER') THEN
             RAISE EXCEPTION 'CoreApi runtime table privileges are unsafe on %', target_table;
         END IF;
@@ -195,6 +343,7 @@ BEGIN
            OR has_table_privilege(runtime_role, target_table, 'DELETE')
            OR has_table_privilege(runtime_role, target_table, 'TRUNCATE')
            OR has_table_privilege(runtime_role, target_table, 'REFERENCES')
+           OR has_any_column_privilege(runtime_role, target_table, 'REFERENCES')
            OR has_table_privilege(runtime_role, target_table, 'TRIGGER') THEN
             RAISE EXCEPTION 'CoreApi authorization-administration table privileges are unsafe on %', target_table;
         END IF;
@@ -237,5 +386,376 @@ BEGIN
        OR has_table_privilege(runtime_role, 'tenancy.tenant_authorization_events', 'DELETE') THEN
         RAISE EXCEPTION 'CoreApi authorization-event privileges are unsafe';
     END IF;
+    FOR target_column IN
+        SELECT n.nspname AS schema_name, c.relname AS table_name, a.attname AS column_name
+        FROM pg_class AS c
+        JOIN pg_namespace AS n ON n.oid = c.relnamespace
+        JOIN pg_attribute AS a ON a.attrelid = c.oid
+        WHERE ((n.nspname = 'customers' AND c.relname IN (
+                'duplicate_cases', 'duplicate_command_receipts', 'customer_redirects',
+                'imports', 'import_rows', 'import_work', 'object_storage_usage',
+                'import_source_objects', 'object_storage_reservations'))
+            OR (n.nspname = 'catalog' AND c.relname IN ('units', 'items', 'unit_conversions', 'command_receipts'))
+            OR (n.nspname = 'pricing' AND c.relname IN ('price_revisions', 'command_receipts', 'override_policies')))
+          AND a.attnum > 0 AND NOT a.attisdropped
+    LOOP
+        target_table := format('%I.%I', target_column.schema_name, target_column.table_name);
+        IF NOT has_column_privilege(runtime_role, target_table, target_column.column_name, 'SELECT')
+           OR NOT has_column_privilege(runtime_role, target_table, target_column.column_name, 'INSERT')
+           OR has_column_privilege(runtime_role, target_table, target_column.column_name, 'UPDATE')
+                <> ((target_column.schema_name = 'customers' AND target_column.table_name = 'duplicate_cases'
+                     AND target_column.column_name IN ('evidence', 'outcome', 'resolved_by_account_id', 'resolved_at', 'reason'))
+                  OR (target_column.schema_name = 'customers' AND target_column.table_name = 'imports'
+                      AND target_column.column_name = 'source_object_key')
+                  OR (target_column.schema_name = 'customers' AND target_column.table_name = 'import_rows'
+                     AND target_column.column_name IN ('requires_decision', 'duplicate_evidence', 'decision', 'mapping_customer_id',
+                         'status', 'customer_id', 'error_code', 'error_message', 'processed_at', 'attempts'))
+                  OR (target_column.schema_name = 'customers' AND target_column.table_name = 'import_work'
+                      AND target_column.column_name IN ('status', 'completed_at', 'last_error', 'authorization_revision',
+                          'generation', 'worker_id', 'lease_expires_at', 'next_attempt_at'))
+                  OR (target_column.schema_name = 'customers' AND target_column.table_name = 'object_storage_usage'
+                      AND target_column.column_name IN ('reserved_bytes', 'retained_bytes', 'updated_at'))
+                   OR (target_column.schema_name = 'customers' AND target_column.table_name = 'import_source_objects'
+                       AND target_column.column_name IN ('state', 'failure_code',
+                           'retirement_generation', 'retirement_lease_id', 'retirement_lease_expires_at', 'staging_expires_at', 'retirement_fenced'))
+                  OR (target_column.schema_name = 'customers' AND target_column.table_name = 'object_storage_reservations'
+                      AND target_column.column_name IN ('state', 'updated_at', 'upload_generation', 'upload_lease_id', 'upload_lease_expires_at'))
+                 OR (target_column.schema_name = 'catalog' AND target_column.table_name = 'units'
+                     AND target_column.column_name IN ('name', 'status', 'revision', 'retired_at', 'retired_by_account_id'))
+                 OR (target_column.schema_name = 'catalog' AND target_column.table_name = 'items'
+                     AND target_column.column_name IN ('name', 'description', 'status', 'revision', 'retired_at', 'retired_by_account_id',
+                         'availability', 'availability_changed_at', 'availability_changed_by_account_id'))
+                 OR (target_column.schema_name = 'pricing' AND target_column.table_name = 'price_revisions'
+                     AND target_column.column_name IN ('state', 'published_at', 'retired_at'))) THEN
+            RAISE EXCEPTION 'CoreApi commercial column privileges are unsafe on %.%', target_table, target_column.column_name;
+        END IF;
+    END LOOP;
+    IF NOT has_function_privilege(runtime_role, 'customers.discover_runnable_import_tenants(uuid,integer)', 'EXECUTE')
+       OR NOT has_sequence_privilege(runtime_role, 'pricing.price_revision_number_seq', 'USAGE')
+       OR has_sequence_privilege(runtime_role, 'pricing.price_revision_number_seq', 'UPDATE') THEN
+        RAISE EXCEPTION 'CoreApi commercial function/sequence privileges are unsafe';
+    END IF;
 END
 $verify$;
+
+-- Profile policy state and Order policy metadata have narrower write surfaces than
+-- the existing table-level tenant stores. Verify effective table and column rights.
+DO $profile_order_privileges$
+DECLARE
+    runtime_role text := current_setting('app.provision_runtime_role');
+    target_table text;
+    target_column record;
+BEGIN
+    FOREACH target_table IN ARRAY ARRAY[
+        'profiles.policy_heads', 'profiles.policy_revisions', 'profiles.publications',
+        'profiles.authority', 'profiles.command_receipts'] LOOP
+        IF NOT has_table_privilege(runtime_role, target_table, 'SELECT')
+           OR has_table_privilege(runtime_role, target_table, 'DELETE')
+           OR has_table_privilege(runtime_role, target_table, 'TRUNCATE')
+           OR has_table_privilege(runtime_role, target_table, 'REFERENCES')
+           OR has_any_column_privilege(runtime_role, target_table, 'REFERENCES')
+           OR has_table_privilege(runtime_role, target_table, 'TRIGGER')
+           OR has_table_privilege(runtime_role, target_table, 'UPDATE')
+           OR has_table_privilege(runtime_role, target_table, 'INSERT')
+                <> (target_table IN ('profiles.policy_heads', 'profiles.policy_revisions', 'profiles.command_receipts')) THEN
+            RAISE EXCEPTION 'CoreApi profile table privileges are unsafe on %', target_table;
+        END IF;
+    END LOOP;
+
+    FOR target_column IN
+        SELECT c.relname AS table_name, a.attname AS column_name
+        FROM pg_class AS c
+        JOIN pg_namespace AS n ON n.oid = c.relnamespace
+        JOIN pg_attribute AS a ON a.attrelid = c.oid
+        WHERE n.nspname = 'profiles' AND c.relname IN
+            ('policy_heads', 'policy_revisions', 'publications', 'authority', 'command_receipts')
+          AND a.attnum > 0 AND NOT a.attisdropped
+    LOOP
+        target_table := format('profiles.%I', target_column.table_name);
+        IF NOT has_column_privilege(runtime_role, target_table, target_column.column_name, 'SELECT')
+           OR has_column_privilege(runtime_role, target_table, target_column.column_name, 'INSERT')
+                <> (target_column.table_name IN ('policy_heads', 'policy_revisions', 'command_receipts'))
+           OR has_column_privilege(runtime_role, target_table, target_column.column_name, 'UPDATE')
+                <> (target_column.table_name = 'policy_heads'
+                    AND target_column.column_name IN ('revision', 'require_reference', 'require_approval', 'published_policy_id')) THEN
+            RAISE EXCEPTION 'CoreApi profile column privileges are unsafe on %.%', target_table, target_column.column_name;
+        END IF;
+    END LOOP;
+
+    IF NOT has_table_privilege(runtime_role, 'orders.program_order_metadata', 'SELECT')
+       OR has_table_privilege(runtime_role, 'orders.program_order_metadata', 'INSERT')
+       OR has_table_privilege(runtime_role, 'orders.program_order_metadata', 'UPDATE')
+       OR has_table_privilege(runtime_role, 'orders.program_order_metadata', 'DELETE')
+       OR has_table_privilege(runtime_role, 'orders.program_order_metadata', 'TRUNCATE')
+       OR has_table_privilege(runtime_role, 'orders.program_order_metadata', 'REFERENCES')
+       OR has_any_column_privilege(runtime_role, 'orders.program_order_metadata', 'REFERENCES')
+       OR has_table_privilege(runtime_role, 'orders.program_order_metadata', 'TRIGGER') THEN
+        RAISE EXCEPTION 'CoreApi program-order metadata table privileges are unsafe';
+    END IF;
+    FOR target_column IN
+        SELECT a.attname AS column_name
+        FROM pg_class AS c
+        JOIN pg_namespace AS n ON n.oid = c.relnamespace
+        JOIN pg_attribute AS a ON a.attrelid = c.oid
+        WHERE n.nspname = 'orders' AND c.relname = 'program_order_metadata'
+          AND a.attnum > 0 AND NOT a.attisdropped
+    LOOP
+        IF NOT has_column_privilege(runtime_role, 'orders.program_order_metadata', target_column.column_name, 'SELECT')
+           OR has_column_privilege(runtime_role, 'orders.program_order_metadata', target_column.column_name, 'INSERT')
+                <> (target_column.column_name IN
+                    ('tenant_id', 'order_id', 'profile_id', 'policy_revision_id', 'require_reference', 'require_approval', 'external_reference', 'bound_at'))
+           OR has_column_privilege(runtime_role, 'orders.program_order_metadata', target_column.column_name, 'UPDATE')
+                <> (target_column.column_name = 'external_reference') THEN
+            RAISE EXCEPTION 'CoreApi program-order metadata column privileges are unsafe on %', target_column.column_name;
+        END IF;
+    END LOOP;
+END
+$profile_order_privileges$;
+
+
+-- Quotation facts and links are append-only; only owned header/counter columns may change.
+DO $quotations$
+DECLARE runtime_role text := nullif(current_setting('app.provision_runtime_role', true), '');
+    table_name text;
+    target_column record;
+BEGIN
+    IF runtime_role IS NULL OR EXISTS (SELECT 1 FROM pg_namespace WHERE nspname='quotations'
+        AND nspowner=(SELECT oid FROM pg_roles WHERE rolname=runtime_role)) OR EXISTS (
+        SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='quotations'
+        AND c.relowner=(SELECT oid FROM pg_roles WHERE rolname=runtime_role)) THEN
+        RAISE EXCEPTION 'Unsafe quotation runtime owner';
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+        WHERE n.nspname='quotations' AND c.relkind='r' AND (NOT c.relrowsecurity OR NOT c.relforcerowsecurity)
+        AND c.relname <> '__EFMigrationsHistory') THEN RAISE EXCEPTION 'Quotation RLS is required'; END IF;
+    EXECUTE format('GRANT USAGE ON SCHEMA quotations TO %I', runtime_role);
+    FOREACH table_name IN ARRAY ARRAY['heads','issued','numbers','receipts','responses','conversions'] LOOP
+        EXECUTE format('REVOKE ALL ON TABLE quotations.%I FROM %I', table_name, runtime_role);
+        EXECUTE format('GRANT SELECT, INSERT ON TABLE quotations.%I TO %I', table_name, runtime_role);
+    END LOOP;
+    EXECUTE format('GRANT UPDATE (version, number, draft, current_issued_id, last_issued_revision) ON quotations.heads TO %I', runtime_role);
+    EXECUTE format('GRANT UPDATE (value) ON quotations.numbers TO %I', runtime_role);
+    FOREACH table_name IN ARRAY ARRAY['heads','issued','numbers','receipts','responses','conversions'] LOOP
+        IF NOT has_table_privilege(runtime_role, format('quotations.%I', table_name), 'SELECT') OR
+           NOT has_table_privilege(runtime_role, format('quotations.%I', table_name), 'INSERT') OR
+           has_table_privilege(runtime_role, format('quotations.%I', table_name), 'DELETE') OR
+           has_table_privilege(runtime_role, format('quotations.%I', table_name), 'TRUNCATE') OR
+           has_table_privilege(runtime_role, format('quotations.%I', table_name), 'UPDATE') OR
+           has_table_privilege(runtime_role, format('quotations.%I', table_name), 'REFERENCES') OR
+           has_table_privilege(runtime_role, format('quotations.%I', table_name), 'TRIGGER') THEN
+            RAISE EXCEPTION 'Unsafe quotation runtime table privileges on quotations.%', table_name;
+        END IF;
+    END LOOP;
+    FOR target_column IN
+        SELECT c.relname AS table_name, a.attname AS column_name
+        FROM pg_class AS c
+        JOIN pg_namespace AS n ON n.oid = c.relnamespace
+        JOIN pg_attribute AS a ON a.attrelid = c.oid
+        WHERE n.nspname = 'quotations' AND c.relname IN ('heads','issued','numbers','receipts','responses','conversions')
+          AND a.attnum > 0 AND NOT a.attisdropped
+    LOOP
+        IF has_column_privilege(runtime_role,
+                format('quotations.%I', target_column.table_name), target_column.column_name, 'UPDATE')
+           <> ((target_column.table_name = 'heads' AND target_column.column_name IN
+                ('version','number','draft','current_issued_id','last_issued_revision')) OR
+               (target_column.table_name = 'numbers' AND target_column.column_name = 'value')) THEN
+            RAISE EXCEPTION 'Unsafe quotation runtime UPDATE privilege on quotations.%.%',
+                target_column.table_name, target_column.column_name;
+        END IF;
+    END LOOP;
+    IF has_schema_privilege(runtime_role,'quotations','CREATE') THEN
+        RAISE EXCEPTION 'Unsafe quotation runtime schema privileges';
+    END IF;
+END
+$quotations$;
+
+-- Approval subjects, events and committed evidence retain their scoped write boundary.
+DO $approval_privileges$
+DECLARE
+    runtime_role text := current_setting('app.provision_runtime_role');
+    target_table text;
+    target_column record;
+BEGIN
+    FOREACH target_table IN ARRAY ARRAY['orders.approval_requests','orders.approval_events','orders.approval_commit_evidence'] LOOP
+        IF NOT has_table_privilege(runtime_role,target_table,'SELECT') OR NOT has_table_privilege(runtime_role,target_table,'INSERT')
+            OR has_table_privilege(runtime_role,target_table,'UPDATE') OR has_table_privilege(runtime_role,target_table,'DELETE')
+            OR has_table_privilege(runtime_role,target_table,'TRUNCATE') OR has_table_privilege(runtime_role,target_table,'TRIGGER')
+            OR has_table_privilege(runtime_role,target_table,'REFERENCES') OR has_any_column_privilege(runtime_role,target_table,'REFERENCES') THEN
+            RAISE EXCEPTION 'CoreApi approval table privileges are unsafe on %',target_table;
+        END IF;
+    END LOOP;
+    FOR target_column IN
+        SELECT c.relname AS table_name,a.attname AS column_name
+        FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_attribute a ON a.attrelid=c.oid
+        WHERE n.nspname='orders' AND c.relname IN ('approval_requests','approval_events','approval_commit_evidence')
+            AND a.attnum>0 AND NOT a.attisdropped
+    LOOP
+        target_table:=format('orders.%I',target_column.table_name);
+        IF has_column_privilege(runtime_role,target_table,target_column.column_name,'UPDATE') <>
+            (target_column.table_name='approval_requests' AND target_column.column_name IN ('assigned_id','revision','state','updated_at')) THEN
+            RAISE EXCEPTION 'CoreApi approval column privileges are unsafe on %.%',target_table,target_column.column_name;
+        END IF;
+    END LOOP;
+END
+$approval_privileges$;
+
+DO $fulfillment_privileges$
+DECLARE
+    runtime_role text := current_setting('app.provision_runtime_role');
+    target_table text;
+    target_column record;
+BEGIN
+    FOREACH target_table IN ARRAY ARRAY[
+        'fulfillment.works', 'fulfillment.events',
+        'fulfillment.entry_activity', 'fulfillment.command_receipts'] LOOP
+        IF NOT has_table_privilege(runtime_role, target_table, 'SELECT')
+           OR NOT has_table_privilege(runtime_role, target_table, 'INSERT')
+           OR has_table_privilege(runtime_role, target_table, 'UPDATE')
+           OR has_table_privilege(runtime_role, target_table, 'DELETE')
+           OR has_table_privilege(runtime_role, target_table, 'TRUNCATE')
+           OR has_table_privilege(runtime_role, target_table, 'TRIGGER')
+           OR has_table_privilege(runtime_role, target_table, 'REFERENCES') THEN
+            RAISE EXCEPTION 'CoreApi fulfillment table privileges are unsafe on %', target_table;
+        END IF;
+    END LOOP;
+    FOR target_column IN
+        SELECT c.relname AS table_name, a.attname AS column_name
+        FROM pg_class AS c
+        JOIN pg_namespace AS n ON n.oid = c.relnamespace
+        JOIN pg_attribute AS a ON a.attrelid = c.oid
+        WHERE n.nspname = 'fulfillment'
+          AND c.relname IN ('works', 'events', 'entry_activity', 'command_receipts')
+          AND a.attnum > 0 AND NOT a.attisdropped
+    LOOP
+        target_table := format('fulfillment.%I', target_column.table_name);
+        IF NOT has_column_privilege(runtime_role, target_table, target_column.column_name, 'SELECT')
+           OR NOT has_column_privilege(runtime_role, target_table, target_column.column_name, 'INSERT')
+           OR has_column_privilege(runtime_role, target_table, target_column.column_name, 'REFERENCES')
+           OR has_column_privilege(runtime_role, target_table, target_column.column_name, 'UPDATE')
+                <> ((target_column.table_name = 'works'
+                     AND target_column.column_name IN ('revision', 'snapshot', 'updated_at'))
+                 OR (target_column.table_name = 'entry_activity'
+                     AND target_column.column_name IN ('active', 'voided_by'))) THEN
+            RAISE EXCEPTION 'CoreApi fulfillment column privileges are unsafe on %.%',
+                target_table, target_column.column_name;
+        END IF;
+    END LOOP;
+    IF has_schema_privilege(runtime_role, 'fulfillment', 'CREATE') THEN
+        RAISE EXCEPTION 'CoreApi fulfillment schema privileges are unsafe';
+    END IF;
+END
+$fulfillment_privileges$;
+
+DO $purchasing_privileges$
+DECLARE
+    runtime_role text := current_setting('app.provision_runtime_role');
+    target_table text;
+    target_column record;
+BEGIN
+    FOREACH target_table IN ARRAY ARRAY[
+        'purchasing.suppliers', 'purchasing.supplier_events', 'purchasing.supplier_command_receipts',
+        'purchasing.purchases', 'purchasing.purchase_events', 'purchasing.purchase_command_receipts'] LOOP
+        IF NOT has_table_privilege(runtime_role, target_table, 'SELECT')
+           OR NOT has_table_privilege(runtime_role, target_table, 'INSERT')
+           OR has_table_privilege(runtime_role, target_table, 'UPDATE')
+           OR has_table_privilege(runtime_role, target_table, 'DELETE')
+           OR has_table_privilege(runtime_role, target_table, 'TRUNCATE')
+           OR has_table_privilege(runtime_role, target_table, 'TRIGGER')
+           OR has_table_privilege(runtime_role, target_table, 'REFERENCES') THEN
+            RAISE EXCEPTION 'CoreApi purchasing table privileges are unsafe on %', target_table;
+        END IF;
+    END LOOP;
+    FOR target_column IN
+        SELECT c.relname AS table_name, a.attname AS column_name
+        FROM pg_class AS c
+        JOIN pg_namespace AS n ON n.oid = c.relnamespace
+        JOIN pg_attribute AS a ON a.attrelid = c.oid
+        WHERE n.nspname = 'purchasing'
+          AND c.relname IN ('suppliers', 'supplier_events', 'supplier_command_receipts', 'purchases', 'purchase_events', 'purchase_command_receipts')
+          AND a.attnum > 0 AND NOT a.attisdropped
+    LOOP
+        target_table := format('purchasing.%I', target_column.table_name);
+        IF NOT has_column_privilege(runtime_role, target_table, target_column.column_name, 'SELECT')
+           OR NOT has_column_privilege(runtime_role, target_table, target_column.column_name, 'INSERT')
+           OR has_column_privilege(runtime_role, target_table, target_column.column_name, 'REFERENCES')
+           OR has_column_privilege(runtime_role, target_table, target_column.column_name, 'UPDATE')
+                <> (target_column.table_name IN ('suppliers', 'purchases')
+                     AND target_column.column_name IN ('revision', 'snapshot', 'updated_at')) THEN
+            RAISE EXCEPTION 'CoreApi purchasing column privileges are unsafe on %.%',
+                target_table, target_column.column_name;
+        END IF;
+    END LOOP;
+    IF has_schema_privilege(runtime_role, 'purchasing', 'CREATE') THEN
+        RAISE EXCEPTION 'CoreApi purchasing schema privileges are unsafe';
+    END IF;
+END
+$purchasing_privileges$;
+
+-- Invoice facts and issue receipts are immutable; only the reference counter advances.
+DO $invoice_privileges$
+DECLARE
+    runtime_role text := current_setting('app.provision_runtime_role');
+    target_table text;
+    target_column record;
+BEGIN
+    IF has_schema_privilege(runtime_role, 'invoices', 'CREATE') THEN
+        RAISE EXCEPTION 'CoreApi invoice schema privileges are unsafe';
+    END IF;
+    FOREACH target_table IN ARRAY ARRAY[
+        'invoices.organization_ordinals', 'invoices.issued_invoices',
+        'invoices.issued_lines', 'invoices.issue_receipts'] LOOP
+        IF to_regclass(target_table) IS NULL OR NOT EXISTS (
+            SELECT 1 FROM pg_class AS c
+            WHERE c.oid = to_regclass(target_table)
+              AND c.relrowsecurity AND c.relforcerowsecurity) THEN
+            RAISE EXCEPTION 'CoreApi invoice table is missing or lacks forced row level security: %', target_table;
+        END IF;
+        IF has_table_privilege(runtime_role, target_table, 'UPDATE')
+           OR has_table_privilege(runtime_role, target_table, 'DELETE')
+           OR has_table_privilege(runtime_role, target_table, 'TRUNCATE')
+           OR has_table_privilege(runtime_role, target_table, 'TRIGGER')
+           OR has_table_privilege(runtime_role, target_table, 'REFERENCES') THEN
+            RAISE EXCEPTION 'CoreApi invoice table privileges are unsafe on %', target_table;
+        END IF;
+        FOR target_column IN
+            SELECT a.attname AS column_name FROM pg_attribute AS a
+            WHERE a.attrelid = to_regclass(target_table)
+              AND a.attnum > 0 AND NOT a.attisdropped
+        LOOP
+            IF has_column_privilege(runtime_role, target_table, target_column.column_name, 'REFERENCES')
+               OR (has_column_privilege(runtime_role, target_table, target_column.column_name, 'UPDATE')
+                   AND NOT (target_table = 'invoices.organization_ordinals'
+                            AND target_column.column_name = 'last_ordinal')) THEN
+                RAISE EXCEPTION 'CoreApi invoice column privileges are unsafe on %.%', target_table, target_column.column_name;
+            END IF;
+        END LOOP;
+    END LOOP;
+
+    EXECUTE format('GRANT USAGE ON SCHEMA invoices TO %I', runtime_role);
+    FOREACH target_table IN ARRAY ARRAY[
+        'invoices.organization_ordinals', 'invoices.issued_invoices',
+        'invoices.issued_lines', 'invoices.issue_receipts'] LOOP
+        EXECUTE format('GRANT SELECT, INSERT ON TABLE %s TO %I', target_table, runtime_role);
+    END LOOP;
+    EXECUTE format('GRANT UPDATE (last_ordinal) ON TABLE invoices.organization_ordinals TO %I', runtime_role);
+    EXECUTE format('GRANT EXECUTE ON FUNCTION invoices.valid_debtor(jsonb), invoices.valid_receipt(jsonb) TO %I', runtime_role);
+
+    FOR target_column IN
+        SELECT c.relname AS table_name, a.attname AS column_name
+        FROM pg_class AS c JOIN pg_namespace AS n ON n.oid = c.relnamespace
+        JOIN pg_attribute AS a ON a.attrelid = c.oid
+        WHERE n.nspname = 'invoices'
+          AND c.relname IN ('organization_ordinals', 'issued_invoices', 'issued_lines', 'issue_receipts')
+          AND a.attnum > 0 AND NOT a.attisdropped
+    LOOP
+        target_table := format('invoices.%I', target_column.table_name);
+        IF NOT has_column_privilege(runtime_role, target_table, target_column.column_name, 'SELECT')
+           OR NOT has_column_privilege(runtime_role, target_table, target_column.column_name, 'INSERT')
+           OR has_column_privilege(runtime_role, target_table, target_column.column_name, 'UPDATE')
+                <> (target_column.table_name = 'organization_ordinals'
+                    AND target_column.column_name = 'last_ordinal') THEN
+            RAISE EXCEPTION 'CoreApi invoice column privileges are unsafe on %.%', target_table, target_column.column_name;
+        END IF;
+    END LOOP;
+END
+$invoice_privileges$;

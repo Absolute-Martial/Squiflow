@@ -4,41 +4,54 @@
 
 **Repository name:** internal development codename; public runtime identity is configuration-owned
 
-**Current state:** first backend/API vertical slice implemented
+**Current state:** backend/API baseline plus the bounded commercial continuation implemented; complete product qualification remains separate
 
 ## Current inventory
 
 The three count lines below are machine-read by `Application.Architecture.Tests` (`ReadCount` matches `^label: N$`). Keep each on its own line in exactly this form.
 
 ```text
-production projects: 17
-test projects:       16
+production projects: 30
+test projects:       28
 executable hosts:    4
 solution files:      1
 repository build/test contract: present
-BLOCKED: ADM-004 live ZITADEL topology evidence, ADM-006 exact-current-source dynamic qualification, ADM-009–ADM-012 tenant-authorization administration dynamic qualification, and the OPS-017 quality-gate expansion remain pending; COM-001 is complete as a read-only preservation map and adds no runtime claim
+BLOCKED: COM-020–022 accepted invoice issue/read scope receiving qualification; COM-004 external Hugging Face provider qualification (OPS-007/OPS-008), with local raw-source contracts qualified; existing ADM-004 live ZITADEL topology evidence, ADM-006/ADM-009–ADM-012 gate-owner qualification and OPS-017 quality-gate expansion remain separate pending claims
 ```
 
 ## What exists
 
 | Area | Projects | Current responsibility (declared narrow scope) |
 |---|---|---|
-| ApplicationProfiles | `Application.Profiles` | Bounded feature definition, dependency-graph validation and deterministic, dependency-closed effective-selection compilation with stable catalog/selection fingerprints. No production feature catalog and no durable tenant profile authority. |
+| Object storage | `Application.ObjectStorage` | Host-neutral `IObjectStore` request/result boundary for bounded retained objects; no provider SDK/API types or provider qualification claim. |
+| ApplicationProfiles | `Application.Profiles`, `.Postgres` | Bounded feature compilation plus the accepted fixed four-feature catalog, immutable typed tenant policy revisions, separate private-Admin profile publication/activation and retained profile resolution. ADM-018–021 and COM-011 are locally `PRODUCTION_HONEST` for their bounded scope; [focused owner](docs/implementation/ORDER_PROGRAM_REFERENCE_POLICY.md). |
 | Branding | `Application.Branding` | Validated, deployment-supplied public identity (name, legal identity, theme, links). No codename fallback. |
 | IdentityAccess | `Application.IdentityAccess`, `.Postgres` | Durable binding of one or more exact OIDC `(issuer, subject)` identities to a stable application account, including caller-scoped onboarding/link receipts and concurrency-safe identity uniqueness. Stores no password, role or permission authority. |
 | Tenancy | `Application.Tenancy`, `.Postgres` | Tenant registry, revision-checked membership/tenant lifecycle, membership-derived immutable `TenantContext`, durable tenant-authorization revision/proposals/evidence, bounded direct business grants, custom-role metadata/assignments, and atomic initial-Owner handoff. Capability permission semantics remain a stable compiled catalog; provider-specific OpenFGA mutation stays in the CoreApi adapter. |
 | PlatformAdministration | `Application.PlatformAdministration`, `.Postgres` | One-time initial Platform Admin bootstrap authority plus request-time active principal/Admin-device resolution and retained AdminApi access audit. Ongoing operator, device and role lifecycle remains absent. |
-| Customers | `Application.Customers`, `.Postgres` | Immutable tenant-owned customer organizations and child programs: create, read and bounded browse; separate individual billing records: create/read and revision-checked active/inactive changes. Commands retain caller-scoped semantic idempotency. |
-| Orders | `Application.Orders`, `.Postgres` | Priced order drafts: create, read, bounded browse, full revision, one-way abandonment and direct commitment of immutable priced facts, with optional customer/program attribution and caller-scoped semantic idempotency. |
-| Invoices | `Application.Invoices` | Host-neutral invoice-issue orchestration over committed Orders: current billing-authority port, caller-scoped idempotency/replay contract, NPR/revision/arithmetic validation, debtor resolution through Customers public queries, immutable retained issued-fact contracts and explicit safe outcomes. No PostgreSQL adapter, numbering/date policy implementation, HTTP surface or durable invoice runtime is introduced. |
-| CoreApi | `Application.CoreApi` | ASP.NET Core host: HTTP contract, JWT validation, Finbuckle route-candidate capture, ASP.NET resource authorization with pinned-model OpenFGA checks, Autofac root composition, the shared bounded Npgsql data source, safe unhandled-failure responses, process-local protected-request and verified-tenant concurrency admission, health endpoints, and bounded dormant tenant-keyed profile-runtime mechanics. |
+| Customers | `Application.Customers`, `.Postgres` | Tenant-owned customer organizations/programs and individual billing records with contact/availability edits, representative relationships, duplicate review/keep-separate/consolidation redirects, and bounded customer-import plans/work results. Commands retain caller-scoped semantic idempotency; issued facts are not rewritten. |
+| Catalog | `Application.Catalog`, `.Postgres` | Tenant product/service and unit identity, rename/retirement history, immutable direct conversions, availability-only state and bounded frozen catalog line facts. Numerical inventory remains separate. |
+| Orders | `Application.Orders`, `.Postgres` | Manual or separate catalog-priced drafts: create/read/browse/revise/abandon/commit with immutable receipts/history and optional customer/program attribution. COM-010 adds trusted quotation-origin draft creation, immutable offer pricing through commitment, and named origin on viewer-authorized detail/browse/history; ordinary replacement is blocked for quote-origin drafts. Catalog-priced direct-order commitment keeps its current-source fence. COM-010 is `PRODUCTION_HONEST` for its declared bounded scope; see its [qualification receipt](docs/review/COM_010_IMPLEMENTATION_RECEIPT.md). COM-012/013 add pinned-policy independent exact-draft approval, durable protected continuation/recovery, admission guidance and atomic frozen commitment evidence under the [approval owner](docs/implementation/ORDER_APPROVAL_AND_ADMISSION.md). |
+| Pricing | `Application.Pricing`, `.Postgres` | Versioned tenant price drafts/publication/retirement, deterministic source precedence, typed missing/expired/conflict outcomes, override evidence and explainable candidate selection. |
+| Quotations | `Application.Quotations`, `.Postgres` | Optional supplied-price or Catalog/Pricing drafts, revision-checked immutable issuance, tenant-wide numbering and protected bounded history. COM-009 drafting/issuance/history and COM-010 acceptance/rejection/expiry plus linked conversion are qualified for their declared bounded scopes; see the [COM-010 qualification receipt](docs/review/COM_010_IMPLEMENTATION_RECEIPT.md). |
+| Fulfillment | `Application.Fulfillment`, `.Postgres` | Accepted single-line in-house non-stock program Order completion, pickup, blocking/resolution and recent Owner-authorized corrections; immutable evidence and protected bounded reads. The [focused owner](docs/implementation/ORDER_SERVICE_FULFILLMENT.md) retains COM-014/015 qualification. OPS-013's selected indefinite-retention pickup profile is locally qualified under its [audit owner](docs/implementation/BUSINESS_AUDIT_PICKUP_PROFILE.md). |
+| Purchasing | `Application.Purchasing`, `.Postgres` | Owner-selected informal supplier-service requests, exact partial receipts and NPR costs/payables, cash/bank payments, actual supplier refunds, linked corrections and separate six-permission authority. Optional committed Order references preserve selling prices. The [focused owner](docs/implementation/PURCHASING_SUPPLIER_SERVICE_SLICE.md) is locally `PRODUCTION_HONEST` for the selected case; stock, outsourcing and customer settlement remain separate. |
+| Invoices | `Application.Invoices`, `.Postgres` | Accepted one-full-invoice-per-committed-Order contract, frozen debtor/prices, organization-scoped increasing ordinal and server UTC date. COM-020–022 introduce atomic PostgreSQL issuance/receipts and separately protected issue/frozen-read paths; the integrated scope is `BLOCKED` receiving qualification until its actual provider/API evidence and normal gate pass. Receivables/payments remain absent. |
+| CoreApi | `Application.CoreApi` | ASP.NET Core host: protected capability routes, JWT validation, membership-derived resource authorization with pinned OpenFGA checks, Autofac composition, shared bounded Npgsql pool, safe failure/admission/budget/health behavior, the conditional Hugging Face Storage Bucket adapter, and dormant profile-runtime mechanics. Explicitly enabled autonomous customer-import execution awaits bounded tenant discovery/row batches and drains through standard hosting; no generic Worker/scheduler is implied. |
 | AdminApi | `Application.AdminApi` | Private ASP.NET Core host with exact ZITADEL identity, active registered Admin-device certificate, pinned-model OpenFGA authorization, retained protected-access audit, tenant provisioning, verified import/link of existing ZITADEL human identities into stable local accounts, bounded tenant/account/membership registry reads, and a bounded cooperative deadline on explicitly classified protected routes. |
 | AdminBootstrap | `Application.AdminBootstrap` | One-shot private infrastructure executable. It prepares/reuses the durable bootstrap intent, writes the initial administrator relation to the explicitly pinned platform OpenFGA model with duplicate-safe semantics, confirms access at higher consistency, then marks local bootstrap complete. It exposes no HTTP bootstrap endpoint. |
-| DatabaseMigrator | `Application.DatabaseMigrator` | One-shot ordered migration of IdentityAccess, Tenancy, PlatformAdministration, Customers and Orders under an advisory lock. |
+| DatabaseMigrator | `Application.DatabaseMigrator` | One-shot ordered migration of IdentityAccess, Tenancy, PlatformAdministration, Profiles, Customers, Catalog, Pricing, Orders, Quotations, Fulfillment, Purchasing and Invoices under an advisory lock. |
 
 Each PostgreSQL adapter owns its context factory, migration files, runtime DI registration and persistence code. The migrator owns only the advisory lock, command/exit behavior and ordering. Capability projects stay host- and provider-neutral.
 
 ## Implemented HTTP surface (CoreApi)
+
+The quotation draft/issue/detail/history routes and their exact accepted contract
+are owned by [`QUOTATIONS_AND_CONVERSION.md`](docs/implementation/QUOTATIONS_AND_CONVERSION.md);
+COM-009 is `PRODUCTION_HONEST` for that declared bounded scope, with its
+[qualification receipt](docs/review/COM_009_IMPLEMENTATION_RECEIPT.md).
+COM-010 is `PRODUCTION_HONEST` with `BLOCKED = none` for its declared bounded
+response/conversion scope, with its [qualification receipt](docs/review/COM_010_IMPLEMENTATION_RECEIPT.md).
 
 All protected responses are `no-store`, including authentication failures and handled errors. `GET /openapi/v1.json` describes the executable contract using the configured public brand; its OpenID Connect scheme is attached only to operations that require authorization.
 
@@ -47,7 +60,7 @@ Unhandled transient PostgreSQL failures return safe `503` / `database_unavailabl
 | Route | Authority |
 |---|---|
 | `GET /health/live` | None. Dependency-free liveness. |
-| `GET /health/ready` | None. Status-only, five-second single-flight cached check of primary PostgreSQL connectivity and read access to the configured OpenFGA model. Does not replace migration verification or an authorized business smoke journey. |
+| `GET /health/ready` | None. Status-only, five-second single-flight cached check of primary PostgreSQL connectivity, read access to the configured OpenFGA model, and — only when customer-import execution is enabled — the executor's raw-source deletion admission state. Does not replace migration verification or an authorized business smoke journey. |
 | `GET /openapi/v1.json` | None. Classified contract description. |
 | `GET /api/v1/application/bootstrap` | None. Bounded public white-label identity with its own bounded cache/ETag policy. |
 | `GET /api/v1/account` | JWT (configured HTTPS issuer, exact audience, signature, lifetime) and an active bound account. |
@@ -63,8 +76,47 @@ Unhandled transient PostgreSQL failures return safe `503` / `database_unavailabl
 | `POST /api/v1/tenants/{tenantId}/orders/{orderId}/abandon` | Current membership plus `order_abandoner`; requires `expectedRevision`; idempotent. |
 
 | `POST /api/v1/tenants/{tenantId}/orders/{orderId}/commit` | Current membership plus `order_committer`; expectedRevision and caller-scoped idempotency; freezes priced facts without billing or fulfillment effects. |
+| `GET /api/v1/tenants/{tenantId}/profile-policy`; `PUT .../profile-policy`; `POST .../profile-policy/publish` | COM-011 prerequisites: separate policy view/edit/publish rights, typed revision checks and immutable publication. Publication does not activate Order behavior. |
+| `PUT /api/v1/tenants/{tenantId}/orders/{orderId}/program-reference` | COM-011: `order_editor`, expected Order revision and idempotency; reference-only draft metadata. Commitment enforces the retained profile policy; earlier pins remain unchanged. [Contract](docs/implementation/ORDER_PROGRAM_REFERENCE_POLICY.md). |
+| `POST /api/v1/tenants/{tenantId}/quotations`; `PUT .../quotations/{quotationId}/draft`; `POST .../{quotationId}/issue` | Current membership plus distinct quotation create/edit/issue authority and applicable pricing authority. COM-009 locally qualified; see focused owner. |
+| `GET /api/v1/tenants/{tenantId}/quotations/{quotationId}`; `GET .../{quotationId}/issued` | Current membership plus `quotation_viewer`; immutable issued offers and bounded history. |
+| `POST .../quotations/{quotationId}/{accept\|reject\|expire\|convert}`; `GET .../{quotationId}/issued/{revisionId}/response` | COM-010: current membership plus `quotation_responder`, `quotation_expirer`, `quotation_converter` plus Orders-create, or quotation-view for history. `PRODUCTION_HONEST` for the declared bounded scope. Command projections omit offer/Order prices and lines; see the [qualification receipt](docs/review/COM_010_IMPLEMENTATION_RECEIPT.md). |
 | `POST /api/v1/tenants/{tenantId}/customers/individuals`; `GET .../individuals/{individualId}` | Current membership plus independent `individual_creator` or `individual_viewer`; no login binding or debtor assignment. |
+| `POST .../individuals/{individualId}/contact` | Current membership plus independent `individual_contact_editor`; expectedRevision and idempotency; updates bounded display-name/email/phone facts with attributable change metadata. |
 | `POST .../individuals/{individualId}/availability` | Current membership plus `individual_availability_editor`; expectedRevision and idempotency; contact-free transition response. |
+| `POST .../organizations/{organizationId}/representatives`; `GET .../representatives/{representativeId}`; `POST .../representatives/{representativeId}/unlink` | Current membership plus independent `representative_manager` or `representative_viewer`; active individual and valid organization/program parent required; relationship reads do not disclose linked contact fields. |
+| `POST`, `GET /api/v1/tenants/{tenantId}/catalog/units`; `GET .../catalog/units/{unitId}` | Current membership plus independent `catalog_editor` (computed `can_manage_catalog`) to create, or `catalog_viewer` (`can_view_catalog`) to browse/read; retired records stay readable. Create is idempotent. |
+| `POST`, `GET .../catalog/items`; `GET .../catalog/items/{itemId}` | As above. Create is idempotent. |
+| `POST .../catalog/units/{unitId}/display`; `POST .../catalog/items/{itemId}/display` | Current membership plus `catalog_editor`; requires `expectedRevision`; idempotent; display-only rename. |
+| `POST .../catalog/units/{unitId}/retire`; `POST .../catalog/items/{itemId}/retire` | Current membership plus `catalog_editor`; requires `expectedRevision`; idempotent; retirement is a retained state, not deletion. |
+| `POST .../catalog/items/{itemId}/availability` | Current membership plus `catalog_editor`; requires `expectedRevision`; idempotent; availability-only stock mode. |
+| `POST .../catalog/units/{sourceUnitId}/conversions/{targetUnitId}`; `GET` on the same pair | Current membership plus `catalog_editor` to publish a pinned direct ratio, or `catalog_viewer` to read one pinned historical revision. Publication is idempotent. |
+| `POST .../catalog/line-facts` | Current membership plus `catalog_viewer`; bounded non-persisting item/unit/quantity selection facts. No Idempotency-Key. |
+| `POST /api/v1/tenants/{tenantId}/pricing/drafts` | Current membership plus `pricing_draft_editor` (computed `can_edit_pricing_draft`); creates a replacement draft revision. Idempotent. |
+| `POST .../pricing/revisions/{revisionId}/publish` | Current membership plus `pricing_publisher` (computed `can_publish_pricing`); idempotent. |
+| `POST .../pricing/revisions/{revisionId}/retire` | Current membership plus `pricing_retirer` (computed `can_retire_pricing`); idempotent. |
+| `GET .../pricing/revisions/{revisionId}`; `POST .../pricing/resolve`; `POST .../pricing/history` | Current membership plus `pricing_viewer` (computed `can_view_pricing`); selection returns typed outcomes and explanation without writing. |
+| `GET .../pricing/policy`; `POST .../pricing/policy` | Current membership plus `pricing_viewer` to read the current envelope, or `pricing_publisher` to publish an append-only policy revision. Publication is idempotent. |
+| `POST /api/v1/tenants/{tenantId}/orders/catalog-priced` | Current membership plus `order_creator`, `catalog_viewer` and `pricing_viewer`; it deliberately does not require `manual_pricer`. Create is idempotent. |
+| `PUT .../orders/{orderId}/catalog-priced-draft` | Current membership plus `order_editor`, `catalog_viewer` and `pricing_viewer`; requires `expectedRevision`; idempotent. |
+| `POST /api/v1/tenants/{tenantId}/customers/duplicates/search`; `GET .../customers/individuals/{customerId}/duplicate-resolutions` | Current membership plus `customer_duplicate_resolver` (computed `can_resolve_customer_duplicates`); observation only. |
+| `POST .../customers/duplicates/resolve` | Current membership plus `customer_duplicate_resolver`; keep-separate/dismiss/manual-consolidation decisions. Idempotent. |
+| `POST .../customers/duplicates/consolidate` | Current membership plus `customer_duplicate_consolidator` (computed `can_consolidate_customer_duplicates`); moves current references and retains the original audit trail. Idempotent. |
+| `POST /api/v1/tenants/{tenantId}/customers/imports`; `POST .../customers/imports/{importId}/accept` | Current membership plus `customer_importer` (computed `can_import_customers`); bounded whole-file `customer-import/v1` planning and explicit per-row decisions. Acceptance returns accepted work, not a grant. Idempotent. |
+| `POST .../customers/imports/run-batch` | Current membership plus `customer_importer`; bounded manual acceleration of discovered work, not the autonomous executor. No Idempotency-Key. |
+| `GET .../customers/imports/{importId}`; `GET .../customers/imports/{importId}/rows`; `GET .../customers/imports/{importId}/source`; `GET .../customers/import-template` | Current membership plus `customer_importer`; bounded plan/row reads, retained source download and the canonical template. |
+| `GET /api/v1/tenants/{tenantId}/authorization`; `GET .../authorization/proposals/{proposalId}` | Current protected initial Owner only, resolved from the durable membership marker rather than an OpenFGA permission relation; exposes authorization revision, proposals/evidence, roles and assignments. |
+| `POST .../authorization/permissions/grant`; `POST .../authorization/permissions/revoke` | As above; expected authorization revision and caller-scoped idempotency; records a proposal that reconciliation must still apply. |
+| `POST .../authorization/proposals/{proposalId}/reconcile` | As above; bounded manual reconciliation that rechecks the original delegating Owner immediately before provider mutation. |
+| `POST .../authorization/roles`; `PUT .../authorization/roles/{roleId}`; `POST .../authorization/roles/{roleId}/retire` | As above; bounded custom-role definitions over the compiled permission catalog; delegation cannot grant role administration or platform authority. |
+| `POST .../authorization/roles/{roleId}/assignments/{accountId}/assign`; `POST .../authorization/roles/{roleId}/assignments/{accountId}/remove` | As above; active-membership assignments composing by allow-union with direct grants. |
+| `POST .../authorization/owner-transfer` | As above, plus `docs/security/HIGH_RISK_ACTION_ADMISSION.md`; atomically moves the protected initial-Owner designation. |
+
+Catalog-priced entry reads `pricing_overrider` and `pricing_exception_overrider` through the trusted Orders pricing-authority adapter rather than through a route of their own; the override branch and its reason/envelope evidence are owned by `docs/implementation/ORDER_CATALOG_PRICED_DRAFTS.md`.
+
+Purchasing exposes tenant-relative `/purchasing/suppliers` and `/purchasing/requests` commands, detail, bounded lists/history and supplier balance. Every read requires `purchasing.supplier.view`; supplier management, request/cancellation, receipt, payment/refund and correction use independent rights. Corrections also require a current initial Owner and recent trusted Tenant Web strong authentication. Command replies contain only ID/revision; the [focused owner](docs/implementation/PURCHASING_SUPPLIER_SERVICE_SLICE.md) owns exact payloads, resource bounds and safe recovery semantics. This selected scope is locally qualified under the [receiving receipt](docs/review/COM_016_OPS_013_IMPLEMENTATION_RECEIPT.md).
+
+Purchasing exposes tenant-relative `/purchasing/suppliers` and `/purchasing/requests` commands, detail, bounded lists/history and supplier balance. Every read requires `purchasing.supplier.view`; supplier management, request/cancellation, receipt, payment/refund and correction use independent rights. Corrections also require a current initial Owner and recent trusted Tenant Web strong authentication. Command replies contain only ID/revision; the [focused owner](docs/implementation/PURCHASING_SUPPLIER_SERVICE_SLICE.md) owns exact payloads, resource bounds and safe recovery semantics. This selected scope is locally qualified under the [receiving receipt](docs/review/COM_016_OPS_013_IMPLEMENTATION_RECEIPT.md).
 
 Every tenant route captures the route tenant only as an untrusted candidate (Finbuckle), establishes the current account, derives `TenantContext` from current membership, and only then checks OpenFGA. OpenFGA receives verified membership only as a contextual tuple, uses opaque GUID-based tuple identifiers, checks with `HIGHER_CONSISTENCY`, and fails closed with a bounded safe `503` when the provider is unavailable.
 
@@ -72,7 +124,7 @@ Every tenant route captures the route tenant only as an untrusted candidate (Fin
 
 GATE-001 is accepted for its declared backend-entry scope on baseline `7deba82d4c1a15dfc63acd660c8d99209b97f9c1`; its retained decision is `docs/production-completion-review/evidence/GATE-001-DECISION-7deba82.md`. ADM-006 is now implemented in the working tree with separate tenant/account/membership read permissions, bounded resource-typed v1 keyset pagination, current tenant/membership lifecycle revisions, no provider identity payloads, and mandatory durable Platform Admin access-audit evidence for registry admission while registry/business state remains read-only. AdminApi now fails startup for access-classification/authentication/platform-permission/audit-declaration mismatch and its post-authentication middleware enforces the permission and audit operation declared by trusted endpoint metadata before the handler runs. CoreApi likewise executes the validated application-authorization contract in a pre-handler middleware after resolving the current tenant boundary, rather than relying on an independent in-handler permission constant.
 
-The new ADM-006 source is not yet `PRODUCTION_HONEST` in this local receiving environment because its newly authored real PostgreSQL/OpenFGA tests and the exact post-change `./eng/verify.sh` cannot execute without the locked NuGet cache and Docker. Focused owner: `docs/implementation/ADMIN_API_PLATFORM_REGISTRY_READS.md`.
+The ADM-006 real-boundary regressions have now executed in this receiving environment: the recorded exact `./eng/verify.sh` passed AdminApi **96/96** against real PostgreSQL and OpenFGA test containers on Docker 29.8.2, including `PlatformRegistryBoundaryTests`, with zero Release build warnings/errors and exit 0. What remains for ADM-006 is accountable gate-owner/reviewer acceptance of the declared slice, not missing execution evidence. Focused owner: `docs/implementation/ADMIN_API_PLATFORM_REGISTRY_READS.md`.
 
 ## Current Phase 1 tenant-authorization administration slice
 
@@ -80,12 +132,12 @@ ADM-005 is resolved as **import/link-only**: SquiFlow does not create or invite 
 
 ADM-009 through ADM-012 are implemented in the current working tree as one Tenancy-owned authorization-administration state machine. PostgreSQL retains per-tenant authorization revision, immutable proposal/evidence records, direct-grant state, bounded custom-role definitions/assignments and replay-safe Owner-transfer receipts. CoreApi is the provider adapter: it writes/deletes tuples only against the explicitly pinned OpenFGA model, observes the requested provider state before marking a proposal Applied, and rechecks the original delegating Owner immediately before provider mutation. Reconciliation is bounded synchronous/manual in this slice; no background Worker/OPS-003 dependency is activated. Owner handoff requires the current Owner plus the high-risk admission contract in `docs/security/HIGH_RISK_ACTION_ADMISSION.md`. Focused owner: `docs/implementation/TENANT_AUTHORIZATION_ADMINISTRATION.md`.
 
-The host-neutral Tenancy core compiles on .NET SDK 10.0.401 with zero warnings/errors. The new PostgreSQL/OpenFGA/CoreApi tests are authored but are not yet dynamically qualified in this local environment; do not infer production acceptance until those real-boundary tests and the exact full repository gate run successfully.
+The host-neutral Tenancy core compiles on .NET SDK 10.0.401 with zero warnings/errors. The ADM-009–ADM-012 tests have now executed here too: Tenancy PostgreSQL **26/26** including `TenantAuthorizationAdministrationPostgresTests`, CoreApi **458/458**, and the same zero-warning/zero-error Release build. Owner/reviewer acceptance of the declared slice is still required and is not inferred from a passing local gate.
 
 ## Implemented HTTP surface (AdminApi)
 
 Every protected AdminApi route requires the configured OIDC identity, HTTPS, an active principal-bound Admin-device certificate fingerprint, and a current higher-consistency permission from the pinned platform OpenFGA model. Authorization attempts append bounded PostgreSQL audit evidence and protected responses are `no-store`.
-A required `AdminApi:ProtectedRequestTimeoutSeconds` value (1–120; checked in as 30) applies only to the explicitly classified protected platform routes. It cooperatively cancels existing request operations and can return safe `504` / `request_timeout` Problem Details before headers start; public health routes keep their existing behavior. The focused owner is `docs/implementation/ADMIN_API_REQUEST_BUDGETS.md`. The cooperative request-budget scope is `PRODUCTION_HONEST`. The public-authentication gap corrected through trusted endpoint metadata in commit `6735370` has its retained ADM-003 review receipt at `docs/production-completion-review/evidence/ADM-003-INDEPENDENT-REVIEW-RECEIPT.md`, and GATE-001 is accepted for baseline `7deba82d4c1a15dfc63acd660c8d99209b97f9c1`. The current `BLOCKED` responsibility is the post-GATE ADM-006 source described above, which requires its own receiving provider regressions and exact integrated gate.
+A required `AdminApi:ProtectedRequestTimeoutSeconds` value (1–120; checked in as 30) applies only to the explicitly classified protected platform routes. It cooperatively cancels existing request operations and can return safe `504` / `request_timeout` Problem Details before headers start; public health routes keep their existing behavior. The focused owner is `docs/implementation/ADMIN_API_REQUEST_BUDGETS.md`. The cooperative request-budget scope is `PRODUCTION_HONEST`. The public-authentication gap corrected through trusted endpoint metadata in commit `6735370` has its retained ADM-003 review receipt at `docs/production-completion-review/evidence/ADM-003-INDEPENDENT-REVIEW-RECEIPT.md`, and GATE-001 is accepted for baseline `7deba82d4c1a15dfc63acd660c8d99209b97f9c1`. The current `BLOCKED` responsibility is the one declared in the inventory line above: COM-004 external Hugging Face provider qualification (OPS-007/OPS-008).
 
 | Route | Authority and effect |
 |---|---|
@@ -101,6 +153,9 @@ A required `AdminApi:ProtectedRequestTimeoutSeconds` value (1–120; checked in 
 | `POST /api/v1/platform/tenants/{tenantId}/memberships`; `POST .../memberships/initial-owner` | `can_manage_memberships`; invites an active account or creates the one protected initial-Owner membership with caller-scoped idempotency. |
 | `POST .../memberships/{accountId}/{activate\|suspend\|remove}` | `can_manage_memberships`; expected-revision membership transition with retained actor/device receipt. |
 | `POST /api/v1/platform/tenants/{tenantId}/lifecycle/{suspend\|reactivate}` | `can_manage_tenant_lifecycle`; expected-revision tenant transition. Suspension immediately blocks membership-derived tenant access. |
+| `GET .../tenants/{tenantId}/profile-authority`; `GET .../profiles/{profileId}` | COM-011 prerequisites: `can_read_tenants`; exact retained profile/routing reads. |
+| `POST .../tenants/{tenantId}/profiles`; `POST .../profiles/{profileId}/activate` | Independent `can_publish_tenant_profile` / `can_activate_tenant_profile` plus current Admin entry; publication and activation remain separate revision-checked commands. |
+| `POST .../profiles/legacy-orders/{orderId}/assign` | `can_activate_tenant_profile` plus current Admin entry; explicit optional-baseline binding at the Order's current revision, with immutable actor/device evidence and a price-free response. |
 
 The exact identity-import/linking scope, provider boundary, failure contract, evidence and non-claims are owned by `docs/implementation/ADMIN_API_IDENTITY_IMPORT_AND_LINKING.md`.
 
@@ -115,7 +170,7 @@ local evidence for the declared scopes, not deployment or whole-backend readines
 
 - **Tenant isolation:** explicit tenant SQL predicates plus forced PostgreSQL RLS with transaction-local tenant context. Orders and Customers data is tenant-owned.
 - **Idempotency:** Customer organization/program creates and Order create/revise/abandon use caller-scoped semantic idempotency keys with durable receipts.
-- **Order draft contract:** browse is bounded newest-first keyset pagination with a versioned tenant-bound cursor and no count or text-search claim. Revision replaces the entire priced draft only while it is a draft and the expected revision matches, increments revision and preserves earlier receipts. Abandonment is a one-way `draft` to `abandoned` transition that retains priced content and the original create receipt, records the abandoning account and authoritative timestamp, and increments revision. Detail and browse expose current lifecycle state. Abandonment does not delete the draft or reverse financial, inventory or fulfillment effects.
+- **Order draft contract:** browse is bounded newest-first keyset pagination with a versioned tenant-bound cursor and no count or text-search claim. Direct-order revision replaces the entire priced draft only while it is an unquoted draft and the expected revision matches, increments revision and preserves earlier receipts. Quotation-origin drafts retain the exact origin and frozen offer; ordinary manual/Catalog replacement returns `409 order_quotation_bound`. Current detail, browse and history expose the named origin to Order viewers. Abandonment is a one-way `draft` to `abandoned` transition that retains priced content and the original create receipt, records the abandoning account and authoritative timestamp, and increments revision. Abandonment does not delete the draft or reverse financial, inventory or fulfillment effects.
 - **Detail consistency:** draft detail reads its header and lines from one `RepeatableRead` snapshot, so a concurrent revision is never observed as a mixed header and lines (regression guard: `DraftDetailReadsHeaderAndLinesFromOneSnapshotDuringConcurrentRevision`).
 - **Attribution, not billing:** the organization/program association on a draft is an attribution contract, not legal debtor, account billing, credit, invoice or settlement authority.
 - **Order-entry price preview:** a protected, bounded preview returns normalized supplied lines and totals through the same calculator as creation, without saving or reading an order. It does not select/approve prices or introduce customer policy, tax, stock or financial effects. Its focused owner is `docs/implementation/PRICING_COMPONENT_BOUNDARY.md`.
@@ -130,7 +185,7 @@ A deployment must provide the public Branding values, Authentication authority/a
 
 ## Explicitly `NOT_INTRODUCED`
 
-No production feature catalog; durable Tenant Application Profile authority; production profile-specific resolution (no production endpoint acquires the internal tenant-keyed profile-runtime registry); live ZITADEL-instance/service-account qualification; provider-side user creation or reconciliation; tenant-to-ZITADEL organization mapping; login/callback/session flows; general Owner/Staff permissions or custom-role modeling; ongoing platform/tenant role administration and tuple reconciliation; authorization revision; normal Admin-device registration/revocation/rotation lifecycle; tenant/Workstation device lifecycle; a broader order/business lifecycle (quotation, admission, fulfillment, durable invoice persistence/number allocation, payment, credit, return, refund); an external PostgreSQL pooler; Worker; Web UI; Workstation; a general ApplicationKernel/module runtime.
+Selectable production feature catalogs, dynamic workflow forms and production profile-specific runtime composition remain absent (no production endpoint acquires the internal tenant-keyed profile-runtime registry). The first fixed catalog, durable profile authority and pinned Order consumer are introduced under the [COM-011 focused owner](docs/implementation/ORDER_PROGRAM_REFERENCE_POLICY.md). Live ZITADEL-instance/service-account qualification, provider-side user creation or reconciliation, tenant-to-ZITADEL organization mapping, login/callback/session flows, general Owner/Staff authority beyond the bounded current delegation contract, normal Admin-device registration/revocation/rotation lifecycle, tenant/Workstation device lifecycle, broader order/business lifecycle (other admission and fulfillment cases, durable invoice persistence/number allocation, payment, credit, return, refund), an external PostgreSQL pooler, Worker, Web UI, Workstation and a general ApplicationKernel/module runtime remain separate absent or pending responsibilities.
 
 ## Excluded from the inventory
 
@@ -148,7 +203,9 @@ The bounded ApplicationProfiles feature compiler, deployment-wide public Brandin
 
 The host-neutral `Application.Invoices` slice is `PRODUCTION_HONEST` for its deliberately partial scope: current billing-authority orchestration, caller-scoped replay/idempotency flow, committed-Order/revision/NPR checks, decimal 19,4 `ToEven` verification, tenant-scoped debtor resolution and immutable issue facts. On current HEAD the focused invoice suite passed 25/25 and the architecture suite passed 14/14 before the combined-gate transport was lost. PostgreSQL persistence, numbering/allocation, business-date policy, HTTP/OpenFGA adapters and durable invoice runtime remain `NOT_INTRODUCED`; the focused owner is `docs/implementation/INVOICE_ISSUE_CONTRACT.md`, and the current tracked evidence summary is `docs/production-completion-review/evidence/COM-020.md`.
 
-The private AdminApi request boundary, tenant provisioning command, and the exact existing-ZITADEL-human identity import/link slice are `PRODUCTION_HONEST` for their declared narrow scopes. The account operation atomically owns local account/binding/receipt effects; the link operation serializes against account availability and atomically owns binding/receipt effects. Both recheck request-time principal, registered device and pinned OpenFGA authority, preserve caller-scoped semantic idempotency, and return safe provider failures. Revision-checked AdminApi membership and tenant suspension/reactivation operations, including one protected initial-Owner bootstrap designation, are `PRODUCTION_HONEST` for the narrow scope in `docs/implementation/ADMIN_API_MEMBERSHIP_LIFECYCLE.md`. The protected-request cooperative deadline is `PRODUCTION_HONEST`; current-head AdminApi and Tenancy PostgreSQL suites passed 87/87 and 19/19 respectively. The explicitly public-health bearer exclusion is implemented in commit `6735370` with focused current-head evidence, but its required independent post-fix ADM-003 review receipt is absent from the repository, so that slice remains acceptance-pending/`BLOCKED` for GATE-001. The scope and retry semantics are owned by `docs/implementation/ADMIN_API_REQUEST_BUDGETS.md`, with tracked current-head evidence in `docs/production-completion-review/evidence/ADM-002-ADM-003.md`. GATE-001 remains `BLOCKED` pending both that independent receipt and the exact combined normal repository gate. Provider-side creation/reconciliation, live ZITADEL deployment qualification, general roles and ongoing operator/Admin-device lifecycle remain `NOT_INTRODUCED`. Identity evidence and requalification triggers remain owned by `docs/implementation/ADMIN_API_IDENTITY_IMPORT_AND_LINKING.md`.
+Historical AdminApi evidence before the retained GATE-001 owner acceptance (the suite counts in this paragraph describe that earlier snapshot, not the current combined local gate; GATE-001 itself is accepted as stated above):
+
+The private AdminApi request boundary, tenant provisioning command, and the exact existing-ZITADEL-human identity import/link slice are `PRODUCTION_HONEST` for their declared narrow scopes. The account operation atomically owns local account/binding/receipt effects; the link operation serializes against account availability and atomically owns binding/receipt effects. Both recheck request-time principal, registered device and pinned OpenFGA authority, preserve caller-scoped semantic idempotency, and return safe provider failures. Revision-checked AdminApi membership and tenant suspension/reactivation operations, including one protected initial-Owner bootstrap designation, are `PRODUCTION_HONEST` for the narrow scope in `docs/implementation/ADMIN_API_MEMBERSHIP_LIFECYCLE.md`. The protected-request cooperative deadline is `PRODUCTION_HONEST`; current-head AdminApi and Tenancy PostgreSQL suites passed 87/87 and 19/19 respectively. The explicitly public-health bearer exclusion is implemented in commit `6735370` with focused current-head evidence, and its required independent post-fix ADM-003 review receipt is retained at `docs/production-completion-review/evidence/ADM-003-INDEPENDENT-REVIEW-RECEIPT.md` with an `ACCEPTED` disposition for the declared narrow scope, so that slice is not acceptance-pending; its recorded reviewer-independence caveat remains a gate-owner decision. The scope and retry semantics are owned by `docs/implementation/ADMIN_API_REQUEST_BUDGETS.md`, with tracked current-head evidence in `docs/production-completion-review/evidence/ADM-002-ADM-003.md`. Provider-side creation/reconciliation, live ZITADEL deployment qualification, general roles and ongoing operator/Admin-device lifecycle remain `NOT_INTRODUCED`. Identity evidence and requalification triggers remain owned by `docs/implementation/ADMIN_API_IDENTITY_IMPORT_AND_LINKING.md`.
 
 ## Active implementation rule
 
@@ -229,6 +286,138 @@ and zero Release warnings/errors. The owner selected operator-entered prices
 first with controlled overrides; separate manual pricing authority is now implemented as described below; richer
 reason/approval/ceiling policy remains unintroduced. Product
 version remains **v0.0.1**; remote CI, coverage and deployment remain separate.
+
+### COM-002 customer contacts and representative relationships, 2026-10-06
+
+The current working tree contains the bounded Customers contact-edit and
+organization/program representative relationship slice. It is `PRODUCTION_HONEST`
+only for the focused scope in `docs/implementation/CUSTOMER_CONTACTS_REPRESENTATIVES_SLICE.md`:
+revision-checked contact changes, active-individual relationship validation,
+tenant-owned persistence/RLS, independent OpenFGA permissions, replay-safe receipts,
+and protected CoreApi reads/mutations. It does not introduce duplicate resolution,
+onboarding import, catalog identity or adaptive price selection.
+
+The exact normal `./eng/verify.sh` run on 2026-10-06 passed locked restore, formatting,
+the Release build with zero warnings/errors, and all **789 tests** across the solution
+with zero failures/skips. `git diff --check` is clean. This is local receiving-tree
+evidence only; it does not qualify remote CI, deployment, or the unresolved COM-003,
+COM-004, COM-005, COM-006 and dependent COM-007 decisions.
+
+### COM-003–COM-007 continuation, 2026-10-07
+
+The owner closed the commercial decisions on 2026-10-06; they are no longer
+undecided prerequisites. The current uncommitted tree composes duplicate review/
+manual forward canonicalization, bounded CSV planning and durable autonomous row
+execution, Catalog units/conversions/availability, Pricing publication/policy/
+selection and a separate catalog-priced Orders path. All remain tenant-scoped with
+independent permissions, retained receipts/history and immutable committed facts.
+Focused owners are `CUSTOMER_DUPLICATES_AND_IMPORTS_SLICE.md`,
+`CATALOG_AND_UNIT_BOUNDARY.md`, `PRICING_POLICY_AND_PUBLICATION.md` and
+`ORDER_CATALOG_PRICED_DRAFTS.md` under `docs/implementation/`.
+
+The original COM-001/002 behavior and manual-entry compatibility are preserved.
+The first combined gate passed restore/format/build but failed three old manual
+HTTP tests because new strict DTO attributes rejected formerly ignored input.
+That narrowing was reverted; a new regression proves ignored fields cannot attach
+server-owned commercial facts. A separate red-first pure/PostgreSQL regression
+found price selection ignoring conversion revision; filtering now precedes all
+candidate bounds and incompatible unit meaning cannot reuse an old price.
+
+  An earlier retained snapshot passed the normal `./eng/verify.sh` with locked restore,
+  formatting, a Release build with zero warnings/errors and all **1044 tests** across 20/20
+  test projects, zero failures/skips. Retained log:
+  `docs/production-completion-review/evidence/GATE-COMBINED-03406c4-WORKTREE-1044.log`.
+
+  Historical project summaries for that earlier run (not the final qualification below):
+
+  | test project | passed | seconds |
+  |---|---|---|
+  | AdminApi | 96 | 39 |
+  | AdminBootstrap | 3 | 12 |
+  | Architecture | 16 | 0 |
+  | Branding | 11 | 0 |
+  | Catalog.Postgres | 8 | 17 |
+  | Catalog | 18 | 0 |
+  | CoreApi | 457 | 128 |
+  | Customers.Postgres | 51 | 144 |
+  | Customers | 46 | 0 |
+  | IdentityAccess.Postgres | 20 | 17 |
+  | IdentityAccess | 12 | 0 |
+  | Invoices | 25 | 0 |
+  | Orders.Postgres | 71 | 196 |
+  | Orders | 104 | 0 |
+  | PlatformAdministration | 4 | 0 |
+  | Pricing.Postgres | 11 | 32 |
+  | Pricing | 11 | 0 |
+  | Profiles | 18 | 0 |
+  | Tenancy.Postgres | 26 | 41 |
+  | Tenancy | 36 | 0 |
+  | **total** | **1044** | **628** |
+
+  An earlier CoreApi run failed two `OrderDraftBodyBoundsTests` cases with
+  `AddressInUseException`, then the same suite passed on a re-run. Those outcomes remain
+  historical; a passing retry does not prove the race absent. That run already used the
+  phased, project-sequential gate described below, but that does not itself prove
+  cross-class host-port races are eliminated.
+The declared non-retaining Customers, Catalog, Pricing and catalog-priced Orders
+runtime scopes are `PRODUCTION_HONEST` for this local receiving evidence.
+COM-004 local completion and its separate external-provider blocker are recorded below. Evidence and recurring guard details
+are recorded in `docs/development-tasks/TASK_STATUS.md`.
+Local evidence does not constitute product-owner/reviewer acceptance, remote CI,
+live identity-provider or deployment qualification.
+
+### Current COM-004 local qualification, 2026-10-07
+
+COM-004 implementation and local qualification are **COMPLETE** for the declared
+capability, CoreApi and PostgreSQL contracts. Raw-source lifecycle, expiry-aware
+reads, fenced retirement/recovery and hosted source-only tenant execution are
+locally `PRODUCTION_HONEST`. Production/provider qualification remains `BLOCKED`
+only on the live OPS-007/OPS-008 Hugging Face evidence; this is not an unresolved
+local retention or recovery implementation claim.
+
+The fresh exact `./eng/verify.sh` completed with **exit 0**, **1045 passed / 0 failed /
+0 skipped** across **20 test projects**, and a Release build with **0 warnings /
+0 errors**. The final gate includes CoreApi **458/458** and Customers PostgreSQL
+**51/51**. Standalone pre-upload-fix suites passed 457/457 and 51/51; they are
+supporting earlier evidence, not substitutes for the final gate. Post-fix standalone
+formatter verification and `git diff --check` passed. Complete local results, source
+hashes, original failures and the safety review are retained under
+`artifacts/verification/com004-current-20261007/` (`RESULTS.json`, `gate.log`,
+`gate-source.json`, `STATIC-REVIEW.md`).
+
+Live Hugging Face upload, download, delete, conditional write, redirects/timeouts, finite capacity, asymmetric provider/database failure and remote reconciliation remain unrun and NOT qualified. Checked-in `ObjectStorage.Enabled=false`; no nonempty relevant provider runtime configuration variables were visible. No private credential, substitute provider or fallback byte archive was introduced.
+
+This is local dirty-tree qualification, not commit/merge/PR integration, remote CI,
+coverage, live identity-provider qualification, deployment readiness or production
+acceptance. This pass also changed the gate's execution policy: `eng/verify.sh` now
+classifies test projects by their own Testcontainers dependency and runs the unit
+group and then the container group, one `dotnet test` per project, where the
+preceding script issued a single solution-wide `dotnet test`. No test case is
+serialized within a project. Historical gate totals are preserved below only as
+historical evidence.
+
+Default raw-source retention remains seven days; archive is explicitly elected and
+has no expiry. Current tenant/import authority precedes metadata/provider access.
+Retirement recovery is generation/lease-ID fenced and excludes active/unknown
+reservations; stale/repeated completion cannot release usage twice. Metadata,
+manifest, plan, decisions and results remain after byte retirement. Nonempty
+lifecycle/accounting downgrade is refused rather than discarding facts.
+
+The current safety review reproduced and fixed an upload-stream digest disposal
+fault with one permanent controlled regression. The four adapter regressions now
+pass, including successful streamed PUT/read-back and caller stream ownership.
+The local provider substitute is not evidence of live Hugging Face behavior.
+
+Other absent scopes include numerical inventory, committed quotation/agreement
+authority, discount/approval workflows, invoice persistence, Web and Workstation.
+
+To exercise the implemented path: apply all registered migrations and
+`deploy/database/grant-core-api-runtime.sql`, publish/pin the updated authorization
+model and grant only intended capability tuples. Explicitly set
+`CustomerImports__Execution__Enabled=true` for autonomous import acceptance; it
+fails safe 503 while disabled/starting/unavailable/draining. Use the canonical
+`modules/customers/Application.Customers/customer-import-v1-template.csv`.
+Pricing requires a published tenant policy and active compatible Catalog identities.
 
 ### Retained draft history and order-entry boundaries, 2026-10-02
 
@@ -313,3 +502,38 @@ Read in this order:
 5. the focused owner and current decision record for the responsibility being introduced.
 
 Historical implementation, phase, review, branch, and CI records remain evidence and context only when they conflict with this current inventory.
+
+## COM-011 and bounded profile authority — 2026-10-08
+
+The fixed catalog, typed policy publication, independent private profile
+publication/activation, explicit optional legacy baseline and pinned program-reference
+consumer are locally `PRODUCTION_HONEST`, `BLOCKED = none` for that scope.
+The [qualification receipt](docs/review/COM_011_IMPLEMENTATION_RECEIPT.md) records
+the exact normal **1,220/1,220** gate across **23 projects**, zero failures/skips
+or Release warnings/errors, and independent CoreApi/AdminApi/DbMigrator publishes.
+Existing drafts retain their prior policy, and quoted reference edits preserve
+accepted financial facts and the original conversion snapshot. COM-012/013,
+live providers, other gate-owner claims and complete-product qualification remain
+separate. Product version stays `v0.0.1`.
+
+## COM-012/COM-013 qualified approval and admission — 2026-10-09
+
+The accepted internal program-Order approval contract is introduced under [Order approval and admission](docs/implementation/ORDER_APPROVAL_AND_ADMISSION.md). Typed v2 profile facts, independent permissions, durable requests/decisions, protected bounded continuation APIs and the exact-subject commitment guard are locally `PRODUCTION_HONEST`, `BLOCKED = none` for this scope. The unchanged normal repository gate passed **1,282/1,282 across 23 projects**, zero failures/skips or Release warnings/errors; independent CoreApi/AdminApi/DbMigrator publishes passed on identical frozen source. The [qualification receipt](docs/review/COM_012_013_IMPLEMENTATION_RECEIPT.md) records retained compatibility, native guards and requalification triggers. Existing v1 pins retain their policy, and unprofiled work remains fail-closed until explicit baseline assignment. Pending work never auto-approves; current Owner recovery reassigns or cancels. Product version remains `v0.0.1`; live-provider and other gate-owner claims remain separate.
+
+
+## COM-014/COM-015 qualified service fulfillment - 2026-10-09
+
+The owner-selected single-line program Order service case is locally `PRODUCTION_HONEST`: normal `./eng/verify.sh` passed 1,347/1,347 across 25 projects, zero failures/skips/warnings/errors, and independent CoreApi/AdminApi/DbMigrator publications passed on the frozen runtime source. `BLOCKED = none` for this bounded slice. The [focused owner](docs/implementation/ORDER_SERVICE_FULFILLMENT.md) covers separate partial completion and pickup, blocking dispositions/resolutions, immutable records and linked corrections, protected bounded reads and current independent authority. Orders retains frozen pricing/commitment authority. The [receiving receipt](docs/review/COM_014_015_IMPLEMENTATION_RECEIPT.md) records source admission and exact evidence; broader fulfillment, artwork, stock, outsourcing, delivery, returns and billing remain separate. Incoming COM-012/013 qualification is preserved.
+
+
+## Commercial GitButler commit checkpoint — 2026-10-09
+
+The owner-authorized local commit checkpoint for COM-012/013, the independent Kestrel fixture correction and COM-014/015 is recorded in [the integration receipt](docs/review/COMMERCIAL_COMMIT_INTEGRATION_20261009.md). Verified copies are committed in the independent writable GitButler clone; the original T3 branch is unchanged. Qualification remains the inspected frozen-source evidence in the existing capability receipts, with no remote publication or whole-product acceptance implied.
+
+## COM-016 and OPS-013 receiving work — 2026-10-10
+
+The owner accepted the [supplier-service purchasing contract](docs/implementation/PURCHASING_SUPPLIER_SERVICE_SLICE.md) and [pickup audit profile](docs/implementation/BUSINESS_AUDIT_PICKUP_PROFILE.md). Purchasing is `BLOCKED` while its integrated persistence, host and qualification checks are receiving work; the audit profile is `BLOCKED` pending its profile-specific native checks and integrated gate. Earlier commercial qualification remains historical evidence for its exact source. No new purchasing or audit qualification is claimed by those earlier runs.
+
+## COM-016 and OPS-013 local qualification — 2026-10-10
+
+The selected supplier-service purchasing and pickup-audit scopes are locally `PRODUCTION_HONEST`, `BLOCKED = none` for those scopes. The final normal repository gate passed **1,447/1,447 across 27 projects**, zero failures/skips/warnings/errors; independent CoreApi/AdminApi/DbMigrator publications passed on identical frozen source. [The receipt](docs/review/COM_016_OPS_013_IMPLEMENTATION_RECEIPT.md) records native transaction/resource/authority/audit evidence, receiving failures, recovery and requalification triggers. No whole-product or live-provider gate is inferred. COM-017 is owner-deferred until customer settlement exists; COM-018 remains unselected. Product stays `v0.0.1`.

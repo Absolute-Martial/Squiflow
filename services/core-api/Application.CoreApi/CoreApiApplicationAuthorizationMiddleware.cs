@@ -81,24 +81,70 @@ internal static class CoreApiApplicationAuthorizationMiddleware
             EndpointAccess.AuthorizedTenantOrderAbandon or
             EndpointAccess.AuthorizedTenantOrderCommit or
             EndpointAccess.AuthorizedTenantOrderRevision or
+            EndpointAccess.AuthorizedTenantOrderProgramReference or
             EndpointAccess.AuthorizedTenantOrderPricePreview or
             EndpointAccess.AuthorizedTenantOrderHistory or
-            EndpointAccess.AuthorizedTenantOrderActions =>
+            EndpointAccess.AuthorizedTenantCatalogOrderCreation or
+            EndpointAccess.AuthorizedTenantCatalogOrderRevision or
+            EndpointAccess.AuthorizedTenantOrderActions or
+            EndpointAccess.OrderApprovalSubmit or
+            EndpointAccess.OrderApprovalView or
+            EndpointAccess.OrderApprovalDecide or
+            EndpointAccess.OrderApprovalCancel or
+            EndpointAccess.OrderApprovalRecover or
+            EndpointAccess.OrderFulfillmentView or
+            EndpointAccess.OrderFulfillmentWorkRecord or
+            EndpointAccess.OrderFulfillmentHandoffRecord or
+            EndpointAccess.OrderFulfillmentCorrect =>
                 new TenantOrderResource(tenantContext, cancellationToken),
 
             EndpointAccess.AuthorizedCustomerOrganizationCreation or
             EndpointAccess.AuthorizedCustomerOrganizationRead or
             EndpointAccess.AuthorizedCustomerOrganizationBrowse or
             EndpointAccess.AuthorizedCustomerProgramCreation or
+            EndpointAccess.AuthorizedQuotationCreate or
+            EndpointAccess.AuthorizedQuotationEdit or
+            EndpointAccess.AuthorizedQuotationView or
+            EndpointAccess.AuthorizedQuotationIssue or
+            EndpointAccess.AuthorizedQuotationRespond or
+            EndpointAccess.AuthorizedQuotationExpire or
+            EndpointAccess.AuthorizedQuotationConvert or
             EndpointAccess.AuthorizedCustomerProgramRead or
             EndpointAccess.AuthorizedCustomerProgramBrowse or
             EndpointAccess.AuthorizedCustomerIndividualCreation or
             EndpointAccess.AuthorizedCustomerIndividualRead or
-            EndpointAccess.AuthorizedCustomerIndividualAvailability =>
+            EndpointAccess.AuthorizedCustomerIndividualAvailability or
+            EndpointAccess.AuthorizedCustomerIndividualContactEdit or
+            EndpointAccess.AuthorizedCustomerRepresentativeRead or
+            EndpointAccess.AuthorizedCustomerRepresentativeManage or
+            EndpointAccess.AuthorizedCustomerDuplicateRead or
+            EndpointAccess.AuthorizedCustomerDuplicateResolve or
+            EndpointAccess.AuthorizedCustomerDuplicateConsolidate or
+            EndpointAccess.AuthorizedCustomerImport or
+            EndpointAccess.AuthorizedCatalogRead or
+            EndpointAccess.AuthorizedCatalogManage or
+            EndpointAccess.AuthorizedPricingRead or
+            EndpointAccess.AuthorizedPricingDraftEdit or
+            EndpointAccess.AuthorizedPricingPublish or
+            EndpointAccess.AuthorizedPricingRetire or
+            EndpointAccess.AuthorizedTenantProfilePolicyView or
+            EndpointAccess.AuthorizedTenantProfilePolicyEdit or
+            EndpointAccess.AuthorizedTenantProfilePolicyPublish =>
                 new TenantCustomerResource(tenantContext, cancellationToken),
+
+            EndpointAccess.PurchasingView or
+            EndpointAccess.PurchasingSupplierManage or
+            EndpointAccess.PurchasingRequestRecord or
+            EndpointAccess.PurchasingReceiptRecord or
+            EndpointAccess.PurchasingPaymentRecord or
+            EndpointAccess.PurchasingCorrect =>
+                new TenantPurchasingResource(tenantContext, cancellationToken),
 
             EndpointAccess.AuthorizedTenantRoleAdministration =>
                 new TenantAuthorizationAdministrationResource(tenantContext, cancellationToken),
+
+            EndpointAccess.InvoiceIssue or EndpointAccess.InvoiceView =>
+                new TenantInvoiceResource(tenantContext, cancellationToken),
 
             _ => throw new InvalidOperationException(
                 $"Core API access classification {access} has no application-authorization resource contract."),

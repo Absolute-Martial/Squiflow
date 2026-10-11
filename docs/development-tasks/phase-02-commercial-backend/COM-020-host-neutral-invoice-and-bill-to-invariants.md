@@ -3,7 +3,7 @@
 Task ID: COM-020
 Phase: 02-commercial-backend
 Status: VERIFY_EXISTING
-Model: GPT-6.1 Sol
+Model: GPT-6 Luna (high)
 Dependencies: COM-019
 Release requirement: REQUIRED
 
@@ -25,7 +25,7 @@ Allowed areas: modules/invoices/Application.Invoices, tests/unit/Application.Inv
 
 COM-019 closes exact first contract; current Customers and Orders supply narrow identities/frozen source facts. Separate billing permission belongs at authoritative application admission and cannot be inferred from neutral intent construction.
 
-After acceptance, add only the needed business-date/fingerprint, numbering-scope, allocation-conflict and inactive-individual eligibility changes. The current commit outcome enum has no accepted allocation-conflict result; do not convert a business conflict into DependencyUnavailable or HistoricalReceiptInvalid. Derivation policy remains capability-owned even when an adapter supplies the authoritative clock/generated facts.
+After acceptance, add only the needed UTC business-date, organization ordinal, full-Order allocation-conflict and active-individual eligibility changes. Generated date/reference values remain retained results, not caller fingerprint input. Return an explicit already-invoiced conflict; do not convert it into DependencyUnavailable or HistoricalReceiptInvalid. Derivation policy remains capability-owned even when an adapter supplies the authoritative clock/generated facts.
 
 ## Acceptance and edge cases
 

@@ -2,7 +2,7 @@
 
 Task ID: COM-008
 Phase: 02-commercial-backend
-Status: READY_AFTER_DEPENDENCIES
+Status: VERIFY_EXISTING
 Model: GPT-6.1 Sol
 Dependencies: COM-007
 Release requirement: REQUIRED
@@ -11,7 +11,9 @@ Planned assignment only. Apply [agent rules](../AGENT_RULES.md) and [handoff rul
 
 ## Outcome
 
-Apply the accepted reason, ceiling and approval rules to permitted manual final prices while preserving independent manual-entry authority for initial entry and full later replacement.
+Review existing reasoned overrides, policy envelopes and separate beyond-policy
+authority, closing only demonstrated gaps. Preserve independent manual-entry
+authority for initial entry and full later replacement.
 
 ## Current basis and canonical inputs
 
@@ -23,15 +25,21 @@ Allowed areas: pricing-owned override validation and evidence, Orders integratio
 
 ## Decisions/prerequisites
 
-Follow COM-006's accepted reason and threshold choices. Approval integration depends on COM-012 only when a selected price rule requires approval; ordinary permitted manual entry must remain usable.
+COM-006 selected the reason plus bounded absolute/percentage envelope and
+additional beyond-policy capability branch on 2026-10-06. These controls already
+exist; do not rebuild them or add an unselected approval requirement. Current
+owners are [Pricing](../../implementation/PRICING_POLICY_AND_PUBLICATION.md)
+and [catalog-priced Orders](../../implementation/ORDER_CATALOG_PRICED_DRAFTS.md).
+Approval integration depends on COM-012 only when a later selected rule requires
+it; ordinary permitted manual entry remains usable.
 
 ## Acceptance and edge cases
 
 - Create/preview keep create plus manual pricing; full replacement keeps edit plus manual pricing.
 - Numerically unchanged full replacement still checks current pricing authority.
 - Required reason is bounded and retained with actor, context and applicable policy version.
-- Unauthorized, out-of-scope or over-ceiling final price is denied without storing an effect.
-- Approved exceptions bind the exact priced revision and cannot authorize a different total.
+- Unauthorized or out-of-scope prices, and outside-envelope prices without the additional current beyond-policy capability, are denied without storing an effect.
+- Retained exception evidence binds the exact priced revision and cannot authorize a different total. Approval-specific claims apply only if that separate branch is selected.
 - Revoked permissions affect replay without erasing previously committed historical values.
 
 ## Security/static review
@@ -40,7 +48,12 @@ Review reason content redaction, privilege escalation and comparisons at exact d
 
 ## Dynamic verification and unavailable-environment handling
 
-Test initial/later entry, unchanged replacement, floor/ceiling boundaries, stale approval and revocation replay; prove retained evidence and atomic receipts with actual PostgreSQL. Run `./eng/verify.sh` when available. Without SDK/Docker/credentials, implement tests, finish static review and hand off exact unrun commands/expected outcomes; do not qualify unrun runtime claims.
+Test initial/later entry, unchanged replacement, exact envelope boundaries and
+revocation/outage on replay; prove retained evidence and atomic receipts with
+actual PostgreSQL. Test stale approval only if the separate approval branch is
+selected and implemented. Run `./eng/verify.sh` when available. Without
+SDK/Docker/credentials, implement tests, finish static review and hand off exact
+unrun commands/expected outcomes; do not qualify unrun runtime claims.
 
 ## Handoff
 
@@ -49,7 +62,7 @@ Deliver source-only ZIP, changed files, decisions, evidence, recurring guards an
 ## Assignable prompt
 
 ```text
-Implement COM-008: Controlled manual final-price overrides only.
+Review COM-008: existing controlled manual final-price overrides only; fix demonstrated gaps without reimplementation.
 Read current owners and applicable instructions.
 Inspect existing callers and tests; preserve incoming work.
 Close listed decisions before dependent contracts.

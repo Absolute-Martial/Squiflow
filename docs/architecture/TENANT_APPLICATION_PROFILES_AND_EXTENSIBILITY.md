@@ -1,6 +1,6 @@
 # Tenant Application Profiles and Bounded Extensibility
 
-**Status:** accepted strategic architecture direction. The host-neutral ApplicationProfiles capability now validates bounded feature catalogs and compiles deterministic dependency-closed feature selections. CoreApi uses Autofac as its root provider and contains an internal bounded profile-runtime registry qualified through isolated tests. A production feature catalog, durable profile authority, production profile acquisition, flexible tenant record storage and tenant-specific implementation composition remain `NOT_INTRODUCED`.
+**Status:** accepted strategic architecture direction and accepted first profile contract. The host-neutral ApplicationProfiles capability validates bounded feature catalogs and compiles deterministic dependency-closed feature selections; the fixed four-entry commercial catalog is now defined. The first typed tenant policy/profile authority and PostgreSQL persistence boundary are locally `PRODUCTION_HONEST` within the [COM-011 qualification receipt](../review/COM_011_IMPLEMENTATION_RECEIPT.md). Production acquisition of tenant-specific Autofac runtimes, flexible tenant record storage and tenant-specific implementation composition remain `NOT_INTRODUCED`.
 
 **Authority boundary:** this document owns how SquiFlow represents tenant-selectable capabilities, personalization depth, trusted implementation variation and the failure-containment expectations created by that variation. Capability business meaning, tenant isolation, workflow/rules, persistence and resource limits remain owned by their focused documents.
 
@@ -169,7 +169,19 @@ Draft
 
 Rollback activates a compatible earlier or corrective revision; it does not mutate history. Active workflows, offline Workstations, durable jobs and issued records keep the definition/version information needed for interpretation and recovery.
 
-## 9. Evidence required before runtime composition ships
+## 9. First accepted profile contract
+
+The first durable profile consumer is the COM-011 Order program-reference policy. Its exact business behavior and evidence are owned by [Order program reference policy](../implementation/ORDER_PROGRAM_REFERENCE_POLICY.md). This is one typed Boolean setting, `RequireReferenceForProgramOrders`, defaulting to `false`; a published and activated profile can select the required variant. No generic settings bag, policy expression language or runtime module composition is introduced.
+
+The first catalog contains only `customers.organizations`, `customers.programs` (depending on organizations), `orders.drafts`, and `orders.program-attribution` (depending on drafts and programs). All four are always enabled and nonselectable. This admits stable metadata for current operations without introducing feature disabling, dormant-grant reactivation, or an Orders dependency on Customers. Permission IDs and relations remain sourced from the capability-owned Tenancy catalog; selecting a feature never grants a permission.
+
+Tenant policy view/edit/publish authority (`profiles.policy.view`, `profiles.policy.edit`, `profiles.policy.publish`) is separate from Order command permissions and is explicitly delegated under current tenant authorization. Private AdminApi separately owns immutable profile publication and activation under the platform capabilities `can_publish_tenant_profile` and `can_activate_tenant_profile`. Tenant policy publication retains an immutable policy revision and account actor/authorization observation. Profile publication and activation retain Platform Admin principal/device evidence. Neither boundary substitutes for the other's authorization.
+
+`tenant-profile/v1` is the initial immutable profile contract. It binds one tenant to the catalog fingerprint/selection, exact published policy revision and publication evidence, with expected-revision mutation and immutable semantic-idempotency receipts. Unknown versions, incompatible catalog facts, and cross-tenant references fail closed. New direct drafts and quotation conversions pin the active compatible profile; later activation applies to new work, and already-pinned drafts keep their profile.
+
+An old draft with no profile pin fails closed until an authorized Platform Admin assigns the retained `false` baseline through a compare-and-set on tenant profile authority. That assignment requires an immutable actor/device receipt and must coordinate with concurrent Order creation. It updates profile-pin authority only: it does not change the Order revision, rewrite the Order, or replace prior Order receipts. A missing profile never implies the optional policy. Existing live storage/provider blockers and repository gate blockers remain independent.
+
+## 10. Evidence required before runtime composition ships
 
 The first implementation-variant slice must prove:
 

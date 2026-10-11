@@ -82,6 +82,30 @@ public sealed class OrderDraftActionGuideTests
         Assert.Throws<NotSupportedException>(() => actions.Clear());
     }
 
+    [Theory]
+    [InlineData(false, false, OrderDraftActionUnavailability.ProfileUnavailable)]
+    [InlineData(true, true, OrderDraftActionUnavailability.ProgramReferenceRequired)]
+    public void CommitmentExplainsUnmetPinnedPolicy(bool profileAvailable, bool referenceMissing, OrderDraftActionUnavailability reason)
+    {
+        var guide = OrderDraftActionGuide.Explain(OrderDraftState.Draft, 2, true, true, true,
+            profileAvailable: profileAvailable, programReferenceMissing: referenceMissing);
+        AssertAvailability(guide.Actions[2], OrderDraftAction.Commit, false, reason);
+    }
+
+    [Theory]
+    [InlineData(true, true, false, OrderDraftActionUnavailability.ApprovalRequired)]
+    [InlineData(true, false, true, OrderDraftActionUnavailability.ApprovalStale)]
+    [InlineData(false, true, false, OrderDraftActionUnavailability.PermissionRequired)]
+    [InlineData(false, false, true, OrderDraftActionUnavailability.PermissionRequired)]
+    public void ApprovalAdmissionGuidanceRequiresCommitPermission(
+        bool mayCommit, bool approvalRequired, bool approvalStale, OrderDraftActionUnavailability reason)
+    {
+        var guide = OrderDraftActionGuide.Explain(OrderDraftState.Draft, 5, true, true, mayCommit,
+            approvalRequired: approvalRequired, approvalStale: approvalStale);
+
+        AssertAvailability(guide.Actions[2], OrderDraftAction.Commit, false, reason);
+    }
+
     private static void AssertAvailability(
         OrderDraftActionAvailability actual,
         OrderDraftAction action,

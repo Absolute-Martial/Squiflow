@@ -24,7 +24,7 @@ public sealed partial class PostgresOrderDraftStore
         {
             command.Parameters.AddWithValue("tenant_id", tenantContext.TenantId);
             command.Parameters.AddWithValue("order_id", request.OrderId);
-            command.Parameters.AddWithValue("operations", new[] { CreateOperation, ReviseOperation, AbandonOperation, CommitOperation });
+            command.Parameters.AddWithValue("operations", new[] { CreateOperation, QuotationCreateOperation, ReviseOperation, AbandonOperation, CommitOperation, ProgramReferenceOperation });
             command.Parameters.Add(new NpgsqlParameter("before_revision", NpgsqlDbType.Bigint)
             {
                 Value = (object?)request.BeforeRevision ?? DBNull.Value,
@@ -59,6 +59,14 @@ public sealed partial class PostgresOrderDraftStore
             await session.CommitAsync(cancellationToken).ConfigureAwait(false);
             return null;
         }
+        // Complete the statement reader before profile validation uses this same transaction.
+        foreach (var entry in entries)
+        {
+            await RequireRetainedProgramPolicyAsync(session, tenantContext.TenantId, entry.Order, cancellationToken).ConfigureAwait(false);
+            await RequireAcceptedQuotationFactsAsync(tenantContext, entry.Order, cancellationToken).ConfigureAwait(false);
+            if (entry.Order.State == OrderDraftState.Committed)
+                await RequireRetainedApprovalCommitAsync(session, entry.Order, cancellationToken).ConfigureAwait(false);
+        }
         // Every successful current command stores its effect and receipt together. Do not
         // invent missing historical revisions or silently present contradictory receipts.
         var expectedNewest = request.BeforeRevision is { } before
@@ -85,7 +93,9 @@ public sealed partial class PostgresOrderDraftStore
     private static OrderDraftChange ToChange(string operation) => operation switch
     {
         CreateOperation => OrderDraftChange.Created,
+        QuotationCreateOperation => OrderDraftChange.Created,
         ReviseOperation => OrderDraftChange.Revised,
+        ProgramReferenceOperation => OrderDraftChange.ProgramReferenceUpdated,
         AbandonOperation => OrderDraftChange.Abandoned,
         CommitOperation => OrderDraftChange.Committed,
         _ => throw InvalidReceipt(),

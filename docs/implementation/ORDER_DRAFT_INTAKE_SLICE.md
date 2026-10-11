@@ -10,6 +10,8 @@ This slice introduces the first tenant-owned business mutation without claiming 
 
 An additive customer-context extension now allows a draft to reference one tenant-owned customer organization and optionally one of its programs. The original no-context request, draft rows and semantic create fingerprint remain supported. The association is validated through the public Customers query and enforced by composite PostgreSQL foreign keys; it is attribution, not billing/receivable authority. `docs/implementation/CUSTOMER_ORGANIZATION_PROGRAM_ATTRIBUTION_SLICE.md` owns this extension, its receipt-version rule and its evidence.
 
+COM-010 adds one trusted quotation-origin Order-create path owned jointly by the Quotation and Orders application/store contracts. A converted Order retains the exact accepted quotation/revision identity and family/revision numbers with its frozen prices. That origin is not accepted from ordinary Order JSON; full replacement through either direct manual or Catalog/Pricing routes returns `409 order_quotation_bound`. Detail, browse and retained history expose the named origin under current Order-view authority. This additive COM-010 path is `PRODUCTION_HONEST` for its declared bounded scope; see the [qualification receipt](../review/COM_010_IMPLEMENTATION_RECEIPT.md). It does not change direct Order creation or ordinary draft-revision semantics.
+
 An authenticated current tenant member with both persisted OpenFGA `order_creator` and `manual_pricer` relations can create one priced order draft through:
 
 ```text
@@ -186,7 +188,7 @@ Requalification triggers include schema/RLS policy, browse index, cursor format 
 
 ## Explicit non-claims
 
-The slice does not implement legal customer/account identity beyond the narrow organization/program attribution, document numbers, tax, discount, quotations, submission/acceptance, approval, fulfillment, inventory, invoicing, payment, refunds, printing, attachments, audit ledger, local-first Workstation state, synchronization, outbox, Worker execution, reporting, text/full-text search, filters, selectable ordering, total counts, profile-driven implementation variants or tenant role administration. These remain `NOT_INTRODUCED`, not deferred hardening of an active path.
+The slice does not implement legal customer/account identity beyond the narrow organization/program attribution, document numbers, tax, discount, quotation drafting/issuance beyond COM-009, customer-portal acceptance or verified signature, approval, fulfillment, inventory, invoicing, payment, refunds, printing, attachments, a general audit ledger, local-first Workstation state, synchronization, outbox, Worker execution, reporting, text/full-text search, filters, selectable ordering, total counts, profile-driven implementation variants or tenant role administration. COM-010 response and conversion are qualified only for their bounded operator-recorded contract; broader lifecycle items remain `NOT_INTRODUCED`.
 
 Manual pricing authority for initial and later entry, current-authority replay,
 and its permanent regressions are owned by `PRICING_COMPONENT_BOUNDARY.md`.

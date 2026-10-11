@@ -25,9 +25,26 @@ internal static class CoreApiOpenApi
             options.AddOperationTransformer<CustomerCreateOperationTransformer>();
             options.AddOperationTransformer<CustomerBrowseOperationTransformer>();
             options.AddOperationTransformer<CustomerIndividualBodyTransformer>();
+            options.AddOperationTransformer<InvoiceIssueOperationTransformer>();
         });
 
         return services;
+    }
+}
+
+internal sealed class InvoiceIssueOperationTransformer : IOpenApiOperationTransformer
+{
+    public Task TransformAsync(OpenApiOperation operation, OpenApiOperationTransformerContext context, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (context.Description.ActionDescriptor.EndpointMetadata.OfType<EndpointAccessMetadata>().Any(value =>
+            value.Access == EndpointAccess.InvoiceIssue))
+        {
+            OrderCreateOperationTransformer.AddRequiredIdempotencyKeyHeader(operation);
+            OrderCreateOperationTransformer.AddReplayHeader(operation);
+            OrderCreateOperationTransformer.AddCreatedLocationHeader(operation);
+        }
+        return Task.CompletedTask;
     }
 }
 
@@ -156,7 +173,8 @@ internal sealed class OrderCreateOperationTransformer : IOpenApiOperationTransfo
 
         var metadata = context.Description.ActionDescriptor.EndpointMetadata;
         if (!metadata.OfType<EndpointAccessMetadata>().Any(value =>
-                value.Access == EndpointAccess.AuthorizedTenantOrderCreation))
+                value.Access is EndpointAccess.AuthorizedTenantOrderCreation
+                    or EndpointAccess.AuthorizedTenantCatalogOrderCreation))
         {
             return Task.CompletedTask;
         }
@@ -277,7 +295,8 @@ internal sealed class OrderRevisionOperationTransformer : IOpenApiOperationTrans
         cancellationToken.ThrowIfCancellationRequested();
         if (context.Description.ActionDescriptor.EndpointMetadata
             .OfType<EndpointAccessMetadata>()
-            .Any(value => value.Access == EndpointAccess.AuthorizedTenantOrderRevision))
+            .Any(value => value.Access is EndpointAccess.AuthorizedTenantOrderRevision
+                or EndpointAccess.AuthorizedTenantCatalogOrderRevision))
         {
             OrderCreateOperationTransformer.AddRequiredIdempotencyKeyHeader(operation);
             OrderCreateOperationTransformer.AddReplayHeader(operation);

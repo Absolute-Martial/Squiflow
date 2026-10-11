@@ -2,7 +2,7 @@
 
 Task ID: ADM-020
 Phase: 01-admin-platform
-Status: READY_AFTER_DEPENDENCIES
+Status: VERIFY_EXISTING
 Model: GPT-6.1 Sol
 Dependencies: ADM-019, ADM-009
 Release requirement: REQUIRED
@@ -14,13 +14,15 @@ Publish one validated immutable tenant profile revision referencing exact catalo
 
 ## Current basis and canonical inputs
 
-Application.Profiles has compiled in-memory selections; immutable profile persistence/publication is absent. Accepted profile owner separates features, settings, permissions and their revisions. Read [README.IMPLEMENTATION.md](../../../README.IMPLEMENTATION.md) and [TENANT_APPLICATION_PROFILES_AND_EXTENSIBILITY.md](../../architecture/TENANT_APPLICATION_PROFILES_AND_EXTENSIBILITY.md); [AUTOFAC_TENANT_PROFILE_RUNTIME_IMPLEMENTATION_PLAN.md](../../implementation/AUTOFAC_TENANT_PROFILE_RUNTIME_IMPLEMENTATION_PLAN.md); [CompiledFeatureSelection.cs](../../../modules/application-profiles/Application.Profiles/CompiledFeatureSelection.cs).
+Application.Profiles retains compiled selections and the accepted first immutable profile persistence/publication contract. Accepted profile owner separates features, settings, permissions and their revisions. Read [README.IMPLEMENTATION.md](../../../README.IMPLEMENTATION.md) and [TENANT_APPLICATION_PROFILES_AND_EXTENSIBILITY.md](../../architecture/TENANT_APPLICATION_PROFILES_AND_EXTENSIBILITY.md); [AUTOFAC_TENANT_PROFILE_RUNTIME_IMPLEMENTATION_PLAN.md](../../implementation/AUTOFAC_TENANT_PROFILE_RUNTIME_IMPLEMENTATION_PLAN.md); [CompiledFeatureSelection.cs](../../../modules/application-profiles/Application.Profiles/CompiledFeatureSelection.cs).
 
 ## Scope and exclusions
 
 Allowed areas: Profile-owned draft/validate/publish contracts, minimal PostgreSQL authority adapter/migration, AdminApi publication endpoint and bounded profile tests only. Exclude UI implementation, unrelated capabilities and purged Parties code.
 
 ## Decisions/prerequisites
+
+Owner accepted the [COM-011/profile contract](../../review/COM_011_PROFILE_PREREQUISITE_DECISION_PROPOSAL.md) on 2026-10-08. The bounded source now has local qualification in the [implementation receipt](../../review/COM_011_IMPLEMENTATION_RECEIPT.md). The [focused consumer owner](../../implementation/ORDER_PROGRAM_REFERENCE_POLICY.md) defines exact scope, retained legacy policy, authority separation and regression obligations. Planning status `VERIFY_EXISTING` means review current source/evidence, not production acceptance.
 
 Accept authority owner, initial schema/compatibility version, publication permission and edit conflict policy. Earn a new physical project only if a real provider boundary requires it. Follow [shared rules](../AGENT_RULES.md) and [handoff/integration rules](../HANDOFF_AND_INTEGRATION.md).
 

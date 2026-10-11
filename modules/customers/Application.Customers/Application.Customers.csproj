@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <ProjectReference Include="../../../foundation/object-storage/Application.ObjectStorage/Application.ObjectStorage.csproj" />
     <ProjectReference Include="../../tenancy/Application.Tenancy/Application.Tenancy.csproj" />
   </ItemGroup>
 </Project>

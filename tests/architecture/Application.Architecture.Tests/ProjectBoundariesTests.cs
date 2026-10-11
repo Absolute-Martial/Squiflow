@@ -6,7 +6,7 @@ namespace Application.Architecture.Tests;
 
 public sealed class ProjectBoundariesTests
 {
-    private static readonly string[] ProjectAreas = ["foundation", "modules", "services", "apps", "tests"];
+    private static readonly string[] ProjectAreas = ["foundation", "modules", "services", "operations", "apps", "tests"];
     [Fact]
     public void CurrentProjectsRespectDependencyAndProviderBoundaries()
     {
@@ -187,7 +187,8 @@ public sealed class ProjectBoundariesTests
         var root = FindRepositoryRoot();
         foreach (var (capability, folder) in new[]
                  {
-                     ("Customers", "customers"), ("Orders", "orders"),
+                      ("Customers", "customers"), ("Orders", "orders"),
+                      ("Catalog", "catalog"), ("Pricing", "pricing"), ("Quotations", "quotations"), ("Purchasing", "purchasing"), ("Invoices", "invoices"),
                      ("IdentityAccess", "identity-access"), ("Tenancy", "tenancy"),
                  })
         {
@@ -226,7 +227,8 @@ public sealed class ProjectBoundariesTests
             .ToArray();
         var currentServiceProjects = LoadProjects(root)
             .Where(project => project.Kind == ProjectKind.Executable &&
-                project.Path.StartsWith(Path.Combine(root, "services") + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+                (project.Path.StartsWith(Path.Combine(root, "services") + Path.DirectorySeparatorChar, StringComparison.Ordinal) ||
+                 project.Path.StartsWith(Path.Combine(root, "operations") + Path.DirectorySeparatorChar, StringComparison.Ordinal)))
             .Select(project => project.Path)
             .Order(StringComparer.Ordinal)
             .ToArray();
@@ -314,7 +316,7 @@ public sealed class ProjectBoundariesTests
                     "modules" when Path.GetFileNameWithoutExtension(path).EndsWith(".Postgres", StringComparison.Ordinal)
                         => ProjectKind.PostgresAdapter,
                     "modules" or "foundation" => ProjectKind.Capability,
-                    "services" => ProjectKind.Executable,
+                    "services" or "operations" => ProjectKind.Executable,
                     "apps" when sdk == "Microsoft.NET.Sdk.Web" || outputType is "Exe" or "WinExe"
                         => ProjectKind.Executable,
                     "apps" => ProjectKind.HostLibrary,

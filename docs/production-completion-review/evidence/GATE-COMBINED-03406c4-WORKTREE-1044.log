@@ -1,0 +1,139 @@
+==> restore (locked)
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+==> format verification
+==> build (Release)
+  Application.ObjectStorage -> /cutiepie/Squiflow/foundation/object-storage/Application.ObjectStorage/bin/Release/net10.0/Application.ObjectStorage.dll
+  Application.Profiles -> /cutiepie/Squiflow/modules/application-profiles/Application.Profiles/bin/Release/net10.0/Application.Profiles.dll
+  Application.Branding -> /cutiepie/Squiflow/modules/branding/Application.Branding/bin/Release/net10.0/Application.Branding.dll
+  Application.IdentityAccess -> /cutiepie/Squiflow/modules/identity-access/Application.IdentityAccess/bin/Release/net10.0/Application.IdentityAccess.dll
+  Application.Pricing -> /cutiepie/Squiflow/modules/pricing/Application.Pricing/bin/Release/net10.0/Application.Pricing.dll
+  Application.Tenancy -> /cutiepie/Squiflow/modules/tenancy/Application.Tenancy/bin/Release/net10.0/Application.Tenancy.dll
+  Application.Architecture.Tests -> /cutiepie/Squiflow/tests/architecture/Application.Architecture.Tests/bin/Release/net10.0/Application.Architecture.Tests.dll
+  Application.PlatformAdministration -> /cutiepie/Squiflow/modules/platform-administration/Application.PlatformAdministration/bin/Release/net10.0/Application.PlatformAdministration.dll
+  Application.IdentityAccess.Postgres -> /cutiepie/Squiflow/modules/identity-access/Application.IdentityAccess.Postgres/bin/Release/net10.0/Application.IdentityAccess.Postgres.dll
+  Application.Catalog -> /cutiepie/Squiflow/modules/catalog/Application.Catalog/bin/Release/net10.0/Application.Catalog.dll
+  Application.Customers -> /cutiepie/Squiflow/modules/customers/Application.Customers/bin/Release/net10.0/Application.Customers.dll
+  Application.IdentityAccess.Tests -> /cutiepie/Squiflow/tests/unit/Application.IdentityAccess.Tests/bin/Release/net10.0/Application.IdentityAccess.Tests.dll
+  Application.Pricing.Postgres -> /cutiepie/Squiflow/modules/pricing/Application.Pricing.Postgres/bin/Release/net10.0/Application.Pricing.Postgres.dll
+  Application.Tenancy.Postgres -> /cutiepie/Squiflow/modules/tenancy/Application.Tenancy.Postgres/bin/Release/net10.0/Application.Tenancy.Postgres.dll
+  Application.PlatformAdministration.Postgres -> /cutiepie/Squiflow/modules/platform-administration/Application.PlatformAdministration.Postgres/bin/Release/net10.0/Application.PlatformAdministration.Postgres.dll
+  Application.Tenancy.Tests -> /cutiepie/Squiflow/tests/unit/Application.Tenancy.Tests/bin/Release/net10.0/Application.Tenancy.Tests.dll
+  Application.Orders -> /cutiepie/Squiflow/modules/orders/Application.Orders/bin/Release/net10.0/Application.Orders.dll
+  Application.PlatformAdministration.Tests -> /cutiepie/Squiflow/tests/unit/Application.PlatformAdministration.Tests/bin/Release/net10.0/Application.PlatformAdministration.Tests.dll
+  Application.Customers.Postgres -> /cutiepie/Squiflow/modules/customers/Application.Customers.Postgres/bin/Release/net10.0/Application.Customers.Postgres.dll
+  Application.Pricing.Tests -> /cutiepie/Squiflow/tests/unit/Application.Pricing.Tests/bin/Release/net10.0/Application.Pricing.Tests.dll
+  Application.Catalog.Tests -> /cutiepie/Squiflow/tests/unit/Application.Catalog.Tests/bin/Release/net10.0/Application.Catalog.Tests.dll
+  Application.Profiles.Tests -> /cutiepie/Squiflow/tests/unit/Application.Profiles.Tests/bin/Release/net10.0/Application.Profiles.Tests.dll
+  Application.Branding.Tests -> /cutiepie/Squiflow/tests/unit/Application.Branding.Tests/bin/Release/net10.0/Application.Branding.Tests.dll
+  Application.Invoices -> /cutiepie/Squiflow/modules/invoices/Application.Invoices/bin/Release/net10.0/Application.Invoices.dll
+  Application.Orders.Postgres -> /cutiepie/Squiflow/modules/orders/Application.Orders.Postgres/bin/Release/net10.0/Application.Orders.Postgres.dll
+  Application.Catalog.Postgres -> /cutiepie/Squiflow/modules/catalog/Application.Catalog.Postgres/bin/Release/net10.0/Application.Catalog.Postgres.dll
+  Application.Customers.Tests -> /cutiepie/Squiflow/tests/unit/Application.Customers.Tests/bin/Release/net10.0/Application.Customers.Tests.dll
+  Application.Orders.Tests -> /cutiepie/Squiflow/tests/unit/Application.Orders.Tests/bin/Release/net10.0/Application.Orders.Tests.dll
+  Application.AdminBootstrap -> /cutiepie/Squiflow/services/admin-bootstrap/Application.AdminBootstrap/bin/Release/net10.0/Application.AdminBootstrap.dll
+  Application.DatabaseMigrator -> /cutiepie/Squiflow/services/db-migrator/Application.DatabaseMigrator/bin/Release/net10.0/Application.DatabaseMigrator.dll
+  Application.Pricing.Postgres.Tests -> /cutiepie/Squiflow/tests/integration/Application.Pricing.Postgres.Tests/bin/Release/net10.0/Application.Pricing.Postgres.Tests.dll
+  Application.Customers.Postgres.Tests -> /cutiepie/Squiflow/tests/integration/Application.Customers.Postgres.Tests/bin/Release/net10.0/Application.Customers.Postgres.Tests.dll
+  Application.AdminBootstrap.Tests -> /cutiepie/Squiflow/tests/integration/Application.AdminBootstrap.Tests/bin/Release/net10.0/Application.AdminBootstrap.Tests.dll
+  Application.AdminApi -> /cutiepie/Squiflow/services/admin-api/Application.AdminApi/bin/Release/net10.0/Application.AdminApi.dll
+  Application.Catalog.Postgres.Tests -> /cutiepie/Squiflow/tests/integration/Application.Catalog.Postgres.Tests/bin/Release/net10.0/Application.Catalog.Postgres.Tests.dll
+  Application.Invoices.Tests -> /cutiepie/Squiflow/tests/unit/Application.Invoices.Tests/bin/Release/net10.0/Application.Invoices.Tests.dll
+  Application.IdentityAccess.Postgres.Tests -> /cutiepie/Squiflow/tests/integration/Application.IdentityAccess.Postgres.Tests/bin/Release/net10.0/Application.IdentityAccess.Postgres.Tests.dll
+  Application.CoreApi -> /cutiepie/Squiflow/services/core-api/Application.CoreApi/bin/Release/net10.0/Application.CoreApi.dll
+  Application.AdminApi.Tests -> /cutiepie/Squiflow/tests/integration/Application.AdminApi.Tests/bin/Release/net10.0/Application.AdminApi.Tests.dll
+  Application.Tenancy.Postgres.Tests -> /cutiepie/Squiflow/tests/integration/Application.Tenancy.Postgres.Tests/bin/Release/net10.0/Application.Tenancy.Postgres.Tests.dll
+  Application.Orders.Postgres.Tests -> /cutiepie/Squiflow/tests/integration/Application.Orders.Postgres.Tests/bin/Release/net10.0/Application.Orders.Postgres.Tests.dll
+  Application.CoreApi.Tests -> /cutiepie/Squiflow/tests/integration/Application.CoreApi.Tests/bin/Release/net10.0/Application.CoreApi.Tests.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:10.45
+    build phase took 87s
+==> tests: unit (11 project(s))
+Test run for /cutiepie/Squiflow/tests/architecture/Application.Architecture.Tests/bin/Release/net10.0/Application.Architecture.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    16, Skipped:     0, Total:    16, Duration: 401 ms - Application.Architecture.Tests.dll (net10.0)
+Test run for /cutiepie/Squiflow/tests/unit/Application.Profiles.Tests/bin/Release/net10.0/Application.Profiles.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    18, Skipped:     0, Total:    18, Duration: 88 ms - Application.Profiles.Tests.dll (net10.0)
+Test run for /cutiepie/Squiflow/tests/unit/Application.Branding.Tests/bin/Release/net10.0/Application.Branding.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    11, Skipped:     0, Total:    11, Duration: 85 ms - Application.Branding.Tests.dll (net10.0)
+Test run for /cutiepie/Squiflow/tests/unit/Application.Catalog.Tests/bin/Release/net10.0/Application.Catalog.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    18, Skipped:     0, Total:    18, Duration: 76 ms - Application.Catalog.Tests.dll (net10.0)
+Test run for /cutiepie/Squiflow/tests/unit/Application.Customers.Tests/bin/Release/net10.0/Application.Customers.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    46, Skipped:     0, Total:    46, Duration: 211 ms - Application.Customers.Tests.dll (net10.0)
+Test run for /cutiepie/Squiflow/tests/unit/Application.IdentityAccess.Tests/bin/Release/net10.0/Application.IdentityAccess.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    12, Skipped:     0, Total:    12, Duration: 81 ms - Application.IdentityAccess.Tests.dll (net10.0)
+Test run for /cutiepie/Squiflow/tests/unit/Application.Invoices.Tests/bin/Release/net10.0/Application.Invoices.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    25, Skipped:     0, Total:    25, Duration: 134 ms - Application.Invoices.Tests.dll (net10.0)
+Test run for /cutiepie/Squiflow/tests/unit/Application.Tenancy.Tests/bin/Release/net10.0/Application.Tenancy.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    36, Skipped:     0, Total:    36, Duration: 108 ms - Application.Tenancy.Tests.dll (net10.0)
+Test run for /cutiepie/Squiflow/tests/unit/Application.Orders.Tests/bin/Release/net10.0/Application.Orders.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:   104, Skipped:     0, Total:   104, Duration: 226 ms - Application.Orders.Tests.dll (net10.0)
+Test run for /cutiepie/Squiflow/tests/unit/Application.PlatformAdministration.Tests/bin/Release/net10.0/Application.PlatformAdministration.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:     4, Skipped:     0, Total:     4, Duration: 73 ms - Application.PlatformAdministration.Tests.dll (net10.0)
+Test run for /cutiepie/Squiflow/tests/unit/Application.Pricing.Tests/bin/Release/net10.0/Application.Pricing.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    11, Skipped:     0, Total:    11, Duration: 131 ms - Application.Pricing.Tests.dll (net10.0)
+    unit phase took 31s
+==> tests: container (9 project(s))
+Test run for /cutiepie/Squiflow/tests/integration/Application.AdminApi.Tests/bin/Release/net10.0/Application.AdminApi.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    96, Skipped:     0, Total:    96, Duration: 39 s - Application.AdminApi.Tests.dll (net10.0)
+Test run for /cutiepie/Squiflow/tests/integration/Application.CoreApi.Tests/bin/Release/net10.0/Application.CoreApi.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:   457, Skipped:     0, Total:   457, Duration: 2 m 8 s - Application.CoreApi.Tests.dll (net10.0)
+Test run for /cutiepie/Squiflow/tests/integration/Application.AdminBootstrap.Tests/bin/Release/net10.0/Application.AdminBootstrap.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:     3, Skipped:     0, Total:     3, Duration: 12 s - Application.AdminBootstrap.Tests.dll (net10.0)
+Test run for /cutiepie/Squiflow/tests/integration/Application.Catalog.Postgres.Tests/bin/Release/net10.0/Application.Catalog.Postgres.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:     8, Skipped:     0, Total:     8, Duration: 17 s - Application.Catalog.Postgres.Tests.dll (net10.0)
+Test run for /cutiepie/Squiflow/tests/integration/Application.Customers.Postgres.Tests/bin/Release/net10.0/Application.Customers.Postgres.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    51, Skipped:     0, Total:    51, Duration: 2 m 24 s - Application.Customers.Postgres.Tests.dll (net10.0)
+Test run for /cutiepie/Squiflow/tests/integration/Application.IdentityAccess.Postgres.Tests/bin/Release/net10.0/Application.IdentityAccess.Postgres.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    20, Skipped:     0, Total:    20, Duration: 17 s - Application.IdentityAccess.Postgres.Tests.dll (net10.0)
+Test run for /cutiepie/Squiflow/tests/integration/Application.Orders.Postgres.Tests/bin/Release/net10.0/Application.Orders.Postgres.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    71, Skipped:     0, Total:    71, Duration: 3 m 16 s - Application.Orders.Postgres.Tests.dll (net10.0)
+Test run for /cutiepie/Squiflow/tests/integration/Application.Pricing.Postgres.Tests/bin/Release/net10.0/Application.Pricing.Postgres.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    11, Skipped:     0, Total:    11, Duration: 32 s - Application.Pricing.Postgres.Tests.dll (net10.0)
+Test run for /cutiepie/Squiflow/tests/integration/Application.Tenancy.Postgres.Tests/bin/Release/net10.0/Application.Tenancy.Postgres.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    26, Skipped:     0, Total:    26, Duration: 41 s - Application.Tenancy.Postgres.Tests.dll (net10.0)
+    container phase took 646s
+==> gate phases completed in 764s

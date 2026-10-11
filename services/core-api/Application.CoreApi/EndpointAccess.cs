@@ -30,7 +30,51 @@ internal enum EndpointAccess
     AuthorizedCustomerIndividualCreation,
     AuthorizedCustomerIndividualRead,
     AuthorizedCustomerIndividualAvailability,
+    AuthorizedCustomerIndividualContactEdit,
+    AuthorizedCustomerRepresentativeRead,
+    AuthorizedCustomerRepresentativeManage,
+    AuthorizedCustomerDuplicateRead,
+    AuthorizedCustomerDuplicateResolve,
+    AuthorizedCustomerDuplicateConsolidate,
+    AuthorizedCustomerImport,
+    AuthorizedCatalogRead,
+    AuthorizedCatalogManage,
+    AuthorizedPricingRead,
+    AuthorizedPricingDraftEdit,
+    AuthorizedPricingPublish,
+    AuthorizedPricingRetire,
+    AuthorizedTenantProfilePolicyView,
+    AuthorizedTenantProfilePolicyEdit,
+    AuthorizedTenantProfilePolicyPublish,
+    AuthorizedTenantCatalogOrderCreation,
+    AuthorizedTenantCatalogOrderRevision,
     AuthorizedTenantRoleAdministration,
+    AuthorizedQuotationCreate,
+    AuthorizedQuotationEdit,
+    AuthorizedQuotationView,
+    AuthorizedQuotationIssue,
+    AuthorizedQuotationRespond,
+    AuthorizedQuotationExpire,
+    AuthorizedQuotationConvert,
+    AuthorizedTenantOrderProgramReference,
+    OrderApprovalSubmit,
+    OrderApprovalView,
+    OrderApprovalDecide,
+    OrderApprovalRecover,
+    OrderApprovalCancel,
+    OrderFulfillmentView,
+    OrderFulfillmentWorkRecord,
+    OrderFulfillmentHandoffRecord,
+    OrderFulfillmentCorrect,
+    PurchasingView,
+    PurchasingSupplierManage,
+    PurchasingRequestRecord,
+    PurchasingReceiptRecord,
+    PurchasingPaymentRecord,
+    PurchasingCorrect,
+    InvoiceIssue,
+    InvoiceView,
+
 }
 
 internal sealed record EndpointAccessMetadata(EndpointAccess Access)
@@ -52,6 +96,17 @@ internal static class CoreApiApplicationAuthorizationContract
 {
     internal static IReadOnlyList<IAuthorizationRequirement> RequirementsFor(EndpointAccess access) => access switch
     {
+        EndpointAccess.AuthorizedQuotationCreate => [new QuotationRequirement(Application.Quotations.QuotationCapability.Create)],
+        EndpointAccess.AuthorizedQuotationEdit => [new QuotationRequirement(Application.Quotations.QuotationCapability.Edit)],
+        EndpointAccess.AuthorizedQuotationView => [new QuotationRequirement(Application.Quotations.QuotationCapability.View)],
+        EndpointAccess.AuthorizedQuotationIssue => [new QuotationRequirement(Application.Quotations.QuotationCapability.Issue)],
+        EndpointAccess.AuthorizedQuotationRespond => [new QuotationRequirement(Application.Quotations.QuotationCapability.Respond)],
+        EndpointAccess.AuthorizedQuotationExpire => [new QuotationRequirement(Application.Quotations.QuotationCapability.Expire)],
+        EndpointAccess.AuthorizedQuotationConvert =>
+        [
+            new QuotationRequirement(Application.Quotations.QuotationCapability.Convert),
+            new QuotationRequirement(Application.Quotations.QuotationCapability.OrderCreate),
+        ],
         EndpointAccess.AuthorizedTenantWorkspace => [ViewTenantWorkspaceRequirement.Instance],
         EndpointAccess.AuthorizedTenantOrderCreation => [CreateOrderRequirement.Instance, ApplyManualPriceRequirement.Instance],
         EndpointAccess.AuthorizedTenantOrderRead => [ViewOrdersRequirement.Instance],
@@ -59,9 +114,44 @@ internal static class CoreApiApplicationAuthorizationContract
         EndpointAccess.AuthorizedTenantOrderAbandon => [AbandonOrderRequirement.Instance],
         EndpointAccess.AuthorizedTenantOrderCommit => [CommitOrderRequirement.Instance],
         EndpointAccess.AuthorizedTenantOrderRevision => [EditOrderRequirement.Instance, ApplyManualPriceRequirement.Instance],
+        EndpointAccess.AuthorizedTenantOrderProgramReference => [EditOrderRequirement.Instance],
         EndpointAccess.AuthorizedTenantOrderPricePreview => [CreateOrderRequirement.Instance, ApplyManualPriceRequirement.Instance],
         EndpointAccess.AuthorizedTenantOrderHistory => [ViewOrdersRequirement.Instance],
         EndpointAccess.AuthorizedTenantOrderActions => [ViewOrdersRequirement.Instance],
+        EndpointAccess.OrderApprovalSubmit =>
+        [
+            new TenantOrderApprovalRequirement(TenantOrderApprovalPermission.Submit),
+            new TenantOrderApprovalRequirement(TenantOrderApprovalPermission.View),
+            ViewOrdersRequirement.Instance,
+        ],
+        EndpointAccess.OrderApprovalView =>
+            [new TenantOrderApprovalRequirement(TenantOrderApprovalPermission.View)],
+        EndpointAccess.OrderApprovalDecide =>
+        [
+            new TenantOrderApprovalRequirement(TenantOrderApprovalPermission.Decide),
+            new TenantOrderApprovalRequirement(TenantOrderApprovalPermission.View),
+            ViewOrdersRequirement.Instance,
+        ],
+        EndpointAccess.OrderApprovalCancel =>
+            [new TenantOrderApprovalRequirement(TenantOrderApprovalPermission.Submit)],
+        EndpointAccess.OrderApprovalRecover =>
+            [new TenantOrderApprovalRequirement(TenantOrderApprovalPermission.Recover)],
+        EndpointAccess.OrderFulfillmentView =>
+            [new TenantOrderFulfillmentRequirement(TenantOrderFulfillmentPermission.View)],
+        EndpointAccess.OrderFulfillmentWorkRecord =>
+            [new TenantOrderFulfillmentRequirement(TenantOrderFulfillmentPermission.RecordWork)],
+        EndpointAccess.OrderFulfillmentHandoffRecord =>
+            [new TenantOrderFulfillmentRequirement(TenantOrderFulfillmentPermission.RecordHandoff)],
+        EndpointAccess.OrderFulfillmentCorrect =>
+            [new TenantOrderFulfillmentRequirement(TenantOrderFulfillmentPermission.Correct)],
+        EndpointAccess.PurchasingView => [new TenantPurchasingRequirement(TenantPurchasingPermission.View)],
+        EndpointAccess.PurchasingSupplierManage => [new TenantPurchasingRequirement(TenantPurchasingPermission.ManageSupplier)],
+        EndpointAccess.PurchasingRequestRecord => [new TenantPurchasingRequirement(TenantPurchasingPermission.RecordRequest)],
+        EndpointAccess.PurchasingReceiptRecord => [new TenantPurchasingRequirement(TenantPurchasingPermission.RecordReceipt)],
+        EndpointAccess.PurchasingPaymentRecord => [new TenantPurchasingRequirement(TenantPurchasingPermission.RecordPayment)],
+        EndpointAccess.PurchasingCorrect => [new TenantPurchasingRequirement(TenantPurchasingPermission.Correct)],
+        EndpointAccess.InvoiceIssue => [new TenantInvoiceRequirement(TenantInvoicePermission.Issue)],
+        EndpointAccess.InvoiceView => [new TenantInvoiceRequirement(TenantInvoicePermission.View)],
         EndpointAccess.AuthorizedCustomerOrganizationCreation => [CreateOrganizationRequirement.Instance],
         EndpointAccess.AuthorizedCustomerOrganizationRead => [ViewOrganizationsRequirement.Instance],
         EndpointAccess.AuthorizedCustomerOrganizationBrowse => [ViewOrganizationsRequirement.Instance],
@@ -71,6 +161,27 @@ internal static class CoreApiApplicationAuthorizationContract
         EndpointAccess.AuthorizedCustomerIndividualCreation => [CreateIndividualRequirement.Instance],
         EndpointAccess.AuthorizedCustomerIndividualRead => [ViewIndividualsRequirement.Instance],
         EndpointAccess.AuthorizedCustomerIndividualAvailability => [ChangeIndividualAvailabilityRequirement.Instance],
+        EndpointAccess.AuthorizedCustomerIndividualContactEdit => [EditIndividualContactRequirement.Instance],
+        EndpointAccess.AuthorizedCustomerRepresentativeRead => [ViewRepresentativesRequirement.Instance],
+        EndpointAccess.AuthorizedCustomerRepresentativeManage => [ManageRepresentativesRequirement.Instance],
+        EndpointAccess.AuthorizedCustomerDuplicateRead => [ResolveCustomerDuplicatesRequirement.Instance],
+        EndpointAccess.AuthorizedCustomerDuplicateResolve => [ResolveCustomerDuplicatesRequirement.Instance],
+        EndpointAccess.AuthorizedCustomerDuplicateConsolidate => [ConsolidateCustomerDuplicatesRequirement.Instance],
+        EndpointAccess.AuthorizedCustomerImport => [ImportCustomersRequirement.Instance],
+        EndpointAccess.AuthorizedCatalogRead => [ViewCatalogRequirement.Instance],
+        EndpointAccess.AuthorizedCatalogManage => [ManageCatalogRequirement.Instance],
+        EndpointAccess.AuthorizedPricingRead => [ViewPricingRequirement.Instance],
+        EndpointAccess.AuthorizedPricingDraftEdit => [EditPricingDraftRequirement.Instance],
+        EndpointAccess.AuthorizedPricingPublish => [PublishPricingRequirement.Instance],
+        EndpointAccess.AuthorizedPricingRetire => [RetirePricingRequirement.Instance],
+        EndpointAccess.AuthorizedTenantProfilePolicyView =>
+            [new TenantProfilePolicyRequirement(TenantProfilePolicyPermission.View)],
+        EndpointAccess.AuthorizedTenantProfilePolicyEdit =>
+            [new TenantProfilePolicyRequirement(TenantProfilePolicyPermission.Edit)],
+        EndpointAccess.AuthorizedTenantProfilePolicyPublish =>
+            [new TenantProfilePolicyRequirement(TenantProfilePolicyPermission.Publish)],
+        EndpointAccess.AuthorizedTenantCatalogOrderCreation => [CreateOrderRequirement.Instance, ViewCatalogRequirement.Instance, ViewPricingRequirement.Instance],
+        EndpointAccess.AuthorizedTenantCatalogOrderRevision => [EditOrderRequirement.Instance, ViewCatalogRequirement.Instance, ViewPricingRequirement.Instance],
         EndpointAccess.AuthorizedTenantRoleAdministration => [ManageTenantRolesRequirement.Instance],
         _ => throw new InvalidOperationException(
             $"Core API access classification {access} has no application-authorization contract."),

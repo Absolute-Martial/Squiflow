@@ -2,18 +2,20 @@
 
 Owner: `Application.Orders` for lifecycle guidance; CoreApi for the current
 membership/permission adaptation and HTTP contract. Product version stays v0.0.1.
-The bounded current-draft guidance is `PRODUCTION_HONEST`; `BLOCKED = none`.
-Broader customer/program workflow policy, acceptance, stored price/override policy,
-fulfillment and financial operations remain `NOT_INTRODUCED`.
+The direct-order current-draft guidance is `PRODUCTION_HONEST` for its qualified
+scope. The COM-010 quotation-bound guidance extension is also
+`PRODUCTION_HONEST` for its bounded scope; see the [COM-010 qualification receipt](../review/COM_010_IMPLEMENTATION_RECEIPT.md). Broader customer/program
+workflow policy, stored price/override policy, fulfillment and financial
+operations remain `NOT_INTRODUCED`.
 
 ## Declared responsibility
 
 An operator reviewing a priced draft needs to know which implemented change they
 can attempt and why another is unavailable. The guide reuses
-`OrderDraftLifecycle.AssessRevise` and `AssessAbandon`; it does not maintain a
-second state-transition table. Its host-neutral result includes the observed
-revision and exactly two actions, `revise` and `abandon`, each with availability
-and a stable unavailability code. Lifecycle prohibition takes priority over a
+`OrderDraftLifecycle.AssessRevise`, `AssessAbandon` and `AssessCommit`; it does not
+maintain a second state-transition table. Its host-neutral result includes the
+observed revision and the current `revise`, `abandon` and `commit` actions, each
+with availability and a stable unavailability code. Lifecycle prohibition takes priority over a
 missing permission: an abandoned draft cannot be revised or abandoned again.
 Unsupported persisted states or nonpositive revisions fail safely rather than
 being treated as a usable draft.
@@ -24,16 +26,23 @@ an order or probing its write permissions. An editor/abandoner without view
 permission cannot use this read route; the existing command permission contracts
 are independently enforced. A missing or foreign order returns the same safe 404. The response
 contains `orderId`, `observedRevision` and `actions`; each action has `action`,
-`available` and nullable `unavailabilityCode` (`permission_required` or
-`order_already_abandoned`). It exposes no tuple, token, receipt, customer payload
-or provider diagnostics. Public OpenAPI documents the protected read and failures.
+`available` and nullable `unavailabilityCode`, including `permission_required`,
+`order_already_abandoned`, `order_already_committed` and (for COM-010)
+`order_quotation_bound`. It exposes no tuple, token, receipt, customer payload or
+provider diagnostics. Public OpenAPI documents the protected read and failures.
 
 For lifecycle-eligible actions the host independently checks current
 `can_edit_order` plus `can_apply_manual_price` for revision, and
 `can_abandon_order` for abandonment using the existing pinned-model,
 higher-consistency adapter. It does not infer them from create/view permission,
-JWT roles, feature visibility or earlier guidance. Abandoned drafts need neither
-write or pricing lookup because the lifecycle already prohibits both changes.
+JWT roles, feature visibility or earlier guidance. Abandoned or committed drafts
+need no edit or pricing lookup because the lifecycle already prohibits
+replacement. A quotation-bound draft likewise reports revise unavailable as
+`order_quotation_bound` before probing `can_edit_order` or
+`can_apply_manual_price`; it remains independently eligible for other current
+actions. Manual and Catalog/Pricing replacement commands enforce the same bound
+at execution. Quotation response and conversion remain quotation-owned commands,
+not actions on the Orders guidance route.
 Any required permission-provider outage returns safe 503 and no partial guide;
 an outage is not represented as a definitive permission denial. Every response
 is no-store through the classified central middleware. Existing global admission,
@@ -56,13 +65,13 @@ proof, persisted as an approval or trusted by command execution. Re-read after a
 conflict/authority change; do not blindly retry with a new key or silently replace
 an operator's intended expected revision.
 
-The two actions express the currently implemented business lifecycle, not a
+The actions express the currently implemented business lifecycle, not a
 hardcoded customer workflow. No customer name, GUID, category or billing choice
 selects behavior. Custom stages, required supplementary information, approvals,
 assignment/escalation and published customer/program policies remain absent and
 must join this guidance through their owning qualified capability. The route
-must not present acceptance, quotation, invoice or payment actions before those
-operations exist. The permission control for manual price entry is owned by
+does not present quotation response/conversion, invoice or payment actions; those
+commands belong to their owning capability. The permission control for manual price entry is owned by
 `PRICING_COMPONENT_BOUNDARY.md`; reasons, ceilings, approvals and adaptive
 price-source policy remain outside this guide.
 
@@ -80,6 +89,7 @@ RLS and mutation integration tests remain the provider regression guards.
 | Separate edit/abandon authority, bounded shape, no mutation | `DraftGuidanceUsesDistinctCurrentPermissionsWithoutChangingTheOrder` |
 | Current membership/view authority before storage/write probes | `MembershipAndViewPermissionAreRequiredBeforeReadingOrProbingWritePermissions`; classified anonymous-route guard |
 | Required provider outage produces no partial guide | `PermissionProviderOutageReturnsNoPartialGuide` |
+| Quotation-bound orders skip edit and manual-price probes and explain the safe replacement conflict | `QuotationBoundGuidanceSkipsEditAndManualPricePermissionChecks`; `ManualAndCatalogReplacementReturnSafeQuotationBoundConflict` |
 | Revocation remains authoritative at execution | `GuidanceDoesNotGrantCommandAuthorityAndIsRecomputedAfterRevocation` |
 | A stale revision cannot bypass concurrency; terminal actions need no write probes | `StaleGuidanceCannotSkipRevisionChecksAndAbandonedOrdersNeedNoWritePermissionProbe` |
 | Tenant-scoped existence and no foreign write probes | `ForeignAndMissingOrdersHaveTheSameNotFoundResultWithoutWritePermissionProbes`; existing actual PostgreSQL isolation/detail tests |
@@ -99,4 +109,6 @@ with zero failures/skips and zero build warnings/errors. Guidance adds ten pure
 lifecycle/permission cases and fourteen HTTP cases, including manual-pricing
 outage and terminal-probe behavior. Existing real PostgreSQL/OpenFGA tests also
 passed. This qualifies the declared guidance only, not customer-specific workflow,
-remote CI or deployment.
+remote CI or deployment. The later COM-010 receiving qualification separately
+covers the quotation-bound guidance extension; see the linked receipt. It does
+not qualify customer-specific workflow, remote CI or deployment.

@@ -2,12 +2,15 @@
 
 Task ID: COM-006
 Phase: 02-commercial-backend
-Status: DECISION_REQUIRED
+Status: VERIFY_EXISTING
+Runtime state: PRODUCTION_HONEST for the declared local scope
 Model: GPT-6.1 Sol
 Dependencies: COM-005
 Release requirement: REQUIRED
 
-Planned assignment only. Apply [agent rules](../AGENT_RULES.md) and [handoff rules](../HANDOFF_AND_INTEGRATION.md).
+`Status` above is the scheduling value defined by [`ORCHESTRATOR.md`](../ORCHESTRATOR.md): this task is no longer an undispatched planned assignment, because its implementation exists in the current receiving tree and awaits accountable owner review/acceptance. The runtime gate state is recorded separately above and is owned by [`PRICING_POLICY_AND_PUBLICATION.md`](../../implementation/PRICING_POLICY_AND_PUBLICATION.md). Exact local evidence is recorded in [`README.IMPLEMENTATION.md`](../../../README.IMPLEMENTATION.md) and [`TASK_STATUS.md`](../TASK_STATUS.md).
+
+Apply [agent rules](../AGENT_RULES.md) and [handoff rules](../HANDOFF_AND_INTEGRATION.md) before any further work.
 
 ## Outcome
 
@@ -23,7 +26,7 @@ Allowed areas: focused pricing owner and decision records with executable decisi
 
 ## Decisions/prerequisites
 
-Choose priced identity, quantity/unit/currency/validity context; precedence, fallback and conflict among default, organization/program, wholesale, negotiated quote and permitted final/resale prices. Decide reason evidence, floors/ceilings, approval and draft revalidation.
+Owner decisions were closed on 2026-10-06: stable item/unit/currency/context/validity, committed owning fact then Customer/Program/Organization/Wholesale/Default precedence, no zero/newest fallback, required override reason, versioned absolute/percentage envelope with elevated exceptions, and pre-commit revalidation. Canonical contract/executable examples: [PRICING_POLICY_AND_PUBLICATION.md](../../implementation/PRICING_POLICY_AND_PUBLICATION.md). COM-007 implements persistence; this decision task does not imply future quotation, discount or approval runtime.
 
 ## Acceptance and edge cases
 

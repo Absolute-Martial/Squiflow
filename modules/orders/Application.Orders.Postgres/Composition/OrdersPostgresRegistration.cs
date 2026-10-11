@@ -14,9 +14,17 @@ public static class OrdersPostgresRegistration
             PostgresOrderOptions.Configure(
                 options,
                 serviceProvider.GetRequiredService<NpgsqlDataSource>()));
-        services.AddScoped<PostgresOrderDraftStore>();
+        services.AddScoped(provider => new PostgresOrderDraftStore(
+            provider.GetRequiredService<NpgsqlDataSource>(), provider.GetService<TimeProvider>(),
+            provider.GetService<IOrderCommercialCommitGuard>(), provider.GetRequiredService<IOrderProfilePolicySource>(),
+            provider.GetService<IOrderApprovalAuthority>()));
+        services.AddScoped<IOrderApprovalStore>(provider => provider.GetRequiredService<PostgresOrderDraftStore>());
+        services.AddScoped<IOrderProgramReferenceStore>(provider => provider.GetRequiredService<PostgresOrderDraftStore>());
+        services.AddScoped<SetOrderProgramReference>();
         services.AddScoped<IOrderDraftStore>(provider => provider.GetRequiredService<PostgresOrderDraftStore>());
         services.AddScoped<IOrderDraftHistoryStore>(provider => provider.GetRequiredService<PostgresOrderDraftStore>());
+        services.AddScoped<IOrderDraftReceiptReader>(provider => provider.GetRequiredService<PostgresOrderDraftStore>());
+        services.AddScoped<CatalogOrderDraftApplication>();
         services.AddScoped<GetOrderDraftHistory>();
         services.AddScoped<CreateOrderDraft>();
         services.AddScoped<GetOrderDraft>();

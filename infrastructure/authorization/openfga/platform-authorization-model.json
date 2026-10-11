@@ -44,6 +44,34 @@
             "relation": "administrator"
           }
         },
+        "can_publish_tenant_profile": {
+          "intersection": {
+            "child": [
+              {
+                "this": {}
+              },
+              {
+                "computedUserset": {
+                  "relation": "can_access_admin"
+                }
+              }
+            ]
+          }
+        },
+        "can_activate_tenant_profile": {
+          "intersection": {
+            "child": [
+              {
+                "this": {}
+              },
+              {
+                "computedUserset": {
+                  "relation": "can_access_admin"
+                }
+              }
+            ]
+          }
+        },
         "can_read_tenants": {
           "union": {
             "child": [
@@ -113,6 +141,20 @@
           },
           "can_manage_tenant_lifecycle": {
             "directly_related_user_types": []
+          },
+          "can_publish_tenant_profile": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
+          },
+          "can_activate_tenant_profile": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
           },
           "can_read_tenants": {
             "directly_related_user_types": [

@@ -35,11 +35,13 @@ runs every verification project declared for that host in `eng/hosts.tsv`.
 - AdminApi -> `Application.AdminApi.Tests`.
 - AdminBootstrap -> `Application.AdminBootstrap.Tests`.
 - DbMigrator -> IdentityAccess, Tenancy, Customers, PlatformAdministration through
-  AdminBootstrap, and Orders PostgreSQL/migration regressions.
+  AdminBootstrap, Orders and Fulfillment PostgreSQL/migration regressions.
 
-The DbMigrator breadth is deliberate. `MigrationModules.All` applies five module
-schemas, so testing only IdentityAccess was not a complete independent migrator
-graph. Host verification does not replace the full repository gate and does not
+The DbMigrator breadth is deliberate. `MigrationModules.All` is the current
+registered schema authority; generic migration-registry/lifecycle tests cover
+that complete registry, while the declared native owner suites cover their
+selected persistence invariants. Adding Fulfillment also adds its native suite
+to this host guard. Testing only IdentityAccess would omit those owner checks. Host verification does not replace the full repository gate and does not
 imply deployment qualification.
 
 `build-host.sh --publish` removes the previous host output, publishes from the
@@ -112,6 +114,15 @@ The normal repository job, every current host job, architecture job and scoped
 mutation job are independent GitHub jobs. Host matrix `fail-fast` is disabled.
 Failure of one host does not erase another host's independently produced result.
 The repository compatibility job remains the integrated signal.
+
+The repository job has a 60-minute budget for the complete coverage-enabled
+gate; host and mutation jobs retain their 30-minute budgets. On 2026-10-11,
+GitHub run `38138736532` reached the former 30-minute limit while the normal
+PostgreSQL suites were progressing, after the completed suites had passed.
+The expanded commercial test graph needs room to finish coverage collection and
+review. This changes only the job deadline: every test, coverage review and
+failure condition remains required. Requalify the budget when the test graph or
+runner changes.
 
 Coverage and mutation artifacts contain source/testing diagnostics and are kept
 for 14 days. They must not contain production credentials or unrestricted

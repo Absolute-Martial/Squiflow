@@ -20,6 +20,22 @@ internal static class CoreApiAuthorizationRegistration
             serviceProvider.GetRequiredService<OpenFgaTenantAuthorization>());
         services.AddSingleton<ITenantCustomerAuthorization>(serviceProvider =>
             serviceProvider.GetRequiredService<OpenFgaTenantAuthorization>());
+        services.AddSingleton<ITenantCatalogAuthorization>(serviceProvider =>
+            serviceProvider.GetRequiredService<OpenFgaTenantAuthorization>());
+        services.AddSingleton<ITenantPricingAuthorization>(serviceProvider =>
+            serviceProvider.GetRequiredService<OpenFgaTenantAuthorization>());
+        services.AddSingleton<ITenantProfilePolicyAuthorization>(serviceProvider =>
+            serviceProvider.GetRequiredService<OpenFgaTenantAuthorization>());
+        services.AddSingleton<ITenantOrderApprovalAuthorization>(serviceProvider =>
+            serviceProvider.GetRequiredService<OpenFgaTenantAuthorization>());
+        services.AddSingleton<ITenantOrderFulfillmentAuthorization>(serviceProvider =>
+            serviceProvider.GetRequiredService<OpenFgaTenantAuthorization>());
+        services.AddSingleton<ITenantPurchasingAuthorization>(serviceProvider =>
+            serviceProvider.GetRequiredService<OpenFgaTenantAuthorization>());
+        services.AddScoped<IAuthorizationHandler, TenantPurchasingAuthorizationHandler>();
+        services.AddSingleton<ITenantInvoiceAuthorization>(serviceProvider =>
+            serviceProvider.GetRequiredService<OpenFgaTenantAuthorization>());
+        services.AddScoped<IAuthorizationHandler, TenantInvoiceAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, ViewTenantWorkspaceAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, CreateOrderAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, ViewOrdersAuthorizationHandler>();
@@ -34,7 +50,26 @@ internal static class CoreApiAuthorizationRegistration
         services.AddScoped<IAuthorizationHandler, CreateIndividualAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, ViewIndividualsAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, ChangeIndividualAvailabilityAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, EditIndividualContactAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, ViewRepresentativesAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, ManageRepresentativesAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, ResolveCustomerDuplicatesAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, ConsolidateCustomerDuplicatesAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, ImportCustomersAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, ViewCatalogAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, ManageCatalogAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, ViewPricingAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, EditPricingDraftAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, PublishPricingAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, RetirePricingAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, TenantProfilePolicyAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, TenantOrderApprovalAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, TenantOrderFulfillmentAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, OverridePricingAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, OverrideBeyondPolicyPricingAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, ManageTenantRolesAuthorizationHandler>();
+        services.AddScoped<Application.Quotations.IQuotationAuthority, QuotationAuthority>();
+        services.AddScoped<IAuthorizationHandler, QuotationAuthorizationHandler>();
         services.AddAuthorization();
 
         return services;

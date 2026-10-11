@@ -15,6 +15,11 @@ internal static class CustomerIndividualRoutes
             "GetTenantCustomerIndividual", EndpointAccess.AuthorizedCustomerIndividualRead)
             .WithSummary("Reads one tenant-owned individual customer record.")
             .Produces<CustomerIndividualResponse>(200).ProducesProblem(404);
+        Configure(app.MapPost("/api/v1/tenants/{tenantId:guid}/customers/individuals/{individualId:guid}/contact", TenantCustomerIndividualEndpoint.EditContactAsync),
+            "EditTenantCustomerIndividualContact", EndpointAccess.AuthorizedCustomerIndividualContactEdit)
+            .WithSummary("Replaces bounded individual customer contact fields using a current revision.")
+            .WithDescription("Requires can_edit_individual_contact independently of create, view and availability permissions. The operation is caller-scoped idempotent and records contact-change actor/time without changing login or debtor authority.")
+            .Produces<CustomerIndividualResponse>(200).ProducesProblem(404).ProducesProblem(409);
         Configure(app.MapPost("/api/v1/tenants/{tenantId:guid}/customers/individuals/{individualId:guid}/availability", TenantCustomerIndividualEndpoint.ChangeAvailabilityAsync),
             "ChangeTenantCustomerIndividualAvailability", EndpointAccess.AuthorizedCustomerIndividualAvailability)
             .WithSummary("Changes individual availability using a current revision and Idempotency-Key.")

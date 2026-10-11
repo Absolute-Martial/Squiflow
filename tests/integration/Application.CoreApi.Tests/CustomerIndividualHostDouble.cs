@@ -37,6 +37,42 @@ internal sealed partial class TestCustomerStore
         }
     }
 
+    public Task<EditCustomerIndividualContactResult> EditIndividualContactAsync(
+        TenantContext context, CustomerIndividualContactIntent intent, string idempotencyKey, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        lock (_gate)
+        {
+            Count(context.TenantId);
+            var key = (context.TenantId, context.AccountId, "individual-contact", idempotencyKey);
+            if (_receipts.TryGetValue(key, out var receipt))
+                return Task.FromResult(receipt.Fingerprint == intent.Fingerprint
+                    ? new EditCustomerIndividualContactResult(EditCustomerIndividualContactStatus.Replayed, (CustomerIndividualSnapshot)receipt.Value)
+                    : new EditCustomerIndividualContactResult(EditCustomerIndividualContactStatus.IdempotencyKeyConflict, null));
+            if (!_individuals.TryGetValue((context.TenantId, intent.IndividualId), out var current))
+                return Task.FromResult(new EditCustomerIndividualContactResult(EditCustomerIndividualContactStatus.NotFound, null));
+            // Mirrors the store: a consolidated source is not a writable customer row.
+            if (current.RedirectTargetIndividualId.HasValue)
+                return Task.FromResult(new EditCustomerIndividualContactResult(EditCustomerIndividualContactStatus.NotFound, null));
+            if (current.Revision != intent.ExpectedRevision)
+                return Task.FromResult(new EditCustomerIndividualContactResult(EditCustomerIndividualContactStatus.RevisionConflict, current));
+            if (current.DisplayName == intent.DisplayName && current.Email == intent.Email && current.Phone == intent.Phone)
+                return Task.FromResult(new EditCustomerIndividualContactResult(EditCustomerIndividualContactStatus.NoChange, current));
+            var changed = current with
+            {
+                DisplayName = intent.DisplayName,
+                Email = intent.Email,
+                Phone = intent.Phone,
+                Revision = current.Revision + 1,
+                ContactChangedAt = DateTimeOffset.UtcNow,
+                ContactChangedByAccountId = context.AccountId
+            };
+            _individuals[(context.TenantId, intent.IndividualId)] = changed;
+            _receipts.Add(key, (intent.Fingerprint, changed));
+            return Task.FromResult(new EditCustomerIndividualContactResult(EditCustomerIndividualContactStatus.Changed, changed));
+        }
+    }
+
     public Task<ChangeCustomerIndividualAvailabilityResult> ChangeIndividualAvailabilityAsync(TenantContext context,
         CustomerIndividualAvailabilityIntent intent, string idempotencyKey, CancellationToken ct)
     {
@@ -50,6 +86,8 @@ internal sealed partial class TestCustomerStore
                     ? new ChangeCustomerIndividualAvailabilityResult(ChangeCustomerIndividualAvailabilityStatus.Replayed, (CustomerIndividualSnapshot)receipt.Value)
                     : new ChangeCustomerIndividualAvailabilityResult(ChangeCustomerIndividualAvailabilityStatus.IdempotencyKeyConflict, null));
             if (!_individuals.TryGetValue((context.TenantId, intent.IndividualId), out var current))
+                return Task.FromResult(new ChangeCustomerIndividualAvailabilityResult(ChangeCustomerIndividualAvailabilityStatus.NotFound, null));
+            if (current.RedirectTargetIndividualId.HasValue)
                 return Task.FromResult(new ChangeCustomerIndividualAvailabilityResult(ChangeCustomerIndividualAvailabilityStatus.NotFound, null));
             if (current.Revision != intent.ExpectedRevision)
                 return Task.FromResult(new ChangeCustomerIndividualAvailabilityResult(ChangeCustomerIndividualAvailabilityStatus.RevisionConflict, null));
@@ -65,6 +103,21 @@ internal sealed partial class TestCustomerStore
             _individuals[(context.TenantId, intent.IndividualId)] = changed;
             _receipts.Add(key, (intent.Fingerprint, changed));
             return Task.FromResult(new ChangeCustomerIndividualAvailabilityResult(ChangeCustomerIndividualAvailabilityStatus.Changed, changed));
+        }
+    }
+
+    // Stands in for a completed forward consolidation so the read projection can be
+    // observed without depending on the real PostgreSQL adapter.
+    public void ConsolidateIndividual(Guid tenantId, Guid sourceId, Guid canonicalId)
+    {
+        lock (_gate)
+        {
+            var source = _individuals[(tenantId, sourceId)];
+            _individuals[(tenantId, sourceId)] = source with
+            {
+                RedirectTargetIndividualId = canonicalId,
+                Revision = source.Revision + 1
+            };
         }
     }
 }

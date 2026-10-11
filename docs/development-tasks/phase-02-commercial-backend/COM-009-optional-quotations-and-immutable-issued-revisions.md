@@ -2,12 +2,12 @@
 
 Task ID: COM-009
 Phase: 02-commercial-backend
-Status: DECISION_REQUIRED
+Status: VERIFY_EXISTING
 Model: GPT-6.1 Sol
 Dependencies: COM-007
 Release requirement: REQUIRED
 
-Planned assignment only. Apply [agent rules](../AGENT_RULES.md) and [handoff rules](../HANDOFF_AND_INTEGRATION.md).
+Implementation and scoped receiving qualification are retained in [COM-009 receipt](../../review/COM_009_IMPLEMENTATION_RECEIPT.md). Scheduling status remains verification of existing source. Apply [agent rules](../AGENT_RULES.md) and [handoff rules](../HANDOFF_AND_INTEGRATION.md).
 
 ## Outcome
 
@@ -23,7 +23,7 @@ Allowed areas: quotation-owned draft/issue/revision contracts, pricing integrati
 
 ## Decisions/prerequisites
 
-Decide first quotation fields, numbering, validity, business timezone, issuing authority and revision/supersession behavior. Document bytes/templates are OPS-009 only when required; issue facts must not depend on rendering success.
+The owner accepted [QUOTATIONS_AND_CONVERSION.md](../../implementation/QUOTATIONS_AND_CONVERSION.md) on 2026-10-07: tenant-wide numbers, explicit-offset expiry, independent issue authority and immutable revisions. Review the introduced COM-009 implementation and receiving evidence against that contract. Document bytes/templates are OPS-009 only when required; issue facts must not depend on rendering success.
 
 ## Acceptance and edge cases
 

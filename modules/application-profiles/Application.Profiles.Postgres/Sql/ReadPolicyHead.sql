@@ -1,0 +1,1 @@
+SELECT revision,require_reference,require_approval,published_policy_id FROM profiles.policy_heads WHERE tenant_id=@tenant

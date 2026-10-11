@@ -2,9 +2,11 @@
 
 **Version:** v0.0.1
 
-**Status:** Accepted workflow semantics; workflow runtime and configurable workflow implementation remain `NOT_INTRODUCED`.
+**Status:** Accepted workflow semantics. The fixed typed COM-011 policy and bounded profile prerequisites are locally `PRODUCTION_HONEST` under their [qualification receipt](../review/COM_011_IMPLEMENTATION_RECEIPT.md); the accepted COM-012/013 approval/admission extension is locally `PRODUCTION_HONEST` under its [qualification receipt](../review/COM_012_013_IMPLEMENTATION_RECEIPT.md), and a general workflow runtime remains `NOT_INTRODUCED`.
 
 Design workflows from the user's continuation journey, not from a diagram alone.
+
+The owner accepted **required customer-supplied reference text before commitment of an Order already attributed to a program** as the first COM-011 variation on 2026-10-08. It is separate from internal `ProgramId`. The fixed Boolean policy, 128-scalar reference bounds, tenant-policy permissions, profile publication/activation boundary, and legacy-draft false-baseline treatment are accepted and locally qualified for their declared scope. See the canonical [Order program reference policy](../implementation/ORDER_PROGRAM_REFERENCE_POLICY.md), [accepted profile decision package](../review/COM_011_PROFILE_PREREQUISITE_DECISION_PROPOSAL.md) and [implementation receipt](../review/COM_011_IMPLEMENTATION_RECEIPT.md). The approval/admission extension follows the [accepted contract](../review/COM_012_013_DECISION_PROPOSAL.md) and is locally qualified for its bounded API continuation scope.
 
 ## 1. Continuation-first questions
 

@@ -2,12 +2,15 @@
 
 Task ID: COM-003
 Phase: 02-commercial-backend
-Status: DECISION_REQUIRED
+Status: VERIFY_EXISTING
+Runtime state: PRODUCTION_HONEST for the declared local scope
 Model: GPT-6.1 Sol
 Dependencies: COM-002
 Release requirement: REQUIRED
 
-Planned assignment only. Apply [agent rules](../AGENT_RULES.md) and [handoff rules](../HANDOFF_AND_INTEGRATION.md).
+`Status` above is the scheduling value defined by [`ORCHESTRATOR.md`](../ORCHESTRATOR.md): this task is no longer an undispatched planned assignment, because its implementation exists in the current receiving tree and awaits accountable owner review/acceptance. The runtime gate state is recorded separately above and is owned by [`CUSTOMER_DUPLICATES_AND_IMPORTS_SLICE.md`](../../implementation/CUSTOMER_DUPLICATES_AND_IMPORTS_SLICE.md). Exact local evidence is recorded in [`README.IMPLEMENTATION.md`](../../../README.IMPLEMENTATION.md) and [`TASK_STATUS.md`](../TASK_STATUS.md).
+
+Apply [agent rules](../AGENT_RULES.md) and [handoff rules](../HANDOFF_AND_INTEGRATION.md) before any further work.
 
 ## Outcome
 
@@ -23,7 +26,7 @@ Allowed areas: Customers-owned duplicate suggestions and one explicitly selected
 
 ## Decisions/prerequisites
 
-Decide matching inputs, authorized survivor selection and whether the first release supports consolidation or only explicit keep-separate resolution. Resolve linked programs, contacts and future references before allowing any merge.
+Owner decisions were closed on 2026-10-06: support both explicit keep-separate and manual canonicalization, nonunique normalized signals, independent resolve/consolidate authority and immutable historical facts. Current implementation/evidence and forward redirect semantics are owned by [CUSTOMER_DUPLICATES_AND_IMPORTS_SLICE.md](../../implementation/CUSTOMER_DUPLICATES_AND_IMPORTS_SLICE.md), not inferred from this scheduling status.
 
 ## Acceptance and edge cases
 

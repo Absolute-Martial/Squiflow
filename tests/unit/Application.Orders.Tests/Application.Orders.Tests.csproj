@@ -14,5 +14,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../../modules/orders/Application.Orders/Application.Orders.csproj" />
+    <ProjectReference Include="../../../modules/catalog/Application.Catalog/Application.Catalog.csproj" />
+    <ProjectReference Include="../../../modules/pricing/Application.Pricing/Application.Pricing.csproj" />
   </ItemGroup>
 </Project>

@@ -15,7 +15,7 @@ Apply one accepted tenant grant, verify its authoritative effect and atomically 
 
 ## Current basis and canonical inputs
 
-AdminBootstrap already demonstrates duplicate-safe pinned-model writes and higher-consistency confirmation for one initial platform relation. Tenant grant administration must re-earn its own accepted scope and cannot reuse bootstrap as a universal role writer. Read [README.IMPLEMENTATION.md](../../../README.IMPLEMENTATION.md) and [OpenFgaInitialPlatformAdministratorProvisioner.cs](../../../services/admin-bootstrap/Application.AdminBootstrap/OpenFgaInitialPlatformAdministratorProvisioner.cs); [1D_AUTHORIZATION_CHANGE_RECONCILIATION_AND_FAILURE.md](../../implementation/phases/phase-1/1D_AUTHORIZATION_CHANGE_RECONCILIATION_AND_FAILURE.md); [ADMIN_SURFACES.md](../../admin/ADMIN_SURFACES.md).
+AdminBootstrap already demonstrates duplicate-safe pinned-model writes and higher-consistency confirmation for one initial platform relation. Tenant grant administration must re-earn its own accepted scope and cannot reuse bootstrap as a universal role writer. Read [README.IMPLEMENTATION.md](../../../README.IMPLEMENTATION.md) and [OpenFgaInitialPlatformAdministratorProvisioner.cs](../../../operations/admin-bootstrap/Application.AdminBootstrap/OpenFgaInitialPlatformAdministratorProvisioner.cs); [1D_AUTHORIZATION_CHANGE_RECONCILIATION_AND_FAILURE.md](../../implementation/phases/phase-1/1D_AUTHORIZATION_CHANGE_RECONCILIATION_AND_FAILURE.md); [ADMIN_SURFACES.md](../../admin/ADMIN_SURFACES.md).
 
 ## Scope and exclusions
 

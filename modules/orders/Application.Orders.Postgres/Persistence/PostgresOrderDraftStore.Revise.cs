@@ -29,9 +29,13 @@ public sealed partial class PostgresOrderDraftStore
             ReviseOperation, idempotencyKey, cancellationToken).ConfigureAwait(false);
         if (receipt is not null)
         {
+            var replayResult = await ToExistingReviseResultAsync(session, tenantContext, receipt, fingerprint, cancellationToken).ConfigureAwait(false);
             await session.CommitAsync(cancellationToken).ConfigureAwait(false);
-            return ToExistingReviseResult(receipt, fingerprint);
+            return replayResult;
         }
+
+        if (await ReadQuotationOriginAsync(session, tenantContext.TenantId, request.OrderId, cancellationToken).ConfigureAwait(false) is not null)
+            return new(ReviseOrderDraftStatus.QuotationBound, null);
 
         await using (var update = session.CreateCommand(OrderSql.TryReviseOrder))
         {
@@ -57,8 +61,9 @@ public sealed partial class PostgresOrderDraftStore
                     ReviseOperation, idempotencyKey, cancellationToken).ConfigureAwait(false);
                 if (receipt is not null)
                 {
+                    var replayResult = await ToExistingReviseResultAsync(session, tenantContext, receipt, fingerprint, cancellationToken).ConfigureAwait(false);
                     await session.CommitAsync(cancellationToken).ConfigureAwait(false);
-                    return ToExistingReviseResult(receipt, fingerprint);
+                    return replayResult;
                 }
 
                 var current = await FindOrderStateAsync(
@@ -79,10 +84,11 @@ public sealed partial class PostgresOrderDraftStore
         }
 
         var headerWithOldLines = await FindOrderAsync(
-            session, tenantContext.TenantId, request.OrderId, cancellationToken)
+            session, tenantContext.TenantId, request.OrderId, cancellationToken, validateCommercialFacts: false)
             .ConfigureAwait(false)
             ?? throw new InvalidOperationException("The revised order disappeared before line replacement.");
         var order = headerWithOldLines with { Lines = intent.Lines };
+        OrderCommercialFactsValidation.RequireValid(order);
         await using (var delete = session.CreateCommand(OrderSql.DeleteLines))
         {
             delete.Parameters.AddWithValue("tenant_id", tenantContext.TenantId);
@@ -93,7 +99,7 @@ public sealed partial class PostgresOrderDraftStore
         await InsertLinesAsync(session, order, cancellationToken).ConfigureAwait(false);
         if (await TryInsertReceiptAsync(
             session, tenantContext.AccountId, ReviseOperation, idempotencyKey,
-            fingerprint, order, _timeProvider.GetUtcNow(), cancellationToken).ConfigureAwait(false))
+            fingerprint, order, UtcNow(), cancellationToken).ConfigureAwait(false))
         {
             await session.CommitAsync(cancellationToken).ConfigureAwait(false);
             return new ReviseOrderDraftResult(ReviseOrderDraftStatus.Revised, order);
@@ -103,7 +109,8 @@ public sealed partial class PostgresOrderDraftStore
             session, tenantContext.TenantId, tenantContext.AccountId,
             ReviseOperation, idempotencyKey, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("The order command receipt disappeared after a conflict.");
+        var conflictResult = await ToExistingReviseResultAsync(session, tenantContext, receipt, fingerprint, cancellationToken).ConfigureAwait(false);
         await session.RollbackAsync(cancellationToken).ConfigureAwait(false);
-        return ToExistingReviseResult(receipt, fingerprint);
+        return conflictResult;
     }
 }

@@ -18,9 +18,28 @@ public static class CustomersPostgresRegistration
         services.AddScoped<ListCustomerPrograms>();
         services.AddScoped<ResolveCustomerOrderContext>();
         services.AddScoped<ICustomerIndividualStore, PostgresCustomerStore>();
+        services.AddScoped<ICustomerIndividualContactStore, PostgresCustomerStore>();
         services.AddScoped<CreateCustomerIndividual>();
         services.AddScoped<GetCustomerIndividual>();
+        services.AddScoped<EditCustomerIndividualContact>();
         services.AddScoped<ChangeCustomerIndividualAvailability>();
+        services.AddScoped<ICustomerRepresentativeStore, PostgresCustomerStore>();
+        services.AddScoped<LinkCustomerRepresentative>();
+        services.AddScoped<GetCustomerRepresentative>();
+        services.AddScoped<UnlinkCustomerRepresentative>();
+        services.AddScoped<ICustomerDuplicateDiscoveryStore, PostgresCustomerStore>();
+        services.AddScoped<ICustomerDuplicateResolutionStore, PostgresCustomerStore>();
+        services.AddScoped<ICustomerDuplicateConsolidationStore, PostgresCustomerStore>();
+        services.AddScoped<ICustomerCanonicalDirectory, PostgresCustomerStore>();
+        services.AddScoped<FindCustomerDuplicates>();
+        services.AddScoped<ResolveCustomerDuplicate>();
+        services.AddScoped<ConsolidateCustomerDuplicate>();
+        services.AddScoped<ICustomerImportStore, PostgresCustomerStore>();
+        services.AddScoped<ICustomerImportWorkStore, PostgresCustomerStore>();
+        services.AddScoped<ICustomerImportWorkDiscovery, PostgresCustomerStore>();
+        services.AddScoped<CreateCustomerImport>();
+        services.AddScoped<ExecuteCustomerImport>();
+        services.AddScoped<RunCustomerImportBatch>();
         return services;
     }
 }

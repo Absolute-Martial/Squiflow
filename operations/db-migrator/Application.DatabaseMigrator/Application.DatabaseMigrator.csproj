@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <NoWarn>$(NoWarn);CA1303</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../modules/purchasing/Application.Purchasing.Postgres/Application.Purchasing.Postgres.csproj" />
+    <ProjectReference Include="../../../modules/invoices/Application.Invoices.Postgres/Application.Invoices.Postgres.csproj" />
+    <ProjectReference Include="../../../modules/fulfillment/Application.Fulfillment.Postgres/Application.Fulfillment.Postgres.csproj" />
+    <PackageReference Include="Npgsql" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../modules/application-profiles/Application.Profiles.Postgres/Application.Profiles.Postgres.csproj" />
+    <ProjectReference Include="../../../modules/quotations/Application.Quotations.Postgres/Application.Quotations.Postgres.csproj" />
+    <ProjectReference Include="../../../modules/catalog/Application.Catalog.Postgres/Application.Catalog.Postgres.csproj" />
+    <ProjectReference Include="../../../modules/customers/Application.Customers.Postgres/Application.Customers.Postgres.csproj" />
+    <ProjectReference Include="../../../modules/identity-access/Application.IdentityAccess.Postgres/Application.IdentityAccess.Postgres.csproj" />
+    <ProjectReference Include="../../../modules/orders/Application.Orders.Postgres/Application.Orders.Postgres.csproj" />
+    <ProjectReference Include="../../../modules/platform-administration/Application.PlatformAdministration.Postgres/Application.PlatformAdministration.Postgres.csproj" />
+    <ProjectReference Include="../../../modules/pricing/Application.Pricing.Postgres/Application.Pricing.Postgres.csproj" />
+    <ProjectReference Include="../../../modules/tenancy/Application.Tenancy.Postgres/Application.Tenancy.Postgres.csproj" />
+  </ItemGroup>
+</Project>

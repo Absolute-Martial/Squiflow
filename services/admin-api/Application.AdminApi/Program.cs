@@ -36,6 +36,9 @@ builder.Services.AddSingleton<NpgsqlDataSource>(_ =>
 builder.Services.AddIdentityAccessPostgres();
 builder.Services.AddPlatformAdministrationPostgres();
 builder.Services.AddTenancyPostgres();
+Application.Profiles.Postgres.ProfilesPostgresRegistration.AddProfilesPostgres(builder.Services);
+builder.Services.AddScoped<Application.Orders.Postgres.IOrderProfilePolicySource, Application.AdminApi.OrderProfilePolicySource>();
+builder.Services.AddScoped<Application.Orders.Postgres.PostgresOrderDraftStore>();
 builder.Services.AddAdminApiAuthentication(authenticationConfiguration);
 builder.Services.AddAdminApiAuthorization(authorizationConfiguration);
 builder.Services.AddAdminIdentityProvisioning(
@@ -207,6 +210,21 @@ app.MapGet("/api/v1/platform/tenants/{tenantId:guid}/memberships/{accountId:guid
     .WithMetadata(new AdminEndpointAuditMetadata(AdminEndpointAuditOperation.RegistryMembershipDetail))
     .RequireAuthorization()
     .RequireRateLimiting(AdminApiAdmission.PolicyName);
+
+app.MapTenantProfileEndpoints();
+app.MapPost("/api/v1/platform/tenants/{tenantId:guid}/profiles/legacy-orders/{orderId:guid}/assign",
+        LegacyOrderProfileAssignmentEndpoint.PostAsync)
+    .WithName("AssignLegacyOrderProfile")
+    .WithMetadata(new AdminEndpointAccessMetadata(AdminEndpointAccess.ProtectedPlatformAdministration))
+    .WithMetadata(new AdminEndpointPermissionMetadata(PlatformAdminPermission.ActivateTenantProfile))
+    .WithMetadata(new AdminEndpointAuditMetadata(AdminEndpointAuditOperation.LegacyOrderProfileAssignment))
+    .RequireAuthorization()
+    .RequireRateLimiting(AdminApiAdmission.PolicyName)
+    .ProducesProblem(StatusCodes.Status400BadRequest)
+    .ProducesProblem(StatusCodes.Status403Forbidden)
+    .ProducesProblem(StatusCodes.Status404NotFound)
+    .ProducesProblem(StatusCodes.Status409Conflict)
+    .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
 app.ValidateAdminApiEndpointAccess();
 

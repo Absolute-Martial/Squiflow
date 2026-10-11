@@ -43,6 +43,7 @@ public sealed class OrderRevisionEndpointTests : IClassFixture<WhiteLabelApiFact
         Assert.Equal(HttpStatusCode.OK, first.StatusCode);
         Assert.Equal("no-store", first.Headers.CacheControl?.ToString());
         Assert.Equal(2, revised.RootElement.GetProperty("revision").GetInt64());
+        Assert.False(revised.RootElement.TryGetProperty("quotationOrigin", out _));
         Assert.Equal("Updated", revised.RootElement.GetProperty("summary").GetString());
         Assert.Equal(organizationId, revised.RootElement.GetProperty("customerContext").GetProperty("organizationId").GetGuid());
         Assert.Equal(programId, revised.RootElement.GetProperty("customerContext").GetProperty("programId").GetGuid());

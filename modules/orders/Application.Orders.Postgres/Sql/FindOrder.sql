@@ -1,5 +1,6 @@
-SELECT id, tenant_id, created_by_account_id, summary, currency_code, total, revision, created_at,
-       state, abandoned_at, abandoned_by_account_id,
-       customer_organization_id, customer_program_id, committed_at, committed_by_account_id
-FROM orders.order_drafts
-WHERE tenant_id = @tenant_id AND id = @id
+SELECT d.id,d.tenant_id,d.created_by_account_id,d.summary,d.currency_code,d.total,d.revision,d.created_at,
+       d.state,d.abandoned_at,d.abandoned_by_account_id,d.customer_organization_id,d.customer_program_id,
+       d.committed_at,d.committed_by_account_id,
+       o.quotation_id,o.issued_revision_id,o.number AS quotation_number,o.revision_number AS quotation_revision_number
+FROM orders.order_drafts d LEFT JOIN orders.quotation_origins o ON o.tenant_id=d.tenant_id AND o.order_id=d.id
+WHERE d.tenant_id=@tenant_id AND d.id=@id;

@@ -51,6 +51,158 @@
         "order_committer": {
           "this": {}
         },
+        "order_approval_submitter": {
+          "this": {}
+        },
+        "order_approval_viewer": {
+          "this": {}
+        },
+        "order_approval_decider": {
+          "this": {}
+        },
+        "order_approval_recoverer": {
+          "this": {}
+        },
+        "order_fulfillment_viewer": {
+          "this": {}
+        },
+        "work_recorder": {
+          "this": {}
+        },
+        "handoff_recorder": {
+          "this": {}
+        },
+        "corrector": {
+          "this": {}
+        },
+        "can_submit_order_approval": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "order_approval_submitter"
+                }
+              }
+            ]
+          }
+        },
+        "can_view_order_approvals": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "order_approval_viewer"
+                }
+              }
+            ]
+          }
+        },
+        "can_decide_order_approval": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "order_approval_decider"
+                }
+              }
+            ]
+          }
+        },
+        "can_recover_order_approval": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "order_approval_recoverer"
+                }
+              }
+            ]
+          }
+        },
+        "can_view_order_fulfillment": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "order_fulfillment_viewer"
+                }
+              }
+            ]
+          }
+        },
+        "can_record_order_work": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "work_recorder"
+                }
+              }
+            ]
+          }
+        },
+        "can_record_order_handoff": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "handoff_recorder"
+                }
+              }
+            ]
+          }
+        },
+        "can_correct_order_fulfillment": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "corrector"
+                }
+              }
+            ]
+          }
+        },
         "can_view_workspace": {
           "intersection": {
             "child": [
@@ -298,6 +450,614 @@
               }
             ]
           }
+        },
+        "individual_contact_editor": {
+          "this": {}
+        },
+        "can_edit_individual_contact": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "individual_contact_editor"
+                }
+              }
+            ]
+          }
+        },
+        "representative_viewer": {
+          "this": {}
+        },
+        "can_view_representatives": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "representative_viewer"
+                }
+              }
+            ]
+          }
+        },
+        "customer_duplicate_resolver": {
+          "this": {}
+        },
+        "can_resolve_customer_duplicates": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "customer_duplicate_resolver"
+                }
+              }
+            ]
+          }
+        },
+        "customer_duplicate_consolidator": {
+          "this": {}
+        },
+        "can_consolidate_customer_duplicates": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "customer_duplicate_consolidator"
+                }
+              }
+            ]
+          }
+        },
+        "customer_importer": {
+          "this": {}
+        },
+        "can_import_customers": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "customer_importer"
+                }
+              }
+            ]
+          }
+        },
+        "catalog_viewer": {
+          "this": {}
+        },
+        "can_view_catalog": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "catalog_viewer"
+                }
+              }
+            ]
+          }
+        },
+        "catalog_editor": {
+          "this": {}
+        },
+        "can_manage_catalog": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "catalog_editor"
+                }
+              }
+            ]
+          }
+        },
+        "pricing_viewer": {
+          "this": {}
+        },
+        "can_view_pricing": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "pricing_viewer"
+                }
+              }
+            ]
+          }
+        },
+        "profile_policy_viewer": {
+          "this": {}
+        },
+        "can_view_tenant_profile_policy": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "profile_policy_viewer"
+                }
+              }
+            ]
+          }
+        },
+        "profile_policy_editor": {
+          "this": {}
+        },
+        "can_edit_tenant_profile_policy": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "profile_policy_editor"
+                }
+              }
+            ]
+          }
+        },
+        "profile_policy_publisher": {
+          "this": {}
+        },
+        "can_publish_tenant_profile_policy": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "profile_policy_publisher"
+                }
+              }
+            ]
+          }
+        },
+        "pricing_draft_editor": {
+          "this": {}
+        },
+        "can_edit_pricing_draft": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "pricing_draft_editor"
+                }
+              }
+            ]
+          }
+        },
+        "pricing_publisher": {
+          "this": {}
+        },
+        "can_publish_pricing": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "pricing_publisher"
+                }
+              }
+            ]
+          }
+        },
+        "pricing_retirer": {
+          "this": {}
+        },
+        "can_retire_pricing": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "pricing_retirer"
+                }
+              }
+            ]
+          }
+        },
+        "pricing_overrider": {
+          "this": {}
+        },
+        "can_override_pricing": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "pricing_overrider"
+                }
+              }
+            ]
+          }
+        },
+        "pricing_exception_overrider": {
+          "this": {}
+        },
+        "can_override_pricing_beyond_policy": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "pricing_exception_overrider"
+                }
+              }
+            ]
+          }
+        },
+        "quotation_creator": {
+          "this": {}
+        },
+        "can_create_quotation": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "quotation_creator"
+                }
+              }
+            ]
+          }
+        },
+        "quotation_editor": {
+          "this": {}
+        },
+        "can_edit_quotation": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "quotation_editor"
+                }
+              }
+            ]
+          }
+        },
+        "quotation_viewer": {
+          "this": {}
+        },
+        "can_view_quotations": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "quotation_viewer"
+                }
+              }
+            ]
+          }
+        },
+        "quotation_issuer": {
+          "this": {}
+        },
+        "can_issue_quotation": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "quotation_issuer"
+                }
+              }
+            ]
+          }
+        },
+        "quotation_responder": {
+          "this": {}
+        },
+        "can_respond_quotation": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "quotation_responder"
+                }
+              }
+            ]
+          }
+        },
+        "quotation_expirer": {
+          "this": {}
+        },
+        "can_expire_quotation": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "quotation_expirer"
+                }
+              }
+            ]
+          }
+        },
+        "quotation_converter": {
+          "this": {}
+        },
+        "can_convert_quotation": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "quotation_converter"
+                }
+              }
+            ]
+          }
+        },
+        "representative_manager": {
+          "this": {}
+        },
+        "can_manage_representatives": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "representative_manager"
+                }
+              }
+            ]
+          }
+        },
+        "supplier_viewer": {
+          "this": {}
+        },
+        "can_view_purchasing_suppliers": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "supplier_viewer"
+                }
+              }
+            ]
+          }
+        },
+        "supplier_editor": {
+          "this": {}
+        },
+        "can_manage_purchasing_suppliers": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "supplier_editor"
+                }
+              }
+            ]
+          }
+        },
+        "purchase_request_recorder": {
+          "this": {}
+        },
+        "can_record_purchase_requests": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "purchase_request_recorder"
+                }
+              }
+            ]
+          }
+        },
+        "purchase_receiver": {
+          "this": {}
+        },
+        "can_record_purchase_receipts": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "purchase_receiver"
+                }
+              }
+            ]
+          }
+        },
+        "supplier_payer": {
+          "this": {}
+        },
+        "can_record_supplier_payments": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "supplier_payer"
+                }
+              }
+            ]
+          }
+        },
+        "purchasing_corrector": {
+          "this": {}
+        },
+        "can_correct_purchasing": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "purchasing_corrector"
+                }
+              }
+            ]
+          }
+        },
+        "invoice_issuer": {
+          "this": {}
+        },
+        "can_issue_invoice": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "invoice_issuer"
+                }
+              }
+            ]
+          }
+        },
+        "invoice_viewer": {
+          "this": {}
+        },
+        "can_view_invoices": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "invoice_viewer"
+                }
+              }
+            ]
+          }
         }
       },
       "metadata": {
@@ -375,6 +1135,94 @@
               }
             ]
           },
+          "order_approval_submitter": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "order_approval_viewer": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "order_approval_decider": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "order_approval_recoverer": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "order_fulfillment_viewer": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "work_recorder": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "handoff_recorder": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "corrector": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
           "can_view_workspace": {
             "directly_related_user_types": []
           },
@@ -391,6 +1239,30 @@
             "directly_related_user_types": []
           },
           "can_commit_order": {
+            "directly_related_user_types": []
+          },
+          "can_submit_order_approval": {
+            "directly_related_user_types": []
+          },
+          "can_view_order_approvals": {
+            "directly_related_user_types": []
+          },
+          "can_decide_order_approval": {
+            "directly_related_user_types": []
+          },
+          "can_recover_order_approval": {
+            "directly_related_user_types": []
+          },
+          "can_view_order_fulfillment": {
+            "directly_related_user_types": []
+          },
+          "can_record_order_work": {
+            "directly_related_user_types": []
+          },
+          "can_record_order_handoff": {
+            "directly_related_user_types": []
+          },
+          "can_correct_order_fulfillment": {
             "directly_related_user_types": []
           },
           "organization_creator": {
@@ -503,6 +1375,454 @@
             ]
           },
           "can_change_individual_availability": {
+            "directly_related_user_types": []
+          },
+          "individual_contact_editor": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_edit_individual_contact": {
+            "directly_related_user_types": []
+          },
+          "representative_viewer": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_view_representatives": {
+            "directly_related_user_types": []
+          },
+          "customer_duplicate_resolver": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_resolve_customer_duplicates": {
+            "directly_related_user_types": []
+          },
+          "customer_duplicate_consolidator": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_consolidate_customer_duplicates": {
+            "directly_related_user_types": []
+          },
+          "customer_importer": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_import_customers": {
+            "directly_related_user_types": []
+          },
+          "catalog_viewer": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_view_catalog": {
+            "directly_related_user_types": []
+          },
+          "catalog_editor": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_manage_catalog": {
+            "directly_related_user_types": []
+          },
+          "pricing_viewer": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_view_pricing": {
+            "directly_related_user_types": []
+          },
+          "profile_policy_viewer": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_view_tenant_profile_policy": {
+            "directly_related_user_types": []
+          },
+          "profile_policy_editor": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_edit_tenant_profile_policy": {
+            "directly_related_user_types": []
+          },
+          "profile_policy_publisher": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_publish_tenant_profile_policy": {
+            "directly_related_user_types": []
+          },
+          "pricing_draft_editor": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_edit_pricing_draft": {
+            "directly_related_user_types": []
+          },
+          "pricing_publisher": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_publish_pricing": {
+            "directly_related_user_types": []
+          },
+          "pricing_retirer": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_retire_pricing": {
+            "directly_related_user_types": []
+          },
+          "pricing_overrider": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_override_pricing": {
+            "directly_related_user_types": []
+          },
+          "pricing_exception_overrider": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_override_pricing_beyond_policy": {
+            "directly_related_user_types": []
+          },
+          "quotation_creator": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_create_quotation": {
+            "directly_related_user_types": []
+          },
+          "quotation_editor": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_edit_quotation": {
+            "directly_related_user_types": []
+          },
+          "quotation_viewer": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_view_quotations": {
+            "directly_related_user_types": []
+          },
+          "quotation_issuer": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_issue_quotation": {
+            "directly_related_user_types": []
+          },
+          "quotation_responder": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_respond_quotation": {
+            "directly_related_user_types": []
+          },
+          "quotation_expirer": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_expire_quotation": {
+            "directly_related_user_types": []
+          },
+          "quotation_converter": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_convert_quotation": {
+            "directly_related_user_types": []
+          },
+          "representative_manager": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_manage_representatives": {
+            "directly_related_user_types": []
+          },
+          "supplier_viewer": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_view_purchasing_suppliers": {
+            "directly_related_user_types": []
+          },
+          "supplier_editor": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_manage_purchasing_suppliers": {
+            "directly_related_user_types": []
+          },
+          "purchase_request_recorder": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_record_purchase_requests": {
+            "directly_related_user_types": []
+          },
+          "purchase_receiver": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_record_purchase_receipts": {
+            "directly_related_user_types": []
+          },
+          "supplier_payer": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_record_supplier_payments": {
+            "directly_related_user_types": []
+          },
+          "purchasing_corrector": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_correct_purchasing": {
+            "directly_related_user_types": []
+          },
+          "invoice_issuer": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_issue_invoice": {
+            "directly_related_user_types": []
+          },
+          "invoice_viewer": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_view_invoices": {
             "directly_related_user_types": []
           }
         }

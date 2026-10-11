@@ -1,4 +1,4 @@
--- Apply after the IdentityAccess, PlatformAdministration and Tenancy migrations.
+-- Apply after the IdentityAccess, PlatformAdministration, Tenancy, Profiles and Orders migrations.
 -- AdminApi reads active principal/device registration, appends access audit, and owns
 -- tenant/account onboarding plus membership and tenant-lifecycle write paths. It
 -- cannot mutate bootstrap authority, identity account state or retained evidence.
@@ -33,18 +33,34 @@ BEGIN
        OR EXISTS (
            SELECT 1 FROM pg_class AS c
            JOIN pg_namespace AS n ON n.oid = c.relnamespace
-           WHERE n.nspname IN ('identity_access', 'platform_administration', 'tenancy')
+           WHERE n.nspname IN ('identity_access', 'platform_administration', 'tenancy', 'profiles', 'orders')
              AND c.relowner = role_record.oid)
        OR EXISTS (
            SELECT 1 FROM pg_namespace
-           WHERE nspname IN ('identity_access', 'tenancy') AND nspowner = role_record.oid) THEN
+           WHERE nspname IN ('identity_access', 'tenancy', 'profiles', 'orders') AND nspowner = role_record.oid) THEN
         RAISE EXCEPTION 'Admin API runtime role must not own database/schema/tables';
+    END IF;
+    IF EXISTS (
+        SELECT 1 FROM pg_namespace
+        WHERE nspname IN ('profiles', 'orders') AND nspowner = role_record.oid) THEN
+        RAISE EXCEPTION 'Admin API runtime role must not own profile or Order schemas';
+    END IF;
+    IF EXISTS (
+        SELECT 1 FROM pg_class AS c
+        JOIN pg_namespace AS n ON n.oid = c.relnamespace
+        WHERE (n.nspname = 'profiles' AND c.relname IN
+                ('policy_heads', 'policy_revisions', 'publications', 'authority', 'command_receipts')
+            OR n.nspname = 'orders' AND c.relname IN ('program_order_metadata', 'order_drafts'))
+          AND (NOT c.relrowsecurity OR NOT c.relforcerowsecurity)) THEN
+        RAISE EXCEPTION 'AdminApi profile and Order tables must have forced row level security';
     END IF;
 
     EXECUTE format('GRANT CONNECT ON DATABASE %I TO %I', current_database(), runtime_role);
     EXECUTE format('GRANT USAGE ON SCHEMA identity_access TO %I', runtime_role);
     EXECUTE format('GRANT USAGE ON SCHEMA platform_administration TO %I', runtime_role);
     EXECUTE format('GRANT USAGE ON SCHEMA tenancy TO %I', runtime_role);
+    EXECUTE format('GRANT USAGE ON SCHEMA profiles TO %I', runtime_role);
+    EXECUTE format('GRANT USAGE ON SCHEMA orders TO %I', runtime_role);
     FOREACH target_table IN ARRAY ARRAY[
         'identity_access.accounts',
         'identity_access.external_identity_bindings',
@@ -80,6 +96,21 @@ BEGIN
     EXECUTE format(
         'GRANT SELECT, INSERT ON TABLE tenancy.tenant_lifecycle_receipts TO %I',
         runtime_role);
+    FOREACH target_table IN ARRAY ARRAY[
+        'profiles.policy_heads', 'profiles.policy_revisions', 'profiles.publications',
+        'profiles.authority', 'profiles.command_receipts'] LOOP
+        EXECUTE format('GRANT SELECT ON TABLE %s TO %I', target_table, runtime_role);
+    END LOOP;
+    EXECUTE format('GRANT INSERT ON TABLE profiles.publications TO %I', runtime_role);
+    EXECUTE format('GRANT INSERT ON TABLE profiles.authority TO %I', runtime_role);
+    EXECUTE format('GRANT INSERT ON TABLE profiles.command_receipts TO %I', runtime_role);
+    EXECUTE format('GRANT UPDATE (revision, active_profile_id, legacy_baseline_profile_id) ON TABLE profiles.authority TO %I', runtime_role);
+    EXECUTE format('GRANT SELECT, INSERT ON TABLE orders.program_order_metadata TO %I', runtime_role);
+    -- Read only create-receipt compatibility for explicit legacy assignment; no receipt writes.
+    EXECUTE format('GRANT SELECT (tenant_id, order_id, operation, response_json) ON TABLE orders.command_receipts TO %I', runtime_role);
+    EXECUTE format('GRANT SELECT (tenant_id, id, state, revision) ON TABLE orders.order_drafts TO %I', runtime_role);
+    EXECUTE format('GRANT SELECT (tenant_id, revision) ON TABLE tenancy.tenant_authorization_state TO %I', runtime_role);
+    EXECUTE format('GRANT UPDATE (revision) ON TABLE orders.order_drafts TO %I', runtime_role);
 END
 $provision$;
 
@@ -104,6 +135,12 @@ BEGIN
        OR has_schema_privilege(runtime_role, 'tenancy', 'CREATE') THEN
         RAISE EXCEPTION 'Admin API tenancy schema privileges are unsafe';
     END IF;
+    IF NOT has_schema_privilege(runtime_role, 'profiles', 'USAGE')
+       OR has_schema_privilege(runtime_role, 'profiles', 'CREATE')
+       OR NOT has_schema_privilege(runtime_role, 'orders', 'USAGE')
+       OR has_schema_privilege(runtime_role, 'orders', 'CREATE') THEN
+        RAISE EXCEPTION 'Admin API profile/Order schema privileges are unsafe';
+    END IF;
     FOREACH target_table IN ARRAY ARRAY[
         'identity_access.accounts',
         'identity_access.external_identity_bindings',
@@ -116,6 +153,7 @@ BEGIN
            OR has_table_privilege(runtime_role, target_table, 'DELETE')
            OR has_table_privilege(runtime_role, target_table, 'TRUNCATE')
            OR has_table_privilege(runtime_role, target_table, 'REFERENCES')
+           OR has_any_column_privilege(runtime_role, target_table, 'REFERENCES')
            OR has_any_column_privilege(runtime_role, target_table, 'REFERENCES')
            OR has_table_privilege(runtime_role, target_table, 'TRIGGER') THEN
             RAISE EXCEPTION 'Admin API identity-onboarding table privileges are unsafe on %', target_table;
@@ -136,6 +174,7 @@ BEGIN
            OR has_table_privilege(runtime_role, target_table, 'DELETE')
            OR has_table_privilege(runtime_role, target_table, 'TRUNCATE')
            OR has_table_privilege(runtime_role, target_table, 'REFERENCES')
+           OR has_any_column_privilege(runtime_role, target_table, 'REFERENCES')
            OR has_table_privilege(runtime_role, target_table, 'TRIGGER') THEN
             RAISE EXCEPTION 'Admin API table privileges are unsafe on %', target_table;
         END IF;
@@ -211,9 +250,133 @@ BEGIN
            OR has_table_privilege(runtime_role, target_table, 'TRUNCATE')
            OR has_table_privilege(runtime_role, target_table, 'REFERENCES')
            OR has_any_column_privilege(runtime_role, target_table, 'REFERENCES')
+           OR has_any_column_privilege(runtime_role, target_table, 'REFERENCES')
            OR has_table_privilege(runtime_role, target_table, 'TRIGGER') THEN
             RAISE EXCEPTION 'Admin API lifecycle-receipt privileges are unsafe on %', target_table;
         END IF;
     END LOOP;
+    IF has_table_privilege(runtime_role, 'orders.command_receipts', 'INSERT')
+       OR has_any_column_privilege(runtime_role, 'orders.command_receipts', 'INSERT')
+       OR has_any_column_privilege(runtime_role, 'orders.command_receipts', 'UPDATE')
+       OR has_any_column_privilege(runtime_role, 'orders.command_receipts', 'REFERENCES')
+       OR has_table_privilege(runtime_role, 'orders.command_receipts', 'DELETE')
+       OR has_table_privilege(runtime_role, 'orders.command_receipts', 'TRUNCATE')
+       OR has_table_privilege(runtime_role, 'orders.command_receipts', 'TRIGGER') THEN
+        RAISE EXCEPTION 'Admin API legacy Order receipt privileges are unsafe';
+    END IF;
 END
 $verify$;
+
+DO $profile_order_privileges$
+DECLARE
+    runtime_role text := current_setting('app.provision_admin_api_role');
+    target_table text;
+    target_column record;
+BEGIN
+    FOREACH target_table IN ARRAY ARRAY[
+        'profiles.policy_heads', 'profiles.policy_revisions', 'profiles.publications',
+        'profiles.authority', 'profiles.command_receipts'] LOOP
+        IF NOT has_table_privilege(runtime_role, target_table, 'SELECT')
+           OR has_table_privilege(runtime_role, target_table, 'INSERT')
+                <> (target_table IN ('profiles.publications', 'profiles.authority', 'profiles.command_receipts'))
+           OR has_table_privilege(runtime_role, target_table, 'UPDATE')
+           OR has_table_privilege(runtime_role, target_table, 'DELETE')
+           OR has_table_privilege(runtime_role, target_table, 'TRUNCATE')
+           OR has_table_privilege(runtime_role, target_table, 'REFERENCES')
+           OR has_any_column_privilege(runtime_role, target_table, 'REFERENCES')
+           OR has_table_privilege(runtime_role, target_table, 'TRIGGER') THEN
+            RAISE EXCEPTION 'Admin API profile table privileges are unsafe on %', target_table;
+        END IF;
+    END LOOP;
+    FOR target_column IN
+        SELECT c.relname AS table_name, a.attname AS column_name
+        FROM pg_class AS c
+        JOIN pg_namespace AS n ON n.oid = c.relnamespace
+        JOIN pg_attribute AS a ON a.attrelid = c.oid
+        WHERE n.nspname = 'profiles' AND c.relname IN
+            ('policy_heads', 'policy_revisions', 'publications', 'authority', 'command_receipts')
+          AND a.attnum > 0 AND NOT a.attisdropped
+    LOOP
+        target_table := format('profiles.%I', target_column.table_name);
+        IF NOT has_column_privilege(runtime_role, target_table, target_column.column_name, 'SELECT')
+           OR has_column_privilege(runtime_role, target_table, target_column.column_name, 'INSERT')
+                <> (target_column.table_name IN ('publications', 'authority', 'command_receipts'))
+           OR has_column_privilege(runtime_role, target_table, target_column.column_name, 'UPDATE')
+                <> (target_column.table_name = 'authority'
+                    AND target_column.column_name IN ('revision', 'active_profile_id', 'legacy_baseline_profile_id')) THEN
+            RAISE EXCEPTION 'Admin API profile column privileges are unsafe on %.%', target_table, target_column.column_name;
+        END IF;
+    END LOOP;
+
+    IF NOT has_table_privilege(runtime_role, 'orders.program_order_metadata', 'SELECT')
+       OR NOT has_table_privilege(runtime_role, 'orders.program_order_metadata', 'INSERT')
+       OR has_table_privilege(runtime_role, 'orders.program_order_metadata', 'UPDATE')
+       OR has_table_privilege(runtime_role, 'orders.program_order_metadata', 'DELETE')
+       OR has_table_privilege(runtime_role, 'orders.program_order_metadata', 'TRUNCATE')
+       OR has_table_privilege(runtime_role, 'orders.program_order_metadata', 'REFERENCES')
+       OR has_any_column_privilege(runtime_role, 'orders.program_order_metadata', 'REFERENCES')
+       OR has_table_privilege(runtime_role, 'orders.program_order_metadata', 'TRIGGER') THEN
+        RAISE EXCEPTION 'Admin API program-order metadata privileges are unsafe';
+    END IF;
+    FOR target_column IN
+        SELECT a.attname AS column_name
+        FROM pg_class AS c
+        JOIN pg_namespace AS n ON n.oid = c.relnamespace
+        JOIN pg_attribute AS a ON a.attrelid = c.oid
+        WHERE n.nspname = 'orders' AND c.relname = 'program_order_metadata'
+          AND a.attnum > 0 AND NOT a.attisdropped
+    LOOP
+        IF NOT has_column_privilege(runtime_role, 'orders.program_order_metadata', target_column.column_name, 'SELECT')
+           OR NOT has_column_privilege(runtime_role, 'orders.program_order_metadata', target_column.column_name, 'INSERT')
+           OR has_column_privilege(runtime_role, 'orders.program_order_metadata', target_column.column_name, 'UPDATE') THEN
+            RAISE EXCEPTION 'Admin API program-order metadata column privileges are unsafe on %', target_column.column_name;
+        END IF;
+    END LOOP;
+
+    IF has_table_privilege(runtime_role, 'orders.order_drafts', 'SELECT')
+       OR has_table_privilege(runtime_role, 'orders.order_drafts', 'INSERT')
+       OR has_table_privilege(runtime_role, 'orders.order_drafts', 'UPDATE')
+       OR has_table_privilege(runtime_role, 'orders.order_drafts', 'DELETE')
+       OR has_table_privilege(runtime_role, 'orders.order_drafts', 'TRUNCATE')
+       OR has_table_privilege(runtime_role, 'orders.order_drafts', 'REFERENCES')
+       OR has_any_column_privilege(runtime_role, 'orders.order_drafts', 'REFERENCES')
+       OR has_table_privilege(runtime_role, 'orders.order_drafts', 'TRIGGER') THEN
+        RAISE EXCEPTION 'Admin API Order head privileges are unsafe';
+    END IF;
+    FOR target_column IN
+        SELECT a.attname AS column_name
+        FROM pg_class AS c
+        JOIN pg_namespace AS n ON n.oid = c.relnamespace
+        JOIN pg_attribute AS a ON a.attrelid = c.oid
+        WHERE n.nspname = 'orders' AND c.relname = 'order_drafts'
+          AND a.attnum > 0 AND NOT a.attisdropped
+    LOOP
+        IF has_column_privilege(runtime_role, 'orders.order_drafts', target_column.column_name, 'SELECT')
+                <> (target_column.column_name IN ('tenant_id', 'id', 'state', 'revision'))
+           OR has_column_privilege(runtime_role, 'orders.order_drafts', target_column.column_name, 'INSERT')
+           OR has_column_privilege(runtime_role, 'orders.order_drafts', target_column.column_name, 'UPDATE')
+                <> (target_column.column_name = 'revision') THEN
+            RAISE EXCEPTION 'Admin API Order head column privileges are unsafe on %', target_column.column_name;
+        END IF;
+    END LOOP;
+    IF has_table_privilege(runtime_role, 'tenancy.tenant_authorization_state', 'SELECT')
+       OR has_any_column_privilege(runtime_role, 'tenancy.tenant_authorization_state', 'INSERT')
+       OR has_any_column_privilege(runtime_role, 'tenancy.tenant_authorization_state', 'UPDATE')
+       OR has_any_column_privilege(runtime_role, 'tenancy.tenant_authorization_state', 'REFERENCES')
+       OR has_table_privilege(runtime_role, 'tenancy.tenant_authorization_state', 'DELETE')
+       OR has_table_privilege(runtime_role, 'tenancy.tenant_authorization_state', 'TRUNCATE')
+       OR has_table_privilege(runtime_role, 'tenancy.tenant_authorization_state', 'TRIGGER') THEN
+        RAISE EXCEPTION 'Admin API observed tenant authorization privileges are unsafe';
+    END IF;
+    FOR target_column IN
+        SELECT a.attname AS column_name FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+        JOIN pg_attribute a ON a.attrelid=c.oid
+        WHERE n.nspname='tenancy' AND c.relname='tenant_authorization_state' AND a.attnum>0 AND NOT a.attisdropped
+    LOOP
+        IF has_column_privilege(runtime_role, 'tenancy.tenant_authorization_state', target_column.column_name, 'SELECT')
+                <> (target_column.column_name IN ('tenant_id','revision')) THEN
+            RAISE EXCEPTION 'Admin API observed tenant authorization column privileges are unsafe';
+        END IF;
+    END LOOP;
+END
+$profile_order_privileges$;

@@ -2,13 +2,13 @@
 
 Task ID: COM-015
 Phase: 02-commercial-backend
-Status: READY_AFTER_DEPENDENCIES
-Model: GPT-6.1 Sol
+Status: VERIFY_EXISTING
+Model: GPT-6 Luna (high)
 Dependencies: COM-014
 Conditional dependencies: OPS-008 when artwork bytes are retained; OPS-009 when handoff includes a generated document
 Release requirement: REQUIRED
 
-Planned assignment only. Apply [agent rules](../AGENT_RULES.md) and [handoff rules](../HANDOFF_AND_INTEGRATION.md).
+The owner accepted the no-artwork service case in the [first pickup contract](../../review/COM_014_015_DECISION_PROPOSAL.md). Its [focused owner](../../implementation/ORDER_SERVICE_FULFILLMENT.md) is locally `PRODUCTION_HONEST` for the selected case under the [receiving receipt](../../review/COM_014_015_IMPLEMENTATION_RECEIPT.md); repeat its guards on requalification triggers. `VERIFY_EXISTING` is the planning status for source/evidence review, not runtime qualification. Apply [agent rules](../AGENT_RULES.md) and [handoff rules](../HANDOFF_AND_INTEGRATION.md).
 
 ## Outcome
 
@@ -24,7 +24,7 @@ Allowed areas: fulfillment-owned artwork revision references, approval evidence 
 
 ## Decisions/prerequisites
 
-Choose actual artwork types, approving actor/evidence and handoff fields. Owner may select a no-artwork service case; do not demand an upload for every order. OPS-009 applies only to a generated document handoff requirement.
+The owner selected no artwork, upload or generated document for this first service case. Operator-recorded partial pickup retains exact quantities, recipient label, actor/server UTC and immutable correction evidence under the accepted contract. OPS-008/OPS-009 remain conditional for other selected cases. Verify the introduced scope and leave other artwork, customer-proof and delivery decisions open.
 
 ## Acceptance and edge cases
 

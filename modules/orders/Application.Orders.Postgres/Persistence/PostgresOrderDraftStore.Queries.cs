@@ -46,6 +46,7 @@ public sealed partial class PostgresOrderDraftStore
                 orderId,
                 cancellationToken)
             .ConfigureAwait(false);
+        if (order is not null) await RequireAcceptedQuotationFactsAsync(tenantContext, order, cancellationToken).ConfigureAwait(false);
         await session.CommitAsync(cancellationToken).ConfigureAwait(false);
         return order;
     }
@@ -86,11 +87,12 @@ public sealed partial class PostgresOrderDraftStore
         return new OrderDraftPage(items, nextCursor);
     }
 
-    private static async Task<OrderDraftSnapshot?> FindOrderAsync(
+    private async Task<OrderDraftSnapshot?> FindOrderAsync(
         OrderTenantDbSession session,
         Guid tenantId,
         Guid orderId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool validateCommercialFacts = true)
     {
         OrderDraftHeader? header;
         await using (var command = session.CreateCommand(OrderSql.FindOrder))
@@ -120,7 +122,7 @@ public sealed partial class PostgresOrderDraftStore
             }
         }
 
-        return new OrderDraftSnapshot(
+        var snapshot = new OrderDraftSnapshot(
             header.OrderId,
             header.TenantId,
             header.CreatedByAccountId,
@@ -135,7 +137,15 @@ public sealed partial class PostgresOrderDraftStore
             header.AbandonedByAccountId,
             header.CustomerContext,
             header.CommittedAt,
-            header.CommittedByAccountId);
+            header.CommittedByAccountId,
+            header.QuotationOrigin);
+        var metadata = await ReadProgramPolicyAsync(session, tenantId, orderId, cancellationToken).ConfigureAwait(false);
+        snapshot = snapshot with { ProgramPolicy = metadata?.Policy, ExternalProgramReference = metadata?.Reference };
+        if (snapshot.ProgramPolicy is not null) OrderProgramReference.RequireValidStored(snapshot.ProgramPolicy, snapshot.ExternalProgramReference);
+        await RequireRetainedProgramPolicyAsync(session, tenantId, snapshot, cancellationToken).ConfigureAwait(false);
+        snapshot = snapshot with { ApprovalEvidence = await ReadApprovalCommitEvidenceAsync(session, snapshot, cancellationToken).ConfigureAwait(false) };
+        if (validateCommercialFacts) OrderCommercialFactsValidation.RequireValid(snapshot);
+        return snapshot;
     }
 
     private static async Task<List<OrderDraftListItem>> ListOrderHeadersAsync(
@@ -191,7 +201,7 @@ public sealed partial class PostgresOrderDraftStore
                     reader.GetGuid(organizationId),
                     reader.IsDBNull(programId) ? null : reader.GetGuid(programId)),
             reader.IsDBNull(committedAt) ? null : reader.GetFieldValue<DateTimeOffset>(committedAt),
-            reader.IsDBNull(reader.GetOrdinal("committed_by_account_id")) ? null : reader.GetGuid(reader.GetOrdinal("committed_by_account_id")));
+            reader.IsDBNull(reader.GetOrdinal("committed_by_account_id")) ? null : reader.GetGuid(reader.GetOrdinal("committed_by_account_id")), ReadOrigin(reader));
     }
 
     private static OrderDraftLine ReadLine(NpgsqlDataReader reader) => new(
@@ -200,7 +210,11 @@ public sealed partial class PostgresOrderDraftStore
         reader.GetDecimal(reader.GetOrdinal("quantity")),
         reader.GetString(reader.GetOrdinal("unit_code")),
         reader.GetDecimal(reader.GetOrdinal("unit_price")),
-        reader.GetDecimal(reader.GetOrdinal("line_total")));
+        reader.GetDecimal(reader.GetOrdinal("line_total")),
+        reader.IsDBNull(reader.GetOrdinal("commercial_facts")) ? null :
+            System.Text.Json.JsonSerializer.Deserialize<OrderCommercialLineFacts>(
+                reader.GetString(reader.GetOrdinal("commercial_facts")), SnapshotJsonOptions)
+            ?? throw new InvalidOperationException("An order line contains invalid retained commercial facts."));
 
     private static OrderDraftListItem ReadListItem(NpgsqlDataReader reader)
     {
@@ -222,8 +236,12 @@ public sealed partial class PostgresOrderDraftStore
                 : new CustomerOrderContext(
                     reader.GetGuid(organizationId),
                     reader.IsDBNull(programId) ? null : reader.GetGuid(programId)),
-            reader.IsDBNull(committedAt) ? null : reader.GetFieldValue<DateTimeOffset>(committedAt));
+            reader.IsDBNull(committedAt) ? null : reader.GetFieldValue<DateTimeOffset>(committedAt), ReadOrigin(reader));
     }
+
+    private static OrderQuotationOrigin? ReadOrigin(NpgsqlDataReader reader) => reader.IsDBNull(reader.GetOrdinal("quotation_id")) ? null :
+        new(reader.GetGuid(reader.GetOrdinal("quotation_id")), reader.GetGuid(reader.GetOrdinal("issued_revision_id")),
+            reader.GetInt64(reader.GetOrdinal("quotation_number")), reader.GetInt64(reader.GetOrdinal("quotation_revision_number")));
 
     private static OrderDraftState ReadState(string state) => state switch
     {
@@ -247,5 +265,6 @@ public sealed partial class PostgresOrderDraftStore
         Guid? AbandonedByAccountId,
         CustomerOrderContext? CustomerContext,
         DateTimeOffset? CommittedAt,
-        Guid? CommittedByAccountId);
+        Guid? CommittedByAccountId,
+        OrderQuotationOrigin? QuotationOrigin);
 }

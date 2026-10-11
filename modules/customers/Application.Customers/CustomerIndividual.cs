@@ -19,9 +19,34 @@ public sealed record CustomerIndividualSnapshot(
     Guid CreatedByAccountId,
     DateTimeOffset CreatedAt,
     Guid? AvailabilityChangedByAccountId,
-    DateTimeOffset? AvailabilityChangedAt);
+    DateTimeOffset? AvailabilityChangedAt,
+    Guid? ContactChangedByAccountId = null,
+    DateTimeOffset? ContactChangedAt = null,
+    string CustomerType = "individual",
+    string? ExternalRegistrationId = null,
+    string? AddressLine1 = null,
+    string? AddressLine2 = null,
+    string? City = null,
+    string? Notes = null,
+    Guid? RedirectTargetIndividualId = null);
 
-public sealed record CreateCustomerIndividualRequest(string DisplayName, string? Email, string? Phone);
+public sealed record CreateCustomerIndividualRequest(
+    string DisplayName,
+    string? Email,
+    string? Phone,
+    string? ExternalRegistrationId = null,
+    string? AddressLine1 = null,
+    string? AddressLine2 = null,
+    string? City = null,
+    string? Notes = null,
+    string? CustomerType = null);
+
+public sealed record EditCustomerIndividualContactRequest(
+    Guid IndividualId,
+    long ExpectedRevision,
+    string DisplayName,
+    string? Email,
+    string? Phone);
 
 public sealed record ChangeCustomerIndividualAvailabilityRequest(
     Guid IndividualId, long ExpectedRevision, CustomerIndividualAvailability Availability);
@@ -31,6 +56,16 @@ public enum CreateCustomerIndividualStatus
     Created = 1,
     Replayed = 2,
     IdempotencyKeyConflict = 3,
+}
+
+public enum EditCustomerIndividualContactStatus
+{
+    Changed = 1,
+    Replayed = 2,
+    NotFound = 3,
+    RevisionConflict = 4,
+    IdempotencyKeyConflict = 5,
+    NoChange = 6,
 }
 
 public enum ChangeCustomerIndividualAvailabilityStatus
@@ -46,10 +81,23 @@ public enum ChangeCustomerIndividualAvailabilityStatus
 public sealed record CreateCustomerIndividualResult(
     CreateCustomerIndividualStatus Status, CustomerIndividualSnapshot? Individual);
 
+public sealed record EditCustomerIndividualContactResult(
+    EditCustomerIndividualContactStatus Status, CustomerIndividualSnapshot? Individual);
+
 public sealed record ChangeCustomerIndividualAvailabilityResult(
     ChangeCustomerIndividualAvailabilityStatus Status, CustomerIndividualSnapshot? Individual);
 
-public sealed record CustomerIndividualIntent(string DisplayName, string? Email, string? Phone, string Fingerprint)
+public sealed record CustomerIndividualIntent(
+    string DisplayName,
+    string? Email,
+    string? Phone,
+    string CustomerType,
+    string? ExternalRegistrationId,
+    string? AddressLine1,
+    string? AddressLine2,
+    string? City,
+    string? Notes,
+    string Fingerprint)
 {
     public static CustomerIndividualIntent Create(CreateCustomerIndividualRequest request)
     {
@@ -57,19 +105,48 @@ public sealed record CustomerIndividualIntent(string DisplayName, string? Email,
         var name = CustomerRules.NormalizeDisplayName(request.DisplayName);
         var email = NormalizeContact(request.Email, 254, "email_invalid");
         var phone = NormalizeContact(request.Phone, 32, "phone_invalid");
+        var externalId = NormalizeOptionalText(request.ExternalRegistrationId, 200, "external_registration_id_invalid");
+        var addressLine1 = NormalizeOptionalText(request.AddressLine1, 200, "address_invalid");
+        var addressLine2 = NormalizeOptionalText(request.AddressLine2, 200, "address_invalid");
+        var city = NormalizeOptionalText(request.City, 120, "address_invalid");
+        var notes = NormalizeOptionalText(request.Notes, 4000, "notes_invalid");
+        var customerType = NormalizeCustomerType(request.CustomerType);
         if (email is not null && (email.Any(char.IsWhiteSpace)
             || !System.Net.Mail.MailAddress.TryCreate(email, out var parsed)
             || !string.Equals(parsed.Address, email, StringComparison.Ordinal)))
         {
             throw new CustomerValidationException("email_invalid", "Email must be a well-formed address.");
         }
-        if (phone is not null && (!phone.Any(char.IsDigit)
-            || !phone.All(ch => char.IsDigit(ch) || ch is '+' or '-' or ' ' or '(' or ')')))
-        {
-            throw new CustomerValidationException("phone_invalid", "Phone contains unsupported characters.");
-        }
-        return new(name, email, phone,
-            CustomerRules.Fingerprint("individual", name, email ?? "", phone ?? ""));
+        if (phone is not null) _ = CustomerIdentityNormalization.Phone(phone);
+        _ = CustomerIdentityNormalization.Name(name);
+        if (email is not null) _ = CustomerIdentityNormalization.Email(email);
+        if (externalId is not null) _ = CustomerIdentityNormalization.ExternalRegistrationId(externalId);
+        return new(name, email, phone, customerType, externalId, addressLine1, addressLine2, city, notes,
+            CustomerRules.Fingerprint("individual", name, email ?? "", phone ?? "", customerType,
+                externalId ?? "", addressLine1 ?? "", addressLine2 ?? "", city ?? "", notes ?? ""));
+    }
+
+    private static string NormalizeCustomerType(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "individual";
+        if (!CustomerRules.HasWellFormedUtf16(value) || value.Any(char.IsControl))
+            throw new CustomerValidationException("customer_type_invalid", "Customer type is invalid.");
+        var normalized = value.Trim().Normalize(System.Text.NormalizationForm.FormKC).ToLowerInvariant();
+        if (normalized.Length is 0 or > 32)
+            throw new CustomerValidationException("customer_type_invalid", "Customer type is invalid.");
+        return normalized;
+    }
+
+    private static string? NormalizeOptionalText(string? value, int maxLength, string code)
+    {
+        if (value is null) return null;
+        if (string.IsNullOrWhiteSpace(value) || !CustomerRules.HasWellFormedUtf16(value)
+            || value.Any(char.IsControl))
+            throw new CustomerValidationException(code, "Text is invalid or blank.");
+        var normalized = value.Trim().Normalize(System.Text.NormalizationForm.FormC);
+        if (normalized.Length > maxLength)
+            throw new CustomerValidationException(code, "Text is invalid or too long.");
+        return normalized;
     }
 
     private static string? NormalizeContact(string? value, int maxLength, string code)
@@ -87,6 +164,69 @@ public sealed record CustomerIndividualIntent(string DisplayName, string? Email,
             throw new CustomerValidationException(code, "Contact text is invalid or too long.");
         }
         return normalized;
+    }
+}
+
+public sealed record CustomerIndividualContactIntent(
+    Guid IndividualId,
+    long ExpectedRevision,
+    string DisplayName,
+    string? Email,
+    string? Phone,
+    string Fingerprint)
+{
+    public static CustomerIndividualContactIntent Create(EditCustomerIndividualContactRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        CustomerRules.RequireIdentity(request.IndividualId, "individual_id_invalid");
+        if (request.ExpectedRevision < 1)
+            throw new CustomerValidationException("revision_invalid", "Expected revision must be positive.");
+
+        var normalized = CustomerIndividualIntent.Create(
+            new CreateCustomerIndividualRequest(request.DisplayName, request.Email, request.Phone));
+        return new(
+            request.IndividualId,
+            request.ExpectedRevision,
+            normalized.DisplayName,
+            normalized.Email,
+            normalized.Phone,
+            CustomerRules.Fingerprint(
+                "individual_contact",
+                request.IndividualId.ToString("N"),
+                request.ExpectedRevision.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                normalized.DisplayName,
+                normalized.Email ?? "",
+                normalized.Phone ?? ""));
+    }
+}
+
+public sealed record CustomerDuplicateSignals(
+    string NormalizedName,
+    string? NormalizedEmail,
+    string? NormalizedPhone,
+    string? NormalizedExternalRegistrationId,
+    Guid? OrganizationId,
+    Guid? ProgramId)
+{
+    public static CustomerDuplicateSignals Create(
+        string name,
+        string? email = null,
+        string? phone = null,
+        string? externalRegistrationId = null,
+        Guid? organizationId = null,
+        Guid? programId = null)
+    {
+        var intent = CustomerIndividualIntent.Create(new(
+            name, email, phone, externalRegistrationId, null, null, null, null, null));
+        if (organizationId.HasValue) CustomerRules.RequireIdentity(organizationId.Value, "organization_id_invalid");
+        if (programId.HasValue) CustomerRules.RequireIdentity(programId.Value, "program_id_invalid");
+        return new(
+            CustomerIdentityNormalization.Name(intent.DisplayName),
+            intent.Email is null ? null : CustomerIdentityNormalization.Email(intent.Email),
+            intent.Phone is null ? null : CustomerIdentityNormalization.Phone(intent.Phone),
+            intent.ExternalRegistrationId is null ? null : CustomerIdentityNormalization.ExternalRegistrationId(intent.ExternalRegistrationId),
+            organizationId,
+            programId);
     }
 }
 
@@ -120,6 +260,15 @@ public interface ICustomerIndividualStore
         CustomerIndividualAvailabilityIntent intent, string idempotencyKey, CancellationToken cancellationToken);
 }
 
+public interface ICustomerIndividualContactStore
+{
+    Task<EditCustomerIndividualContactResult> EditIndividualContactAsync(
+        TenantContext context,
+        CustomerIndividualContactIntent intent,
+        string idempotencyKey,
+        CancellationToken cancellationToken);
+}
+
 public sealed class CreateCustomerIndividual(ICustomerIndividualStore store)
 {
     public Task<CreateCustomerIndividualResult> ExecuteAsync(TenantContext context,
@@ -139,6 +288,24 @@ public sealed class GetCustomerIndividual(ICustomerIndividualStore store)
         ArgumentNullException.ThrowIfNull(context);
         CustomerRules.RequireIdentity(individualId, "individual_id_invalid");
         return store.FindIndividualAsync(context, individualId, cancellationToken);
+    }
+}
+
+public sealed class EditCustomerIndividualContact(ICustomerIndividualContactStore store)
+{
+    public Task<EditCustomerIndividualContactResult> ExecuteAsync(
+        TenantContext context,
+        EditCustomerIndividualContactRequest request,
+        string idempotencyKey,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        var key = CustomerRules.NormalizeIdempotencyKey(idempotencyKey);
+        return store.EditIndividualContactAsync(
+            context,
+            CustomerIndividualContactIntent.Create(request),
+            key,
+            cancellationToken);
     }
 }
 

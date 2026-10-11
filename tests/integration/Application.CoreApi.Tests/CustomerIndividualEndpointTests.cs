@@ -68,6 +68,89 @@ public sealed class CustomerIndividualEndpointTests : IClassFixture<WhiteLabelAp
     }
 
     [Fact]
+    public async Task ContactEditRequiresItsOwnPermissionAndIsRevisionCheckedAndReplaySafe()
+    {
+        var (actor, tenant, token) = Member();
+        var path = Path(tenant);
+        _factory.SetCustomerDecision(actor, tenant, "createIndividual", true);
+        using var created = await Send(path, token, "create-contact",
+            "{\"displayName\":\"Jane Doe\",\"email\":\"jane@example.test\",\"phone\":\"+977 12345\"}");
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        using var createdJson = JsonDocument.Parse(await created.Content.ReadAsStringAsync());
+        var id = createdJson.RootElement.GetProperty("individualId").GetGuid();
+        var contactPath = $"{path}/{id:D}/contact";
+        const string body = "{\"expectedRevision\":1,\"displayName\":\"Jane Updated\",\"email\":\"updated@example.test\",\"phone\":null}";
+
+        using var denied = await Send(contactPath, token, "edit-contact", body);
+        Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+
+        _factory.SetCustomerDecision(actor, tenant, "editIndividualContact", true);
+        using var changed = await Send(contactPath, token, "edit-contact", body);
+        Assert.Equal(HttpStatusCode.OK, changed.StatusCode);
+        var changedBody = await changed.Content.ReadAsStringAsync();
+        using var changedJson = JsonDocument.Parse(changedBody);
+        Assert.Equal("Jane Updated", changedJson.RootElement.GetProperty("displayName").GetString());
+        Assert.Equal("updated@example.test", changedJson.RootElement.GetProperty("email").GetString());
+        Assert.Equal(JsonValueKind.Null, changedJson.RootElement.GetProperty("phone").ValueKind);
+        Assert.Equal(2, changedJson.RootElement.GetProperty("revision").GetInt64());
+        Assert.Equal(JsonValueKind.String, changedJson.RootElement.GetProperty("contactChangedAt").ValueKind);
+
+        using var replay = await Send(contactPath, token, "edit-contact", body);
+        Assert.Equal(changedBody, await replay.Content.ReadAsStringAsync());
+        Assert.Equal("true", replay.Headers.GetValues("Idempotency-Replayed").Single());
+
+        using var stale = await Send(contactPath, token, "stale-contact",
+            "{\"expectedRevision\":1,\"displayName\":\"Jane Stale\",\"email\":null,\"phone\":null}");
+        Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+        Assert.Contains("revision_conflict", await stale.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+
+        _factory.SetCustomerDecision(actor, tenant, "editIndividualContact", false);
+        using var revokedReplay = await Send(contactPath, token, "edit-contact", body);
+        Assert.Equal(HttpStatusCode.Forbidden, revokedReplay.StatusCode);
+    }
+
+    [Fact]
+    public async Task ConsolidatedSourceReadNamesItsSuccessorAndRefusesEveryMutation()
+    {
+        var (actor, tenant, token) = Member();
+        var path = Path(tenant);
+        _factory.SetCustomerDecision(actor, tenant, "createIndividual", true);
+        using var created = await Send(path, token, "create-source",
+            "{\"displayName\":\"Jane Doe\",\"email\":\"jane@example.test\"}");
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        using var createdJson = JsonDocument.Parse(await created.Content.ReadAsStringAsync());
+        var source = createdJson.RootElement.GetProperty("individualId").GetGuid();
+        Assert.Equal(JsonValueKind.Null, createdJson.RootElement.GetProperty("redirectTargetIndividualId").ValueKind);
+        using var canonicalResponse = await Send(path, token, "create-canonical", "{\"displayName\":\"Jane Survivor\"}");
+        using var canonicalJson = JsonDocument.Parse(await canonicalResponse.Content.ReadAsStringAsync());
+        var canonical = canonicalJson.RootElement.GetProperty("individualId").GetGuid();
+        _factory.ConsolidateCustomerIndividual(tenant, source, canonical);
+
+        _factory.SetCustomerDecision(actor, tenant, "viewIndividuals", true);
+        using var read = await Send($"{path}/{source:D}", token);
+        Assert.Equal(HttpStatusCode.OK, read.StatusCode);
+        using var readJson = JsonDocument.Parse(await read.Content.ReadAsStringAsync());
+        // Redirect is its own state: the retained availability stays honest, and the
+        // successor is the only signal that this row is no longer writable.
+        Assert.Equal("active", readJson.RootElement.GetProperty("availability").GetString());
+        Assert.Equal(canonical, readJson.RootElement.GetProperty("redirectTargetIndividualId").GetGuid());
+        Assert.Equal(2, readJson.RootElement.GetProperty("revision").GetInt64());
+        using var survivorRead = await Send($"{path}/{canonical:D}", token);
+        using var survivorJson = JsonDocument.Parse(await survivorRead.Content.ReadAsStringAsync());
+        Assert.Equal(JsonValueKind.Null, survivorJson.RootElement.GetProperty("redirectTargetIndividualId").ValueKind);
+
+        _factory.SetCustomerDecision(actor, tenant, "editIndividualContact", true);
+        using var editRefused = await Send($"{path}/{source:D}/contact", token, "edit-source",
+            "{\"expectedRevision\":2,\"displayName\":\"Rewritten\",\"email\":null,\"phone\":null}");
+        Assert.Equal(HttpStatusCode.NotFound, editRefused.StatusCode);
+        _factory.SetCustomerDecision(actor, tenant, "changeIndividualAvailability", true);
+        using var availabilityRefused = await Send($"{path}/{source:D}/availability", token, "availability-source",
+            "{\"expectedRevision\":2,\"availability\":\"inactive\"}");
+        Assert.Equal(HttpStatusCode.NotFound, availabilityRefused.StatusCode);
+        Assert.Equal("active", readJson.RootElement.GetProperty("availability").GetString());
+    }
+
+    [Fact]
     public async Task MembershipProviderFailureAndTenantBoundaryPrecedePersistence()
     {
         var actor = Guid.NewGuid(); var tenant = Guid.NewGuid(); var subject = Guid.NewGuid().ToString("N");

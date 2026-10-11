@@ -5,14 +5,23 @@ namespace Application.Orders.Postgres;
 
 public sealed partial class PostgresOrderDraftStore(
     NpgsqlDataSource dataSource,
-    TimeProvider? timeProvider = null)
-    : IOrderDraftStore, IOrderDraftHistoryStore
+    TimeProvider? timeProvider = null,
+    IOrderCommercialCommitGuard? commercialCommitGuard = null,
+    IOrderProfilePolicySource? profilePolicySource = null,
+    IOrderApprovalAuthority? approvalAuthority = null)
+    : IOrderDraftStore, IOrderDraftHistoryStore, IOrderDraftReceiptReader, IOrderProgramReferenceStore, IOrderApprovalStore
 {
     private const string CreateOperation = "create-order-draft";
     private const string AbandonOperation = "abandon-order-draft";
     private const string CommitOperation = "commit-order-draft";
     private const string ReviseOperation = "revise-order-draft";
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
+
+    // PostgreSQL stores microseconds. Keep relational facts and immutable JSON receipts identical.
+    private DateTimeOffset UtcNow() => DatabaseTimestamp(_timeProvider.GetUtcNow());
+
+    private static DateTimeOffset DatabaseTimestamp(DateTimeOffset timestamp) =>
+        new(timestamp.UtcTicks - timestamp.UtcTicks % 10, TimeSpan.Zero);
 
     public async Task<CreateOrderDraftResult> CreateAsync(
         TenantContext tenantContext,
@@ -38,11 +47,12 @@ public sealed partial class PostgresOrderDraftStore(
             .ConfigureAwait(false);
         if (existing is not null)
         {
+            var replayResult = await ToExistingResultAsync(session, tenantContext, existing, intent.Fingerprint, cancellationToken).ConfigureAwait(false);
             await session.CommitAsync(cancellationToken).ConfigureAwait(false);
-            return ToExistingResult(existing, intent.Fingerprint);
+            return replayResult;
         }
 
-        var createdAt = _timeProvider.GetUtcNow();
+        var createdAt = UtcNow();
         var order = new OrderDraftSnapshot(
             Guid.CreateVersion7(),
             tenantContext.TenantId,
@@ -55,8 +65,18 @@ public sealed partial class PostgresOrderDraftStore(
             intent.Lines,
             CustomerContext: intent.CustomerContext);
 
+        if (profilePolicySource is not null)
+            order = order with
+            {
+                ProgramPolicy = await profilePolicySource.ResolveActiveAsync(session.Connection, session.Transaction,
+                tenantContext.TenantId, cancellationToken).ConfigureAwait(false) ?? throw new OrderProfileUnavailableException()
+            };
+
+        OrderCommercialFactsValidation.RequireValid(order);
+
         await InsertOrderAsync(session, order, cancellationToken).ConfigureAwait(false);
         await InsertLinesAsync(session, order, cancellationToken).ConfigureAwait(false);
+        await InsertProgramPolicyAsync(session, order, cancellationToken).ConfigureAwait(false);
 
         if (await TryInsertReceiptAsync(
                 session,
@@ -83,8 +103,9 @@ public sealed partial class PostgresOrderDraftStore(
                 cancellationToken)
             .ConfigureAwait(false)
             ?? throw new InvalidOperationException("The order command receipt disappeared after a conflict.");
+        var conflictResult = await ToExistingResultAsync(session, tenantContext, existing, intent.Fingerprint, cancellationToken).ConfigureAwait(false);
         await session.RollbackAsync(cancellationToken).ConfigureAwait(false);
-        return ToExistingResult(existing, intent.Fingerprint);
+        return conflictResult;
     }
 
     public async Task<AbandonOrderDraftResult> AbandonAsync(
@@ -108,11 +129,12 @@ public sealed partial class PostgresOrderDraftStore(
             AbandonOperation, idempotencyKey, cancellationToken).ConfigureAwait(false);
         if (receipt is not null)
         {
+            var replayResult = await ToExistingAbandonResultAsync(session, tenantContext, receipt, fingerprint, cancellationToken).ConfigureAwait(false);
             await session.CommitAsync(cancellationToken).ConfigureAwait(false);
-            return ToExistingAbandonResult(receipt, fingerprint);
+            return replayResult;
         }
 
-        var abandonedAt = _timeProvider.GetUtcNow();
+        var abandonedAt = UtcNow();
         var changed = await TryAbandonOrderAsync(
             session, tenantContext, request, abandonedAt, cancellationToken)
             .ConfigureAwait(false);
@@ -124,8 +146,9 @@ public sealed partial class PostgresOrderDraftStore(
                 AbandonOperation, idempotencyKey, cancellationToken).ConfigureAwait(false);
             if (receipt is not null)
             {
+                var replayResult = await ToExistingAbandonResultAsync(session, tenantContext, receipt, fingerprint, cancellationToken).ConfigureAwait(false);
                 await session.CommitAsync(cancellationToken).ConfigureAwait(false);
-                return ToExistingAbandonResult(receipt, fingerprint);
+                return replayResult;
             }
 
             var current = await FindOrderStateAsync(
@@ -149,6 +172,7 @@ public sealed partial class PostgresOrderDraftStore(
             session, tenantContext.TenantId, request.OrderId, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new InvalidOperationException("The abandoned order disappeared before receipt creation.");
+        await RequireAcceptedQuotationFactsAsync(tenantContext, order, cancellationToken).ConfigureAwait(false);
         if (await TryInsertReceiptAsync(
             session, tenantContext.AccountId, AbandonOperation,
             idempotencyKey, fingerprint, order, abandonedAt, cancellationToken).ConfigureAwait(false))
@@ -161,8 +185,9 @@ public sealed partial class PostgresOrderDraftStore(
             session, tenantContext.TenantId, tenantContext.AccountId,
             AbandonOperation, idempotencyKey, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("The order command receipt disappeared after a conflict.");
+        var conflictResult = await ToExistingAbandonResultAsync(session, tenantContext, receipt, fingerprint, cancellationToken).ConfigureAwait(false);
         await session.RollbackAsync(cancellationToken).ConfigureAwait(false);
-        return ToExistingAbandonResult(receipt, fingerprint);
+        return conflictResult;
     }
 
     private static async Task<bool> TryAbandonOrderAsync(
@@ -228,6 +253,10 @@ public sealed partial class PostgresOrderDraftStore(
             command.Parameters.AddWithValue("unit_code", line.UnitCode);
             command.Parameters.AddWithValue("unit_price", line.UnitPrice);
             command.Parameters.AddWithValue("line_total", line.LineTotal);
+            command.Parameters.Add(new NpgsqlParameter("commercial_facts", NpgsqlTypes.NpgsqlDbType.Jsonb)
+            {
+                Value = line.CommercialFacts is null ? DBNull.Value : System.Text.Json.JsonSerializer.Serialize(line.CommercialFacts, SnapshotJsonOptions),
+            });
             batch.BatchCommands.Add(command);
         }
         await batch.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);

@@ -18,7 +18,8 @@ Because provider replacement is already planned and near-term, SquiFlow **does u
 
 ### `IObjectStore`
 
-Application/runtime code that needs retained business objects depends on a narrow SquiFlow object-store contract rather than Hugging Face APIs directly.
+Application/runtime code that needs retained business objects depends on the implemented
+`Application.ObjectStorage.IObjectStore` contract rather than Hugging Face APIs directly.
 
 Conceptual operations are limited to SquiFlow needs such as:
 
@@ -30,14 +31,18 @@ Delete/Retire when policy permits
 
 The interface uses SquiFlow-owned request/result types: object key, content stream, expected size/hash, metadata needed for lifecycle and authorization. It must not expose Hugging Face SDK/S3-specific request/response types.
 
-Bootstrap adapter:
+Current bootstrap adapter:
 
 ```text
 IObjectStore
 └── HuggingFaceObjectStore
 ```
 
-After the paying-customer migration a new adapter can implement the same contract while the business/application code remains unchanged.
+The current CoreApi composition provides `HuggingFaceObjectStore` only when deployment
+configuration explicitly enables it. It uses the current Hugging Face Storage Bucket
+S3-compatible gateway (`https://s3.hf.co/<namespace>`, path-style, `us-east-1`) and
+deployment-supplied HFAK credentials. After the paying-customer migration a new adapter
+can implement the same contract while the business/application code remains unchanged.
 
 Do not bloat `IObjectStore` into every feature a future cloud provider might offer. Provider-specific migration/admin tooling may use provider APIs directly inside infrastructure tooling when the generic runtime contract is not appropriate.
 

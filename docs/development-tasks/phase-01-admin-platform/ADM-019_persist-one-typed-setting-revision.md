@@ -2,7 +2,7 @@
 
 Task ID: ADM-019
 Phase: 01-admin-platform
-Status: READY_AFTER_DEPENDENCIES
+Status: VERIFY_EXISTING
 Model: GPT-6.1 Sol
 Dependencies: ADM-018
 Release requirement: REQUIRED
@@ -14,13 +14,15 @@ Introduce one real nonsecret tenant setting with bounded validation, explicit ov
 
 ## Current basis and canonical inputs
 
-Current configuration is deployment-owned and FeatureCatalog compiles selections only. Typed tenant settings, precedence and durable setting history are not implemented. Read [README.IMPLEMENTATION.md](../../../README.IMPLEMENTATION.md) and [APPLICATION_KERNEL_AND_MODULES.md](../../architecture/APPLICATION_KERNEL_AND_MODULES.md); [TENANT_APPLICATION_PROFILES_AND_EXTENSIBILITY.md](../../architecture/TENANT_APPLICATION_PROFILES_AND_EXTENSIBILITY.md); [CompiledFeatureSelection.cs](../../../modules/application-profiles/Application.Profiles/CompiledFeatureSelection.cs).
+Current configuration is deployment-owned and FeatureCatalog compiles selections only. The continuation introduces only `RequireReferenceForProgramOrders` and its immutable published history; other settings remain absent. Read [README.IMPLEMENTATION.md](../../../README.IMPLEMENTATION.md) and [APPLICATION_KERNEL_AND_MODULES.md](../../architecture/APPLICATION_KERNEL_AND_MODULES.md); [TENANT_APPLICATION_PROFILES_AND_EXTENSIBILITY.md](../../architecture/TENANT_APPLICATION_PROFILES_AND_EXTENSIBILITY.md); [CompiledFeatureSelection.cs](../../../modules/application-profiles/Application.Profiles/CompiledFeatureSelection.cs).
 
 ## Scope and exclusions
 
 Allowed areas: One accepted capability-owned typed setting definition, durable revision/history adapter, authorized edit/read contract and its tests only. Exclude UI implementation, unrelated capabilities and purged Parties code.
 
 ## Decisions/prerequisites
+
+Owner accepted the [COM-011/profile contract](../../review/COM_011_PROFILE_PREREQUISITE_DECISION_PROPOSAL.md) on 2026-10-08. The bounded source now has local qualification in the [implementation receipt](../../review/COM_011_IMPLEMENTATION_RECEIPT.md). The [focused consumer owner](../../implementation/ORDER_PROGRAM_REFERENCE_POLICY.md) defines exact scope, retained legacy policy, authority separation and regression obligations. Planning status `VERIFY_EXISTING` means review current source/evidence, not production acceptance.
 
 Choose the concrete consumer and whether edits remain draft until profile publication. Do not build a universal key/value settings bag, blanket property editor or secret store. Follow [shared rules](../AGENT_RULES.md) and [handoff/integration rules](../HANDOFF_AND_INTEGRATION.md).
 

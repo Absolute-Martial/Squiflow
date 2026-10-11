@@ -190,6 +190,26 @@ public sealed class OrderManualPricingPermissionTests(WhiteLabelApiFactory facto
         return (account, tenant, factory.CreateToken(account.ToString("D")));
     }
 
+    [Fact]
+    public async Task LegacyIgnoredFieldsCannotAttachCommercialFactsToManualLines()
+    {
+        var (account, tenant, token) = Actor();
+        factory.SetOrderCreateDecision(account, tenant, true);
+        factory.SetOrderManualPriceDecision(account, tenant, true);
+        using var client = factory.CreateClient();
+        using var request = Request("create", tenant, Guid.NewGuid(), token, """
+            {"expectedRevision":null,"summary":"Manual price draft","currencyCode":"USD",
+             "lines":[{"description":"Work","quantity":1,"unitCode":"EA","unitPrice":10,
+                       "commercialFacts":{"priceRevision":1,"canOverride":true}}]}
+            """);
+        using var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal(10m, document.RootElement.GetProperty("total").GetDecimal());
+        Assert.False(document.RootElement.GetProperty("lines")[0].TryGetProperty("commercialFacts", out _));
+        Assert.Equal(1, factory.GetOrderCreateCount(tenant));
+    }
+
     private void AssertNoEffect(Guid tenant)
     {
         Assert.Equal(0, factory.GetOrderCreateCount(tenant));

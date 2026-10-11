@@ -63,4 +63,24 @@ public sealed class CustomerIndividualTests
             CustomerIndividualAvailabilityIntent.Create(new(id, 1,
                 (CustomerIndividualAvailability)99))).Code);
     }
+
+    [Fact]
+    public void ContactEditIntentNormalizesFieldsAndBindsRevisionIntoFingerprint()
+    {
+        var id = Guid.NewGuid();
+        var first = CustomerIndividualContactIntent.Create(new(
+            id, 4, "  Cafe\u0301 Person  ", " person@example.test ", " +977 12345 "));
+        var equivalent = CustomerIndividualContactIntent.Create(new(
+            id, 4, "Café Person", "person@example.test", "+977 12345"));
+        var staleRevision = CustomerIndividualContactIntent.Create(new(
+            id, 3, "Café Person", "person@example.test", "+977 12345"));
+
+        Assert.Equal("Café Person", first.DisplayName);
+        Assert.Equal("person@example.test", first.Email);
+        Assert.Equal("+977 12345", first.Phone);
+        Assert.Equal(first.Fingerprint, equivalent.Fingerprint);
+        Assert.NotEqual(first.Fingerprint, staleRevision.Fingerprint);
+        Assert.Equal("revision_invalid", Assert.Throws<CustomerValidationException>(() =>
+            CustomerIndividualContactIntent.Create(new(id, 0, "Person", null, null))).Code);
+    }
 }

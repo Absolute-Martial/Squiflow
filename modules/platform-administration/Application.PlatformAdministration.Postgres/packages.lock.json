@@ -280,7 +280,7 @@
       "application.platformadministration": {
         "type": "Project",
         "dependencies": {
-          "Application.IdentityAccess": "[0.1.0, )"
+          "Application.IdentityAccess": "[0.0.1, )"
         }
       },
       "Microsoft.EntityFrameworkCore.Abstractions": {

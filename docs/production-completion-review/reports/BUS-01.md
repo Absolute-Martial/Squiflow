@@ -11,3 +11,10 @@ Reviewer: `/root/business_sales_review`, GPT-6 Luna (high). Read-only review; ro
 | Actual work/partial handoff remains absent | IMPLEMENTATION_GAP; COM-014/015 after policy admission | `docs/implementation/ORDER_COMMITMENT_SLICE.md:60` | Concurrent partial completion cannot overfulfill; artwork approval identifies one usable revision; payment never implies delivery |
 
 The catalog already covers these outcomes. Reuse its units rather than adding duplicate projects/tasks. Permanent guards belong to capability unit tests plus real database/API races and connected COM-032 journeys. Requalify on relevant policy, lifecycle, persistence, permission or API changes. This review does not qualify a live business deployment.
+
+Post-review local disposition (2026-10-06): COM-002 now implements the bounded contact-edit
+and organization/program representative slice described by
+`docs/implementation/CUSTOMER_CONTACTS_REPRESENTATIVES_SLICE.md`. The original row above is
+retained as historical review evidence; its remaining live gap is COM-003 duplicate
+resolution, which is still owner-decision gated. COM-005–007 remain governed by the open
+catalog/pricing decisions in `docs/implementation/PRICING_COMPONENT_BOUNDARY.md`.

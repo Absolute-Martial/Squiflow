@@ -7,6 +7,9 @@ namespace Application.CoreApi;
 internal enum HighRiskAction
 {
     TransferInitialOwner = 1,
+    RecoverOrderApproval = 2,
+    CorrectOrderFulfillment = 3,
+    CorrectPurchasing = 4,
 }
 
 internal sealed class HighRiskActionAdmissionConfiguration

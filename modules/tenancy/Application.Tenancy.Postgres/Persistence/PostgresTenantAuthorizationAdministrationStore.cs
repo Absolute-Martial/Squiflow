@@ -37,6 +37,29 @@ public sealed class PostgresTenantAuthorizationAdministrationStore(NpgsqlDataSou
     {
         ArgumentNullException.ThrowIfNull(actor);
         ArgumentNullException.ThrowIfNull(intent);
+        const int maximumTransactionAttempts = 3;
+        for (var attempt = 1; ; attempt++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                return await ProposeTransactionAsync(actor, intent, requestedAt, cancellationToken).ConfigureAwait(false);
+            }
+            catch (PostgresException exception) when (exception.SqlState == PostgresErrorCodes.SerializationFailure)
+            {
+                // PostgreSQL has aborted the entire transaction; no provider mutation occurs here.
+                if (attempt == maximumTransactionAttempts)
+                    return new TenantAuthorizationProposalResult(TenantAuthorizationProposalResultStatus.AuthorizationRevisionConflict, null);
+            }
+        }
+    }
+
+    private async Task<TenantAuthorizationProposalResult> ProposeTransactionAsync(
+        TenantAuthorizationActor actor,
+        TenantAuthorizationProposalIntent intent,
+        DateTimeOffset requestedAt,
+        CancellationToken cancellationToken)
+    {
         await using var connection = await dataSource.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
             .ConfigureAwait(false);
@@ -288,6 +311,27 @@ public sealed class PostgresTenantAuthorizationAdministrationStore(NpgsqlDataSou
     {
         ArgumentNullException.ThrowIfNull(actor);
         ArgumentNullException.ThrowIfNull(intent);
+        const int maximumTransactionAttempts = 3;
+        for (var attempt = 1; ; attempt++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                return await TransferInitialOwnerTransactionAsync(actor, intent, occurredAt, cancellationToken).ConfigureAwait(false);
+            }
+            catch (PostgresException exception) when (exception.SqlState == PostgresErrorCodes.SerializationFailure)
+            {
+                // This database-only handoff transaction was fully aborted; retry preserves the original receipt intent.
+                if (attempt == maximumTransactionAttempts)
+                    return new(TenantOwnerTransferStatus.TenantRevisionConflict, null, null, null, null);
+            }
+        }
+    }
+
+    private async Task<TenantOwnerTransferResult> TransferInitialOwnerTransactionAsync(
+        TenantAuthorizationActor actor, TenantOwnerTransferIntent intent, DateTimeOffset occurredAt,
+        CancellationToken cancellationToken)
+    {
         await using var connection = await dataSource.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
             .ConfigureAwait(false);
@@ -421,9 +465,15 @@ public sealed class PostgresTenantAuthorizationAdministrationStore(NpgsqlDataSou
             // outcome still stays Uncertain; a known rejection still becomes Failed with its
             // own code, and a confirmed application still becomes Applied.
             var unresolved = status is null || status == TenantAuthorizationProposalStatus.Uncertain;
+            // Record why the outcome is unresolved. Stamp the exhausted budget only when no
+            // more specific code is available, otherwise the real cause of a wedged proposal
+            // (a provider outage, an unobserved write, a credential that cannot read tuples)
+            // is discarded after twenty attempts and the operator is left with only
+            // attempt_limit_reached.
+            var budgetCode = failureCode is null ? "attempt_limit_reached" : failureCode;
             await SetProposalStatusAsync(connection, transaction, proposal,
                 unresolved ? TenantAuthorizationProposalStatus.Uncertain : status!.Value,
-                unresolved ? "attempt_limit_reached" : failureCode,
+                unresolved ? budgetCode : failureCode,
                 occurredAt, incrementAttempt: false, cancellationToken)
                 .ConfigureAwait(false);
         }

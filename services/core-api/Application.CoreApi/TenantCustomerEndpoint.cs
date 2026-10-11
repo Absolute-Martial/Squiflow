@@ -155,14 +155,15 @@ internal static class TenantCustomerEndpoint
 
     internal static async Task<(TenantContext? Context, IResult? Failure)> ResolveAsync(
         Guid tenantId, HttpContext http, ClaimsPrincipal principal, ResolveAccountBinding account,
-        ResolveTenantContext tenant, IAuthorizationService authorization, CancellationToken ct)
+        ResolveTenantContext tenant, IAuthorizationService authorization, CancellationToken ct,
+        string? deniedDetail = null)
     {
         http.Response.Headers.CacheControl = "no-store";
         var access = await TenantRequestAccess.ResolveAsync(tenantId, http, principal, account, tenant, ct);
         if (access.Failure is not null) return (null, access.Failure);
         var denied = await CoreApiDeclaredAuthorization.AuthorizeAsync(
             http, principal, new TenantCustomerResource(access.TenantContext!, ct), authorization,
-            "The account is not permitted to perform this customer operation in this tenant.").ConfigureAwait(false);
+            deniedDetail ?? CustomerDeniedDetail).ConfigureAwait(false);
         return denied is null
             ? (access.TenantContext, null)
             : (null, denied);
@@ -175,11 +176,16 @@ internal static class TenantCustomerEndpoint
         return key is not null;
     }
 
-    internal static async Task<(T? Value, IResult? Failure)> ReadPayloadAsync<T>(HttpRequest request, CancellationToken ct, bool strict = false)
+    internal static Task<(T? Value, IResult? Failure)> ReadPayloadAsync<T>(HttpRequest request,
+        CancellationToken ct, bool strict = false) =>
+        ReadPayloadAsync<T>(request, CapabilityProblemTitles.Customer, ct, strict);
+
+    internal static async Task<(T? Value, IResult? Failure)> ReadPayloadAsync<T>(HttpRequest request,
+        CapabilityProblemTitles titles, CancellationToken ct, bool strict = false)
     {
         if (request.ContentLength is > MaximumCreateRequestBodyBytes)
-            return (default, TooLarge());
-        if (!request.HasJsonContentType()) return (default, Invalid("request_invalid", "The request body must use application/json."));
+            return (default, TooLarge(titles));
+        if (!request.HasJsonContentType()) return (default, Invalid(titles, "request_invalid", "The request body must use application/json."));
         try
         {
             var buffer = new byte[MaximumCreateRequestBodyBytes + 1];
@@ -190,25 +196,25 @@ internal static class TenantCustomerEndpoint
                 if (read == 0) break;
                 count += read;
             }
-            if (count > MaximumCreateRequestBodyBytes) return (default, TooLarge());
+            if (count > MaximumCreateRequestBodyBytes) return (default, TooLarge(titles));
             if (strict)
             {
                 using var document = JsonDocument.Parse(buffer.AsMemory(0, count), new JsonDocumentOptions { MaxDepth = 2 });
                 if (document.RootElement.ValueKind != JsonValueKind.Object)
-                    return (default, Invalid("request_invalid", "The customer request must be a JSON object."));
+                    return (default, Invalid(titles, "request_invalid", "The request must be a JSON object."));
                 var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (var property in document.RootElement.EnumerateObject())
                     if (!names.Add(property.Name))
-                        return (default, Invalid("request_invalid", "The customer request must not repeat properties."));
+                        return (default, Invalid(titles, "request_invalid", "The request must not repeat properties."));
             }
             var value = JsonSerializer.Deserialize<T>(buffer.AsSpan(0, count), JsonOptions);
             return value is null
-                ? (default, Invalid("request_invalid", "The request body must be a valid JSON customer request."))
+                ? (default, Invalid(titles, "request_invalid", "The request body must be a valid JSON request."))
                 : (value, null);
         }
-        catch (BadHttpRequestException error) when (error.StatusCode == 413) { return (default, TooLarge()); }
-        catch (BadHttpRequestException) { return (default, Invalid("request_invalid", "The request body must be a valid JSON customer request.")); }
-        catch (JsonException) { return (default, Invalid("request_invalid", "The request body must be a valid JSON customer request.")); }
+        catch (BadHttpRequestException error) when (error.StatusCode == 413) { return (default, TooLarge(titles)); }
+        catch (BadHttpRequestException) { return (default, Invalid(titles, "request_invalid", "The request body must be a valid JSON request.")); }
+        catch (JsonException) { return (default, Invalid(titles, "request_invalid", "The request body must be a valid JSON request.")); }
     }
 
     private static bool TryPage(IQueryCollection query, Guid tenantId, Guid? organizationId,
@@ -259,20 +265,47 @@ internal static class TenantCustomerEndpoint
         catch (Exception error) when (error is FormatException or DecoderFallbackException) { return false; }
     }
 
-    internal static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult Invalid(string code, string detail) => TypedResults.Problem(statusCode: 400,
-        title: "Invalid customer request.", detail: detail,
+    internal static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult Invalid(string code, string detail) =>
+        Invalid(CapabilityProblemTitles.Customer, code, detail);
+
+    internal static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult Invalid(
+        CapabilityProblemTitles titles,
+        string code,
+        string detail) => TypedResults.Problem(statusCode: 400,
+        title: titles.Invalid, detail: detail,
         extensions: new Dictionary<string, object?> { ["code"] = code });
-    private static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult TooLarge() => TypedResults.Problem(statusCode: 413,
-        title: "Customer request is too large.", detail: "The request exceeds the supported size.",
+    private static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult TooLarge(CapabilityProblemTitles titles) => TypedResults.Problem(statusCode: 413,
+        title: titles.TooLarge, detail: "The request exceeds the supported size.",
         extensions: new Dictionary<string, object?> { ["code"] = "request_too_large" });
-    internal static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult Conflict() => TypedResults.Problem(statusCode: 409,
-        title: "Idempotency key conflict.", detail: "The Idempotency-Key was used for a different customer request.",
+    internal static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult Conflict() =>
+        Conflict("The Idempotency-Key was used for a different customer request.");
+    internal static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult Conflict(string detail) => TypedResults.Problem(statusCode: 409,
+        title: "Idempotency key conflict.", detail: detail,
         extensions: new Dictionary<string, object?> { ["code"] = "idempotency_key_conflict" });
     internal static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult NotFound(string code, string detail) => TypedResults.Problem(statusCode: 404,
         title: "Customer resource not found.", detail: detail,
         extensions: new Dictionary<string, object?> { ["code"] = code });
+    internal static Microsoft.AspNetCore.Http.HttpResults.ProblemHttpResult CustomerContextNotFound(string detail) =>
+        TypedResults.Problem(statusCode: 404,
+            title: "Customer context not found.", detail: detail,
+            extensions: new Dictionary<string, object?> { ["code"] = "customer_context_not_found" });
+
+    internal const string CustomerDeniedDetail =
+        "The account is not permitted to perform this customer operation in this tenant.";
 
     internal sealed record NamePayload(string? DisplayName);
+}
+
+// Route groups own their Problem Details wording. The `code` extension and HTTP status
+// remain the stable machine-readable contract; a title must never name another capability.
+internal sealed record CapabilityProblemTitles(string Invalid, string TooLarge)
+{
+    internal static readonly CapabilityProblemTitles Customer =
+        new("Invalid customer request.", "Customer request is too large.");
+    internal static readonly CapabilityProblemTitles Pricing =
+        new("Invalid pricing request.", "Pricing request is too large.");
+    internal static readonly CapabilityProblemTitles CatalogOrder =
+        new("Invalid catalog order request.", "Catalog order request is too large.");
 }
 
 internal sealed record CustomerOrganizationPageResponse(IReadOnlyList<CustomerOrganizationSnapshot> Items, string? NextCursor);

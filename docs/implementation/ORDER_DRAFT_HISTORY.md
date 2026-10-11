@@ -1,13 +1,18 @@
 # Retained order-draft history
 
-**State:** `PRODUCTION_HONEST` for the declared retained-draft-history scope;
-`BLOCKED = none`. Broader commercial lifecycle and general audit remain
-`NOT_INTRODUCED`. Product version stays v0.0.1.
+**State:** the previously qualified retained-draft-history scope is
+`PRODUCTION_HONEST`, with `BLOCKED = none` for that scope. Its COM-010
+quotation-origin extension is also `PRODUCTION_HONEST` for the COM-010 bounded
+scope; see the [qualification receipt](../review/COM_010_IMPLEMENTATION_RECEIPT.md).
+Broader commercial lifecycle and general audit remain `NOT_INTRODUCED`. Product
+version stays v0.0.1.
 
 Owner: `Application.Orders`; provider: `Application.Orders.Postgres`; transport:
 CoreApi. This responsibility adds a usable history of the already supported
-priced draft commands to the end-to-end commercial path. It does not introduce
-acceptance, quotation, fulfillment, invoicing or settlement.
+priced draft commands to the end-to-end commercial path. It does not decide
+quotation acceptance, fulfillment, invoicing or settlement. COM-010's new
+quotation-origin Order history representation is qualified within the bounded
+COM-010 scope; it does not introduce fulfillment, invoicing or settlement.
 
 ## Declared scope
 
@@ -32,8 +37,23 @@ abandonment actor/time must match its retained lifecycle facts. Revision snapsho
 preserve earlier supplied prices even after the current draft changes. The response
 never exposes receipt keys, fingerprints, raw response JSON or credentials.
 
-No permission relation/model changes, schema changes, new grants or migrations are
-required. Runtime receipts are already insert/read-only under the restricted role.
+When a trusted COM-010 conversion creates the Order, its immutable origin
+(`quotationId`, `issuedRevisionId`, family number and issued revision number) is
+stored with the created Order and receipt. Detail and history use the same named
+`quotationOrigin` projection, including on historical Order snapshots; the
+history read does not infer origin from current quotation state or client input.
+Quoted Order prices and origin remain together in the retained snapshot so a
+later source-price change cannot rewrite what this history records. The exact
+conversion transaction and version-five Order receipt compatibility are owned
+by `QUOTATIONS_AND_CONVERSION.md` and `ORDER_COMMITMENT_SLICE.md`.
+Each quoted history snapshot is compared against the trusted immutable accepted
+offer and conversion link. Missing authority wiring or contradictory retained
+origin/price facts fail closed, as does an unsupported receipt version.
+
+The existing history read itself adds no permission relation/model, schema, grant
+or migration. Runtime receipts remain insert/read-only under the restricted role.
+The separate COM-010 origin contract adds its own migration and runtime privileges;
+that change is not covered by the earlier standalone history qualification.
 This is attributable draft-command history, not a general audit ledger, failed
 attempt log, recorded override reason or independently qualified price-change
 authority. Those meanings must be added by their owning future operation.
@@ -89,6 +109,7 @@ Permanent guards under `./eng/verify.sh`:
 | Boundary validation and context/token forwarding | `OrderDraftHistoryTests` |
 | Current membership/permission, safe errors, query bounds, no-store, API shapes | `OrderDraftHistoryEndpointTests`; all-protected-route anonymous guard |
 | Retained prices, different actors, paging, no retry/failed-command duplication | `HistoryRetainsPricedRevisionsAndActorsWithoutDuplicatingRetriesOrFailedCommands` |
+| Quote-origin facts appear on current and historical Order projections without being recomputed | `OrderCommercialEndpointTests.QuotationOriginSurvivesOrderDetailAndBrowseResponses`, `OrderDraftHistoryEndpointTests.CurrentViewerReceivesHistoricalPricesAndActorWithoutReceiptSecretsAndPermissionIsRechecked`, and real Orders/PostgreSQL history and receipt-compatibility regressions; see the [COM-010 qualification receipt](../review/COM_010_IMPLEMENTATION_RECEIPT.md) |
 | Cross-tenant denial | Same real PostgreSQL history test, using the restricted runtime role |
 | Legacy response compatibility and unsupported-version rejection | `HistoryReadsLegacySnapshotsAndRejectsUnsupportedEnvelopesWithoutChangingBusinessState` |
 | Runtime cannot rewrite/delete history facts | `RuntimeRoleCannotRewriteOrDeleteTheReceiptsUsedForHistory` |

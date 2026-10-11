@@ -114,6 +114,7 @@ internal static class OrderModel
                 .HasPrecision(19, 4)
                 .HasColumnType("numeric(19,4)")
                 .HasColumnName("line_total");
+            entity.Property<string>("CommercialFacts").HasColumnType("jsonb").HasColumnName("commercial_facts");
             entity.Property<decimal>("Quantity")
                 .HasPrecision(19, 4)
                 .HasColumnType("numeric(19,4)")
@@ -124,8 +125,8 @@ internal static class OrderModel
                 .HasColumnName("unit_price");
             entity.Property<string>("UnitCode")
                 .IsRequired()
-                .HasMaxLength(16)
-                .HasColumnType("character varying(16)")
+                .HasMaxLength(64)
+                .HasColumnType("character varying(64)")
                 .HasColumnName("unit_code");
             entity.HasKey("TenantId", "OrderId", "Position").HasName("pk_order_draft_lines");
             entity.ToTable("order_draft_lines", "orders", table =>
@@ -133,9 +134,10 @@ internal static class OrderModel
                 table.HasCheckConstraint("ck_order_draft_lines_position", "position BETWEEN 1 AND 100");
                 table.HasCheckConstraint("ck_order_draft_lines_description_not_blank", "btrim(description) <> ''");
                 table.HasCheckConstraint("ck_order_draft_lines_quantity", "quantity > 0");
-                table.HasCheckConstraint("ck_order_draft_lines_unit_code", "unit_code ~ '^[A-Z0-9]{1,16}$'");
+                table.HasCheckConstraint("ck_order_draft_lines_unit_code", "unit_code ~ '^[A-Z0-9_-]{1,64}$'");
                 table.HasCheckConstraint("ck_order_draft_lines_unit_price", "unit_price >= 0");
                 table.HasCheckConstraint("ck_order_draft_lines_line_total", "line_total >= 0");
+                table.HasCheckConstraint("ck_order_draft_lines_commercial_facts", "commercial_facts IS NULL OR jsonb_typeof(commercial_facts) = 'object'");
             });
         });
 

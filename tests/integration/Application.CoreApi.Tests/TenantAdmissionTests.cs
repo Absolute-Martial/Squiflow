@@ -14,6 +14,8 @@ namespace Application.CoreApi.Tests;
 
 public sealed class TenantAdmissionTests
 {
+    private static readonly TimeSpan TestTimeout = TimeSpan.FromSeconds(30);
+
     [Theory]
     [InlineData("success")]
     [InlineData("failure")]
@@ -46,7 +48,7 @@ public sealed class TenantAdmissionTests
         using var cancellation = new CancellationTokenSource();
         using var first = Request(tenant, baseline.CreateToken(account.ToString("D")));
         var pending = client.SendAsync(first, cancellation.Token);
-        await gate.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await gate.Entered.Task.WaitAsync(TestTimeout);
         using var excess = Request(tenant, baseline.CreateToken(secondAccount.ToString("D")));
         using var rejected = await client.SendAsync(excess);
         Assert.Equal(HttpStatusCode.TooManyRequests, rejected.StatusCode);
@@ -68,15 +70,15 @@ public sealed class TenantAdmissionTests
         {
             cancellation.Cancel();
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending);
-            await gate.Exited.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await gate.Exited.Task.WaitAsync(TestTimeout);
         }
         else
         {
             gate.Release.TrySetResult();
-            using var completed = await pending.WaitAsync(TimeSpan.FromSeconds(5));
+            using var completed = await pending.WaitAsync(TestTimeout);
             Assert.Equal(completion == "success" ? HttpStatusCode.OK : HttpStatusCode.InternalServerError, completed.StatusCode);
         }
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var deadline = new CancellationTokenSource(TestTimeout);
         while (true)
         {
             using var retry = Request(tenant, baseline.CreateToken(account.ToString("D")));

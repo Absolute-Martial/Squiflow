@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json.Serialization;
 using Application.Customers;
 using Application.Tenancy;
 
@@ -12,7 +13,8 @@ public sealed record OrderDraftLine(
     decimal Quantity,
     string UnitCode,
     decimal UnitPrice,
-    decimal LineTotal);
+    decimal LineTotal,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] OrderCommercialLineFacts? CommercialFacts = null);
 
 public enum OrderDraftState
 {
@@ -36,7 +38,11 @@ public sealed record OrderDraftSnapshot(
     Guid? AbandonedByAccountId = null,
     CustomerOrderContext? CustomerContext = null,
     DateTimeOffset? CommittedAt = null,
-    Guid? CommittedByAccountId = null);
+    Guid? CommittedByAccountId = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] OrderQuotationOrigin? QuotationOrigin = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] OrderProgramPolicyFacts? ProgramPolicy = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ExternalProgramReference = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] OrderApprovalEvidence? ApprovalEvidence = null);
 
 public sealed record OrderDraftListItem(
     Guid OrderId,
@@ -48,7 +54,8 @@ public sealed record OrderDraftListItem(
     OrderDraftState State = OrderDraftState.Draft,
     DateTimeOffset? AbandonedAt = null,
     CustomerOrderContext? CustomerContext = null,
-    DateTimeOffset? CommittedAt = null);
+    DateTimeOffset? CommittedAt = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] OrderQuotationOrigin? QuotationOrigin = null);
 
 public sealed record OrderDraftPageCursor(
     DateTimeOffset CreatedAt,
@@ -121,6 +128,7 @@ public enum ReviseOrderDraftStatus
     AlreadyAbandoned = 5,
     IdempotencyKeyConflict = 6,
     AlreadyCommitted = 7,
+    QuotationBound = 8,
 }
 
 public sealed record ReviseOrderDraftResult(
@@ -138,6 +146,11 @@ public enum CommitOrderDraftStatus
     AlreadyCommitted = 5,
     AlreadyAbandoned = 6,
     IdempotencyKeyConflict = 7,
+    CommercialFactsConflict = 8,
+    ProgramReferenceRequired = 9,
+    ProfileUnavailable = 10,
+    ApprovalRequired = 11,
+    ApprovalStale = 12,
 }
 
 public sealed record CommitOrderDraftResult(
@@ -470,6 +483,9 @@ public sealed record OrderDraftIntent(
     CustomerOrderContext? CustomerContext = null)
 {
     public static OrderDraftIntent Create(CreateOrderDraftRequest request)
+        => Create(request, catalogUnitCodes: false);
+
+    internal static OrderDraftIntent Create(CreateOrderDraftRequest request, bool catalogUnitCodes)
     {
         ArgumentNullException.ThrowIfNull(request);
         var summary = OrderDraftRules.NormalizeRequiredText(
@@ -488,7 +504,7 @@ public sealed record OrderDraftIntent(
                 "Customer organization and program identities must be nonempty.");
         }
 
-        var (lines, total) = Pricing.OrderDraftPriceCalculator.Calculate(request.Lines);
+        var (lines, total) = Pricing.OrderDraftPriceCalculator.Calculate(request.Lines, catalogUnitCodes);
 
         return new OrderDraftIntent(
             summary,

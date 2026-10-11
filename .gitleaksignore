@@ -12,3 +12,11 @@ d57c71c17c7c9eeaf73c86cd09a05c0ff49a830b:AGENTS.md:generic-api-key:68
 80a3e30e77e1053813507ab76d2756b945a32694:docs/review/bytebytego_308/STUDY_URL_043.md:generic-api-key:28
 35d356b619e7ee540b43f62d3740af1c885849af:docs/review/bytebytego_308/STUDY_URL_043.md:generic-api-key:28
 ceda693b5eb47ade6bed47db92981d731c6421b6:docs/review/BYTEBYTEGO_DISTRIBUTED_SYSTEMS_SOURCE_REVIEW.md:generic-api-key:496
+
+# Synthetic idempotency header label in the malformed UTF-16 approval request test.
+1c12f826cb063db24e58c517c50805db23e81596:tests/integration/Application.CoreApi.Tests/OrderApprovalEndpointTests.cs:generic-api-key:115
+d8111beb1fd59a3c44b1aa76583333d39428fb0b:tests/integration/Application.CoreApi.Tests/OrderApprovalEndpointTests.cs:generic-api-key:115
+
+# Verified SHA-256 document provenance in the historical baseline manifest.
+d7780894fb06375f50112073c2d15f656b454920:docs/production-completion-review/BASELINE.json:generic-api-key:25
+d7780894fb06375f50112073c2d15f656b454920:docs/production-completion-review/BASELINE.json:generic-api-key:45

@@ -179,7 +179,7 @@ public sealed class OrderDraftIntentTests
         Assert.DoesNotContain(references, name => name.StartsWith("Autofac", StringComparison.Ordinal));
         Assert.DoesNotContain(references, name =>
             name.StartsWith("Application.", StringComparison.Ordinal) &&
-            name is not ("Application.Tenancy" or "Application.Customers"));
+            name is not ("Application.Tenancy" or "Application.Customers" or "Application.Catalog" or "Application.Pricing"));
     }
 
     public static TheoryData<CreateOrderDraftRequest, string> InvalidDrafts => new()

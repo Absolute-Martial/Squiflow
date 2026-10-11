@@ -93,9 +93,10 @@ public sealed class OrderDbContext(DbContextOptions<OrderDbContext> options)
                 table.HasCheckConstraint("ck_order_draft_lines_position", "position BETWEEN 1 AND 100");
                 table.HasCheckConstraint("ck_order_draft_lines_description_not_blank", "btrim(description) <> ''");
                 table.HasCheckConstraint("ck_order_draft_lines_quantity", "quantity > 0");
-                table.HasCheckConstraint("ck_order_draft_lines_unit_code", "unit_code ~ '^[A-Z0-9]{1,16}$'");
+                table.HasCheckConstraint("ck_order_draft_lines_unit_code", "unit_code ~ '^[A-Z0-9_-]{1,64}$'");
                 table.HasCheckConstraint("ck_order_draft_lines_unit_price", "unit_price >= 0");
                 table.HasCheckConstraint("ck_order_draft_lines_line_total", "line_total >= 0");
+                table.HasCheckConstraint("ck_order_draft_lines_commercial_facts", "commercial_facts IS NULL OR jsonb_typeof(commercial_facts) = 'object'");
             });
             entity.HasKey(row => new { row.TenantId, row.OrderId, row.Position })
                 .HasName("pk_order_draft_lines");
@@ -104,9 +105,10 @@ public sealed class OrderDbContext(DbContextOptions<OrderDbContext> options)
             entity.Property(row => row.Position).HasColumnName("position");
             entity.Property(row => row.Description).HasMaxLength(300).HasColumnName("description");
             entity.Property(row => row.Quantity).HasPrecision(19, 4).HasColumnName("quantity");
-            entity.Property(row => row.UnitCode).HasMaxLength(16).HasColumnName("unit_code");
+            entity.Property(row => row.UnitCode).HasMaxLength(64).HasColumnName("unit_code");
             entity.Property(row => row.UnitPrice).HasPrecision(19, 4).HasColumnName("unit_price");
             entity.Property(row => row.LineTotal).HasPrecision(19, 4).HasColumnName("line_total");
+            entity.Property(row => row.CommercialFacts).HasColumnType("jsonb").HasColumnName("commercial_facts");
             entity.HasOne<OrderDraftRow>()
                 .WithMany()
                 .HasForeignKey(row => new { row.TenantId, row.OrderId })
@@ -176,6 +178,7 @@ internal sealed class OrderDraftLineRow
     public string UnitCode { get; set; } = string.Empty;
     public decimal UnitPrice { get; set; }
     public decimal LineTotal { get; set; }
+    public string? CommercialFacts { get; set; }
 }
 
 internal sealed class OrderCommandReceiptRow

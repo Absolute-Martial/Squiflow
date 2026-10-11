@@ -1,0 +1,1 @@
+INSERT INTO fulfillment.events(tenant_id,order_id,event_id,revision,actor_id,authorization_revision,kind,target_event_id,facts,recorded_at) VALUES(@tenant,@order,@event,@revision,@actor,@authorization,@kind,@target,@facts::jsonb,@at);

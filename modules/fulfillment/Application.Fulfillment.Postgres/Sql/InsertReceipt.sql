@@ -1,0 +1,1 @@
+INSERT INTO fulfillment.command_receipts(tenant_id,actor_id,operation,idempotency_key,fingerprint,order_id,revision,response) VALUES(@tenant,@actor,@operation,@key,@fingerprint,@order,@revision,@response::jsonb);

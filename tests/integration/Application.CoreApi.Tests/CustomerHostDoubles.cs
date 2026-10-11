@@ -32,7 +32,13 @@ internal sealed class TestTenantCustomerAuthorization : ITenantCustomerAuthoriza
 
     public Task<bool> CanCreateIndividualAsync(Guid accountId, Guid tenantId, CancellationToken ct) => Check(accountId, tenantId, "createIndividual", ct);
     public Task<bool> CanViewIndividualsAsync(Guid accountId, Guid tenantId, CancellationToken ct) => Check(accountId, tenantId, "viewIndividuals", ct);
+    public Task<bool> CanEditIndividualContactAsync(Guid accountId, Guid tenantId, CancellationToken ct) => Check(accountId, tenantId, "editIndividualContact", ct);
     public Task<bool> CanChangeIndividualAvailabilityAsync(Guid accountId, Guid tenantId, CancellationToken ct) => Check(accountId, tenantId, "changeIndividualAvailability", ct);
+    public Task<bool> CanViewRepresentativesAsync(Guid accountId, Guid tenantId, CancellationToken ct) => Check(accountId, tenantId, "viewRepresentatives", ct);
+    public Task<bool> CanManageRepresentativesAsync(Guid accountId, Guid tenantId, CancellationToken ct) => Check(accountId, tenantId, "manageRepresentatives", ct);
+    public Task<bool> CanResolveCustomerDuplicatesAsync(Guid accountId, Guid tenantId, CancellationToken ct) => Check(accountId, tenantId, "resolveCustomerDuplicates", ct);
+    public Task<bool> CanConsolidateCustomerDuplicatesAsync(Guid accountId, Guid tenantId, CancellationToken ct) => Check(accountId, tenantId, "consolidateCustomerDuplicates", ct);
+    public Task<bool> CanImportCustomersAsync(Guid accountId, Guid tenantId, CancellationToken ct) => Check(accountId, tenantId, "importCustomers", ct);
 
     private Task<bool> Check(Guid account, Guid tenant, string operation, CancellationToken ct)
     {
@@ -49,7 +55,8 @@ internal sealed class TestTenantCustomerAuthorization : ITenantCustomerAuthoriza
     }
 }
 
-internal sealed partial class TestCustomerStore : ICustomerStore, ICustomerIndividualStore
+internal sealed partial class TestCustomerStore : ICustomerStore, ICustomerIndividualStore,
+    ICustomerIndividualContactStore, ICustomerRepresentativeStore
 {
     private readonly Dictionary<(Guid Tenant, Guid Id), CustomerOrganizationSnapshot> _organizations = [];
     private readonly Dictionary<(Guid Tenant, Guid Id), CustomerProgramSnapshot> _programs = [];

@@ -1,0 +1,1 @@
+SELECT fingerprint,version,result,device_id,recorded_at FROM profiles.command_receipts WHERE tenant_id=@tenant AND actor_kind=@kind AND actor_id=@actor AND operation=@operation AND idempotency_key=@key

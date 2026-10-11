@@ -36,9 +36,16 @@ public sealed class CoreApiRuntimeRoleProvisioningTests : PostgresTestDatabase
                      "tenancy.custom_role_assignments",
                      "tenancy.owner_transfer_receipts",
                      "customers.organizations", "customers.programs",
-                     "customers.organization_receipts", "customers.program_receipts",
+                      "customers.organization_receipts", "customers.program_receipts",
+                      "customers.duplicate_cases", "customers.duplicate_command_receipts", "customers.customer_redirects",
+                      "customers.imports", "customers.import_rows", "customers.import_work",
+                      "catalog.units", "catalog.items", "catalog.unit_conversions", "catalog.command_receipts",
+                     "pricing.price_revisions", "pricing.command_receipts", "pricing.override_policies",
+                     "profiles.policy_heads", "profiles.policy_revisions", "profiles.publications",
+                     "profiles.authority", "profiles.command_receipts",
                      "orders.order_drafts",
-                     "orders.order_draft_lines", "orders.command_receipts",
+                     "orders.order_draft_lines", "orders.command_receipts", "orders.program_order_metadata",
+                     "orders.approval_requests", "orders.approval_events", "orders.approval_commit_evidence",
                  })
         {
             await using var command = runtime.CreateCommand();
@@ -74,9 +81,83 @@ public sealed class CoreApiRuntimeRoleProvisioningTests : PostgresTestDatabase
             """;
         Assert.Equal(0, await allowedDraftUpdate.ExecuteNonQueryAsync(CancellationToken.None));
 
+        await using var allowedApprovalRequestUpdate = runtime.CreateCommand();
+        allowedApprovalRequestUpdate.CommandText = """
+            UPDATE orders.approval_requests
+            SET assigned_id = assigned_id, revision = revision, state = state, updated_at = updated_at
+            WHERE false
+            """;
+        Assert.Equal(0, await allowedApprovalRequestUpdate.ExecuteNonQueryAsync(CancellationToken.None));
+
+        foreach (var column in new[]
+                 {
+                     "tenant_id", "request_id", "order_id", "requester_id", "revision_author_id",
+                     "order_revision", "subject", "subject_fingerprint", "created_at",
+                 })
+        {
+            await using var forbiddenApprovalRequestRewrite = runtime.CreateCommand();
+            forbiddenApprovalRequestRewrite.CommandText =
+                $"UPDATE orders.approval_requests SET {column} = {column} WHERE false";
+            var approvalRequestRewriteFailure = await Assert.ThrowsAsync<PostgresException>(() =>
+                forbiddenApprovalRequestRewrite.ExecuteNonQueryAsync(CancellationToken.None));
+            Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, approvalRequestRewriteFailure.SqlState);
+        }
+
+        foreach (var (table, column) in new[]
+                 {
+                     ("orders.approval_events", "actor_id"),
+                     ("orders.approval_commit_evidence", "subject_fingerprint"),
+                 })
+        {
+            await using var approvalUpdatePrivilege = runtime.CreateCommand();
+            approvalUpdatePrivilege.CommandText =
+                "SELECT has_table_privilege(current_user, @table, 'UPDATE') " +
+                "OR has_any_column_privilege(current_user, @table, 'UPDATE')";
+            approvalUpdatePrivilege.Parameters.AddWithValue("table", table);
+            Assert.Equal(false, await approvalUpdatePrivilege.ExecuteScalarAsync(CancellationToken.None));
+
+            await using var forbiddenApprovalUpdate = runtime.CreateCommand();
+            forbiddenApprovalUpdate.CommandText = $"UPDATE {table} SET {column} = {column} WHERE false";
+            var approvalUpdateFailure = await Assert.ThrowsAsync<PostgresException>(() =>
+                forbiddenApprovalUpdate.ExecuteNonQueryAsync(CancellationToken.None));
+            Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, approvalUpdateFailure.SqlState);
+
+            await using var forbiddenApprovalDelete = runtime.CreateCommand();
+            forbiddenApprovalDelete.CommandText = $"DELETE FROM {table} WHERE false";
+            var approvalDeleteFailure = await Assert.ThrowsAsync<PostgresException>(() =>
+                forbiddenApprovalDelete.ExecuteNonQueryAsync(CancellationToken.None));
+            Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, approvalDeleteFailure.SqlState);
+        }
+
+        await using var forbiddenApprovalRequestDelete = runtime.CreateCommand();
+        forbiddenApprovalRequestDelete.CommandText = "DELETE FROM orders.approval_requests WHERE false";
+        var approvalRequestDeleteFailure = await Assert.ThrowsAsync<PostgresException>(() =>
+            forbiddenApprovalRequestDelete.ExecuteNonQueryAsync(CancellationToken.None));
+        Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, approvalRequestDeleteFailure.SqlState);
+
         await using var allowedLineDelete = runtime.CreateCommand();
         allowedLineDelete.CommandText = "DELETE FROM orders.order_draft_lines WHERE false";
         Assert.Equal(0, await allowedLineDelete.ExecuteNonQueryAsync(CancellationToken.None));
+
+        await using var allowedImportSourceLifecycleUpdate = runtime.CreateCommand();
+        allowedImportSourceLifecycleUpdate.CommandText = """
+            UPDATE customers.import_source_objects
+            SET state = state, failure_code = failure_code,
+                retirement_generation = retirement_generation,
+                retirement_lease_id = retirement_lease_id,
+                retirement_lease_expires_at = retirement_lease_expires_at,
+                staging_expires_at = staging_expires_at, retirement_fenced = retirement_fenced
+            WHERE false
+            """;
+        Assert.Equal(0, await allowedImportSourceLifecycleUpdate.ExecuteNonQueryAsync(CancellationToken.None));
+
+        await using var allowedUploadLeaseUpdate = runtime.CreateCommand();
+        allowedUploadLeaseUpdate.CommandText = """
+            UPDATE customers.object_storage_reservations SET state=state,updated_at=updated_at,
+                upload_generation=upload_generation,upload_lease_id=upload_lease_id,upload_lease_expires_at=upload_lease_expires_at
+            WHERE false
+            """;
+        Assert.Equal(0, await allowedUploadLeaseUpdate.ExecuteNonQueryAsync(CancellationToken.None));
 
         await using var allowedTenantRevisionUpdate = runtime.CreateCommand();
         allowedTenantRevisionUpdate.CommandText = "UPDATE tenancy.tenants SET revision = revision WHERE false";
@@ -136,6 +217,47 @@ public sealed class CoreApiRuntimeRoleProvisioningTests : PostgresTestDatabase
         var roleFailure = await Assert.ThrowsAsync<PostgresException>(() =>
             forbiddenRoleCreate.ExecuteNonQueryAsync(CancellationToken.None));
         Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, roleFailure.SqlState);
+
+        foreach (var sql in new[]
+        {
+            "DELETE FROM pricing.price_revisions",
+            "DELETE FROM customers.import_rows",
+            "UPDATE pricing.price_revisions SET base_unit_price=base_unit_price WHERE false",
+            "UPDATE catalog.units SET precision=precision WHERE false",
+            "UPDATE catalog.items SET base_unit_id=base_unit_id WHERE false",
+            "UPDATE customers.import_rows SET source_row_hash=source_row_hash WHERE false",
+            "UPDATE customers.import_source_objects SET retention=retention WHERE false",
+            "UPDATE customers.import_source_objects SET expires_at=expires_at WHERE false",
+            "UPDATE customers.object_storage_reservations SET account_id=account_id WHERE false",
+            "UPDATE customers.object_storage_reservations SET import_id=import_id WHERE false",
+            "UPDATE customers.object_storage_reservations SET idempotency_key=idempotency_key WHERE false",
+            "UPDATE customers.object_storage_reservations SET fingerprint=fingerprint WHERE false",
+        })
+        {
+            await using var denied = new NpgsqlCommand(sql, runtime);
+            Assert.Equal(PostgresErrorCodes.InsufficientPrivilege,
+                (await Assert.ThrowsAsync<PostgresException>(() => denied.ExecuteNonQueryAsync())).SqlState);
+        }
+        await using var discover = new NpgsqlCommand("SELECT count(*) FROM customers.discover_runnable_import_tenants(NULL, 10)", runtime);
+        Assert.Equal(0L, await discover.ExecuteScalarAsync());
+
+        await using var allowedPolicyHeadUpdate = new NpgsqlCommand(
+            "UPDATE profiles.policy_heads SET revision = revision WHERE false", runtime);
+        Assert.Equal(0, await allowedPolicyHeadUpdate.ExecuteNonQueryAsync());
+
+        foreach (var sql in new[]
+                 {
+                     "UPDATE profiles.authority SET active_profile_id = active_profile_id WHERE false",
+                     "INSERT INTO orders.program_order_metadata(baseline_principal_id) VALUES (NULL)",
+                     "INSERT INTO profiles.publications(tenant_id, profile_id, policy_id, legacy_baseline, version, facts) " +
+                     "VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002', " +
+                     "'00000000-0000-0000-0000-000000000003', false, 1, '{}'::jsonb)",
+                 })
+        {
+            await using var forbidden = new NpgsqlCommand(sql, runtime);
+            var failure = await Assert.ThrowsAsync<PostgresException>(() => forbidden.ExecuteNonQueryAsync());
+            Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, failure.SqlState);
+        }
     }
 
     [Fact]
@@ -178,6 +300,120 @@ public sealed class CoreApiRuntimeRoleProvisioningTests : PostgresTestDatabase
         var failure = await Assert.ThrowsAsync<PostgresException>(ApplyProvisioningAsync);
         Assert.Equal(PostgresErrorCodes.RaiseException, failure.SqlState);
         Assert.Contains("inherit or assume", failure.MessageText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ProvisioningRejectsInheritedCommercialHistoryMutationPrivilegesWithoutApplyingPartialGrants()
+    {
+        await ApplyOrderSchemaAsync();
+        await CreateRoleAsync();
+
+        foreach (var table in new[] { "heads", "issued", "numbers", "receipts" })
+        {
+            await AssertProvisioningRejectedAsync($"TRUNCATE ON TABLE quotations.{table}");
+            await AssertProvisioningRejectedAsync($"DELETE ON TABLE quotations.{table}");
+        }
+
+        foreach (var table in new[] { "orders.quotation_origins", "quotations.responses", "quotations.conversions" })
+        {
+            await AssertProvisioningRejectedAsync($"TRUNCATE ON TABLE {table}");
+            await AssertProvisioningRejectedAsync($"DELETE ON TABLE {table}");
+        }
+        await AssertProvisioningRejectedAsync("UPDATE ON TABLE orders.quotation_origins");
+
+        foreach (var (table, column) in new[]
+                 {
+                     ("quotations.heads", "created_by"), ("quotations.issued", "facts"),
+                     ("quotations.numbers", "tenant_id"), ("quotations.receipts", "response"),
+                     ("orders.quotation_origins", "quotation_id"), ("quotations.responses", "facts"),
+                     ("quotations.conversions", "facts"),
+                 })
+        {
+            await AssertProvisioningRejectedAsync($"UPDATE ({column}) ON TABLE {table}");
+        }
+
+        foreach (var table in new[] { "heads", "issued", "numbers", "receipts", "responses", "conversions" })
+        {
+            await AssertProvisioningRejectedAsync($"UPDATE ON TABLE quotations.{table}");
+        }
+    }
+
+    [Fact]
+    public async Task ProvisioningRejectsInheritedApprovalEventUpdateWithoutApplyingPartialGrants()
+    {
+        await ApplyOrderSchemaAsync();
+        await CreateRoleAsync();
+
+        await AssertProvisioningRejectedAsync("UPDATE ON TABLE orders.approval_events");
+    }
+
+    [Fact]
+    public async Task ProvisioningRejectsPublicCoreBaselineMetadataInsertColumnPrivilege()
+    {
+        await ApplyOrderSchemaAsync();
+        await CreateRoleAsync();
+
+        await AssertProvisioningRejectedAsync(
+            "INSERT (baseline_principal_id) ON TABLE orders.program_order_metadata");
+    }
+
+    [Fact]
+    public async Task ProvisioningRejectsPublicProfileAuthorityUpdateColumnPrivilege()
+    {
+        await ApplyOrderSchemaAsync();
+        await CreateRoleAsync();
+
+        await AssertProvisioningRejectedAsync("UPDATE (active_profile_id) ON TABLE profiles.authority");
+    }
+
+    [Theory]
+    [InlineData("profiles.policy_revisions")]
+    [InlineData("profiles.publications")]
+    [InlineData("orders.program_order_metadata")]
+    public async Task ProvisioningRejectsPublicProfileAndOrderColumnReferences(string table)
+    {
+        await ApplyOrderSchemaAsync(); await CreateRoleAsync();
+        await AssertProvisioningRejectedAsync($"REFERENCES (tenant_id) ON TABLE {table}");
+    }
+
+    private async Task AssertProvisioningRejectedAsync(string privilege)
+    {
+        await using (var admin = new NpgsqlConnection(ConnectionString))
+        {
+            await admin.OpenAsync(CancellationToken.None);
+            await using var grant = admin.CreateCommand();
+            grant.CommandText = $"GRANT {privilege} TO PUBLIC";
+            await grant.ExecuteNonQueryAsync(CancellationToken.None);
+        }
+
+        try
+        {
+            var failure = await Assert.ThrowsAsync<PostgresException>(ApplyProvisioningAsync);
+            Assert.Equal(PostgresErrorCodes.RaiseException, failure.SqlState);
+
+            await using var connection = new NpgsqlConnection(ConnectionString);
+            await connection.OpenAsync(CancellationToken.None);
+            await using var check = connection.CreateCommand();
+            check.CommandText = """
+                SELECT has_table_privilege(@role, 'identity_access.accounts', 'SELECT'),
+                       has_schema_privilege(@role, 'orders', 'USAGE'),
+                       has_schema_privilege(@role, 'quotations', 'USAGE')
+                """;
+            check.Parameters.AddWithValue("role", RuntimeRole);
+            await using var reader = await check.ExecuteReaderAsync(CancellationToken.None);
+            Assert.True(await reader.ReadAsync(CancellationToken.None));
+            Assert.False(reader.GetBoolean(0));
+            Assert.False(reader.GetBoolean(1));
+            Assert.False(reader.GetBoolean(2));
+        }
+        finally
+        {
+            await using var admin = new NpgsqlConnection(ConnectionString);
+            await admin.OpenAsync(CancellationToken.None);
+            await using var revoke = admin.CreateCommand();
+            revoke.CommandText = $"REVOKE {privilege} FROM PUBLIC";
+            await revoke.ExecuteNonQueryAsync(CancellationToken.None);
+        }
     }
 
     private async Task CreateRoleAsync()

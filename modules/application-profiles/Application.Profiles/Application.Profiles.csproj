@@ -1,1 +1,6 @@
-<Project Sdk="Microsoft.NET.Sdk" />
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../../tenancy/Application.Tenancy/Application.Tenancy.csproj" />
+    <ProjectReference Include="../../platform-administration/Application.PlatformAdministration/Application.PlatformAdministration.csproj" />
+  </ItemGroup>
+</Project>
