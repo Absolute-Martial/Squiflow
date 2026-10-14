@@ -6,7 +6,7 @@ namespace Application.Architecture.Tests;
 
 public sealed class ProjectBoundariesTests
 {
-    private static readonly string[] ProjectAreas = ["foundation", "modules", "services", "operations", "apps", "tests"];
+    private static readonly string[] ProjectAreas = ["foundation", "modules", "services", "operations", "apps", "infrastructure", "tests"];
     [Fact]
     public void CurrentProjectsRespectDependencyAndProviderBoundaries()
     {
@@ -210,7 +210,23 @@ public sealed class ProjectBoundariesTests
     }
 
     [Fact]
-    public void HostManifestCoversEveryCurrentServiceAndTheCiMatrix()
+    public void SharedEntryTransportStaysOutsideCapabilityAndHostDependencies()
+    {
+        const string root = "/repository";
+        var branding = new ProjectNode(Path.Combine(root, "modules/branding/Application.Branding/Application.Branding.csproj"),
+            ProjectKind.Capability, "branding", [], [], [], "Microsoft.NET.Sdk", null);
+        var client = new ProjectNode(Path.Combine(root, "infrastructure/application-entry/Application.ApplicationEntry/Application.ApplicationEntry.csproj"),
+            ProjectKind.ClientAdapter, "application-entry", [branding.Path], [], [], "Microsoft.NET.Sdk", null);
+
+        Assert.Empty(ProjectBoundaries.Check([branding, client]));
+        Assert.Contains(ProjectBoundaries.Check([branding, client with { Packages = ["Avalonia"] }]),
+            violation => violation.Contains("free of UI", StringComparison.Ordinal));
+        Assert.Contains(ProjectBoundaries.Check([branding with { References = [client.Path] }, client]),
+            violation => violation.Contains("cannot reference an HTTP client", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void HostManifestCoversEveryCurrentExecutableAndTheCiMatrix()
     {
         var root = FindRepositoryRoot();
         var manifest = File.ReadAllLines(Path.Combine(root, "eng", "hosts.tsv"))
@@ -225,14 +241,12 @@ public sealed class ProjectBoundariesTests
             .Select(fields => Path.GetFullPath(Path.Combine(root, fields[1])))
             .Order(StringComparer.Ordinal)
             .ToArray();
-        var currentServiceProjects = LoadProjects(root)
-            .Where(project => project.Kind == ProjectKind.Executable &&
-                (project.Path.StartsWith(Path.Combine(root, "services") + Path.DirectorySeparatorChar, StringComparison.Ordinal) ||
-                 project.Path.StartsWith(Path.Combine(root, "operations") + Path.DirectorySeparatorChar, StringComparison.Ordinal)))
+        var currentExecutableProjects = LoadProjects(root)
+            .Where(project => project.Kind == ProjectKind.Executable)
             .Select(project => project.Path)
             .Order(StringComparer.Ordinal)
             .ToArray();
-        Assert.Equal(currentServiceProjects, declaredProjects);
+        Assert.Equal(currentExecutableProjects, declaredProjects);
 
         foreach (var fields in manifest)
         {
@@ -320,6 +334,7 @@ public sealed class ProjectBoundariesTests
                     "apps" when sdk == "Microsoft.NET.Sdk.Web" || outputType is "Exe" or "WinExe"
                         => ProjectKind.Executable,
                     "apps" => ProjectKind.HostLibrary,
+                    "infrastructure" => ProjectKind.ClientAdapter,
                     _ => ProjectKind.Test
                 };
                 var references = document.Descendants("ProjectReference")
@@ -346,7 +361,7 @@ public sealed class ProjectBoundariesTests
     }
 }
 
-internal enum ProjectKind { Capability, PostgresAdapter, Executable, HostLibrary, Test }
+internal enum ProjectKind { Capability, PostgresAdapter, Executable, HostLibrary, ClientAdapter, Test }
 internal sealed record ProjectNode(
     string Path,
     ProjectKind Kind,
@@ -432,6 +447,15 @@ internal static class ProjectBoundaries
                 violations.Add($"{project.Path}: PostgreSQL adapter must reference its owning host-neutral capability.");
             }
 
+            if (project.Kind == ProjectKind.ClientAdapter &&
+                (project.Sdk != "Microsoft.NET.Sdk" || project.FrameworkReferences.Count != 0 ||
+                 project.Packages.Any(package => ForbiddenCapabilityPackages.Any(prefix =>
+                     package.Equals(prefix, StringComparison.OrdinalIgnoreCase) ||
+                     package.StartsWith(prefix + ".", StringComparison.OrdinalIgnoreCase)))))
+            {
+                violations.Add($"{project.Path}: shared HTTP client must remain free of UI, host-framework and provider packages.");
+            }
+
             foreach (var reference in project.References)
             {
                 if (!byPath.TryGetValue(reference, out var target))
@@ -444,7 +468,7 @@ internal static class ProjectBoundaries
                 {
                     violations.Add($"{project.Path}: host-neutral capability cannot reference adapter {target.Path}.");
                 }
-                if ((project.Kind is ProjectKind.Capability or ProjectKind.PostgresAdapter or ProjectKind.Executable or ProjectKind.HostLibrary) &&
+                if ((project.Kind is ProjectKind.Capability or ProjectKind.PostgresAdapter or ProjectKind.Executable or ProjectKind.HostLibrary or ProjectKind.ClientAdapter) &&
                     target.Kind == ProjectKind.Executable)
                 {
                     violations.Add($"{project.Path}: cannot reference executable {target.Path}.");
@@ -462,6 +486,14 @@ internal static class ProjectBoundaries
                 if (project.Kind != ProjectKind.Test && target.Kind == ProjectKind.Test)
                 {
                     violations.Add($"{project.Path}: production project cannot reference test project {target.Path}.");
+                }
+                if (project.Kind == ProjectKind.ClientAdapter && target.Kind != ProjectKind.Capability)
+                {
+                    violations.Add($"{project.Path}: shared HTTP client may reference only host-neutral capability contracts.");
+                }
+                if (project.Kind == ProjectKind.Capability && target.Kind == ProjectKind.ClientAdapter)
+                {
+                    violations.Add($"{project.Path}: host-neutral capability cannot reference an HTTP client.");
                 }
             }
         }

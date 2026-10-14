@@ -7,6 +7,11 @@ Each current executable is its own restore/build/test/publish root while the nor
 repository also owns recurring material coverage, scoped mutation, architecture,
 secret and NuGet dependency review. Product version remains v0.0.1.
 
+The public entry hosts are included as `web` and `workstation` in the manifest and
+independent CI matrix. Their bounded responsibility and supported-platform limits
+are owned by [public application entry](PUBLIC_APPLICATION_ENTRY.md). The shared
+HTTP client's test root is included in both host graphs.
+
 Current executable inventory remains owned by `README.IMPLEMENTATION.md`.
 `eng/hosts.tsv` is the machine-readable mapping from each introduced service host
 to its project and the verification projects that own that host's current runtime

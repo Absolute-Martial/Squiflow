@@ -1,0 +1,77 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:Application.Workstation"
+        x:Class="Application.Workstation.MainWindow"
+        x:DataType="local:ConnectionViewModel"
+        Title="{Binding ApplicationName}"
+        Width="1080" Height="760" MinWidth="780" MinHeight="640"
+        WindowStartupLocation="CenterScreen">
+  <Grid RowDefinitions="90,*,64" Margin="44,0">
+    <Border Grid.Row="0" BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1">
+      <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+        <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+          <Border Background="{StaticResource Ink}" CornerRadius="10" Width="36" Height="36">
+            <TextBlock Text="↗" Foreground="#D9EF86" FontSize="25" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+          <TextBlock Name="ApplicationNameText" Text="{Binding ApplicationName}" FontSize="18" FontWeight="SemiBold"
+                     VerticalAlignment="Center" MaxWidth="450" TextTrimming="CharacterEllipsis" />
+        </StackPanel>
+        <TextBlock Grid.Column="1" Text="WORKSTATION  /  v0.0.1" Classes="eyebrow" VerticalAlignment="Center" />
+      </Grid>
+    </Border>
+    <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+      <Grid ColumnDefinitions="*,380" ColumnSpacing="32" Margin="0,40" VerticalAlignment="Center">
+        <StackPanel Grid.Column="0" Spacing="22" VerticalAlignment="Center">
+          <TextBlock Text="YOUR WORKSPACE" Classes="eyebrow" />
+          <StackPanel Spacing="2">
+            <TextBlock Text="A clear start." FontSize="48" FontWeight="Medium" />
+            <TextBlock Text="Ready for your day." FontSize="40" Foreground="#788470" TextWrapping="Wrap" />
+          </StackPanel>
+          <TextBlock Classes="copy" MaxWidth="310" HorizontalAlignment="Left"
+                     Text="Connect to your application service and check that everything is ready before you begin." />
+          <Border BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="0,22,0,0" Margin="0,10,32,0">
+            <TextBlock Text="Your work belongs to your workspace. Access is checked separately when you sign in."
+                       TextWrapping="Wrap" FontSize="12" LineHeight="22" Foreground="{StaticResource Muted}" />
+          </Border>
+          <TextBlock Text="01  /  APPLICATION ENTRY" Classes="eyebrow" Margin="0,18,0,0" />
+        </StackPanel>
+        <Border Grid.Column="1" Background="White" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                CornerRadius="18" Padding="28">
+          <StackPanel Spacing="18">
+            <TextBlock Text="CONNECTION" Classes="eyebrow" />
+            <TextBlock Text="Your application service" FontSize="22" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <TextBlock Classes="copy" FontSize="12" Text="A live check of the service and its public application details." />
+            <StackPanel Spacing="8">
+              <Label Target="{Binding #ServiceAddressBox}" Content="Service address" FontSize="12" Padding="0" />
+              <TextBox Name="ServiceAddressBox" Text="{Binding Address, Mode=TwoWay}"
+                       IsReadOnly="{Binding ConnectCommand.IsRunning}" MaxLength="2048"
+                       Watermark="https://app.example.com" FontSize="12" Padding="10,12"
+                       AutomationProperties.Name="Application service address" />
+            </StackPanel>
+            <Border Background="#F5F8EF" BorderBrush="#DFE8CF" BorderThickness="1" CornerRadius="10" Padding="14">
+              <StackPanel Spacing="7">
+                <TextBlock Name="ConnectionHeading" Text="{Binding Heading}" FontWeight="SemiBold" FontSize="12"
+                           TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+                <TextBlock Name="ConnectionMessage" Text="{Binding Message}" FontSize="11" LineHeight="19"
+                           Foreground="{StaticResource Muted}" TextWrapping="Wrap" />
+                <ProgressBar IsIndeterminate="True" IsVisible="{Binding ConnectCommand.IsRunning}" Height="3" Margin="0,8,0,0" />
+              </StackPanel>
+            </Border>
+            <Button Name="ConnectButton" Classes="primary" Content="Check connection  ↗" Command="{Binding ConnectCommand}"
+                    HorizontalAlignment="Stretch" IsDefault="True" AutomationProperties.Name="Check connection" />
+            <Button Name="CancelButton" Content="Cancel check" Command="{Binding CancelCommand}"
+                    IsVisible="{Binding ConnectCommand.IsRunning}" HorizontalAlignment="Center" FontSize="12" />
+            <TextBlock Text="Checking a connection does not create or change any business records."
+                       TextWrapping="Wrap" FontSize="10" LineHeight="17" TextAlignment="Center" Foreground="{StaticResource Muted}" />
+          </StackPanel>
+        </Border>
+      </Grid>
+    </ScrollViewer>
+    <Border Grid.Row="2" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0">
+      <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+        <TextBlock Text="{Binding LegalName}" TextWrapping="Wrap" FontSize="10" Foreground="{StaticResource Muted}" />
+        <TextBlock Grid.Column="1" Text="ONLINE SERVICE CHECK" Classes="eyebrow" FontSize="9" />
+      </Grid>
+    </Border>
+  </Grid>
+</Window>

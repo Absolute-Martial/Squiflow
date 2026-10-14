@@ -51,7 +51,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        host: [core-api, admin-api, admin-bootstrap, db-migrator]
+        host: [core-api, admin-api, admin-bootstrap, db-migrator, web, workstation]
 
     steps:
       - name: Check out repository

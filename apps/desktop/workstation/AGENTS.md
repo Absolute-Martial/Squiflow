@@ -4,7 +4,7 @@ These rules apply below `apps/desktop/workstation/` in addition to the root inst
 
 ## Current state
 
-The principles-first reset currently has **no Workstation project implemented**. This directory reserves Workstation ownership/instructions only. Reintroduce the Avalonia host when a real current Workstation slice earns it; do not restore the old project by symmetry or memory.
+`Application.Workstation` implements only the public launch/service-connection journey owned by `docs/implementation/PUBLIC_APPLICATION_ENTRY.md`. Authentication, local business persistence, sync, Guard and protected business screens remain absent. Expand only when a real current slice earns the responsibility; do not restore the old project by symmetry or memory.
 
 ## Role
 

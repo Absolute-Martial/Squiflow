@@ -21,7 +21,7 @@ while IFS=$'\t' read -r alias candidate_project _; do
 done < "$manifest"
 
 if [[ -z "$project" ]]; then
-    echo "Usage: ./eng/build-host.sh {core-api|admin-api|admin-bootstrap|db-migrator} [--publish]" >&2
+    echo "Usage: ./eng/build-host.sh {core-api|admin-api|admin-bootstrap|db-migrator|web|workstation} [--publish]" >&2
     exit 2
 fi
 

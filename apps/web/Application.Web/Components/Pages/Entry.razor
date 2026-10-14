@@ -1,0 +1,120 @@
+@page "/"
+@rendermode Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer
+@implements IDisposable
+@inject ApplicationEntryClient Client
+@inject Uri ServiceAddress
+
+<PageTitle>@(check?.Application?.Brand.DisplayName ?? "Application connection")</PageTitle>
+@if (check?.Application is { } identity)
+{
+    <HeadContent><link rel="icon" href="@identity.FaviconUrl" /></HeadContent>
+}
+<a href="#main" class="skip-link">Skip to content</a>
+<div class="entry-shell">
+    <header class="topbar">
+        <a class="wordmark" href="/" aria-label="Application entry">
+            <span class="brand-symbol" aria-hidden="true">↗</span>
+            <span>@(check?.Application?.Brand.ShortName ?? "Application connection")</span>
+        </a>
+        <span class="surface-label">WEB APPLICATION <span class="surface-line"></span> v0.0.1</span>
+    </header>
+    <main id="main" class="entry-main">
+        <section class="intro" aria-labelledby="entry-title">
+            <p class="eyebrow"><span class="small-rule"></span> YOUR WORKSPACE</p>
+            <h1 id="entry-title">A clear start.<br /><span>Ready for your day.</span></h1>
+            <p class="intro-copy">Connect to your application service and check that everything is ready before you begin.</p>
+            <div class="entry-note">
+                <span class="note-icon" aria-hidden="true">◇</span>
+                <p>Your work belongs to your workspace.<br /><strong>Access is checked separately when you sign in.</strong></p>
+            </div>
+            <div class="intro-footer"><span>01</span><span>APPLICATION ENTRY</span><span class="intro-footer-line"></span></div>
+        </section>
+        <section class="connection-panel" aria-labelledby="connection-title" aria-busy="@busy.ToString().ToLowerInvariant()">
+            <div class="panel-top"><span class="eyebrow">CONNECTION</span><span class="panel-icon" aria-hidden="true">↗</span></div>
+            <h2 id="connection-title">Your application service</h2>
+            <p class="panel-copy">A live check of the service and its public application details.</p>
+            <div class="service-row"><span>SERVICE ADDRESS</span><span class="service-address">@ServiceAddress.Authority</span></div>
+            <div class="status-box @(check?.Status == ConnectionStatus.Ready && !busy ? "ready" : "")" role="status" aria-live="polite" aria-atomic="true">
+                <span class="status-indicator" aria-hidden="true"></span>
+                <div>
+                    <h3>@(busy ? "Checking connection…" : canceled ? "Check canceled" : check?.Heading ?? "Connection not checked")</h3>
+                    <p>@(busy ? "Contacting your application service." : canceled ? "The connection check was canceled. Try again when you are ready." : check?.Message ?? "Check the service to get started.")</p>
+                </div>
+            </div>
+            @if (check?.Application is { } application && !busy)
+            {
+                <div class="application-identity">
+                    <span class="identity-label">APPLICATION</span>
+                    <strong>@application.Brand.DisplayName</strong>
+                    <span>@application.Brand.LegalName</span>
+                </div>
+            }
+            <div class="panel-actions">
+                <button class="button" @onclick="RefreshAsync" disabled="@busy"><span>Check again</span><span aria-hidden="true">↗</span></button>
+                @if (busy)
+                {
+                    <button class="cancel-button" @onclick="Cancel">Cancel check</button>
+                }
+            </div>
+            <p class="check-caption">Checking a connection does not create or change any business records.</p>
+        </section>
+    </main>
+    <footer class="page-footer">
+        <span>@(check?.Application?.Brand.LegalName ?? "Application service connection")</span>
+        @if (check?.Application is { } links)
+        {
+            <nav aria-label="Application information">
+                <a href="@links.SupportUrl">Support</a><a href="@links.PrivacyUrl">Privacy</a><a href="@links.TermsUrl">Terms</a>
+            </nav>
+        }
+        <span class="footer-state">ONLINE SERVICE CHECK</span>
+    </footer>
+</div>
+
+@code {
+    private ConnectionCheck? check;
+    private CancellationTokenSource? pending;
+    private bool busy;
+    private bool disposed;
+    private bool canceled;
+
+    protected override Task OnInitializedAsync() => RefreshAsync();
+
+    private async Task RefreshAsync()
+    {
+        if (busy || disposed)
+        {
+            return;
+        }
+
+        busy = true;
+        canceled = false;
+        check = null;
+        using var operation = new CancellationTokenSource();
+        pending = operation;
+        try
+        {
+            check = await Client.CheckAsync(ServiceAddress, operation.Token);
+            operation.Token.ThrowIfCancellationRequested();
+        }
+        catch (OperationCanceledException) when (operation.IsCancellationRequested)
+        {
+            check = null;
+            canceled = true;
+        }
+        finally
+        {
+            pending = null;
+            busy = false;
+        }
+    }
+
+    private void Cancel() => pending?.Cancel();
+
+    public void Dispose()
+    {
+        disposed = true;
+        pending?.Cancel();
+        GC.SuppressFinalize(this);
+    }
+}

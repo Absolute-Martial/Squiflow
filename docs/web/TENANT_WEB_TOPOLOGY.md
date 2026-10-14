@@ -4,7 +4,7 @@
 
 **Decision owner:** `WEB-001`
 
-**State:** topology selected; Web runtime remains `NOT_INTRODUCED` until its implementation gate.
+**State:** topology selected; the bounded [public entry](../implementation/PUBLIC_APPLICATION_ENTRY.md) is introduced. Authenticated operator workflows remain `NOT_INTRODUCED` until their gate.
 
 ## Selected topology
 
@@ -42,7 +42,7 @@ This decision does not introduce:
 - customer portal identity/session reuse;
 - custom-domain login lifecycle;
 - Platform Admin Web;
-- Web project scaffolding before its implementation gate.
+- authenticated Web business workflows before their gate. The owner pulled the separate public connection/branding journey forward on 2026-10-13.
 
 ## Requalification triggers
 

@@ -13,7 +13,7 @@ Introduce only the authenticated tenant-operator entry and shell: real ZITADEL l
 
 ## Current basis and canonical inputs
 
-Web runtimes remain NOT_INTRODUCED; folders do not prove implementation. Re-read `README.IMPLEMENTATION.md`; `docs/decisions/CURRENT_DECISIONS.md`; `docs/decisions/OPEN_DECISIONS.md`; `docs/security/IDENTITY_AND_SESSIONS.md`; `docs/security/TENANT_PERMISSIONS.md`; `docs/web/WEB_RUNTIME_AND_STORAGE.md`; `docs/product/PRODUCT_IDENTITY_AND_VERSIONING.md`. Follow `docs/development-tasks/AGENT_RULES.md` and `docs/development-tasks/HANDOFF_AND_INTEGRATION.md`.
+Authenticated Web workflows remain NOT_INTRODUCED. The owner-selected public entry host is separately scoped by `docs/implementation/PUBLIC_APPLICATION_ENTRY.md`; it does not qualify this task. Login/tenant-entry preparation is in `docs/implementation/LOGIN_AND_TENANT_ENTRY_READINESS.md`. Re-read `README.IMPLEMENTATION.md`; `docs/decisions/CURRENT_DECISIONS.md`; `docs/decisions/OPEN_DECISIONS.md`; `docs/security/IDENTITY_AND_SESSIONS.md`; `docs/security/TENANT_PERMISSIONS.md`; `docs/web/WEB_RUNTIME_AND_STORAGE.md`; `docs/product/PRODUCT_IDENTITY_AND_VERSIONING.md`. Follow `docs/development-tasks/AGENT_RULES.md` and `docs/development-tasks/HANDOFF_AND_INTEGRATION.md`.
 
 ## Scope and exclusions
 

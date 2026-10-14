@@ -23,7 +23,7 @@ while IFS=$'\t' read -r alias candidate_project candidate_tests; do
 done < "$manifest"
 
 if [[ -z "$project" || -z "$test_list" ]]; then
-    echo "Usage: ./eng/verify-host.sh {core-api|admin-api|admin-bootstrap|db-migrator}" >&2
+    echo "Usage: ./eng/verify-host.sh {core-api|admin-api|admin-bootstrap|db-migrator|web|workstation}" >&2
     exit 2
 fi
 

@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../../../modules/branding/Application.Branding/Application.Branding.csproj" />
+  </ItemGroup>
+</Project>

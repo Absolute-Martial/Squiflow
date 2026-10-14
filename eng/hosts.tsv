@@ -1,4 +1,6 @@
 # host<TAB>project<TAB>owned verification projects separated by semicolons
+web	apps/web/Application.Web/Application.Web.csproj	tests/integration/Application.Web.Tests/Application.Web.Tests.csproj;tests/unit/Application.ApplicationEntry.Tests/Application.ApplicationEntry.Tests.csproj
+workstation	apps/desktop/workstation/Application.Workstation/Application.Workstation.csproj	tests/integration/Application.Workstation.Tests/Application.Workstation.Tests.csproj;tests/unit/Application.ApplicationEntry.Tests/Application.ApplicationEntry.Tests.csproj
 core-api	services/core-api/Application.CoreApi/Application.CoreApi.csproj	tests/integration/Application.CoreApi.Tests/Application.CoreApi.Tests.csproj
 admin-api	services/admin-api/Application.AdminApi/Application.AdminApi.csproj	tests/integration/Application.AdminApi.Tests/Application.AdminApi.Tests.csproj
 admin-bootstrap	operations/admin-bootstrap/Application.AdminBootstrap/Application.AdminBootstrap.csproj	tests/integration/Application.AdminBootstrap.Tests/Application.AdminBootstrap.Tests.csproj

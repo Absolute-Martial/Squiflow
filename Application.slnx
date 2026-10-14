@@ -1,4 +1,11 @@
 <Solution>
+  <Folder Name="/apps/">
+    <Project Path="apps/web/Application.Web/Application.Web.csproj" />
+    <Project Path="apps/desktop/workstation/Application.Workstation/Application.Workstation.csproj" />
+  </Folder>
+  <Folder Name="/infrastructure/">
+    <Project Path="infrastructure/application-entry/Application.ApplicationEntry/Application.ApplicationEntry.csproj" />
+  </Folder>
   <Folder Name="/foundation/">
     <Project Path="foundation/object-storage/Application.ObjectStorage/Application.ObjectStorage.csproj" />
   </Folder>
@@ -38,6 +45,9 @@
     <Project Path="operations/db-migrator/Application.DatabaseMigrator/Application.DatabaseMigrator.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/unit/Application.ApplicationEntry.Tests/Application.ApplicationEntry.Tests.csproj" />
+    <Project Path="tests/integration/Application.Web.Tests/Application.Web.Tests.csproj" />
+    <Project Path="tests/integration/Application.Workstation.Tests/Application.Workstation.Tests.csproj" />
     <Project Path="tests/unit/Application.Purchasing.Tests/Application.Purchasing.Tests.csproj" />
     <Project Path="tests/integration/Application.Purchasing.Postgres.Tests/Application.Purchasing.Postgres.Tests.csproj" />
     <Project Path="tests/unit/Application.Fulfillment.Tests/Application.Fulfillment.Tests.csproj" />

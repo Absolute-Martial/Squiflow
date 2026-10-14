@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <link rel="stylesheet" href="@Assets["app.css"]" />
+    <HeadOutlet @rendermode="Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer" />
+</head>
+<body>
+    <Routes />
+    <div id="components-reconnect-modal" role="alert" aria-live="assertive">
+        <div class="reconnect-card">
+            <h2>Connection interrupted</h2>
+            <p>Wait while the page reconnects, or reload to check the service again.</p>
+            <a class="button" href="/">Reload page</a>
+        </div>
+    </div>
+    <script src="_framework/blazor.web.js"></script>
+</body>
+</html>

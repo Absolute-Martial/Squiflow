@@ -11,9 +11,9 @@
 The three count lines below are machine-read by `Application.Architecture.Tests` (`ReadCount` matches `^label: N$`). Keep each on its own line in exactly this form.
 
 ```text
-production projects: 30
-test projects:       28
-executable hosts:    4
+production projects: 33
+test projects:       31
+executable hosts:    6
 solution files:      1
 repository build/test contract: present
 BLOCKED: COM-020–022 accepted invoice issue/read scope receiving qualification; COM-004 external Hugging Face provider qualification (OPS-007/OPS-008), with local raw-source contracts qualified; existing ADM-004 live ZITADEL topology evidence, ADM-006/ADM-009–ADM-012 gate-owner qualification and OPS-017 quality-gate expansion remain separate pending claims
@@ -24,6 +24,7 @@ BLOCKED: COM-020–022 accepted invoice issue/read scope receiving qualification
 | Area | Projects | Current responsibility (declared narrow scope) |
 |---|---|---|
 | Object storage | `Application.ObjectStorage` | Host-neutral `IObjectStore` request/result boundary for bounded retained objects; no provider SDK/API types or provider qualification claim. |
+| Application entry | `Application.ApplicationEntry`, `Application.Web`, `Application.Workstation` | Public launch/connection screens using real CoreApi bootstrap identity and readiness, a bounded shared HTTP client, encoded output, refresh/cancellation and explicit availability/failure UX. No signed-in access, business records, offline persistence or synchronization is introduced. Qualification evidence and supported-platform limits: [focused owner](docs/implementation/PUBLIC_APPLICATION_ENTRY.md). |
 | ApplicationProfiles | `Application.Profiles`, `.Postgres` | Bounded feature compilation plus the accepted fixed four-feature catalog, immutable typed tenant policy revisions, separate private-Admin profile publication/activation and retained profile resolution. ADM-018–021 and COM-011 are locally `PRODUCTION_HONEST` for their bounded scope; [focused owner](docs/implementation/ORDER_PROGRAM_REFERENCE_POLICY.md). |
 | Branding | `Application.Branding` | Validated, deployment-supplied public identity (name, legal identity, theme, links). No codename fallback. |
 | IdentityAccess | `Application.IdentityAccess`, `.Postgres` | Durable binding of one or more exact OIDC `(issuer, subject)` identities to a stable application account, including caller-scoped onboarding/link receipts and concurrency-safe identity uniqueness. Stores no password, role or permission authority. |
@@ -185,7 +186,7 @@ A deployment must provide the public Branding values, Authentication authority/a
 
 ## Explicitly `NOT_INTRODUCED`
 
-Selectable production feature catalogs, dynamic workflow forms and production profile-specific runtime composition remain absent (no production endpoint acquires the internal tenant-keyed profile-runtime registry). The first fixed catalog, durable profile authority and pinned Order consumer are introduced under the [COM-011 focused owner](docs/implementation/ORDER_PROGRAM_REFERENCE_POLICY.md). Live ZITADEL-instance/service-account qualification, provider-side user creation or reconciliation, tenant-to-ZITADEL organization mapping, login/callback/session flows, general Owner/Staff authority beyond the bounded current delegation contract, normal Admin-device registration/revocation/rotation lifecycle, tenant/Workstation device lifecycle, broader order/business lifecycle (other admission and fulfillment cases, durable invoice persistence/number allocation, payment, credit, return, refund), an external PostgreSQL pooler, Worker, Web UI, Workstation and a general ApplicationKernel/module runtime remain separate absent or pending responsibilities.
+Selectable production feature catalogs, dynamic workflow forms and production profile-specific runtime composition remain absent (no production endpoint acquires the internal tenant-keyed profile-runtime registry). The first fixed catalog, durable profile authority and pinned Order consumer are introduced under the [COM-011 focused owner](docs/implementation/ORDER_PROGRAM_REFERENCE_POLICY.md). Live ZITADEL-instance/service-account qualification, provider-side user creation or reconciliation, tenant-to-ZITADEL organization mapping, login/callback/session flows, general Owner/Staff authority beyond the bounded current delegation contract, normal Admin-device registration/revocation/rotation lifecycle, tenant/Workstation device lifecycle, broader order/business lifecycle (other admission and fulfillment cases, durable invoice persistence/number allocation, payment, credit, return, refund), an external PostgreSQL pooler, Worker, authenticated Web business UI, Workstation authentication/local-first business runtime and a general ApplicationKernel/module runtime remain separate absent or pending responsibilities.
 
 ## Excluded from the inventory
 
