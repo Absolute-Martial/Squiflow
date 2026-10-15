@@ -40,6 +40,7 @@ Load only the references relevant to the task:
 | Host implementation | [Frameworks](references/kit/rules/frameworks.md) | `frameworks/adapter-protocol.md` and the actual host adapter |
 | Copy, brand and motion | [Brand and operations](references/kit/rules/brand-and-operations.md) | `content/`, `taste/` |
 | Review, research and handoff | [Review and research](references/kit/rules/review-and-research.md) | `workflows/` |
+| Current application component/token governance | [Application UI Governance](../../../docs/implementation/APPLICATION_UI_GOVERNANCE.md) | Application inventory, compatibility classes and change log |
 
 For this repository read [the Blazor/Avalonia adapter](references/application-hosts.md).
 It maps the library to the implemented hosts and current authority boundaries.

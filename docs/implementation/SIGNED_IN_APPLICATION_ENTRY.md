@@ -61,15 +61,18 @@ All four are required together and both origins must use HTTPS. There is no nati
 | Current bounded discovery / Tenancy and CoreApi | Actual PostgreSQL read-only role, 53-member keyset pages, suspension/cross-account checks; protected pipeline/legacy-array compatibility; existing workspace/FGA regression suite | Normal repository gate and existing backend case acceptance |
 | Browser/process boundary | `eng/test-signed-in-entry-browser.cjs`: real local HTTPS issuer, signed RSA tokens, Chromium, actual Web process, opaque cookies, CSRF, selection/switch/denial/empty/disabled/logout/restart/mobile checks | Controlled issuer is not live ZITADEL or Windows evidence |
 
-Requalify changed contracts/query ordering, URI/token handling, session/callback bounds, dependencies, render mode, CSP, deployment topology and supported OS/browser. Retain exact logs/results/screenshots under `artifacts/login-tenant-entry-2026-10-14/`. Earlier public-entry evidence remains separate.
+Requalify changed contracts/query ordering, URI/token handling, session/callback bounds, dependencies, render mode, CSP, deployment topology and supported OS/browser. Retain exact logs/results/screenshots with their source revision; the initial entry evidence is under `artifacts/login-tenant-entry-2026-10-14/` and the UI restructuring evidence under `artifacts/ui-restructure-2026-10-15/`. Earlier public-entry evidence remains separate. Component/token ownership and UI regression checks follow [Application UI Governance](APPLICATION_UI_GOVERNANCE.md).
 
-Run the independent host checks and normal `./eng/verify.sh`. The browser guard requires external Playwright/Chromium plus OpenSSL and built Web binaries:
+Run the independent host checks and normal `./eng/verify.sh`. The browser guard requires external Playwright/Chromium, axe-core and OpenSSL and built Web binaries:
 
 ```sh
 APPLICATION_ENTRY_PLAYWRIGHT_PATH=/path/to/node_modules/playwright \
+APPLICATION_ENTRY_AXE_PATH=/path/to/node_modules/axe-core/axe.min.js \
 PLAYWRIGHT_BROWSERS_PATH=/path/to/browsers \
 node eng/test-signed-in-entry-browser.cjs
 ```
+
+`APPLICATION_UI_ARTIFACTS` optionally selects the evidence directory; the default is `artifacts/signed-in-entry-browser/`. The audit fails on reported axe violations and retains incomplete rules for manual review. It does not establish full accessibility conformance.
 
 Its temporary certificate trust is confined to the owned Web test process; it never changes machine trust or disables production TLS validation. Provider test identities and credentials are explicitly synthetic. No live login is inferred from static inventory or this fixture.
 

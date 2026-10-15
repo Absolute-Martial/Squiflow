@@ -28,6 +28,7 @@ This file records accepted direction only. Detailed reasoning and supersession h
 - ASP.NET Core is the server-host foundation when server hosts are implemented.
 - Avalonia is the Windows Workstation UI framework when Workstation is implemented.
 - Blazor Web App is the tenant Web presentation foundation and the future Platform Admin Web presentation foundation when those surfaces are implemented.
+- Current entry component/token ownership, reuse, contribution and deprecation follow [Application UI Governance](../implementation/APPLICATION_UI_GOVERNANCE.md). Its compatibility classes do not change the locked product version or qualify pending entry-runtime claims.
 - The owner-requested first signed-in entry uses ephemeral single-process Web tickets and native credentials, no refresh/persistent tokens, and sign-out on expiry/restart. Web uses Interactive Server and an opaque host cookie; native uses a transaction-bounded loopback IP callback. The [focused owner](../implementation/SIGNED_IN_APPLICATION_ENTRY.md) records the exact scope and outstanding live ZITADEL/Windows qualification. This does not accept multi-node/durable session or supported Windows packaging claims.
 - The business core is a modular monolith. A module does not become a service merely because it has a name.
 - `Foundation` is the narrow product-wide primitive/technical layer. Do not introduce a universal business `Shared`, `Common`, or `Utils` bucket.

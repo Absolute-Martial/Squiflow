@@ -8,9 +8,10 @@ authoritative. The product version is v0.0.1; design-library versions are separa
 
 - Extend `apps/web/Application.Web/Components/` and its existing shared header,
   footer and tenant picker. Use Razor semantics and bound presentation state.
-- Extend the existing shared CSS variables in `wwwroot/app.css`. Reference semantic
-  roles for text, surface, borders, actions and focus; add reusable tokens when a
-  change earns them. Upstream tokens are reference input, not a replacement brand.
+- Extend application-owned `apps/design/tokens.json` and `apps/design/web.css`, then
+  run `python3 eng/build-ui-tokens.py`. Consume generated semantic CSS variables and
+  Avalonia resources for text, surfaces, controls, actions and focus. Upstream
+  tokens are reference input, not a replacement brand.
 - Keep business and permission decisions in CoreApi. UI state can initiate a
   request, display a safe outcome and clear prior workspace state; it cannot grant
   access. Preserve antiforgery, encoded output and server-only token custody.
@@ -34,6 +35,14 @@ authoritative. The product version is v0.0.1; design-library versions are separa
 - Keep provider credentials, authorization and durable business state outside
   presentation authority. Do not introduce a WebView, React/Tailwind layer,
   plaintext token persistence, SQLite or sync to satisfy a visual example.
+
+## Component and token governance
+
+Use [Application UI Governance](../../../../docs/implementation/APPLICATION_UI_GOVERNANCE.md)
+for current assets, actual reuse, host token ownership, contribution, compatibility
+and deprecation. Record changes in its change log. Validate the actual
+application DTCG source, generation freshness and CSS/AXAML consumers. Preserve
+the product-version lock and the focused entry owners' qualification boundaries.
 
 ## Verification route
 
