@@ -1,0 +1,6 @@
+interface:
+  display_name: "UX/UI Critique"
+  short_description: "UX/UI design workflow: critique"
+  default_prompt: "Use $ux-ui-critique for this UI task."
+policy:
+  allow_implicit_invocation: false

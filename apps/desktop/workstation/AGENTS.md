@@ -52,3 +52,7 @@ Do not fake future SQLite/sync/encryption responsibilities with temporary produc
 ## Validation
 
 When relevant foundations exist, test abrupt termination after local commit, restart, duplicate/retried operations, sign-out with pending work, DB lock/disk full, old-client compatibility, long-offline return, resnapshot/rebase preservation, and local-vs-authoritative status UX.
+
+## UI guidance
+
+Use the [Codex UI doctrine](../../../.agents/skills/ux-ui-design-doctrine/SKILL.md) and its Avalonia adapter for UI work. Reuse resources, styles and native controls with labels, AutomationProperties, keyboard/focus behavior, scaling and truthful command states. HTML/ARIA examples and browser gates do not qualify native controls or replace supported-Windows evidence.

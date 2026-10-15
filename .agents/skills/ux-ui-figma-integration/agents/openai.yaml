@@ -1,0 +1,4 @@
+interface:
+  display_name: "UX/UI Figma Integration"
+  short_description: "UX/UI design workflow: figma integration"
+  default_prompt: "Use $ux-ui-figma-integration for this UI task."

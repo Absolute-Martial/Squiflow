@@ -1,0 +1,6 @@
+interface:
+  display_name: "UX/UI Grill Me"
+  short_description: "UX/UI design workflow: grill me"
+  default_prompt: "Use $ux-ui-grill-me for this UI task."
+policy:
+  allow_implicit_invocation: false

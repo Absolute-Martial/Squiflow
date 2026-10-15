@@ -1,0 +1,4 @@
+interface:
+  display_name: "UX/UI Design Review"
+  short_description: "UX/UI design workflow: design review"
+  default_prompt: "Use $ux-ui-design-review for this UI task."

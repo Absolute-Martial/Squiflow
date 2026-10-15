@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Toast - verified (status/alert, dismissible)</title>
+<link rel="stylesheet" href="../brandkit-demo/theme.css" />
+<style>
+  *{box-sizing:border-box;margin:0}
+  body{font-family:var(--font-sans);background:var(--color-surface-page);color:var(--color-text-primary);padding:var(--space-6)}
+  h1{font-size:var(--text-4xl);line-height:var(--leading-tight);letter-spacing:-0.02em;margin-bottom:var(--space-4)}
+  .stack{display:grid;gap:var(--space-3);max-inline-size:27.5rem}
+  .toast{display:grid;grid-template-columns:auto 1fr auto;gap:var(--space-3);align-items:start;
+    padding:var(--space-3) var(--space-4);background:var(--color-surface-card);
+    border:1px solid var(--color-border-default);border-radius:var(--radius-button);box-shadow:var(--shadow-sm)}
+  .toast .title{font-weight:600;font-size:var(--text-base)}
+  .toast .msg{font-size:var(--text-sm);color:var(--color-text-secondary)}
+  .toast .ic{inline-size:1.25rem;block-size:1.25rem;color:var(--accent);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .toast--success{--accent:var(--color-feedback-success)}
+  .toast--error{--accent:var(--color-text-error)}
+  .toast--warning{--accent:var(--color-feedback-warning)}
+  .toast--info{--accent:var(--color-text-link)}
+  .dismiss{appearance:none;background:none;border:0;cursor:pointer;padding:var(--space-1);border-radius:var(--radius-sm);color:var(--color-text-secondary)}
+  .dismiss:hover{color:var(--color-text-primary)}
+  .dismiss:focus-visible{outline:none;box-shadow:var(--shadow-focus-ring)}
+  .dismiss svg{inline-size:1rem;block-size:1rem;color:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+</style>
+</head>
+<body data-harness>
+<h1>Toast</h1>
+<div class="stack">
+
+  <div class="toast toast--success" role="status">
+    <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg>
+    <div><div class="title">Changes saved</div><div class="msg">Your profile was updated.</div></div>
+    <button class="dismiss" aria-label="Dismiss"><svg viewBox="0 0 24 24"><use href="#i-x"/></svg></button>
+  </div>
+
+  <div class="toast toast--error" role="alert">
+    <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-alert-circle"/></svg>
+    <div><div class="title">Payment failed</div><div class="msg">Your card was declined. Try another method.</div></div>
+    <button class="dismiss" aria-label="Dismiss"><svg viewBox="0 0 24 24"><use href="#i-x"/></svg></button>
+  </div>
+
+  <div class="toast toast--warning" role="status">
+    <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-alert-triangle"/></svg>
+    <div><div class="title">Storage almost full</div><div class="msg">You have used 95% of your plan.</div></div>
+    <button class="dismiss" aria-label="Dismiss"><svg viewBox="0 0 24 24"><use href="#i-x"/></svg></button>
+  </div>
+
+  <div class="toast toast--info" role="status">
+    <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"/></svg>
+    <div><div class="title">New version available</div><div class="msg">Refresh to get the latest features.</div></div>
+    <button class="dismiss" aria-label="Dismiss"><svg viewBox="0 0 24 24"><use href="#i-x"/></svg></button>
+  </div>
+
+</div>
+<script src="icons.js"></script>
+<footer style="margin-block-start:var(--space-10);padding-block-start:var(--space-5);border-block-start:1px solid var(--color-border-default);color:var(--color-text-secondary);font-size:var(--text-sm);max-inline-size:65ch">Component harness. Every state above is rendered so the gates can measure it: contrast in both themes, hover and focus, target size, keyboard, reduced motion, and overflow.</footer>
+</body>
+</html>

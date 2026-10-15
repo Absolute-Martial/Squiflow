@@ -1,0 +1,6 @@
+interface:
+  display_name: "UX/UI Brandkit"
+  short_description: "UX/UI design workflow: brandkit"
+  default_prompt: "Use $ux-ui-brandkit for this UI task."
+policy:
+  allow_implicit_invocation: false

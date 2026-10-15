@@ -1,0 +1,4 @@
+interface:
+  display_name: "UX/UI Data Dashboard"
+  short_description: "UX/UI design workflow: data dashboard"
+  default_prompt: "Use $ux-ui-data-dashboard for this UI task."

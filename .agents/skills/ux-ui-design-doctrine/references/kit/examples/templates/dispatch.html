@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dispatch - Meridian Mobility</title>
+<meta name="description" content="Ride dispatch template: a demand heat grid, supply against demand, surge zones and a driver queue." />
+<link rel="stylesheet" href="../brandkit-demo/theme.css" />
+<link rel="stylesheet" href="../directions.css" />
+<link rel="stylesheet" href="./_console.css" />
+<style>
+  .heat{display:grid;grid-template-columns:repeat(14,minmax(0,1fr));gap:2px;min-inline-size:0} /* ds-allow-hardcode: the 2px gutter is the grid line */
+  .dc{aspect-ratio:1;border-radius:var(--radius-sm);
+    background:color-mix(in oklab,var(--color-feedback-warning) var(--i),var(--lin-raised))}
+  .legend{display:flex;align-items:center;gap:var(--space-2);font-family:var(--font-mono);font-size:var(--text-xs);
+    color:var(--lin-ink-3);flex-wrap:wrap}
+  .legend i{display:block;block-size:.5rem;inline-size:6rem;border-radius:var(--radius-full);
+    background:linear-gradient(90deg,var(--lin-raised),var(--color-feedback-warning))}
+  .big{font-size:var(--text-5xl);font-weight:700;letter-spacing:-0.04em;line-height:1;
+    font-variant-numeric:tabular-nums;overflow-wrap:anywhere;min-inline-size:0}
+  @media (max-width:46rem){.big{font-size:var(--text-3xl)}}
+  .sd polyline.s{fill:none;stroke:var(--trm-accent);stroke-width:2}
+  .sd polyline.d{fill:none;stroke:var(--color-feedback-warning);stroke-width:2}
+  .zones{display:grid;gap:var(--space-2)}
+  .zrow{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:var(--space-3);align-items:center;
+    font-size:var(--text-xs);padding-block:var(--space-2);border-block-start:1px solid var(--lin-hairline-soft)}
+  .zrow:first-child{border-block-start:0}
+  .zn{overflow-wrap:anywhere}
+  .mult{font-family:var(--font-mono);font-weight:700;color:var(--color-feedback-warning)}
+  .split{display:flex;block-size:.625rem;border-radius:var(--radius-full);overflow:hidden;background:var(--lin-raised)}
+  .split i{display:block;inline-size:var(--w)}
+  .split i.t{background:var(--trm-accent)} .split i.p{background:var(--lin-accent)}
+  .split i.i{background:var(--lin-ink-3)}
+  .fleet{display:grid;gap:var(--space-3)}
+  .frow{display:grid;grid-template-columns:.5rem minmax(0,1fr) auto;gap:var(--space-3);align-items:center;
+    font-size:var(--text-xs)}
+  .frow .sw{block-size:.5rem;border-radius:var(--radius-full);background:var(--c)}
+  .frow .fv{font-family:var(--font-mono);font-variant-numeric:tabular-nums;color:var(--lin-ink-2)}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div><h1>Meridian dispatch</h1><p class="sub">CITY ZONE NORTH · 1,412 VEHICLES ONLINE</p></div>
+  <a class="badge b-warn" href="#unfilled-requests"><span class="dot" aria-hidden="true"></span>Surge in 3 zones</a>
+  <span class="clock num">18:42:19</span>
+</div>
+
+<div class="grid">
+  <section class="panel s8">
+    <header><h2>Demand density</h2><span class="note">requests per cell, last 5 minutes</span></header>
+    <div class="heat" role="img" aria-label="Demand heat grid across the city: concentrated in the centre and along the eastern corridor"><span class="dc" style="--i:0%"></span><span class="dc" style="--i:0%"></span><span class="dc" style="--i:11%"></span><span class="dc" style="--i:16%"></span><span class="dc" style="--i:24%"></span><span class="dc" style="--i:33%"></span><span class="dc" style="--i:30%"></span><span class="dc" style="--i:22%"></span><span class="dc" style="--i:20%"></span><span class="dc" style="--i:26%"></span><span class="dc" style="--i:22%"></span><span class="dc" style="--i:9%"></span><span class="dc" style="--i:0%"></span><span class="dc" style="--i:0%"></span><span class="dc" style="--i:0%"></span><span class="dc" style="--i:5%"></span><span class="dc" style="--i:20%"></span><span class="dc" style="--i:23%"></span><span class="dc" style="--i:34%"></span><span class="dc" style="--i:42%"></span><span class="dc" style="--i:45%"></span><span class="dc" style="--i:30%"></span><span class="dc" style="--i:48%"></span><span class="dc" style="--i:40%"></span><span class="dc" style="--i:28%"></span><span class="dc" style="--i:12%"></span><span class="dc" style="--i:8%"></span><span class="dc" style="--i:0%"></span><span class="dc" style="--i:0%"></span><span class="dc" style="--i:15%"></span><span class="dc" style="--i:21%"></span><span class="dc" style="--i:38%"></span><span class="dc" style="--i:52%"></span><span class="dc" style="--i:42%"></span><span class="dc" style="--i:40%"></span><span class="dc" style="--i:66%"></span><span class="dc" style="--i:58%"></span><span class="dc" style="--i:37%"></span><span class="dc" style="--i:28%"></span><span class="dc" style="--i:24%"></span><span class="dc" style="--i:15%"></span><span class="dc" style="--i:1%"></span><span class="dc" style="--i:4%"></span><span class="dc" style="--i:22%"></span><span class="dc" style="--i:26%"></span><span class="dc" style="--i:43%"></span><span class="dc" style="--i:47%"></span><span class="dc" style="--i:55%"></span><span class="dc" style="--i:72%"></span><span class="dc" style="--i:64%"></span><span class="dc" style="--i:59%"></span><span class="dc" style="--i:41%"></span><span class="dc" style="--i:39%"></span><span class="dc" style="--i:32%"></span><span class="dc" style="--i:17%"></span><span class="dc" style="--i:3%"></span><span class="dc" style="--i:8%"></span><span class="dc" style="--i:21%"></span><span class="dc" style="--i:36%"></span><span class="dc" style="--i:54%"></span><span class="dc" style="--i:68%"></span><span class="dc" style="--i:76%"></span><span class="dc" style="--i:60%"></span><span class="dc" style="--i:89%"></span><span class="dc" style="--i:57%"></span><span class="dc" style="--i:69%"></span><span class="dc" style="--i:47%"></span><span class="dc" style="--i:33%"></span><span class="dc" style="--i:21%"></span><span class="dc" style="--i:7%"></span><span class="dc" style="--i:7%"></span><span class="dc" style="--i:13%"></span><span class="dc" style="--i:30%"></span><span class="dc" style="--i:40%"></span><span class="dc" style="--i:68%"></span><span class="dc" style="--i:80%"></span><span class="dc" style="--i:61%"></span><span class="dc" style="--i:78%"></span><span class="dc" style="--i:88%"></span><span class="dc" style="--i:39%"></span><span class="dc" style="--i:46%"></span><span class="dc" style="--i:31%"></span><span class="dc" style="--i:16%"></span><span class="dc" style="--i:4%"></span><span class="dc" style="--i:4%"></span><span class="dc" style="--i:22%"></span><span class="dc" style="--i:35%"></span><span class="dc" style="--i:37%"></span><span class="dc" style="--i:53%"></span><span class="dc" style="--i:43%"></span><span class="dc" style="--i:77%"></span><span class="dc" style="--i:72%"></span><span class="dc" style="--i:52%"></span><span class="dc" style="--i:59%"></span><span class="dc" style="--i:28%"></span><span class="dc" style="--i:27%"></span><span class="dc" style="--i:17%"></span><span class="dc" style="--i:5%"></span><span class="dc" style="--i:0%"></span><span class="dc" style="--i:11%"></span><span class="dc" style="--i:31%"></span><span class="dc" style="--i:40%"></span><span class="dc" style="--i:32%"></span><span class="dc" style="--i:55%"></span><span class="dc" style="--i:49%"></span><span class="dc" style="--i:59%"></span><span class="dc" style="--i:54%"></span><span class="dc" style="--i:41%"></span><span class="dc" style="--i:37%"></span><span class="dc" style="--i:26%"></span><span class="dc" style="--i:10%"></span><span class="dc" style="--i:0%"></span><span class="dc" style="--i:0%"></span><span class="dc" style="--i:6%"></span><span class="dc" style="--i:14%"></span><span class="dc" style="--i:34%"></span><span class="dc" style="--i:41%"></span><span class="dc" style="--i:35%"></span><span class="dc" style="--i:37%"></span><span class="dc" style="--i:38%"></span><span class="dc" style="--i:30%"></span><span class="dc" style="--i:34%"></span><span class="dc" style="--i:23%"></span><span class="dc" style="--i:17%"></span><span class="dc" style="--i:7%"></span><span class="dc" style="--i:0%"></span><span class="dc" style="--i:0%"></span><span class="dc" style="--i:0%"></span><span class="dc" style="--i:7%"></span><span class="dc" style="--i:14%"></span><span class="dc" style="--i:28%"></span><span class="dc" style="--i:33%"></span><span class="dc" style="--i:22%"></span><span class="dc" style="--i:22%"></span><span class="dc" style="--i:32%"></span><span class="dc" style="--i:20%"></span><span class="dc" style="--i:15%"></span><span class="dc" style="--i:11%"></span><span class="dc" style="--i:0%"></span><span class="dc" style="--i:0%"></span></div>
+    <p class="legend"><span>Low</span><i aria-hidden="true"></i><span>High</span>
+      <span style="margin-inline-start:auto">Centre and the eastern corridor are drawing most of the demand.</span></p>
+  </section>
+
+  <div class="s4" style="display:grid;gap:var(--space-4);align-content:start">
+    <section class="panel">
+      <header><h2 id="unfilled-requests">Unfilled requests</h2><span class="note">rolling 5 min</span></header>
+      <p class="big">214</p>
+      <dl class="kv">
+        <dt>Fill rate</dt><dd>91.4%</dd>
+        <dt>Median wait</dt><dd>4m 12s</dd>
+        <dt>Cancel rate</dt><dd>6.8%</dd>
+        <dt>Idle drivers</dt><dd>188</dd>
+      </dl>
+    </section>
+    <section class="panel">
+      <header><h2>Surge zones</h2><span class="note">multiplier</span></header>
+      <div class="zones">
+        <div class="zrow"><span class="zn">Harbour and arena</span><span class="mult">2.4x</span>
+          <span class="badge b-bad"><span class="dot" aria-hidden="true"></span>Event</span></div>
+        <div class="zrow"><span class="zn">Central station</span><span class="mult">1.8x</span>
+          <span class="badge b-warn"><span class="dot" aria-hidden="true"></span>Peak</span></div>
+        <div class="zrow"><span class="zn">Airport terminal 2</span><span class="mult">1.5x</span>
+          <span class="badge b-warn"><span class="dot" aria-hidden="true"></span>Arrivals</span></div>
+        <div class="zrow"><span class="zn">University west</span><span class="mult">1.0x</span>
+          <span class="badge b-ok"><span class="dot" aria-hidden="true"></span>Balanced</span></div>
+      </div>
+    </section>
+
+    <section class="panel spread">
+      <header><h2>Fleet state</h2><span class="note">1,412 online</span></header>
+      <div class="split" role="img" aria-label="Fleet split: 822 on trip, 402 heading to pickup, 188 idle">
+        <i class="t" style="--w:58.2%"></i><i class="p" style="--w:28.5%"></i><i class="i" style="--w:13.3%"></i>
+      </div>
+      <div class="fleet">
+        <div class="frow"><span class="sw" style="--c:var(--trm-accent)"></span><span>On trip</span><span class="fv">822</span></div>
+        <div class="frow"><span class="sw" style="--c:var(--lin-accent)"></span><span>Heading to pickup</span><span class="fv">402</span></div>
+        <div class="frow"><span class="sw" style="--c:var(--lin-ink-3)"></span><span>Idle</span><span class="fv">188</span></div>
+      </div>
+      <p class="note">Idle supply sits north while demand is centre and east. Repositioning
+        bonus is live for the harbour and central station zones.</p>
+    </section>
+  </div>
+
+  <section class="panel s6">
+    <header><h2>Supply against demand</h2><span class="note">last 40 minutes</span></header>
+    <svg class="plot sd" viewBox="0 0 300 100" role="img" aria-label="Demand has run above supply for the last twelve minutes, widening after the arena event ended">
+      <line x1="0" y1="90" x2="300" y2="90" stroke="var(--lin-hairline)"/>
+      <polyline class="s" points="0.0,56.8 7.5,56.4 15.0,54.6 22.5,47.9 30.0,45.1 37.5,46.9 45.0,43.3 52.5,41.9 60.0,41.4 67.5,41.6 75.0,39.2 82.5,38.6 90.0,39.9 97.5,40.5 105.0,39.3 112.5,41.3 120.0,42.4 127.5,43.2 135.0,47.2 142.5,50.9 150.0,52.8 157.5,57.7 165.0,59.0 172.5,64.2 180.0,64.2 187.5,68.5 195.0,70.1 202.5,75.0 210.0,74.4 217.5,76.3 225.0,78.4 232.5,76.6 240.0,79.4 247.5,83.0 255.0,78.0 262.5,78.6 270.0,79.6 277.5,74.1 285.0,76.8 292.5,73.8"/>
+      <polyline class="d" points="0.0,25.9 7.5,26.3 15.0,26.1 22.5,29.5 30.0,31.7 37.5,35.0 45.0,38.9 52.5,42.1 60.0,43.4 67.5,48.4 75.0,53.8 82.5,54.4 90.0,63.1 97.5,61.8 105.0,66.6 112.5,73.0 120.0,73.8 127.5,73.9 135.0,75.1 142.5,74.0 150.0,72.2 157.5,73.7 165.0,72.2 172.5,69.8 180.0,63.5 187.5,62.7 195.0,58.9 202.5,57.0 210.0,52.3 217.5,48.4 225.0,42.5 232.5,36.3 240.0,36.1 247.5,34.9 255.0,29.2 262.5,31.3 270.0,25.3 277.5,24.1 285.0,24.3 292.5,28.4"/>
+    </svg>
+    <p class="legend"><span><i style="inline-size:1.5rem;background:var(--trm-accent)" aria-hidden="true"></i>Supply</span>
+      <span><i style="inline-size:1.5rem;background:var(--color-feedback-warning)" aria-hidden="true"></i>Demand</span></p>
+  </section>
+
+  <section class="panel s6">
+    <header><h2>Dispatch queue</h2><span class="note">longest waits first</span></header>
+    <div class="tblwrap">
+      <table>
+        <caption class="sr-only">Waiting riders with pickup zone, wait time and nearest driver</caption>
+        <thead><tr><th scope="col">Ride</th><th scope="col">Zone</th><th scope="col" class="end">Waiting</th><th scope="col">Nearest</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">R-88412</th><td>Harbour</td><td class="end num">8m 04s</td>
+            <td><span class="badge b-bad"><span class="dot" aria-hidden="true"></span>6.2 km</span></td></tr>
+          <tr><th scope="row">R-88407</th><td>Arena east</td><td class="end num">6m 51s</td>
+            <td><span class="badge b-warn"><span class="dot" aria-hidden="true"></span>3.1 km</span></td></tr>
+          <tr><th scope="row">R-88399</th><td>Central station</td><td class="end num">5m 22s</td>
+            <td><span class="badge b-warn"><span class="dot" aria-hidden="true"></span>2.4 km</span></td></tr>
+          <tr><th scope="row">R-88390</th><td>Riverside</td><td class="end num">3m 10s</td>
+            <td><span class="badge b-ok"><span class="dot" aria-hidden="true"></span>0.8 km</span></td></tr>
+          <tr><th scope="row">R-88384</th><td>University</td><td class="end num">2m 47s</td>
+            <td><span class="badge b-ok"><span class="dot" aria-hidden="true"></span>0.6 km</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<footer>
+  <span>Dispatch template. Demand, surge and queue are simulated.</span>
+  <span>Built with <a href="https://github.com/plugin87/ux-ui-agent-skills"><strong>ux-ui-agent-skills</strong></a> by Thientan Soparat. <a href="../index.html">All examples</a></span>
+</footer>
+<script src="../component-states/icons.js"></script>
+</body>
+</html>

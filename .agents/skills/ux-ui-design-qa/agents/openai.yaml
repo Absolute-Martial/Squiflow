@@ -1,0 +1,4 @@
+interface:
+  display_name: "UX/UI Design Qa"
+  short_description: "UX/UI design workflow: design qa"
+  default_prompt: "Use $ux-ui-design-qa for this UI task."

@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Forecast desk - Aldren Head</title>
+<meta name="description" content="Meteorology template: an ensemble spaghetti plot with a percentile band, WMO wind barbs, precipitation accumulation by type and a coastal warning list." />
+<link rel="stylesheet" href="../brandkit-demo/theme.css" />
+<link rel="stylesheet" href="../directions.css" />
+<link rel="stylesheet" href="./_console.css" />
+<style>
+  .plotwrap{display:grid;grid-template-columns:2rem minmax(0,1fr);grid-template-rows:minmax(9rem,1fr) auto;
+    gap:var(--space-2);block-size:100%}
+  .py{position:relative;grid-area:1 / 1}
+  .py span{position:absolute;inset-block-start:var(--y);inset-inline-end:0;transform:translateY(-50%);
+    font-family:var(--font-mono);font-size:.625rem;color:var(--lin-ink-3)}
+  .py span:first-child{transform:translateY(0)} .py span:last-child{transform:translateY(-100%)}
+  .pplot{grid-area:1 / 2;inline-size:100%;block-size:100%;display:block}
+  .px{grid-area:2 / 2;position:relative;block-size:var(--space-4)}
+  .px span{position:absolute;inset-inline-start:var(--x);transform:translateX(-50%);
+    font-family:var(--font-mono);font-size:.625rem;color:var(--lin-ink-3)}
+  .px span:first-child{transform:translateX(0)} .px span:last-child{transform:translateX(-100%)}
+  .gl{stroke:var(--lin-hairline);stroke-width:1}
+  /* Every member is one model run. Drawn faint so the spread reads as a shape
+     rather than twenty-eight competing lines. */
+  .mem{fill:none;stroke:var(--lin-accent);stroke-width:1;opacity:.28}
+  .bandp{fill:var(--trm-accent);opacity:.12}
+  .med{fill:none;stroke:var(--trm-accent);stroke-width:2.5;stroke-linejoin:round}
+  .key{display:flex;flex-wrap:wrap;gap:var(--space-2) var(--space-4);font-size:var(--text-xs);color:var(--lin-ink-3)}
+  .key span{display:inline-flex;align-items:center;gap:var(--space-2);min-inline-size:0}
+  .key i{inline-size:1.25rem;block-size:0;border-block-start:var(--border-width-medium) solid var(--c);flex:none}
+  .key i.sw{block-size:.625rem;border:0;background:var(--c);border-radius:var(--radius-sm)}
+
+  /* WMO wind barbs: a pennant is 50 knots, a full barb 10, a half barb 5. The
+     shaft points the way the wind comes from. */
+  .barbs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--space-4) var(--space-3)}
+  @media (max-width:52rem){.barbs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  .barb{margin:0;display:grid;justify-items:center;gap:var(--space-1);min-inline-size:0}
+  /* The glyph rotates about the origin, so the box has to clear the shaft plus a
+     pennant in every direction; a box sized for the upright barb clips the rest. */
+  .barb svg{inline-size:100%;max-inline-size:4rem;block-size:auto;display:block;
+    stroke:var(--lin-ink-2);stroke-width:2.6;fill:var(--lin-ink-2);stroke-linecap:round}
+  .barb.gale svg{stroke:var(--color-feedback-warning);fill:var(--color-feedback-warning)}
+  .barb figcaption{display:grid;justify-items:center;gap:0;text-align:center;min-inline-size:0}
+  .barb b{font-size:.625rem;font-weight:600;overflow-wrap:anywhere}
+  .barb i{font-family:var(--font-mono);font-size:.625rem;color:var(--lin-ink-3);font-style:normal}
+  .barb.gale i{color:var(--color-feedback-warning)}
+
+  .pstack{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:var(--space-1);
+    list-style:none;margin:0;padding:0;block-size:9rem}
+  .pstack li{display:grid;grid-template-rows:minmax(0,1fr) auto auto;gap:var(--space-1);
+    justify-items:center;min-inline-size:0}
+  .pcol{block-size:100%;inline-size:100%;display:flex;flex-direction:column;justify-content:flex-end;
+    border-radius:var(--radius-sm) var(--radius-sm) 0 0;overflow:hidden}
+  .pcol i{display:block;block-size:var(--h);min-block-size:1px} /* ds-allow-hardcode: a hairline keeps a trace amount visible */
+  .rn{background:var(--lin-accent)} .sl{background:var(--color-chart-3)} .sn{background:var(--lin-ink-2)}
+  .pstack b{font-family:var(--font-mono);font-size:.625rem;color:var(--lin-ink-3)}
+  .pt{font-size:.5rem;color:var(--lin-ink-3);font-style:normal;font-family:var(--font-mono)}
+  @media (max-width:30rem){.pt{display:none}}
+
+  .big{font-size:var(--text-5xl);font-weight:700;letter-spacing:-0.04em;line-height:1;
+    font-variant-numeric:tabular-nums;overflow-wrap:anywhere;min-inline-size:0}
+  @media (max-width:46rem){.big{font-size:var(--text-3xl)}}
+  .warn{display:grid;gap:var(--space-3)}
+  .wrow{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--space-3);align-items:start;
+    font-size:var(--text-xs);padding-block-end:var(--space-3);
+    border-block-end:1px solid var(--lin-hairline-soft)}
+  .wrow:last-child{border-block-end:0;padding-block-end:0}
+  .wrow p{color:var(--lin-ink-3);margin-block-start:var(--space-1)}
+  .wrow strong{color:var(--lin-ink)}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div><h1>Aldren Head desk</h1><p class="sub">MARINE ZONE 14 · 28-MEMBER ENSEMBLE · RUN 06Z</p></div>
+  <a class="badge b-bad" href="#coastal-warnings"><span class="dot" aria-hidden="true"></span>Gale warning, two stations</a>
+  <span class="clock num">06:00Z</span>
+</div>
+
+<div class="grid">
+  <section class="panel s8 fill">
+    <header><h2>Temperature ensemble</h2><span class="note">28 members, 10 days, degrees Celsius</span></header>
+    <div class="plotwrap">
+      <div class="py"><span style="--y:12.52%">16</span><span style="--y:37.52%">12</span><span style="--y:62.52%">8</span><span style="--y:87.52%">4</span></div>
+      <svg class="pplot" viewBox="0 0 560 210" preserveAspectRatio="none" role="img"
+           aria-label="Twenty-eight ensemble members for temperature over ten days. They agree closely for the first three days and fan out to a 7.2 degree spread between the tenth and ninetieth percentile by day ten. The median cools steadily.">
+        <line class="gl" x1="0" y1="26.3" x2="560" y2="26.3"/><line class="gl" x1="0" y1="78.8" x2="560" y2="78.8"/><line class="gl" x1="0" y1="131.3" x2="560" y2="131.3"/><line class="gl" x1="0" y1="183.8" x2="560" y2="183.8"/>
+        <path class="bandp" d="M 0.0,73.5 L 28.0,67.9 L 56.0,68.9 L 84.0,64.5 L 112.0,60.6 L 140.0,64.1 L 168.0,61.1 L 196.0,57.4 L 224.0,56.1 L 252.0,61.6 L 280.0,56.7 L 308.0,49.2 L 336.0,50.5 L 364.0,49.8 L 392.0,53.6 L 420.0,51.1 L 448.0,47.9 L 476.0,54.6 L 504.0,56.5 L 532.0,42.4 L 560.0,46.8 L 560.0,141.9 L 532.0,132.4 L 504.0,135.7 L 476.0,142.9 L 448.0,141.4 L 420.0,133.3 L 392.0,128.4 L 364.0,124.7 L 336.0,116.9 L 308.0,116.8 L 280.0,105.7 L 252.0,97.4 L 224.0,97.7 L 196.0,96.7 L 168.0,95.1 L 140.0,91.2 L 112.0,86.9 L 84.0,84.1 L 56.0,79.5 L 28.0,76.3 L 0.0,73.5 Z"/>
+        <polyline class="mem" points="0.0,73.5 28.0,73.6 56.0,75.8 84.0,70.6 112.0,71.4 140.0,72.5 168.0,70.7 196.0,67.4 224.0,67.4 252.0,76.2 280.0,58.1 308.0,58.6 336.0,64.2 364.0,49.8 392.0,43.9 420.0,55.3 448.0,75.2 476.0,67.4 504.0,45.9 532.0,35.0 560.0,29.8"/><polyline class="mem" points="0.0,73.5 28.0,66.5 56.0,69.1 84.0,76.2 112.0,81.8 140.0,93.0 168.0,93.7 196.0,95.3 224.0,94.8 252.0,92.8 280.0,96.6 308.0,101.7 336.0,92.7 364.0,85.0 392.0,106.9 420.0,100.4 448.0,107.8 476.0,119.7 504.0,118.4 532.0,100.8 560.0,107.5"/><polyline class="mem" points="0.0,73.5 28.0,72.9 56.0,71.5 84.0,69.3 112.0,76.1 140.0,83.6 168.0,86.0 196.0,83.6 224.0,82.0 252.0,74.6 280.0,70.9 308.0,65.6 336.0,67.8 364.0,85.4 392.0,91.4 420.0,106.9 448.0,120.2 476.0,122.0 504.0,124.9 532.0,132.4 560.0,118.4"/><polyline class="mem" points="0.0,73.5 28.0,77.9 56.0,75.6 84.0,84.1 112.0,76.9 140.0,71.0 168.0,65.6 196.0,66.8 224.0,71.1 252.0,73.7 280.0,74.4 308.0,72.2 336.0,72.4 364.0,67.7 392.0,53.6 420.0,51.1 448.0,51.0 476.0,61.3 504.0,72.3 532.0,66.2 560.0,76.9"/><polyline class="mem" points="0.0,73.5 28.0,72.1 56.0,78.9 84.0,84.4 112.0,75.3 140.0,69.5 168.0,76.3 196.0,72.5 224.0,56.1 252.0,63.7 280.0,66.0 308.0,69.2 336.0,64.1 364.0,77.1 392.0,92.9 420.0,91.4 448.0,78.6 476.0,78.0 504.0,79.2 532.0,84.6 560.0,98.8"/><polyline class="mem" points="0.0,73.5 28.0,73.1 56.0,75.0 84.0,73.4 112.0,75.6 140.0,77.0 168.0,69.3 196.0,57.5 224.0,79.5 252.0,90.5 280.0,74.8 308.0,71.9 336.0,50.5 364.0,43.6 392.0,67.7 420.0,64.9 448.0,47.9 476.0,65.9 504.0,69.3 532.0,92.2 560.0,105.5"/><polyline class="mem" points="0.0,73.5 28.0,70.1 56.0,71.4 84.0,68.9 112.0,60.6 140.0,66.1 168.0,76.6 196.0,76.8 224.0,64.5 252.0,62.3 280.0,60.8 308.0,47.6 336.0,54.5 364.0,76.4 392.0,87.4 420.0,79.7 448.0,67.6 476.0,66.0 504.0,57.6 532.0,61.8 560.0,53.6"/><polyline class="mem" points="0.0,73.5 28.0,69.9 56.0,70.5 84.0,69.2 112.0,60.9 140.0,64.1 168.0,74.7 196.0,76.6 224.0,78.5 252.0,72.8 280.0,87.1 308.0,86.2 336.0,80.7 364.0,84.4 392.0,100.8 420.0,108.4 448.0,96.7 476.0,100.9 504.0,116.8 532.0,99.3 560.0,98.8"/><polyline class="mem" points="0.0,73.5 28.0,70.4 56.0,70.3 84.0,61.8 112.0,65.5 140.0,74.3 168.0,73.3 196.0,81.5 224.0,87.4 252.0,87.1 280.0,106.5 308.0,125.1 336.0,122.8 364.0,125.3 392.0,155.1 420.0,168.5 448.0,172.7 476.0,168.1 504.0,172.5 532.0,175.0 560.0,177.1"/><polyline class="mem" points="0.0,73.5 28.0,75.7 56.0,75.1 84.0,76.7 112.0,87.2 140.0,90.1 168.0,82.0 196.0,74.5 224.0,79.8 252.0,80.9 280.0,85.4 308.0,93.7 336.0,99.9 364.0,112.0 392.0,117.3 420.0,122.2 448.0,118.9 476.0,121.4 504.0,112.2 532.0,107.8 560.0,108.2"/><polyline class="mem" points="0.0,73.5 28.0,76.2 56.0,80.5 84.0,88.4 112.0,92.3 140.0,91.2 168.0,95.9 196.0,107.0 224.0,102.5 252.0,115.8 280.0,122.0 308.0,133.7 336.0,139.5 364.0,142.5 392.0,148.2 420.0,157.0 448.0,161.6 476.0,159.3 504.0,135.7 532.0,131.6 560.0,141.9"/><polyline class="mem" points="0.0,73.5 28.0,74.1 56.0,71.3 84.0,73.2 112.0,74.4 140.0,83.0 168.0,87.4 196.0,92.2 224.0,97.7 252.0,92.2 280.0,94.0 308.0,92.0 336.0,90.8 364.0,86.9 392.0,76.9 420.0,88.3 448.0,98.4 476.0,85.9 504.0,80.5 532.0,87.7 560.0,100.4"/><polyline class="mem" points="0.0,73.5 28.0,72.4 56.0,79.3 84.0,75.1 112.0,75.4 140.0,82.6 168.0,88.3 196.0,97.0 224.0,90.1 252.0,86.3 280.0,82.7 308.0,78.8 336.0,81.6 364.0,80.6 392.0,104.1 420.0,97.0 448.0,118.6 476.0,117.9 504.0,116.3 532.0,111.2 560.0,119.2"/><polyline class="mem" points="0.0,73.5 28.0,75.9 56.0,82.2 84.0,83.5 112.0,86.9 140.0,84.0 168.0,91.3 196.0,84.5 224.0,93.8 252.0,95.2 280.0,99.6 308.0,106.8 336.0,107.0 364.0,124.7 392.0,105.6 420.0,108.8 448.0,107.0 476.0,98.1 504.0,122.4 532.0,126.2 560.0,120.0"/><polyline class="mem" points="0.0,73.5 28.0,74.1 56.0,73.1 84.0,79.3 112.0,85.0 140.0,71.0 168.0,61.1 196.0,57.4 224.0,48.4 252.0,45.8 280.0,49.1 308.0,52.6 336.0,51.5 364.0,54.3 392.0,54.0 420.0,38.3 448.0,20.0 476.0,22.2 504.0,10.6 532.0,6.6 560.0,6.6"/><polyline class="mem" points="0.0,73.5 28.0,72.9 56.0,73.3 84.0,75.9 112.0,71.4 140.0,79.3 168.0,95.7 196.0,96.7 224.0,99.0 252.0,94.9 280.0,99.1 308.0,101.2 336.0,105.3 364.0,117.5 392.0,117.4 420.0,130.6 448.0,119.2 476.0,111.0 504.0,110.8 532.0,128.2 560.0,125.5"/><polyline class="mem" points="0.0,73.5 28.0,69.8 56.0,68.9 84.0,67.3 112.0,61.3 140.0,66.9 168.0,63.5 196.0,68.0 224.0,82.0 252.0,102.6 280.0,105.7 308.0,95.1 336.0,87.3 364.0,82.1 392.0,72.3 420.0,77.0 448.0,68.5 476.0,54.6 504.0,69.5 532.0,52.4 560.0,46.8"/><polyline class="mem" points="0.0,73.5 28.0,76.3 56.0,74.7 84.0,77.0 112.0,75.8 140.0,78.2 168.0,70.0 196.0,65.4 224.0,63.0 252.0,63.3 280.0,56.7 308.0,49.7 336.0,53.2 364.0,60.7 392.0,77.2 420.0,93.7 448.0,93.4 476.0,72.5 504.0,72.9 532.0,42.4 560.0,50.1"/><polyline class="mem" points="0.0,73.5 28.0,73.0 56.0,67.5 84.0,65.3 112.0,58.9 140.0,66.3 168.0,65.3 196.0,73.9 224.0,89.0 252.0,74.5 280.0,75.2 308.0,94.6 336.0,102.7 364.0,109.1 392.0,97.1 420.0,92.0 448.0,105.5 476.0,102.4 504.0,90.6 532.0,100.3 560.0,136.1"/><polyline class="mem" points="0.0,73.5 28.0,67.5 56.0,72.4 84.0,67.0 112.0,62.0 140.0,58.1 168.0,57.8 196.0,45.4 224.0,48.4 252.0,51.4 280.0,46.9 308.0,40.5 336.0,34.8 364.0,47.1 392.0,43.1 420.0,63.9 448.0,65.9 476.0,74.6 504.0,88.3 532.0,87.9 560.0,86.5"/><polyline class="mem" points="0.0,73.5 28.0,69.5 56.0,71.4 84.0,69.7 112.0,69.9 140.0,65.7 168.0,63.3 196.0,72.3 224.0,78.5 252.0,81.9 280.0,100.6 308.0,113.1 336.0,101.9 364.0,108.2 392.0,90.6 420.0,100.2 448.0,87.0 476.0,91.1 504.0,92.8 532.0,83.8 560.0,120.4"/><polyline class="mem" points="0.0,73.5 28.0,74.7 56.0,75.1 84.0,76.2 112.0,80.6 140.0,78.7 168.0,77.3 196.0,68.6 224.0,84.5 252.0,84.9 280.0,90.7 308.0,104.7 336.0,107.7 364.0,95.4 392.0,101.7 420.0,98.9 448.0,106.3 476.0,114.2 504.0,108.5 532.0,96.7 560.0,87.9"/><polyline class="mem" points="0.0,73.5 28.0,79.7 56.0,79.5 84.0,83.2 112.0,82.8 140.0,93.0 168.0,95.1 196.0,92.1 224.0,85.1 252.0,97.4 280.0,100.4 308.0,116.8 336.0,116.9 364.0,121.7 392.0,128.4 420.0,133.3 448.0,141.4 476.0,142.9 504.0,166.4 532.0,167.4 560.0,172.4"/><polyline class="mem" points="0.0,73.5 28.0,72.3 56.0,75.9 84.0,80.0 112.0,81.8 140.0,85.7 168.0,81.9 196.0,81.9 224.0,70.8 252.0,64.4 280.0,61.0 308.0,50.7 336.0,62.3 364.0,60.9 392.0,54.0 420.0,78.9 448.0,82.3 476.0,101.0 504.0,85.3 532.0,98.6 560.0,95.0"/><polyline class="mem" points="0.0,73.5 28.0,67.9 56.0,62.7 84.0,64.5 112.0,64.5 140.0,71.8 168.0,75.9 196.0,75.5 224.0,83.3 252.0,78.3 280.0,81.1 308.0,66.3 336.0,73.1 364.0,86.4 392.0,88.7 420.0,87.3 448.0,74.4 476.0,82.7 504.0,98.8 532.0,98.4 560.0,103.6"/><polyline class="mem" points="0.0,73.5 28.0,68.2 56.0,70.7 84.0,72.3 112.0,67.9 140.0,64.3 168.0,66.7 196.0,56.3 224.0,62.0 252.0,61.6 280.0,59.4 308.0,49.2 336.0,47.7 364.0,62.3 392.0,65.9 420.0,63.9 448.0,40.2 476.0,51.1 504.0,56.5 532.0,56.4 560.0,71.7"/><polyline class="mem" points="0.0,73.5 28.0,71.3 56.0,69.7 84.0,60.3 112.0,55.9 140.0,52.8 168.0,60.3 196.0,66.6 224.0,73.5 252.0,70.6 280.0,65.7 308.0,78.7 336.0,65.7 364.0,74.5 392.0,66.1 420.0,50.8 448.0,63.6 476.0,64.4 504.0,67.5 532.0,64.4 560.0,49.1"/><polyline class="mem" points="0.0,73.5 28.0,72.7 56.0,76.7 84.0,78.9 112.0,65.4 140.0,69.1 168.0,78.7 196.0,78.1 224.0,80.7 252.0,73.2 280.0,74.5 308.0,71.2 336.0,63.4 364.0,78.6 392.0,91.3 420.0,86.7 448.0,86.2 476.0,91.8 504.0,97.1 532.0,105.6 560.0,80.0"/>
+        <polyline class="med" points="0.0,73.5 28.0,72.7 56.0,73.1 84.0,73.4 112.0,74.4 140.0,72.5 168.0,75.9 196.0,74.5 224.0,79.8 252.0,76.2 280.0,75.2 308.0,78.7 336.0,73.1 364.0,82.1 392.0,90.6 420.0,91.4 448.0,87.0 476.0,91.1 504.0,90.6 532.0,96.7 560.0,98.8"/>
+      </svg>
+      <div class="px"><span style="--x:0.00%">now</span><span style="--x:20.00%">+2d</span><span style="--x:40.00%">+4d</span><span style="--x:60.00%">+6d</span><span style="--x:80.00%">+8d</span><span style="--x:100.00%">+10d</span></div>
+    </div>
+    <p class="key">
+      <span><i style="--c:var(--lin-accent)"></i>Member</span>
+      <span><i style="--c:var(--trm-accent)"></i>Median</span>
+      <span><i class="sw" style="--c:var(--trm-accent)"></i>10th to 90th percentile</span>
+      <span style="margin-inline-start:auto">Spread is the forecast, not noise: by day ten the members
+        disagree by 7.2 degrees.</span>
+    </p>
+  </section>
+
+  <div class="s4" style="display:grid;gap:var(--space-4);align-content:start">
+    <section class="panel">
+      <header><h2>Confidence horizon</h2><span class="note">spread below 2 degrees</span></header>
+      <p class="big">3.5 d</p>
+      <dl class="kv">
+        <dt>Median day 10</dt><dd>9.1 &deg;C</dd>
+        <dt>Spread day 10</dt><dd>7.2 &deg;C</dd>
+        <dt>Members</dt><dd>28</dd>
+        <dt>Run</dt><dd>06Z today</dd>
+      </dl>
+      <p class="note">Past three and a half days the members disagree by more than two
+        degrees, which is the point this product stops being a forecast and starts
+        being a distribution.</p>
+    </section>
+
+    <section class="panel">
+      <header><h2 id="coastal-warnings">Coastal warnings</h2><span class="note">in force</span></header>
+      <div class="warn">
+        <div class="wrow"><span class="badge b-bad"><span class="dot" aria-hidden="true"></span>Gale</span>
+          <span><strong>Cape Weir, Port Aldren</strong><p>Sustained 46 to 52 knots from the west,
+            veering north-west overnight. Issued 05:40Z, in force to 22:00Z.</p></span></div>
+        <div class="wrow"><span class="badge b-warn"><span class="dot" aria-hidden="true"></span>Swell</span>
+          <span><strong>Marine zone 14</strong><p>Significant wave height 4.2 m, period 11 s.
+            Small craft should remain in harbour.</p></span></div>
+        <div class="wrow"><span class="badge b-info"><span class="dot" aria-hidden="true"></span>Fog</span>
+          <span><strong>Fenmouth inshore</strong><p>Visibility below 200 m expected between
+            02:00Z and 08:00Z as the airmass cools over the estuary.</p></span></div>
+      </div>
+    </section>
+  </div>
+
+  <section class="panel s6">
+    <header><h2>Surface wind</h2><span class="note">station observations, 06:00Z</span></header>
+    <div class="barbs">
+      
+        <figure class="barb gale">
+          <svg viewBox="-40 -40 80 80" role="img" aria-label="Aldren Head: 38 knots from 285 degrees">
+            <g transform="rotate(285)"><line x1="0" y1="0" x2="0" y2="-26"/><line x1="0" y1="-26.0" x2="11" y2="-22.4"/><line x1="0" y1="-21.4" x2="11" y2="-17.8"/><line x1="0" y1="-16.8" x2="11" y2="-13.2"/><line x1="0" y1="-12.2" x2="11" y2="-8.6"/></g>
+          </svg>
+          <figcaption><b>Aldren Head</b><i class="num">38 kt</i></figcaption>
+        </figure>
+        <figure class="barb gale">
+          <svg viewBox="-40 -40 80 80" role="img" aria-label="Cape Weir: 52 knots from 272 degrees">
+            <g transform="rotate(272)"><line x1="0" y1="0" x2="0" y2="-26"/><polygon points="0,-26.0 11,-22.6 0,-19.2"/></g>
+          </svg>
+          <figcaption><b>Cape Weir</b><i class="num">52 kt</i></figcaption>
+        </figure>
+        <figure class="barb">
+          <svg viewBox="-40 -40 80 80" role="img" aria-label="Fenmouth: 24 knots from 301 degrees">
+            <g transform="rotate(301)"><line x1="0" y1="0" x2="0" y2="-26"/><line x1="0" y1="-26.0" x2="11" y2="-22.4"/><line x1="0" y1="-21.4" x2="11" y2="-17.8"/><line x1="0" y1="-16.8" x2="5.5" y2="-15.0"/></g>
+          </svg>
+          <figcaption><b>Fenmouth</b><i class="num">24 kt</i></figcaption>
+        </figure>
+        <figure class="barb">
+          <svg viewBox="-40 -40 80 80" role="img" aria-label="Kirkwall: 17 knots from 318 degrees">
+            <g transform="rotate(318)"><line x1="0" y1="0" x2="0" y2="-26"/><line x1="0" y1="-26.0" x2="11" y2="-22.4"/><line x1="0" y1="-21.4" x2="5.5" y2="-19.6"/></g>
+          </svg>
+          <figcaption><b>Kirkwall</b><i class="num">17 kt</i></figcaption>
+        </figure>
+        <figure class="barb">
+          <svg viewBox="-40 -40 80 80" role="img" aria-label="Brackenmoor: 12 knots from 330 degrees">
+            <g transform="rotate(330)"><line x1="0" y1="0" x2="0" y2="-26"/><line x1="0" y1="-26.0" x2="11" y2="-22.4"/></g>
+          </svg>
+          <figcaption><b>Brackenmoor</b><i class="num">12 kt</i></figcaption>
+        </figure>
+        <figure class="barb">
+          <svg viewBox="-40 -40 80 80" role="img" aria-label="Thornhill: 9 knots from 344 degrees">
+            <g transform="rotate(344)"><line x1="0" y1="0" x2="0" y2="-26"/><line x1="0" y1="-26.0" x2="11" y2="-22.4"/></g>
+          </svg>
+          <figcaption><b>Thornhill</b><i class="num">9 kt</i></figcaption>
+        </figure>
+        <figure class="barb gale">
+          <svg viewBox="-40 -40 80 80" role="img" aria-label="Port Aldren: 46 knots from 266 degrees">
+            <g transform="rotate(266)"><line x1="0" y1="0" x2="0" y2="-26"/><line x1="0" y1="-26.0" x2="11" y2="-22.4"/><line x1="0" y1="-21.4" x2="11" y2="-17.8"/><line x1="0" y1="-16.8" x2="11" y2="-13.2"/><line x1="0" y1="-12.2" x2="11" y2="-8.6"/><line x1="0" y1="-7.6" x2="5.5" y2="-5.8"/></g>
+          </svg>
+          <figcaption><b>Port Aldren</b><i class="num">46 kt</i></figcaption>
+        </figure>
+        <figure class="barb">
+          <svg viewBox="-40 -40 80 80" role="img" aria-label="Marsh End: 31 knots from 294 degrees">
+            <g transform="rotate(294)"><line x1="0" y1="0" x2="0" y2="-26"/><line x1="0" y1="-26.0" x2="11" y2="-22.4"/><line x1="0" y1="-21.4" x2="11" y2="-17.8"/><line x1="0" y1="-16.8" x2="11" y2="-13.2"/></g>
+          </svg>
+          <figcaption><b>Marsh End</b><i class="num">31 kt</i></figcaption>
+        </figure>
+    </div>
+    <p class="note">A pennant is fifty knots, a full barb ten, a half barb five. The shaft
+      points the way the wind is coming from, so the two amber stations are taking a
+      westerly straight off the open water.</p>
+  </section>
+
+  <section class="panel s6 spread">
+    <header><h2>Precipitation</h2><span class="note">accumulation by type, millimetres</span></header>
+    <ol class="pstack">
+      
+        <li><span class="pcol">
+            
+            
+            <i class="rn" style="--h:36.57%"></i>
+          </span><b>+1</b><i class="pt num">4.9</i></li>
+        <li><span class="pcol">
+            
+            
+            <i class="rn" style="--h:24.63%"></i>
+          </span><b>+2</b><i class="pt num">3.3</i></li>
+        <li><span class="pcol">
+            
+            
+            <i class="rn" style="--h:11.19%"></i>
+          </span><b>+3</b><i class="pt num">1.5</i></li>
+        <li><span class="pcol">
+            
+            
+            <i class="rn" style="--h:2.24%"></i>
+          </span><b>+4</b><i class="pt num">0.3</i></li>
+        <li><span class="pcol">
+            
+            
+            <i class="rn" style="--h:100.00%"></i>
+          </span><b>+5</b><i class="pt num">13.4</i></li>
+        <li><span class="pcol">
+            
+            
+            <i class="rn" style="--h:44.78%"></i>
+          </span><b>+6</b><i class="pt num">6</i></li>
+        <li><span class="pcol">
+            
+            <i class="sl" style="--h:17.16%"></i>
+            <i class="rn" style="--h:74.63%"></i>
+          </span><b>+7</b><i class="pt num">12.3</i></li>
+        <li><span class="pcol">
+            
+            <i class="sl" style="--h:20.15%"></i>
+            <i class="rn" style="--h:9.70%"></i>
+          </span><b>+8</b><i class="pt num">4</i></li>
+        <li><span class="pcol">
+            <i class="sn" style="--h:11.94%"></i>
+            <i class="sl" style="--h:21.64%"></i>
+            <i class="rn" style="--h:28.36%"></i>
+          </span><b>+9</b><i class="pt num">8.3</i></li>
+        <li><span class="pcol">
+            <i class="sn" style="--h:6.72%"></i>
+            <i class="sl" style="--h:16.42%"></i>
+            <i class="rn" style="--h:20.90%"></i>
+          </span><b>+10</b><i class="pt num">5.9</i></li>
+    </ol>
+    <p class="key">
+      <span><i class="sw" style="--c:var(--lin-accent)"></i>Rain</span>
+      <span><i class="sw" style="--c:var(--color-chart-3)"></i>Sleet</span>
+      <span><i class="sw" style="--c:var(--lin-ink-2)"></i>Snow</span>
+      <span style="margin-inline-start:auto">Frozen types only appear once the column
+        cools, from day six.</span>
+    </p>
+  </section>
+</div>
+
+<footer>
+  <span>Meteorology template. The ensemble, observations and warnings are simulated.</span>
+  <span>Built with <a href="https://github.com/plugin87/ux-ui-agent-skills"><strong>ux-ui-agent-skills</strong></a> by Thientan Soparat. <a href="../index.html">All examples</a></span>
+</footer>
+<script src="../component-states/icons.js"></script>
+</body>
+</html>

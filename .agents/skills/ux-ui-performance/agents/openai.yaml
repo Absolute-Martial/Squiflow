@@ -1,0 +1,4 @@
+interface:
+  display_name: "UX/UI Performance"
+  short_description: "UX/UI design workflow: performance"
+  default_prompt: "Use $ux-ui-performance for this UI task."

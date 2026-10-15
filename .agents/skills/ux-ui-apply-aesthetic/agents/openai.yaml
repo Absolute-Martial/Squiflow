@@ -1,0 +1,4 @@
+interface:
+  display_name: "UX/UI Apply Aesthetic"
+  short_description: "UX/UI design workflow: apply aesthetic"
+  default_prompt: "Use $ux-ui-apply-aesthetic for this UI task."

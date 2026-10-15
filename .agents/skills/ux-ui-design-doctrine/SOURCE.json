@@ -1,0 +1,180 @@
+{
+  "repository": "https://github.com/plugin87/ux-ui-agent-skills",
+  "revision": "62092bd83bc3df0bcb9a2b3b643305ab11c547da",
+  "version": "2.9.8",
+  "license": "MIT",
+  "licenseSha256": "c8f168486c91894115315055a08e017cedb41189b331196f879c74b985a51f81",
+  "scope": "Repository-scoped Codex UX/UI guidance; no runtime package, hooks, MCP server or browser installation",
+  "ruleMigration": {
+    ".claude/rules/brand-and-operations.md": "references/kit/rules/brand-and-operations.md",
+    ".claude/rules/frameworks.md": "references/kit/rules/frameworks.md",
+    ".claude/rules/components.md": "references/kit/rules/components.md",
+    ".claude/rules/accessibility.md": "references/kit/rules/accessibility.md",
+    ".claude/rules/review-and-research.md": "references/kit/rules/review-and-research.md",
+    ".claude/rules/typography-and-spacing.md": "references/kit/rules/typography-and-spacing.md",
+    ".claude/rules/tokens-and-color.md": "references/kit/rules/tokens-and-color.md"
+  },
+  "skillMigration": [
+    {
+      "name": "ux-ui-a11y-audit",
+      "upstream": ".claude/skills/a11y-audit/SKILL.md",
+      "upstreamSha256": "69ecaa2b24bd4164cfb7cad2634f6a4ee779609ab25401195166aba9e7944160",
+      "explicitOnly": false
+    },
+    {
+      "name": "ux-ui-apply-aesthetic",
+      "upstream": ".claude/skills/apply-aesthetic/SKILL.md",
+      "upstreamSha256": "42a15efeb515c9a2c48460014c1a7cd8a11766043f59f11396be0996590a7f4a",
+      "explicitOnly": false
+    },
+    {
+      "name": "ux-ui-brandkit",
+      "upstream": ".claude/skills/brandkit/SKILL.md",
+      "upstreamSha256": "9057b2bddf07779cc61a61abae3f84196e1468ac67911996f639f56a9261a1b3",
+      "explicitOnly": true
+    },
+    {
+      "name": "ux-ui-critique",
+      "upstream": ".claude/skills/critique/SKILL.md",
+      "upstreamSha256": "22bfbbf8781a97f1d221b5ce383553d260785b94109b7ff4fdf6fdc08fed8894",
+      "explicitOnly": true
+    },
+    {
+      "name": "ux-ui-data-dashboard",
+      "upstream": ".claude/skills/data-dashboard/SKILL.md",
+      "upstreamSha256": "dc2eebe45dd1b440aa881c19189403dcddbb0ea145de0bd6dfbbcbe3ada48b03",
+      "explicitOnly": false
+    },
+    {
+      "name": "ux-ui-design-code",
+      "upstream": ".claude/skills/design-code/SKILL.md",
+      "upstreamSha256": "b8e10856ab16af3cd61d316b48905d0fbcc4814592aeda2ba5d72f54253874e8",
+      "explicitOnly": false
+    },
+    {
+      "name": "ux-ui-design-component",
+      "upstream": ".claude/skills/design-component/SKILL.md",
+      "upstreamSha256": "f6c0510ac26d23ef305ba37f83ed3b2ef24c380a266203a1cd7bc8ab43a90438",
+      "explicitOnly": false
+    },
+    {
+      "name": "ux-ui-design-doctrine",
+      "upstream": ".claude/skills/design-doctrine/SKILL.md",
+      "upstreamSha256": "8c1b3ffe964af629b2106a30e4c3f52cb8a6665fce87e6300607f7477cd9dda1",
+      "explicitOnly": false
+    },
+    {
+      "name": "ux-ui-design-qa",
+      "upstream": ".claude/skills/design-qa/SKILL.md",
+      "upstreamSha256": "a42975ee6e6ad57c404fbfb3a4c4ab03a56480aef8978744300192e222af1f82",
+      "explicitOnly": false
+    },
+    {
+      "name": "ux-ui-design-review",
+      "upstream": ".claude/skills/design-review/SKILL.md",
+      "upstreamSha256": "f747d36fc6a9891d53c467992d76ca4c9d0267769213b717f0c1146af0b57d2d",
+      "explicitOnly": false
+    },
+    {
+      "name": "ux-ui-design-screen",
+      "upstream": ".claude/skills/design-screen/SKILL.md",
+      "upstreamSha256": "c55741a70aef80353c0385cd407b508e557ac77f46f3707c74e2a62d64a93eea",
+      "explicitOnly": false
+    },
+    {
+      "name": "ux-ui-design-tokens",
+      "upstream": ".claude/skills/design-tokens/SKILL.md",
+      "upstreamSha256": "f78f4f3b9d2ac8ea9ea0b31d596e90f58d14322186b19fa87e69988c29055edc",
+      "explicitOnly": false
+    },
+    {
+      "name": "ux-ui-figma-integration",
+      "upstream": ".claude/skills/figma-integration/SKILL.md",
+      "upstreamSha256": "62e18a662bf16a49db506ae6c28287da9759850e0871d1ab07f92390ecd51257",
+      "explicitOnly": false
+    },
+    {
+      "name": "ux-ui-gate",
+      "upstream": ".claude/skills/gate/SKILL.md",
+      "upstreamSha256": "a45f327bfe85b0470aba48c00bfb399ae55c23fae408ba316d82afc11d894552",
+      "explicitOnly": true
+    },
+    {
+      "name": "ux-ui-governance",
+      "upstream": ".claude/skills/governance/SKILL.md",
+      "upstreamSha256": "e967f45db787bdd5236c9487ed779858198a0af8698424e60bdf5f0c418db6c6",
+      "explicitOnly": true
+    },
+    {
+      "name": "ux-ui-grill-me",
+      "upstream": ".claude/skills/grill-me/SKILL.md",
+      "upstreamSha256": "c54d1f38b6b985fc4f6d6d086627b9752c2e66304378ac0982abaa6fdad89007",
+      "explicitOnly": true
+    },
+    {
+      "name": "ux-ui-image-to-code",
+      "upstream": ".claude/skills/image-to-code/SKILL.md",
+      "upstreamSha256": "f755a7034b6d8a154c8b6812474d8f38b4a3248549fa925497fd69ecea8a14dc",
+      "explicitOnly": true
+    },
+    {
+      "name": "ux-ui-migrate-design-system",
+      "upstream": ".claude/skills/migrate-design-system/SKILL.md",
+      "upstreamSha256": "32d92c9d3f4c7ce81f8cf89dfa34c071fc016876ef1f61b1a224cbb475b22ba2",
+      "explicitOnly": true
+    },
+    {
+      "name": "ux-ui-performance",
+      "upstream": ".claude/skills/performance/SKILL.md",
+      "upstreamSha256": "3712c4433065cd9ac32ecb13990ac1e1202fd4f1c11597099580ac8fb03a4be6",
+      "explicitOnly": false
+    },
+    {
+      "name": "ux-ui-prototype",
+      "upstream": ".claude/skills/prototype/SKILL.md",
+      "upstreamSha256": "ef0401de8c758ed694647d8e26b363de4a06c7e3d84e0d36f4e6200cacf969ba",
+      "explicitOnly": true
+    },
+    {
+      "name": "ux-ui-redesign",
+      "upstream": ".claude/skills/redesign/SKILL.md",
+      "upstreamSha256": "a19db6d67babfcd38611bad9a7285c07775d987f18df06e31610a95e7352df84",
+      "explicitOnly": true
+    },
+    {
+      "name": "ux-ui-scaffold-project",
+      "upstream": ".claude/skills/scaffold-project/SKILL.md",
+      "upstreamSha256": "a7d727d5e02699d0d9c83356603d9082ef5059f47441cdf1e51a6f922b90c1bd",
+      "explicitOnly": true
+    },
+    {
+      "name": "ux-ui-ship",
+      "upstream": ".claude/skills/ship/SKILL.md",
+      "upstreamSha256": "b0cdad9a1c9e379684b1ba60520d265f4b95578327899010c5b9a020e6600bab",
+      "explicitOnly": true
+    },
+    {
+      "name": "ux-ui-token-build",
+      "upstream": ".claude/skills/token-build/SKILL.md",
+      "upstreamSha256": "0ff7c7fea3924ec10c9bd8549fa09aa2865dee82e993a95437abf7295969bec9",
+      "explicitOnly": false
+    },
+    {
+      "name": "ux-ui-ux-writing",
+      "upstream": ".claude/skills/ux-writing/SKILL.md",
+      "upstreamSha256": "a1f07ec7a1e537b78b48f23021578c9755b60152edd72ca833b2c937aed3c3e5",
+      "explicitOnly": false
+    }
+  ],
+  "repairedUpstreamYamlDescriptions": [
+    "data-dashboard",
+    "design-screen"
+  ],
+  "claudeMechanisms": {
+    "disable-model-invocation": "agents/openai.yaml policy.allow_implicit_invocation=false",
+    "CLAUDE_SKILL_DIR": "Explicitly resolved UX_UI_KIT; no automatic Codex variable",
+    "context/background/tool allowlists": "Removed; no automatic independent execution",
+    "write/stop hooks": "Not installed; use explicit application verification"
+  },
+  "excludedSelfTest": "scripts/accuracy_report.mjs tests the upstream repository, not the consuming application"
+}

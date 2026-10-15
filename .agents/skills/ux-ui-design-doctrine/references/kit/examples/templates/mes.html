@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Line 3 - Kirkwall Manufacturing</title>
+<meta name="description" content="Manufacturing template: OEE, station cycle times, a defect pareto and an SPC control chart." />
+<link rel="stylesheet" href="../brandkit-demo/theme.css" />
+<link rel="stylesheet" href="../directions.css" />
+<link rel="stylesheet" href="./_console.css" />
+<style>
+  .crow{display:grid;grid-template-columns:5rem minmax(0,1fr) 3.5rem;gap:var(--space-3);align-items:center;
+    font-size:var(--text-xs)}
+  @media (max-width:46rem){.crow{grid-template-columns:minmax(0,1fr) 3.5rem;
+    grid-template-areas:"n t" "b b";row-gap:var(--space-1)}
+    .crow .cn{grid-area:n} .crow .ct{grid-area:t} .crow .cbar{grid-area:b}}
+  .cn{font-family:var(--font-mono);color:var(--lin-ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cbar{block-size:.75rem;border-radius:var(--radius-sm);background:var(--lin-raised);overflow:hidden;min-inline-size:0}
+  .cbar i{display:block;block-size:100%;inline-size:var(--w);background:var(--trm-accent)}
+  .cbar i.over{background:var(--color-text-error)}
+  .ct{font-family:var(--font-mono);text-align:end;color:var(--lin-ink-2)}
+  .par rect{fill:var(--color-chart-1);opacity:.8}
+  .parlab{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:var(--space-2);
+    list-style:none;margin:0;padding:0;text-align:center}
+  .parlab li{display:grid;gap:var(--space-1);min-inline-size:0}
+  .parlab b{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--lin-ink-2)}
+  .parlab span{font-size:.625rem;color:var(--lin-ink-3);overflow-wrap:anywhere}
+  .par polyline{fill:none;stroke:var(--color-feedback-warning);stroke-width:2}
+  .par circle{fill:var(--color-feedback-warning)}
+  .spc polyline{fill:none;stroke:var(--lin-accent);stroke-width:1.75}
+  .spc .ucl,.spc .lcl{stroke:var(--color-text-error);stroke-dasharray:4 4}
+  .spc .cl{stroke:var(--lin-hairline)}
+  /* Three gauges, three tracks. auto-fit resolved to two here and left the third
+     one orphaned beside an empty cell. */
+  .gauges{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-3);align-content:space-around}
+  @media (max-width:30rem){.gauges{grid-template-columns:minmax(0,1fr)}}
+  .g{display:grid;justify-items:center;gap:var(--space-2)}
+  .g svg{inline-size:100%;max-inline-size:6rem;block-size:auto}
+  .g .v{font-size:var(--text-2xl);font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
+  .g .l{font-family:var(--font-mono);font-size:.625rem;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--lin-ink-3)}
+  .gt{fill:none;stroke:var(--lin-raised);stroke-width:9;stroke-linecap:round}
+  .gf{fill:none;stroke:var(--trm-accent);stroke-width:9;stroke-linecap:round}
+  .gf.warn{stroke:var(--color-feedback-warning)}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div><h1>Line 3 assembly</h1><p class="sub">KIRKWALL PLANT · SHIFT A · ORDER 88-4412</p></div>
+  <a class="badge b-warn" href="#defect-pareto"><span class="dot" aria-hidden="true"></span>Weld B over cycle</a>
+  <span class="clock num">OEE 78.4%</span>
+</div>
+
+<div class="grid">
+  <section class="panel s4 fill">
+    <header><h2>OEE components</h2></header>
+    <div class="gauges">
+      <div class="g"><svg viewBox="0 0 100 100" role="img" aria-label="Availability 92 percent">
+        <circle class="gt" cx="50" cy="50" r="40" stroke-dasharray="188 251" transform="rotate(135 50 50)"/>
+        <circle class="gf" cx="50" cy="50" r="40" stroke-dasharray="173 251" transform="rotate(135 50 50)"/></svg>
+        <span class="v">92%</span><span class="l">Available</span></div>
+      <div class="g"><svg viewBox="0 0 100 100" role="img" aria-label="Performance 88 percent">
+        <circle class="gt" cx="50" cy="50" r="40" stroke-dasharray="188 251" transform="rotate(135 50 50)"/>
+        <circle class="gf" cx="50" cy="50" r="40" stroke-dasharray="165 251" transform="rotate(135 50 50)"/></svg>
+        <span class="v">88%</span><span class="l">Performance</span></div>
+      <div class="g"><svg viewBox="0 0 100 100" role="img" aria-label="Quality 96.8 percent">
+        <circle class="gt" cx="50" cy="50" r="40" stroke-dasharray="188 251" transform="rotate(135 50 50)"/>
+        <circle class="gf warn" cx="50" cy="50" r="40" stroke-dasharray="182 251" transform="rotate(135 50 50)"/></svg>
+        <span class="v">96.8%</span><span class="l">Quality</span></div>
+    </div>
+  </section>
+
+  <section class="panel s8 spread">
+    <header><h2>Station cycle time</h2><span class="note">takt 24.0 s</span></header>
+    <div class="crow"><span class="cn">Load</span><span class="cbar"><i style="--w:69.9%" class="over"></i></span><span class="ct num">30.8s</span></div><div class="crow"><span class="cn">Weld A</span><span class="cbar"><i style="--w:73.9%" class="over"></i></span><span class="ct num">32.5s</span></div><div class="crow"><span class="cn">Weld B</span><span class="cbar"><i style="--w:64.8%" class="over"></i></span><span class="ct num">28.5s</span></div><div class="crow"><span class="cn">Inspect</span><span class="cbar"><i style="--w:59.0%" class="over"></i></span><span class="ct num">26.0s</span></div><div class="crow"><span class="cn">Paint</span><span class="cbar"><i style="--w:62.3%" class="over"></i></span><span class="ct num">27.4s</span></div><div class="crow"><span class="cn">Cure</span><span class="cbar"><i style="--w:73.1%" class="over"></i></span><span class="ct num">32.2s</span></div><div class="crow"><span class="cn">Pack</span><span class="cbar"><i style="--w:76.8%" class="over"></i></span><span class="ct num">33.8s</span></div>
+    <p class="note">Weld B is the constraint. Every second above takt costs 148 units per shift.</p>
+  </section>
+
+  <section class="panel s6">
+    <header><h2 id="defect-pareto">Defect pareto</h2><span class="note">this shift, 100 units scrapped</span></header>
+    <svg class="plot par" viewBox="0 0 300 110" role="img" aria-label="Defect pareto: porosity 41 percent, misalignment 27, scratch 18, short weld 9, other 5. The first two account for two thirds.">
+      <rect x="10" y="18.0" width="40" height="82.0" rx="2"/><rect x="70" y="46.0" width="40" height="54.0" rx="2"/><rect x="130" y="64.0" width="40" height="36.0" rx="2"/><rect x="190" y="82.0" width="40" height="18.0" rx="2"/><rect x="250" y="90.0" width="40" height="10.0" rx="2"/>
+      <polyline points="30,63.1 90,38.8 150,22.6 210,14.5 270,10.0"/>
+      <circle cx="30" cy="63.1" r="3"/><circle cx="90" cy="38.8" r="3"/><circle cx="150" cy="22.6" r="3"/><circle cx="210" cy="14.5" r="3"/><circle cx="270" cy="10.0" r="3"/>
+    </svg>
+    <!-- The bars sit on a 60-unit pitch inside a 300-unit box, so five equal grid
+         columns put each label under its own bar without a second set of numbers. -->
+    <ol class="parlab">
+      <li><b>41%</b><span>Porosity</span></li>
+      <li><b>27%</b><span>Misalign</span></li>
+      <li><b>18%</b><span>Scratch</span></li>
+      <li><b>9%</b><span>Short weld</span></li>
+      <li><b>5%</b><span>Other</span></li>
+    </ol>
+    <p class="note">Porosity and misalignment are two thirds of the scrap. The amber
+      line is the cumulative share.</p>
+  </section>
+
+  <section class="panel s6">
+    <header><h2>Control chart</h2><span class="note">weld penetration, 40 samples</span></header>
+    <svg class="plot spc" viewBox="0 0 300 100" role="img" aria-label="Control chart with the last four samples drifting above the upper control limit">
+      <line class="ucl" x1="0" y1="30" x2="300" y2="30"/>
+      <line class="cl" x1="0" y1="50" x2="300" y2="50"/>
+      <line class="lcl" x1="0" y1="70" x2="300" y2="70"/>
+      <polyline points="0.0,47.4 7.5,51.1 15.0,46.6 22.5,47.3 30.0,45.4 37.5,42.4 45.0,47.5 52.5,45.6 60.0,41.8 67.5,45.1 75.0,46.8 82.5,43.6 90.0,44.4 97.5,49.0 105.0,51.0 112.5,53.5 120.0,54.6 127.5,49.4 135.0,48.7 142.5,56.4 150.0,57.2 157.5,54.2 165.0,59.5 172.5,51.7 180.0,55.3 187.5,57.0 195.0,59.7 202.5,55.9 210.0,56.3 217.5,51.2 225.0,49.8 232.5,51.2 240.0,48.9 247.5,33.1 255.0,35.9 262.5,38.4 270.0,30.7 277.5,33.5 285.0,30.9 292.5,36.4"/>
+    </svg>
+    <dl class="kv">
+      <dt>Cp</dt><dd>1.18</dd>
+      <dt>Cpk</dt><dd>0.94</dd>
+      <dt>Rule broken</dt><dd>4 of 5 beyond 1 sigma</dd>
+    </dl>
+  </section>
+</div>
+
+<footer>
+  <span>Manufacturing template. Cycle times, defects and measurements are simulated.</span>
+  <span>Built with <a href="https://github.com/plugin87/ux-ui-agent-skills"><strong>ux-ui-agent-skills</strong></a> by Thientan Soparat. <a href="../index.html">All examples</a></span>
+</footer>
+<script src="../component-states/icons.js"></script>
+</body>
+</html>

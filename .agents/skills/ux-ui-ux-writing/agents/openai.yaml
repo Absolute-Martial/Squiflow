@@ -1,0 +1,4 @@
+interface:
+  display_name: "UX/UI Ux Writing"
+  short_description: "UX/UI design workflow: ux writing"
+  default_prompt: "Use $ux-ui-ux-writing for this UI task."

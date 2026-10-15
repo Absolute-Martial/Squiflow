@@ -1,0 +1,4 @@
+interface:
+  display_name: "UX/UI Design Component"
+  short_description: "UX/UI design workflow: design component"
+  default_prompt: "Use $ux-ui-design-component for this UI task."

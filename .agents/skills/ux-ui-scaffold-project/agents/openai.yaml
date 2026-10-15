@@ -1,0 +1,6 @@
+interface:
+  display_name: "UX/UI Scaffold Project"
+  short_description: "UX/UI design workflow: scaffold project"
+  default_prompt: "Use $ux-ui-scaffold-project for this UI task."
+policy:
+  allow_implicit_invocation: false

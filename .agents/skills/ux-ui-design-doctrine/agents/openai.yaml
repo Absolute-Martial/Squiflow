@@ -1,0 +1,4 @@
+interface:
+  display_name: "UX/UI Design Doctrine"
+  short_description: "UX/UI design workflow: design doctrine"
+  default_prompt: "Use $ux-ui-design-doctrine for this UI task."

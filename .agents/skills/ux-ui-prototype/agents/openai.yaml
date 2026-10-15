@@ -1,0 +1,6 @@
+interface:
+  display_name: "UX/UI Prototype"
+  short_description: "UX/UI design workflow: prototype"
+  default_prompt: "Use $ux-ui-prototype for this UI task."
+policy:
+  allow_implicit_invocation: false

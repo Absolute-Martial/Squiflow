@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SOC - Ravenline Security Operations</title>
+<meta name="description" content="Security operations template: attack origin arcs, MITRE technique coverage, an alert queue and containment actions." />
+<link rel="stylesheet" href="../brandkit-demo/theme.css" />
+<link rel="stylesheet" href="../directions.css" />
+<link rel="stylesheet" href="./_console.css" />
+<style>
+  .map svg{background:var(--lin-canvas);border-radius:var(--radius-sm)}
+  .land path{fill:var(--lin-raised);stroke:var(--lin-hairline);stroke-width:1}
+  .arc{fill:none;stroke:var(--color-feedback-warning);stroke-width:1.25;opacity:.7}
+  .arc.hot{stroke:var(--color-text-error);stroke-width:2;opacity:.95}
+  .src{fill:var(--color-feedback-warning)} .src.hot{fill:var(--color-text-error)}
+  .dst{fill:var(--trm-accent)}
+  .mrow{display:grid;grid-template-columns:5.5rem minmax(0,1fr);gap:var(--space-3);align-items:center}
+  @media (max-width:46rem){.mrow{grid-template-columns:minmax(0,1fr);gap:var(--space-1)}}
+  .mt{font-family:var(--font-mono);font-size:.625rem;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--lin-ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mcs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:2px;min-inline-size:0} /* ds-allow-hardcode: the 2px gutter is the grid line */
+  .mc{block-size:.875rem;border-radius:1px;
+    background:color-mix(in oklab,var(--color-text-error) var(--i),var(--lin-raised))}
+  .big{font-size:var(--text-5xl);font-weight:700;letter-spacing:-0.04em;line-height:1;
+    font-variant-numeric:tabular-nums;overflow-wrap:anywhere;min-inline-size:0}
+  @media (max-width:46rem){.big{font-size:var(--text-3xl)}}
+  .feed{display:grid;gap:var(--space-3);list-style:none;padding:0;margin:0}
+  .feed li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--space-3);
+    padding-block-end:var(--space-3);border-block-end:1px solid var(--lin-hairline-soft)}
+  .feed li:last-child{border-block-end:0;padding-block-end:0}
+  .feed .pip{display:grid;place-items:center;inline-size:1.5rem;block-size:1.5rem;border-radius:var(--radius-full);
+    background:var(--lin-raised);color:var(--color-text-error)}
+  .feed .pip .ico{inline-size:.75rem;block-size:.75rem}
+  .feed p{overflow-wrap:anywhere}
+  .feed time{display:block;font-family:var(--font-mono);font-size:var(--text-xs);color:var(--lin-ink-3);
+    margin-block-start:var(--space-1)}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div><h1>Ravenline SOC</h1><p class="sub">TIER 2 · SHIFT B · 14 ANALYSTS ONLINE</p></div>
+  <a class="badge b-bad" href="#alerts"><span class="dot" aria-hidden="true"></span>2 critical</a>
+  <a class="badge b-warn" href="#alerts"><span class="dot" aria-hidden="true"></span>17 open</a>
+  <span class="clock num">02:41:07</span>
+</div>
+
+<div class="grid">
+  <section class="panel s8">
+    <header><h2>Attack origins, last hour</h2><span class="note">arc weight is event volume</span></header>
+    <div class="map">
+      <svg class="plot" viewBox="0 0 960 440" role="img" aria-labelledby="soT soD">
+        <title id="soT">World map with attack arcs converging on the primary data centre</title>
+        <desc id="soD">Seven source regions. Two, in east Asia and eastern Europe, account for most of the volume and are drawn in red. All arcs terminate at the Frankfurt data centre.</desc>
+        <g class="land"><path d="M 32.0,58.7 L 106.7,48.9 L 146.7,73.3 L 168.0,139.3 L 221.3,180.9 L 264.0,198.0 L 280.0,134.4 L 320.0,105.1 L 330.7,88.0 L 272.0,68.4 L 186.7,53.8 L 80.0,48.9 Z"/><path d="M 264.0,200.4 L 280.0,254.2 L 293.3,293.3 L 285.3,322.7 L 298.7,354.4 L 328.0,303.1 L 376.0,251.8 L 346.7,215.1 L 288.0,195.6 Z"/><path d="M 453.3,132.0 L 506.7,112.4 L 544.0,132.0 L 560.0,110.0 L 613.3,110.0 L 680.0,122.2 L 746.7,97.8 L 826.7,110.0 L 880.0,73.3 L 880.0,44.0 L 773.3,34.2 L 666.7,41.6 L 560.0,48.9 L 506.7,66.0 L 466.7,97.8 Z"/><path d="M 434.7,183.3 L 520.0,190.7 L 586.7,190.7 L 616.0,190.7 L 586.7,244.4 L 560.0,293.3 L 528.0,303.1 L 504.0,232.2 L 453.3,195.6 Z"/><path d="M 781.3,273.8 L 826.7,249.3 L 880.0,273.8 L 872.0,312.9 L 826.7,298.2 L 784.0,288.4 Z"/></g>
+        <path class="arc hot" d="M 757.3,146.7 Q 632.0,50.8 506.7,95.3"/><circle class="src hot" cx="757.3" cy="146.7" r="3.5"><title>CN</title></circle><path class="arc hot" d="M 578.7,85.6 Q 542.7,70.3 506.7,95.3"/><circle class="src hot" cx="578.7" cy="85.6" r="3.5"><title>RU</title></circle><path class="arc" d="M 216.0,124.7 Q 361.3,28.6 506.7,95.3"/><circle class="src" cx="216.0" cy="124.7" r="3.5"><title>US</title></circle><path class="arc" d="M 760.0,234.7 Q 633.3,94.1 506.7,95.3"/><circle class="src" cx="760.0" cy="234.7" r="3.5"><title>ID</title></circle><path class="arc" d="M 616.0,134.4 Q 561.3,84.3 506.7,95.3"/><circle class="src" cx="616.0" cy="134.4" r="3.5"><title>IR</title></circle><path class="arc" d="M 357.3,276.2 Q 432.0,144.0 506.7,95.3"/><circle class="src" cx="357.3" cy="276.2" r="3.5"><title>BR</title></circle><path class="arc" d="M 685.3,151.6 Q 596.0,73.4 506.7,95.3"/><circle class="src" cx="685.3" cy="151.6" r="3.5"><title>IN</title></circle>
+        <circle class="dst" cx="507" cy="95" r="5"/>
+        <text x="517" y="99" fill="var(--trm-accent)" font-family="var(--font-mono)" font-size="10">FRA-1</text>
+      </svg>
+    </div>
+  </section>
+
+  <div class="s4" style="display:grid;gap:var(--space-4);align-content:start">
+    <section class="panel">
+      <header><h2>Events per second</h2><span class="note">ingest</span></header>
+      <p class="big">41,208</p>
+      <dl class="kv">
+        <dt>Blocked</dt><dd>39,904</dd>
+        <dt>Allowed</dt><dd>1,286</dd>
+        <dt>Quarantined</dt><dd>18</dd>
+        <dt>Mean dwell</dt><dd>4.2 min</dd>
+      </dl>
+    </section>
+    <section class="panel">
+      <header><h2>Containment</h2><span class="note">automated</span></header>
+      <dl class="kv">
+        <dt>Hosts isolated</dt><dd>6</dd>
+        <dt>Accounts locked</dt><dd>3</dd>
+        <dt>IPs blocked</dt><dd>1,442</dd>
+        <dt>Rules pushed</dt><dd>12</dd>
+      </dl>
+    </section>
+  </div>
+
+  <section class="panel s6">
+    <header><h2>Technique coverage</h2><span class="note">MITRE tactics by detection confidence</span></header>
+    <div class="mrow"><span class="mt">Recon</span><span class="mcs"><span class="mc" style="--i:36%"></span><span class="mc" style="--i:61%"></span><span class="mc" style="--i:1%"></span><span class="mc" style="--i:76%"></span><span class="mc" style="--i:38%"></span><span class="mc" style="--i:28%"></span></span></div><div class="mrow"><span class="mt">Access</span><span class="mcs"><span class="mc" style="--i:12%"></span><span class="mc" style="--i:67%"></span><span class="mc" style="--i:7%"></span><span class="mc" style="--i:26%"></span><span class="mc" style="--i:77%"></span><span class="mc" style="--i:17%"></span></span></div><div class="mrow"><span class="mt">Execute</span><span class="mcs"><span class="mc" style="--i:25%"></span><span class="mc" style="--i:55%"></span><span class="mc" style="--i:5%"></span><span class="mc" style="--i:64%"></span><span class="mc" style="--i:63%"></span><span class="mc" style="--i:53%"></span></span></div><div class="mrow"><span class="mt">Persist</span><span class="mcs"><span class="mc" style="--i:33%"></span><span class="mc" style="--i:53%"></span><span class="mc" style="--i:44%"></span><span class="mc" style="--i:26%"></span><span class="mc" style="--i:12%"></span><span class="mc" style="--i:24%"></span></span></div><div class="mrow"><span class="mt">Escalate</span><span class="mcs"><span class="mc" style="--i:67%"></span><span class="mc" style="--i:37%"></span><span class="mc" style="--i:11%"></span><span class="mc" style="--i:14%"></span><span class="mc" style="--i:76%"></span><span class="mc" style="--i:21%"></span></span></div><div class="mrow"><span class="mt">Evade</span><span class="mcs"><span class="mc" style="--i:81%"></span><span class="mc" style="--i:60%"></span><span class="mc" style="--i:45%"></span><span class="mc" style="--i:14%"></span><span class="mc" style="--i:90%"></span><span class="mc" style="--i:75%"></span></span></div><div class="mrow"><span class="mt">Credential</span><span class="mcs"><span class="mc" style="--i:6%"></span><span class="mc" style="--i:9%"></span><span class="mc" style="--i:30%"></span><span class="mc" style="--i:70%"></span><span class="mc" style="--i:69%"></span><span class="mc" style="--i:52%"></span></span></div><div class="mrow"><span class="mt">Discover</span><span class="mcs"><span class="mc" style="--i:42%"></span><span class="mc" style="--i:24%"></span><span class="mc" style="--i:85%"></span><span class="mc" style="--i:33%"></span><span class="mc" style="--i:21%"></span><span class="mc" style="--i:75%"></span></span></div><div class="mrow"><span class="mt">Lateral</span><span class="mcs"><span class="mc" style="--i:60%"></span><span class="mc" style="--i:77%"></span><span class="mc" style="--i:8%"></span><span class="mc" style="--i:50%"></span><span class="mc" style="--i:8%"></span><span class="mc" style="--i:4%"></span></span></div><div class="mrow"><span class="mt">Collect</span><span class="mcs"><span class="mc" style="--i:4%"></span><span class="mc" style="--i:70%"></span><span class="mc" style="--i:23%"></span><span class="mc" style="--i:52%"></span><span class="mc" style="--i:50%"></span><span class="mc" style="--i:63%"></span></span></div><div class="mrow"><span class="mt">Exfil</span><span class="mcs"><span class="mc" style="--i:36%"></span><span class="mc" style="--i:54%"></span><span class="mc" style="--i:75%"></span><span class="mc" style="--i:20%"></span><span class="mc" style="--i:71%"></span><span class="mc" style="--i:42%"></span></span></div><div class="mrow"><span class="mt">Impact</span><span class="mcs"><span class="mc" style="--i:40%"></span><span class="mc" style="--i:50%"></span><span class="mc" style="--i:31%"></span><span class="mc" style="--i:21%"></span><span class="mc" style="--i:88%"></span><span class="mc" style="--i:0%"></span></span></div>
+  </section>
+
+  <section class="panel s6">
+    <header><h2 id="alerts">Alert queue</h2><span class="badge b-bad"><span class="dot" aria-hidden="true"></span>2 critical</span></header>
+    <ul class="feed">
+      <li><span class="pip" aria-hidden="true"><svg class="ico"><use href="#i-alert-triangle"/></svg></span>
+        <div><p><strong>Credential stuffing against the VPN portal.</strong> 4,102 attempts from 812 addresses, 3 accounts locked. Rate limit raised and geo-fence applied.</p><time datetime="2026-09-15T02:38">02:38:11</time></div></li>
+      <li><span class="pip" aria-hidden="true"><svg class="ico"><use href="#i-alert-circle"/></svg></span>
+        <div><p><strong>Lateral movement on FRA-APP-07.</strong> SMB enumeration followed by a scheduled task creation. Host isolated automatically, image preserved.</p><time datetime="2026-09-15T02:12">02:12:44</time></div></li>
+      <li><span class="pip" aria-hidden="true" style="color:var(--color-feedback-warning)"><svg class="ico"><use href="#i-info"/></svg></span>
+        <div><p>Unusual egress to a newly registered domain from a build agent. 42 MB over 9 minutes. Under review by tier 2.</p><time datetime="2026-09-15T01:55">01:55:02</time></div></li>
+      <li><span class="pip" aria-hidden="true" style="color:var(--trm-accent)"><svg class="ico"><use href="#i-check"/></svg></span>
+        <div><p>Phishing campaign contained. 214 messages recalled, 0 clicks recorded.</p><time datetime="2026-09-15T00:41">00:41:19</time></div></li>
+    </ul>
+  </section>
+</div>
+
+<footer>
+  <span>Security operations template. Events, origins and alerts are simulated.</span>
+  <span>Built with <a href="https://github.com/plugin87/ux-ui-agent-skills"><strong>ux-ui-agent-skills</strong></a> by Thientan Soparat. <a href="../index.html">All examples</a></span>
+</footer>
+<script src="../component-states/icons.js"></script>
+</body>
+</html>

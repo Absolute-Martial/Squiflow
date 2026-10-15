@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Run atlas-7b-sft - training console</title>
+<meta name="description" content="Training run template: loss and validation curves, a warmup-cosine learning rate schedule, a confusion matrix, per-device utilisation and benchmark deltas." />
+<link rel="stylesheet" href="../brandkit-demo/theme.css" />
+<link rel="stylesheet" href="../directions.css" />
+<link rel="stylesheet" href="./_console.css" />
+<style>
+  .plotwrap{display:grid;grid-template-columns:2.25rem minmax(0,1fr);grid-template-rows:minmax(9rem,1fr) auto;
+    gap:var(--space-2);block-size:100%}
+  .py{position:relative;grid-area:1 / 1}
+  .py span{position:absolute;inset-block-start:var(--y);inset-inline-end:0;transform:translateY(-50%);
+    font-family:var(--font-mono);font-size:.625rem;color:var(--lin-ink-3)}
+  .py span:first-child{transform:translateY(0)} .py span:last-child{transform:translateY(-100%)}
+  .pplot{grid-area:1 / 2;inline-size:100%;block-size:100%;display:block}
+  .px{grid-area:2 / 2;position:relative;block-size:var(--space-4)}
+  .px span{position:absolute;inset-inline-start:var(--x);transform:translateX(-50%);
+    font-family:var(--font-mono);font-size:.625rem;color:var(--lin-ink-3)}
+  .px span:first-child{transform:translateX(0)} .px span:last-child{transform:translateX(-100%)}
+  .gl{stroke:var(--lin-hairline);stroke-width:1}
+  .ltrain{fill:none;stroke:var(--lin-accent);stroke-width:1.5;opacity:.85}
+  .lval{fill:none;stroke:var(--trm-accent);stroke-width:2.25}
+  .lvd{fill:var(--trm-accent)}
+  .lrline{fill:none;stroke:var(--color-feedback-warning);stroke-width:2}
+  .key{display:flex;flex-wrap:wrap;gap:var(--space-2) var(--space-4);font-size:var(--text-xs);color:var(--lin-ink-3)}
+  .key span{display:inline-flex;align-items:center;gap:var(--space-2);min-inline-size:0}
+  .key i{inline-size:1.25rem;block-size:0;border-block-start:var(--border-width-medium) solid var(--c);flex:none}
+
+  /* Confusion matrix: the true class labels the row, the tint is the share of that
+     row's predictions, so every row sums to one and the diagonal should dominate. */
+  .cm{display:grid;gap:2px;min-inline-size:0} /* ds-allow-hardcode: the 2px gutter is the cell divider */
+  .chead{display:grid;grid-template-columns:4.5rem repeat(8,minmax(0,1fr));gap:2px} /* ds-allow-hardcode: matches the matrix gutter */
+  .ch{font-family:var(--font-mono);font-size:.5rem;color:var(--lin-ink-3);text-align:center;
+    overflow:hidden;text-overflow:ellipsis}
+  .chead .ch:first-child{grid-column:1}
+  .crow{display:grid;grid-template-columns:4.5rem repeat(8,minmax(0,1fr));gap:2px;align-items:center} /* ds-allow-hardcode: matches the matrix gutter */
+  .cl{font-family:var(--font-mono);font-size:.625rem;color:var(--lin-ink-3);overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap}
+  .cc{position:relative;aspect-ratio:1;border-radius:1px; /* ds-allow-hardcode: a 1px radius keeps the grid reading as a matrix */
+    background:color-mix(in oklab,var(--lin-accent) var(--v),var(--lin-raised))}
+  .cc.d{background:color-mix(in oklab,var(--trm-accent) var(--v),var(--lin-raised))}
+
+  /* Mobile first: on a phone a GPU row is name, bar and utilisation. The memory
+     and clock columns arrive with the width to hold them. The five fixed columns
+     were the base, which is 15.75rem of track that cannot shrink - at a 1.25x
+     root font that is wider than a 320px screen on its own. */
+  .grow2{display:grid;grid-template-columns:3.5rem minmax(2rem,1fr) 2.5rem;gap:var(--space-2);
+    align-items:center;font-size:var(--text-xs)}
+  .gm,.gc{display:none}
+  @media (min-width:30rem){
+    .grow2{grid-template-columns:3.5rem minmax(2rem,1fr) 2.5rem 3.5rem 2.75rem}
+    .gm,.gc{display:block}
+  }
+  .gn{font-family:var(--font-mono);color:var(--lin-ink-3)}
+  .gt{block-size:.4375rem;border-radius:var(--radius-full);background:var(--lin-raised);overflow:hidden;
+    min-inline-size:0}
+  .gt i{display:block;block-size:100%;inline-size:var(--w);background:var(--trm-accent)}
+  .gv,.gm,.gc{font-family:var(--font-mono);text-align:end;color:var(--lin-ink-2)}
+
+  .big{font-size:var(--text-5xl);font-weight:700;letter-spacing:-0.04em;line-height:1;
+    font-variant-numeric:tabular-nums;overflow-wrap:anywhere;min-inline-size:0}
+  @media (max-width:46rem){.big{font-size:var(--text-3xl)}}
+  .up{color:var(--trm-accent)} .dn{color:var(--color-text-error)}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div><h1>atlas-7b-sft</h1><p class="sub">RUN 4F21C0 · 8 x H100 · STEP 41,600 OF 42,000 · EPOCH 3.0</p></div>
+  <a class="badge b-warn" href="#confusion-matrix"><span class="dot" aria-hidden="true"></span>Val loss rising since 39k</a>
+  <span class="clock num">02:41:07</span>
+</div>
+
+<div class="grid">
+  <section class="panel s8 fill">
+    <header><h2>Loss</h2><span class="note">train and held-out validation, log scale</span></header>
+    <div class="plotwrap">
+      <div class="py"><span style="--y:7.47%">4.0</span><span style="--y:33.18%">3.0</span><span style="--y:60.88%">2.2</span><span style="--y:89.35%">1.6</span></div>
+      <svg class="pplot" viewBox="0 0 420 170" preserveAspectRatio="none" role="img"
+           aria-label="Training loss falls from 4.35 to about 1.45 over 42,000 steps. Validation loss tracks it until roughly step 39,000 and then turns upward, which is the overfitting point.">
+        <line class="gl" x1="0" y1="12.7" x2="420" y2="12.7"/><line class="gl" x1="0" y1="56.4" x2="420" y2="56.4"/><line class="gl" x1="0" y1="103.5" x2="420" y2="103.5"/><line class="gl" x1="0" y1="151.9" x2="420" y2="151.9"/>
+        <polyline class="ltrain" points="0.0,0.0 3.0,0.0 6.0,0.0 9.0,2.8 12.0,5.8 15.0,5.1 18.0,7.7 21.0,9.3 24.0,9.6 27.0,9.0 30.0,11.2 33.0,12.4 36.0,13.8 39.0,13.6 42.0,16.0 45.0,18.3 48.0,18.3 51.0,18.9 54.0,20.5 57.0,21.6 60.0,22.6 63.0,23.9 66.0,26.2 69.0,27.5 72.0,29.3 75.0,30.1 78.0,30.4 81.0,32.4 84.0,32.8 87.0,33.8 90.0,34.9 93.0,35.6 96.0,36.0 99.0,39.9 102.0,40.8 105.0,42.2 108.0,42.2 111.0,44.9 114.0,44.5 117.0,49.2 120.0,48.3 123.0,50.0 126.0,53.8 129.0,52.8 132.0,53.3 135.0,56.3 138.0,58.4 141.0,56.3 144.0,58.3 147.0,60.9 150.0,62.8 153.0,61.9 156.0,64.2 159.0,67.2 162.0,67.6 165.0,69.0 168.0,69.1 171.0,73.4 174.0,72.8 177.0,74.6 180.0,75.2 183.0,76.9 186.0,77.7 189.0,78.1 192.0,81.6 195.0,81.0 198.0,82.2 201.0,86.0 204.0,84.3 207.0,89.6 210.0,87.0 213.0,91.4 216.0,92.9 219.0,93.4 222.0,91.5 225.0,99.2 228.0,97.1 231.0,98.6 234.0,101.9 237.0,99.0 240.0,104.9 243.0,104.2 246.0,106.9 249.0,106.6 252.0,107.0 255.0,108.0 258.0,111.4 261.0,112.1 264.0,115.6 267.0,114.7 270.0,116.8 273.0,117.3 276.0,121.0 279.0,118.8 282.0,124.1 285.0,123.7 288.0,122.8 291.0,128.2 294.0,127.2 297.0,129.6 300.0,130.5 303.0,131.2 306.0,131.6 309.0,133.6 312.0,134.4 315.0,137.7 318.0,138.8 321.0,136.9 324.0,144.2 327.0,141.3 330.0,145.4 333.0,145.1 336.0,145.1 339.0,149.9 342.0,149.4 345.0,151.4 348.0,150.3 351.0,152.0 354.0,154.1 357.0,152.2 360.0,154.0 363.0,158.3 366.0,156.6 369.0,159.4 372.0,161.2 375.0,162.9 378.0,158.9 381.0,163.2 384.0,163.1 387.0,162.3 390.0,163.8 393.0,170.0 396.0,168.5 399.0,165.7 402.0,169.3 405.0,167.9 408.0,170.0 411.0,170.0 414.0,167.7 417.0,170.0 420.0,170.0"/>
+        <polyline class="lval" points="0.0,0.0 21.0,6.6 42.0,14.7 63.0,22.9 84.0,31.4 105.0,40.7 126.0,49.4 147.0,58.5 168.0,67.2 189.0,77.4 210.0,87.9 231.0,96.8 252.0,106.4 273.0,116.2 294.0,126.2 315.0,135.5 336.0,144.5 357.0,152.9 378.0,159.5 399.0,163.3 420.0,161.7"/>
+        <g class="lvd"><circle cx="0.0" cy="0.0" r="2.2"/><circle cx="21.0" cy="6.6" r="2.2"/><circle cx="42.0" cy="14.7" r="2.2"/><circle cx="63.0" cy="22.9" r="2.2"/><circle cx="84.0" cy="31.4" r="2.2"/><circle cx="105.0" cy="40.7" r="2.2"/><circle cx="126.0" cy="49.4" r="2.2"/><circle cx="147.0" cy="58.5" r="2.2"/><circle cx="168.0" cy="67.2" r="2.2"/><circle cx="189.0" cy="77.4" r="2.2"/><circle cx="210.0" cy="87.9" r="2.2"/><circle cx="231.0" cy="96.8" r="2.2"/><circle cx="252.0" cy="106.4" r="2.2"/><circle cx="273.0" cy="116.2" r="2.2"/><circle cx="294.0" cy="126.2" r="2.2"/><circle cx="315.0" cy="135.5" r="2.2"/><circle cx="336.0" cy="144.5" r="2.2"/><circle cx="357.0" cy="152.9" r="2.2"/><circle cx="378.0" cy="159.5" r="2.2"/><circle cx="399.0" cy="163.3" r="2.2"/><circle cx="420.0" cy="161.7" r="2.2"/></g>
+      </svg>
+      <div class="px"><span style="--x:0.00%">0</span><span style="--x:25.00%">10.5k</span><span style="--x:50.00%">21k</span><span style="--x:75.00%">31.5k</span><span style="--x:100.00%">42k</span></div>
+    </div>
+    <p class="key">
+      <span><i style="--c:var(--lin-accent)"></i>Train</span>
+      <span><i style="--c:var(--trm-accent)"></i>Validation</span>
+      <span style="margin-inline-start:auto">The gap opening after step 39k is the reason the run stops at 42k.</span>
+    </p>
+  </section>
+
+  <div class="s4" style="display:grid;gap:var(--space-4);align-content:start">
+    <section class="panel">
+      <header><h2>Validation loss</h2><span class="note">best 1.471 at 38.5k</span></header>
+      <p class="big">1.488</p>
+      <dl class="kv">
+        <dt>Train loss</dt><dd>1.452</dd>
+        <dt>Perplexity</dt><dd>4.43</dd>
+        <dt>Grad norm</dt><dd>0.61</dd>
+        <dt>Tokens seen</dt><dd>1.38 T</dd>
+      </dl>
+    </section>
+
+    <section class="panel">
+      <header><h2>Learning rate</h2><span class="note">warmup 2k, cosine to 3e-5</span></header>
+      <svg viewBox="0 0 300 70" preserveAspectRatio="none"
+           style="inline-size:100%;block-size:4rem;display:block" role="img"
+           aria-label="Learning rate warms up linearly over the first two thousand steps to three times ten to the minus four, then decays on a cosine curve to three times ten to the minus five.">
+        <polyline class="lrline" points="0.0,70.0 2.5,57.8 5.0,45.5 7.5,33.3 10.0,21.0 12.5,8.8 15.0,0.0 17.5,0.0 20.0,0.1 22.5,0.1 25.0,0.2 27.5,0.3 30.0,0.5 32.5,0.6 35.0,0.8 37.5,1.0 40.0,1.3 42.5,1.5 45.0,1.8 47.5,2.1 50.0,2.4 52.5,2.7 55.0,3.1 57.5,3.5 60.0,3.9 62.5,4.3 65.0,4.8 67.5,5.2 70.0,5.7 72.5,6.2 75.0,6.8 77.5,7.3 80.0,7.9 82.5,8.5 85.0,9.1 87.5,9.7 90.0,10.3 92.5,10.9 95.0,11.6 97.5,12.3 100.0,13.0 102.5,13.7 105.0,14.4 107.5,15.1 110.0,15.9 112.5,16.7 115.0,17.4 117.5,18.2 120.0,19.0 122.5,19.8 125.0,20.6 127.5,21.4 130.0,22.2 132.5,23.1 135.0,23.9 137.5,24.7 140.0,25.6 142.5,26.5 145.0,27.3 147.5,28.2 150.0,29.0 152.5,29.9 155.0,30.8 157.5,31.6 160.0,32.5 162.5,33.4 165.0,34.2 167.5,35.1 170.0,35.9 172.5,36.8 175.0,37.6 177.5,38.5 180.0,39.3 182.5,40.2 185.0,41.0 187.5,41.8 190.0,42.6 192.5,43.4 195.0,44.2 197.5,45.0 200.0,45.8 202.5,46.6 205.0,47.3 207.5,48.1 210.0,48.8 212.5,49.5 215.0,50.2 217.5,50.9 220.0,51.6 222.5,52.2 225.0,52.9 227.5,53.5 230.0,54.1 232.5,54.7 235.0,55.3 237.5,55.8 240.0,56.4 242.5,56.9 245.0,57.4 247.5,57.9 250.0,58.4 252.5,58.8 255.0,59.2 257.5,59.6 260.0,60.0 262.5,60.4 265.0,60.7 267.5,61.0 270.0,61.3 272.5,61.6 275.0,61.8 277.5,62.0 280.0,62.2 282.5,62.4 285.0,62.6 287.5,62.7 290.0,62.8 292.5,62.9 295.0,63.0 297.5,63.0 300.0,63.0"/>
+      </svg>
+      <dl class="kv">
+        <dt>Current</dt><dd>3.4e-5</dd>
+        <dt>Peak</dt><dd>3.0e-4</dd>
+        <dt>Optimiser</dt><dd>AdamW</dd>
+      </dl>
+    </section>
+  </div>
+
+  <section class="panel s6">
+    <header><h2 id="confusion-matrix">Confusion matrix</h2><span class="note">eval set, row-normalised</span></header>
+    <div class="cm">
+      <div class="chead"><span class="ch"></span><span class="ch">neu</span><span class="ch">joy</span><span class="ch">ang</span><span class="ch">fea</span><span class="ch">sad</span><span class="ch">sur</span><span class="ch">dis</span><span class="ch">tru</span></div>
+        <div class="crow"><span class="cl">neutral</span><span class="cc d" style="--v:80%"><span class="sr-only">neutral predicted neutral: 80 percent</span></span><span class="cc" style="--v:1%"><span class="sr-only">neutral predicted joy: 1 percent</span></span><span class="cc" style="--v:0%"><span class="sr-only">neutral predicted anger: 0 percent</span></span><span class="cc" style="--v:9%"><span class="sr-only">neutral predicted fear: 9 percent</span></span><span class="cc" style="--v:9%"><span class="sr-only">neutral predicted sad: 9 percent</span></span><span class="cc" style="--v:1%"><span class="sr-only">neutral predicted surprise: 1 percent</span></span><span class="cc" style="--v:5%"><span class="sr-only">neutral predicted disgust: 5 percent</span></span><span class="cc" style="--v:5%"><span class="sr-only">neutral predicted trust: 5 percent</span></span></div>
+        <div class="crow"><span class="cl">joy</span><span class="cc" style="--v:11%"><span class="sr-only">joy predicted neutral: 11 percent</span></span><span class="cc d" style="--v:91%"><span class="sr-only">joy predicted joy: 91 percent</span></span><span class="cc" style="--v:10%"><span class="sr-only">joy predicted anger: 10 percent</span></span><span class="cc" style="--v:3%"><span class="sr-only">joy predicted fear: 3 percent</span></span><span class="cc" style="--v:2%"><span class="sr-only">joy predicted sad: 2 percent</span></span><span class="cc" style="--v:4%"><span class="sr-only">joy predicted surprise: 4 percent</span></span><span class="cc" style="--v:5%"><span class="sr-only">joy predicted disgust: 5 percent</span></span><span class="cc" style="--v:4%"><span class="sr-only">joy predicted trust: 4 percent</span></span></div>
+        <div class="crow"><span class="cl">anger</span><span class="cc" style="--v:0%"><span class="sr-only">anger predicted neutral: 0 percent</span></span><span class="cc" style="--v:3%"><span class="sr-only">anger predicted joy: 3 percent</span></span><span class="cc d" style="--v:87%"><span class="sr-only">anger predicted anger: 87 percent</span></span><span class="cc" style="--v:5%"><span class="sr-only">anger predicted fear: 5 percent</span></span><span class="cc" style="--v:6%"><span class="sr-only">anger predicted sad: 6 percent</span></span><span class="cc" style="--v:2%"><span class="sr-only">anger predicted surprise: 2 percent</span></span><span class="cc" style="--v:2%"><span class="sr-only">anger predicted disgust: 2 percent</span></span><span class="cc" style="--v:5%"><span class="sr-only">anger predicted trust: 5 percent</span></span></div>
+        <div class="crow"><span class="cl">fear</span><span class="cc" style="--v:2%"><span class="sr-only">fear predicted neutral: 2 percent</span></span><span class="cc" style="--v:0%"><span class="sr-only">fear predicted joy: 0 percent</span></span><span class="cc" style="--v:8%"><span class="sr-only">fear predicted anger: 8 percent</span></span><span class="cc d" style="--v:94%"><span class="sr-only">fear predicted fear: 94 percent</span></span><span class="cc" style="--v:19%"><span class="sr-only">fear predicted sad: 19 percent</span></span><span class="cc" style="--v:1%"><span class="sr-only">fear predicted surprise: 1 percent</span></span><span class="cc" style="--v:8%"><span class="sr-only">fear predicted disgust: 8 percent</span></span><span class="cc" style="--v:8%"><span class="sr-only">fear predicted trust: 8 percent</span></span></div>
+        <div class="crow"><span class="cl">sad</span><span class="cc" style="--v:8%"><span class="sr-only">sad predicted neutral: 8 percent</span></span><span class="cc" style="--v:5%"><span class="sr-only">sad predicted joy: 5 percent</span></span><span class="cc" style="--v:7%"><span class="sr-only">sad predicted anger: 7 percent</span></span><span class="cc" style="--v:14%"><span class="sr-only">sad predicted fear: 14 percent</span></span><span class="cc d" style="--v:95%"><span class="sr-only">sad predicted sad: 95 percent</span></span><span class="cc" style="--v:14%"><span class="sr-only">sad predicted surprise: 14 percent</span></span><span class="cc" style="--v:6%"><span class="sr-only">sad predicted disgust: 6 percent</span></span><span class="cc" style="--v:7%"><span class="sr-only">sad predicted trust: 7 percent</span></span></div>
+        <div class="crow"><span class="cl">surprise</span><span class="cc" style="--v:6%"><span class="sr-only">surprise predicted neutral: 6 percent</span></span><span class="cc" style="--v:2%"><span class="sr-only">surprise predicted joy: 2 percent</span></span><span class="cc" style="--v:1%"><span class="sr-only">surprise predicted anger: 1 percent</span></span><span class="cc" style="--v:5%"><span class="sr-only">surprise predicted fear: 5 percent</span></span><span class="cc" style="--v:1%"><span class="sr-only">surprise predicted sad: 1 percent</span></span><span class="cc d" style="--v:84%"><span class="sr-only">surprise predicted surprise: 84 percent</span></span><span class="cc" style="--v:14%"><span class="sr-only">surprise predicted disgust: 14 percent</span></span><span class="cc" style="--v:1%"><span class="sr-only">surprise predicted trust: 1 percent</span></span></div>
+        <div class="crow"><span class="cl">disgust</span><span class="cc" style="--v:2%"><span class="sr-only">disgust predicted neutral: 2 percent</span></span><span class="cc" style="--v:1%"><span class="sr-only">disgust predicted joy: 1 percent</span></span><span class="cc" style="--v:2%"><span class="sr-only">disgust predicted anger: 2 percent</span></span><span class="cc" style="--v:5%"><span class="sr-only">disgust predicted fear: 5 percent</span></span><span class="cc" style="--v:4%"><span class="sr-only">disgust predicted sad: 4 percent</span></span><span class="cc" style="--v:18%"><span class="sr-only">disgust predicted surprise: 18 percent</span></span><span class="cc d" style="--v:95%"><span class="sr-only">disgust predicted disgust: 95 percent</span></span><span class="cc" style="--v:2%"><span class="sr-only">disgust predicted trust: 2 percent</span></span></div>
+        <div class="crow"><span class="cl">trust</span><span class="cc" style="--v:7%"><span class="sr-only">trust predicted neutral: 7 percent</span></span><span class="cc" style="--v:7%"><span class="sr-only">trust predicted joy: 7 percent</span></span><span class="cc" style="--v:8%"><span class="sr-only">trust predicted anger: 8 percent</span></span><span class="cc" style="--v:7%"><span class="sr-only">trust predicted fear: 7 percent</span></span><span class="cc" style="--v:9%"><span class="sr-only">trust predicted sad: 9 percent</span></span><span class="cc" style="--v:6%"><span class="sr-only">trust predicted surprise: 6 percent</span></span><span class="cc" style="--v:9%"><span class="sr-only">trust predicted disgust: 9 percent</span></span><span class="cc d" style="--v:82%"><span class="sr-only">trust predicted trust: 82 percent</span></span></div>
+    </div>
+    <p class="note">Rows are the true class, columns the prediction, and each row sums
+      to one. Anger against fear is the only confusion above nine percent.</p>
+  </section>
+
+  <section class="panel s6 spread">
+    <header><h2>Devices</h2><span class="note">utilisation, memory, temperature</span></header>
+      <div class="grow2"><span class="gn">cuda:0</span>
+        <span class="gt"><i style="--w:98%"></i></span><span class="gv num">98%</span>
+        <span class="gm num">72 GB</span><span class="gc num">70&deg;C</span></div>
+      <div class="grow2"><span class="gn">cuda:1</span>
+        <span class="gt"><i style="--w:92%"></i></span><span class="gv num">92%</span>
+        <span class="gm num">84 GB</span><span class="gc num">67&deg;C</span></div>
+      <div class="grow2"><span class="gn">cuda:2</span>
+        <span class="gt"><i style="--w:89%"></i></span><span class="gv num">89%</span>
+        <span class="gm num">83 GB</span><span class="gc num">71&deg;C</span></div>
+      <div class="grow2"><span class="gn">cuda:3</span>
+        <span class="gt"><i style="--w:89%"></i></span><span class="gv num">89%</span>
+        <span class="gm num">82 GB</span><span class="gc num">64&deg;C</span></div>
+      <div class="grow2"><span class="gn">cuda:4</span>
+        <span class="gt"><i style="--w:97%"></i></span><span class="gv num">97%</span>
+        <span class="gm num">87 GB</span><span class="gc num">65&deg;C</span></div>
+      <div class="grow2"><span class="gn">cuda:5</span>
+        <span class="gt"><i style="--w:91%"></i></span><span class="gv num">91%</span>
+        <span class="gm num">72 GB</span><span class="gc num">68&deg;C</span></div>
+      <div class="grow2"><span class="gn">cuda:6</span>
+        <span class="gt"><i style="--w:98%"></i></span><span class="gv num">98%</span>
+        <span class="gm num">90 GB</span><span class="gc num">62&deg;C</span></div>
+      <div class="grow2"><span class="gn">cuda:7</span>
+        <span class="gt"><i style="--w:95%"></i></span><span class="gv num">95%</span>
+        <span class="gm num">85 GB</span><span class="gc num">62&deg;C</span></div>
+    <p class="note">cuda:3 runs two degrees hotter than the rest and holds the step time
+      for the whole group, because the all-reduce waits for the slowest rank.</p>
+  </section>
+
+  <section class="panel s6">
+    <header><h2>Throughput</h2><span class="note">tokens per second, last 80 steps</span></header>
+    <svg viewBox="0 0 300 60" preserveAspectRatio="none" style="inline-size:100%;block-size:4.5rem;display:block"
+         role="img" aria-label="Throughput holds near 41,200 tokens per second, with regular drops to about 17,000 every twenty-three steps where a checkpoint is written.">
+      <polyline class="lval" points="0.0,36.0 3.8,2.8 7.6,0.6 11.4,0.4 15.2,2.6 19.0,3.2 22.8,3.7 26.6,3.3 30.4,3.1 34.2,0.9 38.0,3.5 41.8,1.1 45.6,0.5 49.4,2.2 53.2,0.5 57.0,0.6 60.8,0.2 64.6,0.0 68.4,1.7 72.2,0.6 75.9,2.8 79.7,2.6 83.5,1.7 87.3,36.3 91.1,3.8 94.9,2.9 98.7,3.3 102.5,2.6 106.3,3.6 110.1,1.6 113.9,1.7 117.7,4.0 121.5,0.4 125.3,2.3 129.1,3.4 132.9,3.1 136.7,2.1 140.5,0.3 144.3,2.9 148.1,3.2 151.9,0.3 155.7,0.8 159.5,2.2 163.3,0.1 167.1,2.0 170.9,0.1 174.7,36.5 178.5,2.0 182.3,2.3 186.1,0.0 189.9,2.2 193.7,0.1 197.5,3.5 201.3,3.1 205.1,0.3 208.9,0.4 212.7,2.4 216.5,1.7 220.3,2.5 224.1,1.4 227.8,0.5 231.6,0.2 235.4,0.1 239.2,3.5 243.0,3.1 246.8,0.7 250.6,1.1 254.4,1.5 258.2,1.6 262.0,35.7 265.8,2.2 269.6,1.8 273.4,1.8 277.2,2.9 281.0,3.2 284.8,2.7 288.6,1.1 292.4,0.4 296.2,2.3 300.0,1.9"/>
+    </svg>
+    <dl class="kv">
+      <dt>Mean</dt><dd>40,180 tok/s</dd>
+      <dt>Step time</dt><dd>1.94 s</dd>
+      <dt>Checkpoint every</dt><dd>23 steps</dd>
+      <dt>MFU</dt><dd>48.2%</dd>
+    </dl>
+  </section>
+
+  <section class="panel s6">
+    <header><h2>Benchmarks</h2><span class="note">against the previous checkpoint</span></header>
+    <div class="tblwrap">
+      <table>
+        <caption class="sr-only">Benchmark scores and change against the previous checkpoint</caption>
+        <thead><tr><th scope="col">Suite</th><th scope="col" class="end">Score</th>
+          <th scope="col" class="end">Delta</th></tr></thead>
+        <tbody>
+      <tr><th scope="row">MMLU</th><td class="num end">62.4</td>
+        <td class="num end up">+1.8</td></tr>
+      <tr><th scope="row">HellaSwag</th><td class="num end">79.1</td>
+        <td class="num end up">+0.6</td></tr>
+      <tr><th scope="row">GSM8K</th><td class="num end">44.7</td>
+        <td class="num end up">+3.2</td></tr>
+      <tr><th scope="row">HumanEval</th><td class="num end">31.2</td>
+        <td class="num end up">+2.1</td></tr>
+      <tr><th scope="row">TruthfulQA</th><td class="num end">48.9</td>
+        <td class="num end dn">-0.4</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">TruthfulQA moving down while the others move up is the trade this
+      fine-tune makes. It is a decision, not a regression to chase.</p>
+  </section>
+</div>
+
+<footer>
+  <span>Training console template. The run, metrics and benchmark scores are simulated.</span>
+  <span>Built with <a href="https://github.com/plugin87/ux-ui-agent-skills"><strong>ux-ui-agent-skills</strong></a> by Thientan Soparat. <a href="../index.html">All examples</a></span>
+</footer>
+<script src="../component-states/icons.js"></script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+interface:
+  display_name: "UX/UI Design Code"
+  short_description: "UX/UI design workflow: design code"
+  default_prompt: "Use $ux-ui-design-code for this UI task."

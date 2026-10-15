@@ -39,3 +39,7 @@ Tenant Web is a presentation/interactive host over authoritative server-side cap
 ## Validation
 
 For Web behavior, add tests/checks appropriate to the implemented surface for malformed input, authorization denial, cross-tenant access, anti-forgery where applicable, output encoding/XSS-sensitive rendering, reconnect/restart behavior for valuable state, and stable error/outcome mapping.
+
+## UI guidance
+
+Use the [Codex UI doctrine](../../.agents/skills/ux-ui-design-doctrine/SKILL.md) and its Blazor adapter for UI work. Extend the existing Razor components and shared CSS theme, with accessible semantics, applicable interaction states, responsive layout and truthful async feedback. Framework examples in the reference kit do not select React/Tailwind for this host.

@@ -235,3 +235,9 @@ Before considering an active slice complete:
 - Leave touched code cleaner when cleanup is local and does not become an unrelated refactor.
 - If a future boundary becomes necessary earlier than the roadmap expected, pull the owning responsibility forward deliberately and qualify it now instead of creating a temporary unsafe shortcut.
 - If historical work contains a useful idea, re-earn it from current facts; history is input, not authority.
+
+## 11. UX/UI guidance for Codex
+
+For Web or Workstation screen/component work, tokens, accessibility or interface copy, read the [Codex UI doctrine](.agents/skills/ux-ui-design-doctrine/SKILL.md) and its Blazor/Avalonia adapter, then load only the relevant rule or workflow. The user-selected `plugin87/ux-ui-agent-skills` guidance is pinned and adapted under `.agents/skills/ux-ui-*`; its [source record](.agents/skills/ux-ui-design-doctrine/SOURCE.json) owns provenance and migration details.
+
+Keep the current framework, brand, business-authority boundaries and product-version policy. Design-library examples do not authorize new product responsibilities or a stack replacement. Use the actual application verification contract and target-specific UI evidence; upstream examples, kit self-tests and skipped browser checks do not qualify this application. Claude hooks and automatic forked reviewers are not installed by this guidance package.

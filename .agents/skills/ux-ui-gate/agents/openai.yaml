@@ -1,0 +1,6 @@
+interface:
+  display_name: "UX/UI Gate"
+  short_description: "UX/UI design workflow: gate"
+  default_prompt: "Use $ux-ui-gate for this UI task."
+policy:
+  allow_implicit_invocation: false

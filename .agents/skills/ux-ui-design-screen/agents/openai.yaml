@@ -1,0 +1,4 @@
+interface:
+  display_name: "UX/UI Design Screen"
+  short_description: "UX/UI design workflow: design screen"
+  default_prompt: "Use $ux-ui-design-screen for this UI task."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "UX/UI A11Y Audit"
+  short_description: "UX/UI design workflow: a11y audit"
+  default_prompt: "Use $ux-ui-a11y-audit for this UI task."

@@ -1,0 +1,6 @@
+interface:
+  display_name: "UX/UI Image To Code"
+  short_description: "UX/UI design workflow: image to code"
+  default_prompt: "Use $ux-ui-image-to-code for this UI task."
+policy:
+  allow_implicit_invocation: false

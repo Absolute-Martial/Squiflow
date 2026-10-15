@@ -1,0 +1,4 @@
+interface:
+  display_name: "UX/UI Token Build"
+  short_description: "UX/UI design workflow: token build"
+  default_prompt: "Use $ux-ui-token-build for this UI task."

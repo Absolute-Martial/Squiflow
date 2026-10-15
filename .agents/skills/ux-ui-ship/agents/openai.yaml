@@ -1,0 +1,6 @@
+interface:
+  display_name: "UX/UI Ship"
+  short_description: "UX/UI design workflow: ship"
+  default_prompt: "Use $ux-ui-ship for this UI task."
+policy:
+  allow_implicit_invocation: false

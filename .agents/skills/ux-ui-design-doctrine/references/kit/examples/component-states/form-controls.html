@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Checkbox / Radio / Switch - verified</title>
+<link rel="stylesheet" href="../brandkit-demo/theme.css" />
+<style>
+  *{box-sizing:border-box;margin:0}
+  body{font-family:var(--font-sans);background:var(--color-surface-page);color:var(--color-text-primary);padding:var(--space-6)}
+  h1{font-size:var(--text-4xl);line-height:var(--leading-tight);letter-spacing:-0.02em;margin-bottom:var(--space-4)}
+  h2{font-size:var(--text-lg);margin:var(--space-4) 0 var(--space-2)}
+  .stack{display:grid;gap:var(--space-3);max-inline-size:22.5rem}
+  label.row{display:flex;align-items:center;gap:var(--space-3);font-size:var(--text-base);cursor:pointer}
+  label.row.muted{cursor:not-allowed}
+  /* custom thin checkbox + radio: real input is visually hidden, box is drawn */
+  .control{position:relative;inline-size:.95rem;block-size:.95rem;flex:none}
+  .control input{position:absolute;inset:0;inline-size:100%;block-size:100%;margin:0;opacity:0;cursor:inherit}
+  .control .box{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;
+    border:var(--border-width-medium) solid var(--color-border-strong);background:var(--color-surface-page);
+    transition:background var(--transition-micro,150ms),border-color var(--transition-micro,150ms)}
+  .control.cb .box{border-radius:.25rem}
+  .control.rb .box{border-radius:var(--radius-full)}
+  .control .box svg{inline-size:.62rem;block-size:.62rem;stroke:var(--color-text-on-action);fill:none;stroke-width:2;
+    stroke-linecap:round;stroke-linejoin:round;opacity:0;transition:opacity var(--transition-micro,150ms)}
+  .control .box .pd{display:none}
+  .control .dot{inline-size:.5rem;block-size:.5rem;border-radius:var(--radius-full);background:var(--color-text-on-action);
+    transform:scale(0);transition:transform var(--transition-micro,150ms)}
+  .control input:hover+.box{border-color:var(--color-action-primary)}
+  .control input:checked+.box{background:var(--color-action-primary);border-color:var(--color-action-primary)}
+  .control.cb input:checked+.box svg,.control.cb input:indeterminate+.box svg{opacity:1}
+  .control.rb input:checked+.box .dot{transform:scale(1)}
+  .control.cb input:indeterminate+.box{background:var(--color-action-primary);border-color:var(--color-action-primary)}
+  .control.cb input:indeterminate+.box .pc{display:none}
+  .control.cb input:indeterminate+.box .pd{display:initial}
+  .control input:focus-visible+.box{box-shadow:var(--shadow-focus-ring)}
+  .control input:disabled+.box{opacity:.45}
+  .muted{color:var(--color-text-secondary)}
+  /* Universal reset: a narrow selector list here loses to any descendant
+     selector, because a media query adds no specificity. Use !important. */
+  @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+  /* switch */
+  .switch{position:relative;inline-size:2.6rem;block-size:1.5rem;flex:none}
+  .switch input{position:absolute;opacity:0;inline-size:100%;block-size:100%;margin:0;cursor:pointer}
+  .track{position:absolute;inset:0;border-radius:var(--radius-full);background:var(--color-border-strong);transition:background var(--transition-micro,150ms)}
+  .thumb{position:absolute;top:.15rem;left:.15rem;inline-size:1.2rem;block-size:1.2rem;border-radius:var(--radius-full);background:var(--color-surface-card);transition:left var(--transition-micro,150ms)}
+  .switch input:checked+.track{background:var(--color-action-primary)}
+  .switch input:checked+.track .thumb{left:1.25rem}
+  .switch input:focus-visible+.track{box-shadow:var(--shadow-focus-ring)}
+</style>
+</head>
+<body data-harness>
+<h1>Checkbox · Radio · Switch</h1>
+
+<h2>Checkbox</h2>
+<div class="stack">
+  <label class="row"><span class="control cb"><input type="checkbox" id="cb1" checked /><span class="box"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="pc" d="m5 12 5 5L20 7"/><path class="pd" d="M6 12h12"/></svg></span></span> Email notifications</label>
+  <label class="row"><span class="control cb"><input type="checkbox" id="cb2" /><span class="box"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="pc" d="m5 12 5 5L20 7"/><path class="pd" d="M6 12h12"/></svg></span></span> SMS notifications</label>
+  <label class="row"><span class="control cb"><input type="checkbox" id="cb3" /><span class="box"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="pc" d="m5 12 5 5L20 7"/><path class="pd" d="M6 12h12"/></svg></span></span> Partial selection</label>
+  <label class="row muted"><span class="control cb"><input type="checkbox" id="cb4" disabled /><span class="box"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="pc" d="m5 12 5 5L20 7"/><path class="pd" d="M6 12h12"/></svg></span></span> Disabled option</label>
+</div>
+
+<h2>Radio · notification frequency</h2>
+<div class="stack" role="radiogroup" aria-label="Notification frequency">
+  <label class="row"><span class="control rb"><input type="radio" name="freq" id="r1" checked /><span class="box"><span class="dot"></span></span></span> Real-time</label>
+  <label class="row"><span class="control rb"><input type="radio" name="freq" id="r2" /><span class="box"><span class="dot"></span></span></span> Daily digest</label>
+  <label class="row"><span class="control rb"><input type="radio" name="freq" id="r3" /><span class="box"><span class="dot"></span></span></span> Weekly</label>
+</div>
+
+<h2>Switch</h2>
+<div class="stack">
+  <label class="row"><span class="switch"><input type="checkbox" role="switch" id="sw1" checked /><span class="track"><span class="thumb"></span></span></span> Dark mode (on)</label>
+  <label class="row"><span class="switch"><input type="checkbox" role="switch" id="sw2" /><span class="track"><span class="thumb"></span></span></span> Auto-update (off)</label>
+</div>
+
+<script>
+  document.getElementById('cb3').indeterminate = true; // tri-state visual
+</script>
+<footer style="margin-block-start:var(--space-10);padding-block-start:var(--space-5);border-block-start:1px solid var(--color-border-default);color:var(--color-text-secondary);font-size:var(--text-sm);max-inline-size:65ch">Component harness. Every state above is rendered so the gates can measure it: contrast in both themes, hover and focus, target size, keyboard, reduced motion, and overflow.</footer>
+</body>
+</html>
