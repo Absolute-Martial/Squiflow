@@ -1,7 +1,16 @@
 <Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NotFound)">
     <Found Context="routeData">
         <AuthorizeRouteView RouteData="routeData">
-            <NotAuthorized><p>Your session has ended. <a href="/">Return to sign in</a>.</p></NotAuthorized>
+            <NotAuthorized>
+                <ApplicationShell MainClass="workspace-main result-main" FooterLabel="APPLICATION ACCESS">
+                    <section class="workspace-panel">
+                        <p class="eyebrow">APPLICATION ACCESS</p>
+                        <h1>Your session has ended.</h1>
+                        <p class="panel-copy">Return to the application entry to sign in again.</p>
+                        <a class="button" href="/">Return to sign in <ArrowIcon /></a>
+                    </section>
+                </ApplicationShell>
+            </NotAuthorized>
         </AuthorizeRouteView>
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>

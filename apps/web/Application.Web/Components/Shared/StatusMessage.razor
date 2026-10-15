@@ -1,0 +1,27 @@
+<div class="status-box @Tone" role="status" aria-live="polite" aria-atomic="true">
+    <svg class="status-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
+         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+        <circle cx="12" cy="12" r="9" />
+        @if (Tone == "ready")
+        {
+            <path d="m8 12 3 3 5-6" />
+        }
+        else
+        {
+            <path d="M12 8v4m0 4h.01" />
+        }
+    </svg>
+    <div>
+        @if (!string.IsNullOrEmpty(Title))
+        {
+            <h3 class="status-title">@Title</h3>
+        }
+        <p class="status-detail">@Message</p>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string Message { get; set; } = "";
+    [Parameter] public string Tone { get; set; } = "neutral";
+}

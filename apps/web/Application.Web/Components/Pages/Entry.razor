@@ -10,61 +10,61 @@
 {
     <HeadContent><link rel="icon" href="@identity.FaviconUrl" /></HeadContent>
 }
-<a href="#main" class="skip-link">Skip to content</a>
-<div class="entry-shell">
-    <ApplicationHeader Identity="check?.Application" />
-    <main id="main" class="entry-main">
-        <section class="intro" aria-labelledby="entry-title">
-            <p class="eyebrow"><span class="small-rule"></span> YOUR WORKSPACE</p>
-            <h1 id="entry-title">A clear start.<br /><span>Ready for your day.</span></h1>
-            <p class="intro-copy">Connect to your application service and check that everything is ready before you begin.</p>
-            <div class="entry-note">
-                <span class="note-icon" aria-hidden="true">◇</span>
-                <p>Your work belongs to your workspace.<br /><strong>Access is checked separately when you sign in.</strong></p>
+<ApplicationShell Identity="check?.Application" MainClass="entry-main">
+    <section class="intro" aria-labelledby="entry-title">
+        <p class="eyebrow"><span class="small-rule" aria-hidden="true"></span> YOUR WORKSPACE</p>
+        <h1 id="entry-title">A clear start.<br /><span>Ready for your day.</span></h1>
+        <p class="intro-copy">Connect to your application service and check that everything is ready before you begin.</p>
+        <div class="entry-note">
+            <ArrowIcon />
+            <p>Your work belongs to your workspace.<strong>Access is checked separately when you sign in.</strong></p>
+        </div>
+        <div class="intro-footer" aria-hidden="true"><span>01</span><span>APPLICATION ENTRY</span><span class="intro-footer-line"></span></div>
+    </section>
+    <section class="connection-panel" aria-labelledby="connection-title">
+        <div class="panel-top"><span class="eyebrow">CONNECTION</span><ArrowIcon /></div>
+        <h2 id="connection-title">Your application service</h2>
+        <p class="panel-copy">A live check of the service and its public application details.</p>
+        <div class="service-row">
+            <span class="identity-label">Service address</span>
+            <span class="service-address">@ServiceAddress.Authority</span>
+        </div>
+        <StatusMessage Tone="@(busy ? "neutral" : canceled ? "warning" : check?.Status == ConnectionStatus.Ready ? "ready" : check is null ? "neutral" : "error")"
+                       Title="@(busy ? "Checking connection…" : canceled ? "Check canceled" : check?.Heading ?? "Connection not checked")"
+                       Message="@(busy ? "Contacting your application service." : canceled ? "The connection check was canceled. Try again when you are ready." : check?.Message ?? "Check the service to get started.")" />
+        @if (check?.Application is { } application && !busy)
+        {
+            <div class="application-identity">
+                <span class="identity-label">Application</span>
+                <strong>@application.Brand.DisplayName</strong>
+                <span>@application.Brand.LegalName</span>
             </div>
-            <div class="intro-footer"><span>01</span><span>APPLICATION ENTRY</span><span class="intro-footer-line"></span></div>
-        </section>
-        <section class="connection-panel" aria-labelledby="connection-title" aria-busy="@busy.ToString().ToLowerInvariant()">
-            <div class="panel-top"><span class="eyebrow">CONNECTION</span><span class="panel-icon" aria-hidden="true">↗</span></div>
-            <h2 id="connection-title">Your application service</h2>
-            <p class="panel-copy">A live check of the service and its public application details.</p>
-            <div class="service-row"><span>SERVICE ADDRESS</span><span class="service-address">@ServiceAddress.Authority</span></div>
-            <div class="status-box @(check?.Status == ConnectionStatus.Ready && !busy ? "ready" : "")" role="status" aria-live="polite" aria-atomic="true">
-                <span class="status-indicator" aria-hidden="true"></span>
-                <div>
-                    <h3>@(busy ? "Checking connection…" : canceled ? "Check canceled" : check?.Heading ?? "Connection not checked")</h3>
-                    <p>@(busy ? "Contacting your application service." : canceled ? "The connection check was canceled. Try again when you are ready." : check?.Message ?? "Check the service to get started.")</p>
-                </div>
-            </div>
-            @if (check?.Application is { } application && !busy)
-            {
-                <div class="application-identity">
-                    <span class="identity-label">APPLICATION</span>
-                    <strong>@application.Brand.DisplayName</strong>
-                    <span>@application.Brand.LegalName</span>
-                </div>
-            }
-            <div class="panel-actions">
-                <button class="button" @onclick="RefreshAsync" disabled="@busy"><span>Check again</span><span aria-hidden="true">↗</span></button>
-                @if (busy)
-                {
-                    <button class="cancel-button" @onclick="Cancel">Cancel check</button>
-                }
-            </div>
-            @if (check?.Status == ConnectionStatus.Ready && Configuration.GetValue<bool>("Authentication:Enabled"))
+        }
+        <div class="panel-actions">
+            @if (check?.Status == ConnectionStatus.Ready && Configuration.GetValue<bool>("Authentication:Enabled") && !busy)
             {
                 <AuthorizeView>
-                    <Authorized><a class="button" href="/workspace">Continue to workspace <span aria-hidden="true">↗</span></a></Authorized>
+                    <Authorized><a class="button" href="/workspace">Continue to workspace <ArrowIcon /></a></Authorized>
                     <NotAuthorized>
-                        <form method="post" action="/auth/login" data-enhance="false"><AntiforgeryToken /><button class="button">Sign in <span aria-hidden="true">↗</span></button></form>
+                        <form method="post" action="/auth/login" data-enhance="false">
+                            <AntiforgeryToken />
+                            <button class="button">Sign in <ArrowIcon /></button>
+                        </form>
                     </NotAuthorized>
                 </AuthorizeView>
             }
-            <p class="check-caption">Checking a connection does not create or change any business records.</p>
-        </section>
-    </main>
-    <ApplicationFooter Identity="check?.Application" />
-</div>
+            <button class="button @(check?.Status == ConnectionStatus.Ready ? "button-secondary" : "")" @onclick="RefreshAsync"
+                    disabled="@busy" aria-busy="@busy.ToString().ToLowerInvariant()">
+                @(busy ? "Checking connection…" : "Check again") <ArrowIcon />
+            </button>
+            @if (busy)
+            {
+                <button class="cancel-button" @onclick="Cancel">Cancel check</button>
+            }
+        </div>
+        <p class="check-caption">Checking a connection does not create or change any business records.</p>
+    </section>
+</ApplicationShell>
 
 @code {
     private ConnectionCheck? check;

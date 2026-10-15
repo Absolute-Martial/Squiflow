@@ -6,6 +6,10 @@ configuration="${CONFIGURATION:-Release}"
 
 cd "$repository_root"
 
+echo "==> shared UI token checks"
+python3 eng/test-ui-tokens.py
+python3 eng/build-ui-tokens.py --check
+
 # Test projects are split into two phases. Container-backed suites dominate the runtime, so
 # running the fast projects first means an ordinary unit regression is reported in seconds
 # instead of after the whole container fleet has finished. The split is derived from each

@@ -26,11 +26,16 @@ var developmentImageOrigin = serviceAddress!.Scheme == Uri.UriSchemeHttp
     ? $" {serviceAddress.GetLeftPart(UriPartial.Authority)}"
     : string.Empty;
 var identityFormOrigin = login is null ? string.Empty : " " + login.Authority.GetLeftPart(UriPartial.Authority);
-app.UseExceptionHandler(error => error.Run(async context =>
+app.UseExceptionHandler(new ExceptionHandlerOptions
 {
-    context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-    await context.Response.WriteAsync("This page is unavailable. Reload to try again.");
-}));
+    CreateScopeForErrors = true,
+    ExceptionHandler = async context =>
+    {
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        await new Microsoft.AspNetCore.Http.HttpResults.RazorComponentResult<Application.Web.Components.Pages.Unavailable>()
+            .ExecuteAsync(context);
+    }
+});
 if (!app.Environment.IsDevelopment())
 {
     app.UseHsts();

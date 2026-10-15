@@ -3,40 +3,20 @@
              x:Class="Application.Workstation.App"
              RequestedThemeVariant="Light">
   <Application.Resources>
-    <SolidColorBrush x:Key="Ink">#20352E</SolidColorBrush>
-    <SolidColorBrush x:Key="Muted">#67736B</SolidColorBrush>
-    <SolidColorBrush x:Key="Paper">#F7F6F1</SolidColorBrush>
-    <SolidColorBrush x:Key="Line">#DEDFD5</SolidColorBrush>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="/Styles/DesignTokens.axaml" />
+      </ResourceDictionary.MergedDictionaries>
+      <FontFamily x:Key="Font.UI">Inter, Segoe UI</FontFamily>
+    </ResourceDictionary>
   </Application.Resources>
   <Application.Styles>
-    <FluentTheme />
-    <Style Selector="Window">
-      <Setter Property="FontFamily" Value="Inter, Segoe UI" />
-      <Setter Property="Foreground" Value="{StaticResource Ink}" />
-      <Setter Property="Background" Value="{StaticResource Paper}" />
-    </Style>
-    <Style Selector="TextBlock.eyebrow">
-      <Setter Property="FontSize" Value="10" />
-      <Setter Property="FontWeight" Value="SemiBold" />
-      <Setter Property="Foreground" Value="{StaticResource Muted}" />
-    </Style>
-    <Style Selector="TextBlock.copy">
-      <Setter Property="FontSize" Value="14" />
-      <Setter Property="LineHeight" Value="24" />
-      <Setter Property="Foreground" Value="{StaticResource Muted}" />
-      <Setter Property="TextWrapping" Value="Wrap" />
-    </Style>
-    <Style Selector="Button.primary">
-      <Setter Property="Background" Value="{StaticResource Ink}" />
-      <Setter Property="Foreground" Value="White" />
-      <Setter Property="Padding" Value="18,14" />
-      <Setter Property="CornerRadius" Value="8" />
-      <Setter Property="HorizontalContentAlignment" Value="Center" />
-      <Setter Property="FontSize" Value="13" />
-    </Style>
-    <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="#354B3A" />
-      <Setter Property="Foreground" Value="White" />
-    </Style>
+    <FluentTheme>
+      <FluentTheme.Palettes>
+        <ColorPaletteResources x:Key="Light" Accent="{StaticResource Color.Action.Value}"
+                               RegionColor="{StaticResource Color.Surface.Value}" ErrorText="{StaticResource Color.Danger.Value}" />
+      </FluentTheme.Palettes>
+    </FluentTheme>
+    <StyleInclude Source="/Styles/Controls.axaml" />
   </Application.Styles>
 </Application>

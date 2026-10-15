@@ -1,0 +1,115 @@
+<Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Style Selector="Window">
+    <Setter Property="FontFamily" Value="{StaticResource Font.UI}" />
+    <Setter Property="FontSize" Value="{StaticResource Font.Body}" />
+    <Setter Property="Foreground" Value="{StaticResource Color.Text}" />
+    <Setter Property="Background" Value="{StaticResource Color.Page}" />
+  </Style>
+  <Style Selector="TextBlock">
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+  <Style Selector="TextBlock.eyebrow, TextBlock.caption">
+    <Setter Property="FontSize" Value="{StaticResource Font.Caption}" />
+    <Setter Property="Foreground" Value="{StaticResource Color.Muted}" />
+  </Style>
+  <Style Selector="TextBlock.eyebrow">
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="TextBlock.copy">
+    <Setter Property="FontSize" Value="{StaticResource Font.Small}" />
+    <Setter Property="Foreground" Value="{StaticResource Color.Muted}" />
+  </Style>
+  <Style Selector="TextBlock.page-title">
+    <Setter Property="FontSize" Value="{StaticResource Font.Title}" />
+    <Setter Property="FontWeight" Value="Medium" />
+  </Style>
+  <Style Selector="TextBlock.section-title">
+    <Setter Property="FontSize" Value="{StaticResource Font.Section}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="Label">
+    <Setter Property="FontSize" Value="{StaticResource Font.Small}" />
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="Padding" Value="0" />
+  </Style>
+  <Style Selector="Border.panel">
+    <Setter Property="Background" Value="{StaticResource Color.Surface}" />
+    <Setter Property="BorderBrush" Value="{StaticResource Color.Line}" />
+    <Setter Property="BorderThickness" Value="{StaticResource Border.Thin.Inset}" />
+    <Setter Property="CornerRadius" Value="{StaticResource Radius.Panel.Corners}" />
+    <Setter Property="Padding" Value="{StaticResource Space.6.Inset}" />
+  </Style>
+  <Style Selector="Border.status">
+    <Setter Property="Background" Value="{StaticResource Color.Subtle}" />
+    <Setter Property="BorderBrush" Value="{StaticResource Color.Control}" />
+    <Setter Property="BorderThickness" Value="{StaticResource Border.Thin.Inset}" />
+    <Setter Property="CornerRadius" Value="{StaticResource Radius.Control.Corners}" />
+    <Setter Property="Padding" Value="{StaticResource Space.4.Inset}" />
+  </Style>
+  <Style Selector="Button">
+    <Setter Property="MinHeight" Value="{StaticResource Size.Control}" />
+    <Setter Property="Padding" Value="{StaticResource Space.3.Inset}" />
+    <Setter Property="CornerRadius" Value="{StaticResource Radius.Control.Corners}" />
+    <Setter Property="BorderThickness" Value="{StaticResource Border.Thin.Inset}" />
+    <Setter Property="BorderBrush" Value="{StaticResource Color.Control}" />
+    <Setter Property="Background" Value="{StaticResource Color.Surface}" />
+    <Setter Property="Foreground" Value="{StaticResource Color.Text}" />
+    <Setter Property="FontSize" Value="{StaticResource Font.Small}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource Color.Subtle}" />
+  </Style>
+  <Style Selector="Button:pressed /template/ ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource Color.Line}" />
+  </Style>
+  <Style Selector="Button:focus-visible /template/ ContentPresenter">
+    <Setter Property="BorderBrush" Value="{StaticResource Color.Focus}" />
+    <Setter Property="BorderThickness" Value="{StaticResource Border.Focus.Inset}" />
+  </Style>
+  <Style Selector="Button.primary">
+    <Setter Property="Background" Value="{StaticResource Color.Action}" />
+    <Setter Property="BorderBrush" Value="{StaticResource Color.Action}" />
+    <Setter Property="Foreground" Value="{StaticResource Color.OnAction}" />
+  </Style>
+  <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource Color.ActionHover}" />
+    <Setter Property="Foreground" Value="{StaticResource Color.OnAction}" />
+  </Style>
+  <Style Selector="Button.primary:pressed /template/ ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource Color.ActionPressed}" />
+    <Setter Property="Foreground" Value="{StaticResource Color.OnAction}" />
+  </Style>
+  <Style Selector="Button.primary:focus-visible /template/ ContentPresenter">
+    <Setter Property="BorderBrush" Value="{StaticResource Color.Accent}" />
+    <Setter Property="BorderThickness" Value="{StaticResource Border.Focus.Inset}" />
+  </Style>
+  <Style Selector="Button:disabled /template/ ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource Color.Disabled}" />
+    <Setter Property="Foreground" Value="{StaticResource Color.DisabledText}" />
+    <Setter Property="BorderBrush" Value="{StaticResource Color.Control}" />
+  </Style>
+  <Style Selector="Button.primary.busy:disabled /template/ ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource Color.Action}" />
+    <Setter Property="Foreground" Value="{StaticResource Color.OnAction}" />
+  </Style>
+  <Style Selector="TextBox, ComboBox">
+    <Setter Property="MinHeight" Value="{StaticResource Size.Control}" />
+    <Setter Property="FontSize" Value="{StaticResource Font.Small}" />
+    <Setter Property="Padding" Value="{StaticResource Space.3.Inset}" />
+    <Setter Property="BorderBrush" Value="{StaticResource Color.Control}" />
+    <Setter Property="BorderThickness" Value="{StaticResource Border.Thin.Inset}" />
+    <Setter Property="CornerRadius" Value="{StaticResource Radius.Control.Corners}" />
+    <Setter Property="Background" Value="{StaticResource Color.Surface}" />
+    <Setter Property="Foreground" Value="{StaticResource Color.Text}" />
+  </Style>
+  <Style Selector="TextBox /template/ TextBlock#PART_Watermark, TextBox /template/ TextBlock#PART_FloatingWatermark">
+    <Setter Property="Foreground" Value="{StaticResource Color.Muted}" />
+  </Style>
+  <Style Selector="TextBox">
+    <Setter Property="SelectionBrush" Value="{StaticResource Color.Action}" />
+    <Setter Property="SelectionForegroundBrush" Value="{StaticResource Color.OnAction}" />
+    <Setter Property="CaretBrush" Value="{StaticResource Color.Text}" />
+  </Style>
+</Styles>

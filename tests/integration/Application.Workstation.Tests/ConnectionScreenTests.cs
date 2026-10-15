@@ -9,6 +9,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Xunit;
 
@@ -18,8 +19,8 @@ namespace Application.Workstation.Tests;
 
 public static class TestApplicationBuilder
 {
-    public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<App>().WithInterFont()
-        .UseHeadless(new AvaloniaHeadlessPlatformOptions());
+    public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<App>().WithInterFont().UseSkia()
+        .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
 }
 
 public sealed class ConnectionScreenTests
@@ -37,6 +38,8 @@ public sealed class ConnectionScreenTests
             Assert.True(address.Focus());
             window.KeyTextInput("https://api.example.com");
             Assert.Equal("https://api.example.com", model.Address);
+            address.SelectAll();
+            Assert.Equal(Colors.White, Assert.IsAssignableFrom<ISolidColorBrush>(address.SelectionForegroundBrush).Color);
             window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
             window.KeyReleaseQwerty(PhysicalKey.Enter, RawInputModifiers.None);
             Assert.NotNull(model.ConnectCommand.ExecutionTask);
@@ -97,6 +100,7 @@ public sealed class ConnectionScreenTests
             await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
             Dispatcher.UIThread.RunJobs();
             Assert.False(window.FindControl<Button>("ConnectButton")!.IsEffectivelyEnabled);
+            Assert.Contains("busy", window.FindControl<Button>("ConnectButton")!.Classes);
             Assert.False(model.ConnectCommand.CanExecute(null));
             Assert.True(window.FindControl<TextBox>("ServiceAddressBox")!.IsReadOnly);
             Assert.True(model.CancelCommand.CanExecute(null));
@@ -112,18 +116,47 @@ public sealed class ConnectionScreenTests
     }
 
     [AvaloniaFact]
-    public void ConnectionControlsRemainVisibleAtTheSupportedMinimumWindowSize()
+    public async Task EntryReflowsBetweenCompactAndWideLayoutsWithoutShrinkingControls()
     {
-        using var http = new HttpClient(new EntryHandler());
-        var window = new MainWindow { DataContext = new ConnectionViewModel(new ApplicationEntryClient(http)), Width = 780, Height = 640 };
+        using var http = new HttpClient(new EntryHandler("Fieldwork " + string.Concat(Enumerable.Repeat("North ", 18))));
+        var model = new ConnectionViewModel(new ApplicationEntryClient(http), "https://api.example.com");
+        await model.ConnectCommand.ExecuteAsync(null);
+        var window = new MainWindow { DataContext = model };
         window.Show();
         try
         {
-            Dispatcher.UIThread.RunJobs();
-            var button = window.FindControl<Button>("ConnectButton")!;
-            Assert.True(button.Bounds.Width > 100);
-            Assert.True(button.Bounds.Height > 30);
-            Assert.True(window.FindControl<TextBox>("ServiceAddressBox")!.Bounds.Width > 100);
+            foreach (var (width, height) in new[] { (1120, 820), (520, 560), (780, 640), (1120, 820) })
+            {
+                window.Width = width;
+                window.Height = height;
+                Dispatcher.UIThread.RunJobs();
+                var compact = width < 960;
+                Assert.Equal(!compact, window.FindControl<StackPanel>("EntryIntroduction")!.IsVisible);
+                Assert.Equal(compact ? 1 : 2, window.FindControl<Grid>("EntryLayout")!.ColumnDefinitions.Count);
+                var panel = window.FindControl<Border>("ConnectionPanel")!;
+                if (!compact) Assert.Equal(440, panel.Bounds.Width);
+                var panelPosition = panel.TranslatePoint(default, window)!.Value;
+                Assert.InRange(panelPosition.X + panel.Bounds.Width, 0, width);
+                var button = window.FindControl<Button>("ConnectButton")!;
+                var address = window.FindControl<TextBox>("ServiceAddressBox")!;
+                Assert.True(button.Bounds.Width >= 300);
+                Assert.True(button.Bounds.Height >= 48);
+                Assert.True(address.Bounds.Width >= 300);
+                Assert.True(address.Bounds.Height >= 48);
+                Assert.True(button.Focus());
+                button.BringIntoView();
+                Dispatcher.UIThread.RunJobs();
+                var position = button.TranslatePoint(default, window)!.Value;
+                Assert.InRange(position.Y, 0, height - button.Bounds.Height);
+                using var frame = window.CaptureRenderedFrame();
+                Assert.NotNull(frame);
+                var output = Environment.GetEnvironmentVariable("APPLICATION_UI_ARTIFACTS");
+                if (output is not null)
+                {
+                    Directory.CreateDirectory(output);
+                    frame.Save(Path.Combine(output, $"workstation-{width}.png"));
+                }
+            }
         }
         finally
         {
@@ -131,7 +164,7 @@ public sealed class ConnectionScreenTests
         }
     }
 
-    private sealed class EntryHandler : HttpMessageHandler
+    private sealed class EntryHandler(string name = "Fieldwork") : HttpMessageHandler
     {
         public int Calls { get; private set; }
         public HttpStatusCode Readiness { get; set; } = HttpStatusCode.OK;
@@ -142,7 +175,7 @@ public sealed class ConnectionScreenTests
             return Task.FromResult(request.RequestUri!.AbsolutePath == "/api/v1/application/bootstrap"
                 ? new HttpResponseMessage(HttpStatusCode.OK)
                 {
-                    Content = JsonContent.Create(BrandProfile.Create("Fieldwork", "Fieldwork", "Fieldwork Services",
+                    Content = JsonContent.Create(BrandProfile.Create(name, name, "Fieldwork Services",
                         "default", "/logo.svg", "/favicon.svg", "/support", "/privacy", "/terms"))
                 }
                 : new HttpResponseMessage(Readiness));

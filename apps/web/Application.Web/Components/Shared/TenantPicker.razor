@@ -8,7 +8,7 @@
     }
     else
     {
-        <fieldset class="tenant-options" disabled="@Busy">
+        <fieldset class="tenant-options" disabled="@Busy" aria-busy="@Busy.ToString().ToLowerInvariant()">
             <legend class="identity-label">Available workspaces</legend>
             @foreach (var tenant in Page.Items)
             {
@@ -19,7 +19,9 @@
                 </label>
             }
         </fieldset>
-        <button class="button" disabled="@(Busy || Selected is null)" @onclick="Enter">Enter workspace <span aria-hidden="true">↗</span></button>
+        <button class="button" disabled="@(Busy || Selected is null)" aria-busy="@Busy.ToString().ToLowerInvariant()" @onclick="Enter">
+            Enter workspace <ArrowIcon />
+        </button>
     }
     <div class="picker-pagination">
         @if (Page.NextTenantId is not null)
@@ -32,6 +34,7 @@
         }
     </div>
 </section>
+
 @code {
     [Parameter, EditorRequired] public TenantEntryPage Page { get; set; } = new([], null);
     [Parameter] public Guid? Selected { get; set; }

@@ -3,11 +3,14 @@
     @if (Identity is { } links)
     {
         <nav aria-label="Application information">
-            <a href="@links.SupportUrl">Support</a><a href="@links.PrivacyUrl">Privacy</a><a href="@links.TermsUrl">Terms</a>
+            <a href="@links.SupportUrl">Support</a>
+            <a href="@links.PrivacyUrl">Privacy</a>
+            <a href="@links.TermsUrl">Terms</a>
         </nav>
     }
     <span class="footer-state">@Label</span>
 </footer>
+
 @code {
     [Parameter] public PublicApplicationIdentity? Identity { get; set; }
     [Parameter] public string Label { get; set; } = "ONLINE SERVICE CHECK";

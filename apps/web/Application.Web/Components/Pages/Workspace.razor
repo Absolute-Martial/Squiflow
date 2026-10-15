@@ -9,48 +9,52 @@
 @inject WebSessionTickets Tickets
 
 <PageTitle>@(identity?.Brand.DisplayName ?? "Workspace entry")</PageTitle>
-<a href="#main" class="skip-link">Skip to content</a>
-<div class="entry-shell">
-    <ApplicationHeader Identity="identity" />
-    <main id="main" class="workspace-main" aria-busy="@busy.ToString().ToLowerInvariant()">
-        <div class="workspace-toolbar">
-            <span class="eyebrow">WORKSPACE ENTRY</span>
-            <form method="post" action="/auth/logout" data-enhance="false"><AntiforgeryToken /><button class="cancel-button">Sign out</button></form>
-        </div>
-        <section class="workspace-panel">
-            <div class="access-status" role="status" aria-live="polite" aria-atomic="true">@message</div>
-            @if (workspace is { } current)
+<ApplicationShell Identity="identity" FooterLabel="SIGNED-IN ENTRY">
+    <div class="workspace-toolbar">
+        <span class="eyebrow">WORKSPACE ENTRY</span>
+        <form method="post" action="/auth/logout" data-enhance="false">
+            <AntiforgeryToken />
+            <button class="cancel-button">Sign out</button>
+        </form>
+    </div>
+    <section class="workspace-panel" @ref="entryPanel" tabindex="-1" aria-label="Workspace entry" aria-busy="@busy.ToString().ToLowerInvariant()">
+        <StatusMessage Message="@message" Tone="@(workspace is not null ? "ready" : "neutral")" />
+        @if (workspace is { } current)
+        {
+            <p class="eyebrow">WORKSPACE</p>
+            <h1>@current.DisplayName</h1>
+            <p class="panel-copy">Your workspace entry check succeeded. Access is checked again for each operation.</p>
+            <div class="panel-actions actions-inline">
+                <button class="button" disabled="@busy" @onclick="EnterAsync">Recheck access <ArrowIcon /></button>
+                <button class="cancel-button" disabled="@busy" @onclick="() => LoadAsync(null)">Switch workspace</button>
+            </div>
+        }
+        else if (page is not null)
+        {
+            <TenantPicker Page="page" Selected="selected" SelectedChanged="Select" Busy="busy" HasPrevious="@(after is not null)"
+                          Enter="EnterAsync" Next="() => LoadAsync(page.NextTenantId)" First="() => LoadAsync(null)" />
+        }
+        else
+        {
+            <h1>@(busy ? "Checking your access." : "Workspace entry")</h1>
+            @if (!busy)
             {
-                <p class="eyebrow">WORKSPACE</p><h1>@current.DisplayName</h1>
-                <p class="panel-copy">Your workspace entry check succeeded.</p>
                 <div class="panel-actions">
-                    <button class="button" disabled="@busy" @onclick="EnterAsync">Recheck access</button>
-                    <button class="cancel-button" disabled="@busy" @onclick="() => LoadAsync(null)">Switch workspace</button>
+                    <button class="button" @onclick="() => LoadAsync(null)">Check access again <ArrowIcon /></button>
+                    <a class="cancel-button" href="/">Return to application entry</a>
                 </div>
             }
-            else if (page is not null)
-            {
-                <TenantPicker Page="page" Selected="selected" SelectedChanged="Select" Busy="busy" HasPrevious="@(after is not null)"
-                              Enter="EnterAsync" Next="() => LoadAsync(page.NextTenantId)" First="() => LoadAsync(null)" />
-            }
-            else if (!busy)
-            {
-                <h1>Workspace entry</h1>
-                <button class="button" @onclick="() => LoadAsync(null)">Check access again</button>
-                <a class="cancel-button" href="/">Return to application entry</a>
-            }
-            @if (account is { } resolved)
-            {
-                <p class="account-reference">Account reference: @resolved.AccountId.ToString("D")</p>
-            }
-            @if (busy)
-            {
-                <button class="cancel-button" @onclick="Cancel">Cancel access check</button>
-            }
-        </section>
-    </main>
-    <ApplicationFooter Identity="identity" Label="SIGNED-IN ENTRY" />
-</div>
+        }
+        @if (busy)
+        {
+            <div class="panel-actions"><button class="cancel-button" @onclick="Cancel">Cancel access check</button></div>
+        }
+        @if (account is { } resolved)
+        {
+            <p class="account-reference">Account reference: @resolved.AccountId.ToString("D")</p>
+        }
+    </section>
+</ApplicationShell>
 
 @code {
     private PublicApplicationIdentity? identity;
@@ -62,9 +66,17 @@
     private CancellationTokenSource? pending;
     private bool busy;
     private bool disposed;
+    private bool focusResult;
+    private ElementReference entryPanel;
     private string message = "Checking current access…";
 
     protected override Task OnInitializedAsync() => LoadAsync(null);
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!focusResult || disposed) return;
+        focusResult = false;
+        await entryPanel.FocusAsync();
+    }
     private void Select(Guid value) => selected = value;
     private async Task<string?> CredentialAsync()
     {
@@ -92,7 +104,7 @@
         {
             account = null; page = null; workspace = null; message = "Access check canceled. Try again when you are ready.";
         }
-        finally { pending = null; busy = false; }
+        finally { pending = null; busy = false; focusResult = !disposed; }
     }
 
     private Task LoadAsync(Guid? continuation) => RunAsync(async (credential, cancellation) =>

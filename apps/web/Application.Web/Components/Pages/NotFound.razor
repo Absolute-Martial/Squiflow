@@ -1,8 +1,14 @@
 @page "/not-found"
+@rendermode Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer
 
 <PageTitle>Page unavailable</PageTitle>
-<main class="error-page">
-    <p class="eyebrow">APPLICATION ENTRY</p>
-    <h1>This page could not be found.</h1>
-    <a class="button" href="/">Return to application entry</a>
-</main>
+<ApplicationShell MainClass="workspace-main result-main" FooterLabel="PAGE UNAVAILABLE">
+    <section class="workspace-panel">
+        <p class="eyebrow">APPLICATION ENTRY</p>
+        <h1>This page could not be found.</h1>
+        <p class="panel-copy">The address may have changed. Return to the application to continue.</p>
+        <div class="panel-actions">
+            <a class="button" href="/">Return to application entry <ArrowIcon /></a>
+        </div>
+    </section>
+</ApplicationShell>

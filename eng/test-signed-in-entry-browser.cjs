@@ -8,8 +8,9 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawn, execFileSync } = require('node:child_process');
 const { chromium } = require(process.env.APPLICATION_ENTRY_PLAYWRIGHT_PATH || 'playwright');
+const audit = require('./test-entry-ui.cjs');
 const root = path.resolve(__dirname, '..');
-const output = path.join(root, 'artifacts/login-tenant-entry-2026-10-14');
+const output = process.env.APPLICATION_UI_ARTIFACTS || path.join(root, 'artifacts/signed-in-entry-browser');
 fs.mkdirSync(output, { recursive: true });
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'application-login-browser-'));
 const cert = path.join(temporary, 'certificate.pem');
@@ -31,6 +32,10 @@ const second = { tenantId: crypto.randomUUID(), displayName: '<script>South work
 let memberships = [first, second];
 let denyWorkspace = false;
 let accountEnabled = true;
+let readiness = 200;
+let longNames = false;
+let releaseReadiness;
+let holdReadiness = false;
 let fixtureOrigin;
 let webOrigin;
 let web;
@@ -46,7 +51,7 @@ function json(response, value, status = 200) {
     response.end(JSON.stringify(value));
 }
 function brand() {
-    const value = { displayName: 'Fieldwork', shortName: 'Fieldwork', legalName: 'Fieldwork Services', themeKey: 'default', logoUrl: '/logo.svg', faviconUrl: '/favicon.svg', supportUrl: '/support', privacyUrl: '/privacy', termsUrl: '/terms' };
+    const value = { displayName: longNames ? 'Fieldwork ' + 'North '.repeat(18).trim() : 'Fieldwork', shortName: longNames ? 'Fieldwork ' + 'North '.repeat(18).trim() : 'Fieldwork', legalName: 'Fieldwork Services', themeKey: 'default', logoUrl: '/logo.svg', faviconUrl: '/favicon.svg', supportUrl: '/support', privacyUrl: '/privacy', termsUrl: '/terms' };
     value.revision = crypto.createHash('sha256').update(Object.values(value).join('\n')).digest('hex').slice(0, 24);
     return value;
 }
@@ -84,7 +89,10 @@ const fixture = https.createServer({ key: fs.readFileSync(key), cert: fs.readFil
         return json(response, { access_token: accessToken, token_type: 'Bearer', expires_in: 600, id_token: token });
     }
     if (uri.pathname === '/api/v1/application/bootstrap') return json(response, brand());
-    if (uri.pathname === '/health/ready') { response.writeHead(200); return response.end(); }
+    if (uri.pathname === '/health/ready') {
+        if (holdReadiness) await new Promise(resolve => { releaseReadiness = resolve; });
+        response.writeHead(readiness); return response.end();
+    }
     if (uri.pathname === '/favicon.svg' || uri.pathname === '/logo.svg') { response.writeHead(200, { 'Content-Type': 'image/svg+xml' }); return response.end('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" rx="8" fill="#20352e"/></svg>'); }
     if (uri.pathname.startsWith('/api/')) {
         if (request.headers.authorization !== 'Bearer ' + accessToken) { response.writeHead(401); return response.end(); }
@@ -139,34 +147,89 @@ async function run() {
         else pageErrors.push(error.message);
     });
     await page.goto(webOrigin); await page.getByRole('heading', { name: 'Service available' }).waitFor();
+    await audit(page, 'entry-desktop', output);
+    await page.keyboard.press('Tab');
+    assert.equal(await page.locator('.skip-link').evaluate(element => element === document.activeElement), true);
+    await page.keyboard.press('Enter');
+    assert.equal(await page.evaluate(() => location.hash), '#main');
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'main');
+    for (const width of [320, 390]) {
+        await page.setViewportSize({ width, height: 844 });
+        await audit(page, `entry-${width}`, output);
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    holdReadiness = true;
+    await page.getByRole('button', { name: 'Check again', exact: true }).click();
+    await page.getByRole('button', { name: 'Checking connection…', exact: true }).waitFor();
+    await until(() => Boolean(releaseReadiness));
+    await audit(page, 'entry-loading', output);
+    await page.getByRole('button', { name: 'Cancel check', exact: true }).click();
+    holdReadiness = false; releaseReadiness(); releaseReadiness = undefined;
+    await page.getByRole('heading', { name: 'Check canceled' }).waitFor();
+    await audit(page, 'entry-canceled', output);
+    readiness = 503;
+    await page.getByRole('button', { name: 'Check again', exact: true }).click();
+    await page.getByRole('heading', { name: 'Service is getting ready' }).waitFor();
+    await audit(page, 'entry-not-ready', output);
+    readiness = 500;
+    await page.getByRole('button', { name: 'Check again', exact: true }).click();
+    await page.getByRole('heading', { name: 'Unable to connect' }).waitFor();
+    await audit(page, 'entry-unavailable', output);
+    readiness = 200; longNames = true;
+    await page.getByRole('button', { name: 'Check again', exact: true }).click();
+    await page.getByRole('heading', { name: 'Service available' }).waitFor();
+    await page.setViewportSize({ width: 320, height: 844 });
+    await audit(page, 'entry-long-name', output);
+    longNames = false;
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto(webOrigin + '/not-found');
+    await page.getByRole('heading', { name: 'This page could not be found.' }).waitFor();
+    await audit(page, 'not-found', output);
+    await page.goto(webOrigin); await page.getByRole('heading', { name: 'Service available' }).waitFor();
     const forged = await context.request.post(webOrigin + '/auth/login', { form: {} }); assert.equal(forged.status(), 400);
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
     await page.waitForURL(webOrigin + '/workspace'); await page.getByRole('heading', { name: 'Choose where to work.' }).waitFor();
     assert.ok(pkceChecks > 0); assert.equal(await page.locator('input[type=radio]:checked').count(), 0);
+    await audit(page, 'picker-unselected', output);
+    assert.ok(await page.getByRole('button', { name: 'Enter workspace', exact: true }).isDisabled());
     assert.ok(!(await page.content()).includes(accessToken)); assert.ok(!(await page.content()).includes(clientSecret));
     const session = (await context.cookies()).find(cookie => cookie.name === '__Host-Application.Session');
     assert.ok(session?.httpOnly && session.secure); assert.ok(!session.value.includes(accessToken));
     await page.screenshot({ path: path.join(output, 'tenant-picker-desktop.png'), fullPage: true });
     events.push('Real HTTPS OIDC/PKCE, signed token validation, antiforgery and opaque session cookie passed.');
-    await page.getByLabel('North workspace', { exact: true }).check(); await page.getByRole('button', { name: 'Enter workspace', exact: true }).click();
+    await page.getByLabel('North workspace', { exact: true }).focus();
+    await page.keyboard.press('Space');
+    await audit(page, 'picker-selected', output);
+    await page.getByRole('button', { name: 'Enter workspace', exact: true }).click();
     await page.getByRole('heading', { name: 'North workspace', exact: true }).waitFor();
+    await audit(page, 'workspace', output);
     await page.screenshot({ path: path.join(output, 'workspace-desktop.png'), fullPage: true });
     await page.getByRole('button', { name: 'Switch workspace', exact: true }).click(); await page.getByRole('heading', { name: 'Choose where to work.' }).waitFor();
     denyWorkspace = true;
     await page.getByLabel('<script>South workspace</script>', { exact: true }).check(); await page.getByRole('button', { name: 'Enter workspace', exact: true }).click();
     await page.getByText('You cannot enter this workspace. Choose another tenant or contact support.', { exact: true }).waitFor();
+    await audit(page, 'picker-denied', output);
     assert.equal(await page.getByRole('heading', { name: 'South workspace', exact: true }).count(), 0);
     denyWorkspace = false; memberships = [];
     await page.reload(); await page.getByText('No workspaces are available on this page.', { exact: true }).waitFor();
+    await audit(page, 'picker-empty', output);
     events.push('Explicit selection, current workspace authority, switching, denial and empty membership states passed.');
     memberships = [first, second]; await page.reload(); await page.getByRole('heading', { name: 'Choose where to work.' }).waitFor();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await audit(page, 'picker-mobile', output);
+    await page.setViewportSize({ width: 320, height: 700 });
+    await page.emulateMedia({ reducedMotion: 'reduce', forcedColors: 'active' });
+    await audit(page, 'picker-320-reflow-forced-colors', output);
+    await page.emulateMedia({ forcedColors: 'none' });
     await page.setViewportSize({ width: 390, height: 844 });
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
     await page.screenshot({ path: path.join(output, 'tenant-picker-mobile.png'), fullPage: true });
     await page.getByRole('button', { name: 'Sign out', exact: true }).click(); await page.getByRole('heading', { name: 'You are signed out.' }).waitFor();
+    await audit(page, 'signed-out', output);
     await page.goto(webOrigin + '/workspace'); assert.equal(new URL(page.url()).pathname, '/');
     await page.getByRole('button', { name: 'Sign in', exact: true }).click(); await page.waitForURL(webOrigin + '/workspace');
     accountEnabled = false; await page.reload(); await page.getByText('This identity cannot access an active application account. Contact support.', { exact: true }).waitFor();
+    await audit(page, 'disabled-account', output);
     accountEnabled = true;
     deliberateRestart = true;
     await stopWeb(); await startWeb(); await page.goto(webOrigin + '/workspace'); assert.equal(new URL(page.url()).pathname, '/');
@@ -177,6 +240,7 @@ async function run() {
     console.log(events.join('\n'));
 }
 run().catch(error => { console.error(error); console.error(JSON.stringify({ fixturePaths, browserResponses })); process.exitCode = 1; }).finally(async () => {
+    holdReadiness = false; releaseReadiness?.();
     if (browser) await browser.close(); await stopWeb(); fixture.closeAllConnections(); await new Promise(resolve => fixture.close(resolve));
     fs.closeSync(log); fs.rmSync(temporary, { recursive: true, force: true });
 });

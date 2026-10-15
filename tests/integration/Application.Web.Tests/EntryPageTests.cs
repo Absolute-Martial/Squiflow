@@ -66,7 +66,22 @@ public sealed class EntryPageTests
         Assert.Contains("Service is getting ready", await client.GetStringAsync("/"), StringComparison.Ordinal);
     }
 
-    private sealed class EntryFactory(string name = "Fieldwork", int readiness = 200) : WebApplicationFactory<Program>
+    [Fact]
+    public async Task UnexpectedRenderingFailureKeepsTheRecoveryPageSafeAndStyled()
+    {
+        await using var factory = new EntryFactory(failRendering: true);
+        using var client = factory.CreateClient();
+        using var response = await client.GetAsync("/");
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Contains("This page is unavailable.", html, StringComparison.Ordinal);
+        Assert.Contains("/tokens.css", html, StringComparison.Ordinal);
+        Assert.Contains("Return to application entry", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("private rendering diagnostic", html, StringComparison.Ordinal);
+        Assert.True(response.Headers.CacheControl?.NoStore);
+    }
+
+    private sealed class EntryFactory(string name = "Fieldwork", int readiness = 200, bool failRendering = false) : WebApplicationFactory<Program>
     {
         public int Readiness { get; set; } = readiness;
 
@@ -78,6 +93,11 @@ public sealed class EntryPageTests
             {
                 services.RemoveAll<HttpClient>();
                 services.AddSingleton(new HttpClient(new EntryHandler(this, name)));
+                if (failRendering)
+                {
+                    services.RemoveAll<Application.ApplicationEntry.ApplicationEntryClient>();
+                    services.AddSingleton<Application.ApplicationEntry.ApplicationEntryClient>(_ => throw new InvalidOperationException("private rendering diagnostic"));
+                }
             });
         }
     }

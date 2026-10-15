@@ -27,6 +27,7 @@ public sealed class TenantEntryScreenTests
         {
             Assert.True(model.IsSignedIn); Assert.Null(model.SelectedTenant); Assert.False(model.HasWorkspace);
             var choice = panel.FindControl<ComboBox>("TenantChoice")!;
+            Capture(window, "workstation-picker");
             choice.SelectedIndex = 0;
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(protocol.FirstTenant, model.SelectedTenant!.TenantId);
@@ -37,6 +38,8 @@ public sealed class TenantEntryScreenTests
             Assert.NotNull(model.EnterCommand.ExecutionTask);
             await model.EnterCommand.ExecutionTask.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.Equal("North workspace", model.WorkspaceName);
+            Dispatcher.UIThread.RunJobs();
+            Capture(window, "workstation-workspace");
             await model.RefreshCommand.ExecuteAsync(null);
             Assert.False(model.HasWorkspace);
             model.SelectedTenant = model.Tenants[1]; protocol.DenyWorkspace = true;
@@ -47,6 +50,16 @@ public sealed class TenantEntryScreenTests
             Assert.False(model.IsSignedIn); Assert.Empty(model.Tenants); Assert.Equal("", model.AccountReference);
         }
         finally { window.Close(); }
+    }
+
+    private static void Capture(Window window, string name)
+    {
+        using var frame = window.CaptureRenderedFrame();
+        Assert.NotNull(frame);
+        var output = Environment.GetEnvironmentVariable("APPLICATION_UI_ARTIFACTS");
+        if (output is null) return;
+        Directory.CreateDirectory(output);
+        frame.Save(Path.Combine(output, $"{name}.png"));
     }
 
     [AvaloniaFact]

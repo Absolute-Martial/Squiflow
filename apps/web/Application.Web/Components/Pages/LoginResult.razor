@@ -1,14 +1,18 @@
 @page "/login-result"
+@rendermode Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer
 @inject AuthenticationStateProvider Authentication
 <PageTitle>Application sign-in</PageTitle>
-<main class="workspace-main">
+<ApplicationShell MainClass="workspace-main result-main" FooterLabel="APPLICATION ACCESS">
     <section class="workspace-panel">
         <p class="eyebrow">APPLICATION ACCESS</p>
         <h1>@(signedOut ? "You are signed out." : "Sign-in was not completed.")</h1>
-        <p class="panel-copy" role="status">@(signedOut ? "Your application session has been cleared. Your identity-provider browser session may still be signed in." : "Try signing in again. Contact support if the problem continues.")</p>
-        <a class="button" href="/">Return to application entry <span aria-hidden="true">↗</span></a>
+        <StatusMessage Message="@(signedOut ? "Your application session has been cleared. Your identity-provider browser session may still be signed in." : "Try signing in again. Contact support if the problem continues.")" />
+        <div class="panel-actions">
+            <a class="button" href="/">Return to application entry <ArrowIcon /></a>
+        </div>
     </section>
-</main>
+</ApplicationShell>
+
 @code {
     [SupplyParameterFromQuery] public string? Status { get; set; }
     private bool signedOut;

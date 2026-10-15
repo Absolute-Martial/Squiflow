@@ -26,6 +26,9 @@ if [[ -z "$project" ]]; then
 fi
 
 cd "$repository_root"
+if [[ "$host" == "web" || "$host" == "workstation" ]]; then
+    python3 eng/build-ui-tokens.py --check
+fi
 # Restoring a project follows only its ProjectReference graph, not Application.slnx.
 dotnet restore "$project" --locked-mode
 dotnet build "$project" --configuration "$configuration" --no-restore

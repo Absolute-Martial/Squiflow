@@ -1,0 +1,15 @@
+<a href="#main" class="skip-link" data-enhance-nav="false">Skip to content</a>
+<div class="entry-shell">
+    <ApplicationHeader Identity="Identity" />
+    <main id="main" class="@MainClass" tabindex="-1">
+        @ChildContent
+    </main>
+    <ApplicationFooter Identity="Identity" Label="@FooterLabel" />
+</div>
+
+@code {
+    [Parameter] public PublicApplicationIdentity? Identity { get; set; }
+    [Parameter] public string MainClass { get; set; } = "workspace-main";
+    [Parameter] public string FooterLabel { get; set; } = "ONLINE SERVICE CHECK";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}
