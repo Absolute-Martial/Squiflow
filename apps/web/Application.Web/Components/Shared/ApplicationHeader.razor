@@ -1,0 +1,8 @@
+<header class="topbar">
+    <a class="wordmark" href="/" aria-label="Application entry">
+        <span class="brand-symbol" aria-hidden="true">↗</span>
+        <span>@(Identity?.Brand.ShortName ?? "Application connection")</span>
+    </a>
+    <span class="surface-label">WEB APPLICATION <span class="surface-line"></span> v0.0.1</span>
+</header>
+@code { [Parameter] public PublicApplicationIdentity? Identity { get; set; } }

@@ -16,7 +16,7 @@ test projects:       31
 executable hosts:    6
 solution files:      1
 repository build/test contract: present
-BLOCKED: COM-020–022 accepted invoice issue/read scope receiving qualification; COM-004 external Hugging Face provider qualification (OPS-007/OPS-008), with local raw-source contracts qualified; existing ADM-004 live ZITADEL topology evidence, ADM-006/ADM-009–ADM-012 gate-owner qualification and OPS-017 quality-gate expansion remain separate pending claims
+BLOCKED: configured Web/Workstation sign-in and tenant entry receiving live ZITADEL and Windows target qualification; COM-020–022 accepted invoice issue/read scope receiving qualification; COM-004 external Hugging Face provider qualification (OPS-007/OPS-008), with local raw-source contracts qualified; existing ADM-004 live ZITADEL topology evidence, ADM-006/ADM-009–ADM-012 gate-owner qualification and OPS-017 quality-gate expansion remain separate pending claims
 ```
 
 ## What exists
@@ -24,7 +24,7 @@ BLOCKED: COM-020–022 accepted invoice issue/read scope receiving qualification
 | Area | Projects | Current responsibility (declared narrow scope) |
 |---|---|---|
 | Object storage | `Application.ObjectStorage` | Host-neutral `IObjectStore` request/result boundary for bounded retained objects; no provider SDK/API types or provider qualification claim. |
-| Application entry | `Application.ApplicationEntry`, `Application.Web`, `Application.Workstation` | Public launch/connection screens using real CoreApi bootstrap identity and readiness, a bounded shared HTTP client, encoded output, refresh/cancellation and explicit availability/failure UX. No signed-in access, business records, offline persistence or synchronization is introduced. Qualification evidence and supported-platform limits: [focused owner](docs/implementation/PUBLIC_APPLICATION_ENTRY.md). |
+| Application entry | `Application.ApplicationEntry`, `Application.Web`, `Application.Workstation` | Public launch/connection screens under the [public owner](docs/implementation/PUBLIC_APPLICATION_ENTRY.md). Configured login, account/tenant selection and workspace entry components now exist under the [signed-in owner](docs/implementation/SIGNED_IN_APPLICATION_ENTRY.md), with qualification still `BLOCKED`. Business capability pages, offline persistence and synchronization remain absent. |
 | ApplicationProfiles | `Application.Profiles`, `.Postgres` | Bounded feature compilation plus the accepted fixed four-feature catalog, immutable typed tenant policy revisions, separate private-Admin profile publication/activation and retained profile resolution. ADM-018–021 and COM-011 are locally `PRODUCTION_HONEST` for their bounded scope; [focused owner](docs/implementation/ORDER_PROGRAM_REFERENCE_POLICY.md). |
 | Branding | `Application.Branding` | Validated, deployment-supplied public identity (name, legal identity, theme, links). No codename fallback. |
 | IdentityAccess | `Application.IdentityAccess`, `.Postgres` | Durable binding of one or more exact OIDC `(issuer, subject)` identities to a stable application account, including caller-scoped onboarding/link receipts and concurrency-safe identity uniqueness. Stores no password, role or permission authority. |
@@ -66,6 +66,7 @@ Unhandled transient PostgreSQL failures return safe `503` / `database_unavailabl
 | `GET /api/v1/application/bootstrap` | None. Bounded public white-label identity with its own bounded cache/ETag policy. |
 | `GET /api/v1/account` | JWT (configured HTTPS issuer, exact audience, signature, lifetime) and an active bound account. |
 | `GET /api/v1/account/tenants` | JWT; returns only the account's current active memberships. |
+| `GET /api/v1/account/tenants/page` | JWT and active account; at most 50 current active memberships in UUID order, with an optional continuation. |
 | `GET /api/v1/tenants/{tenantId}/workspace` | Current membership plus persisted `workspace_viewer`. |
 | `POST`, `GET /api/v1/tenants/{tenantId}/customers/organizations`; `GET .../organizations/{organizationId}` | Current membership plus distinct customer create/view permissions. Create is idempotent. |
 | `POST`, `GET .../organizations/{organizationId}/programs`; `GET .../programs/{programId}` | As above. Create is idempotent. |
@@ -186,7 +187,7 @@ A deployment must provide the public Branding values, Authentication authority/a
 
 ## Explicitly `NOT_INTRODUCED`
 
-Selectable production feature catalogs, dynamic workflow forms and production profile-specific runtime composition remain absent (no production endpoint acquires the internal tenant-keyed profile-runtime registry). The first fixed catalog, durable profile authority and pinned Order consumer are introduced under the [COM-011 focused owner](docs/implementation/ORDER_PROGRAM_REFERENCE_POLICY.md). Live ZITADEL-instance/service-account qualification, provider-side user creation or reconciliation, tenant-to-ZITADEL organization mapping, login/callback/session flows, general Owner/Staff authority beyond the bounded current delegation contract, normal Admin-device registration/revocation/rotation lifecycle, tenant/Workstation device lifecycle, broader order/business lifecycle (other admission and fulfillment cases, durable invoice persistence/number allocation, payment, credit, return, refund), an external PostgreSQL pooler, Worker, authenticated Web business UI, Workstation authentication/local-first business runtime and a general ApplicationKernel/module runtime remain separate absent or pending responsibilities.
+Selectable production feature catalogs, dynamic workflow forms and production profile-specific runtime composition remain absent (no production endpoint acquires the internal tenant-keyed profile-runtime registry). The first fixed catalog, durable profile authority and pinned Order consumer are introduced under the [COM-011 focused owner](docs/implementation/ORDER_PROGRAM_REFERENCE_POLICY.md). Live ZITADEL-instance/service-account qualification, provider-side user creation or reconciliation, tenant-to-ZITADEL organization mapping, live login/session qualification beyond the introduced signed-in entry, general Owner/Staff authority beyond the bounded current delegation contract, normal Admin-device registration/revocation/rotation lifecycle, tenant/Workstation device lifecycle, broader order/business lifecycle (other admission and fulfillment cases, durable invoice persistence/number allocation, payment, credit, return, refund), an external PostgreSQL pooler, Worker, authenticated Web business UI, Workstation local-first business runtime and a general ApplicationKernel/module runtime remain separate absent or pending responsibilities.
 
 ## Excluded from the inventory
 

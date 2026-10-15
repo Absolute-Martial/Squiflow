@@ -8,6 +8,8 @@
     <PackageReference Include="Avalonia.Themes.Fluent" />
     <PackageReference Include="Avalonia.Fonts.Inter" />
     <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="Duende.IdentityModel.OidcClient" />
+    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
     <ProjectReference Include="../../../../infrastructure/application-entry/Application.ApplicationEntry/Application.ApplicationEntry.csproj" />
   </ItemGroup>
 </Project>

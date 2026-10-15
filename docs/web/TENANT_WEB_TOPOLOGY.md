@@ -4,7 +4,7 @@
 
 **Decision owner:** `WEB-001`
 
-**State:** topology selected; the bounded [public entry](../implementation/PUBLIC_APPLICATION_ENTRY.md) is introduced. Authenticated operator workflows remain `NOT_INTRODUCED` until their gate.
+**State:** topology selected; the bounded [public entry](../implementation/PUBLIC_APPLICATION_ENTRY.md) is introduced. The owner also requested [configured signed-in entry](../implementation/SIGNED_IN_APPLICATION_ENTRY.md), whose implementation remains `BLOCKED` receiving live qualification. Business capability pages remain absent.
 
 ## Selected topology
 
@@ -42,7 +42,7 @@ This decision does not introduce:
 - customer portal identity/session reuse;
 - custom-domain login lifecycle;
 - Platform Admin Web;
-- authenticated Web business workflows before their gate. The owner pulled the separate public connection/branding journey forward on 2026-10-13.
+- qualification of authenticated business workflows before their gate. The owner pulled public entry and then signed-in entry components forward; the latter still needs its live evidence.
 
 ## Requalification triggers
 

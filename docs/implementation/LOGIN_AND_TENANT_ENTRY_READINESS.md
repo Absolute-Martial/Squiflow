@@ -4,7 +4,7 @@
 **Product version:** v0.0.1  
 **Owner request:** prepare login and tenant selection for both apps after the public entry milestone.
 
-This is an implementation handoff based on current executable contracts. Authentication runtime remains `NOT_INTRODUCED`; the [public entry](PUBLIC_APPLICATION_ENTRY.md) does not authenticate a caller. This preparation does not qualify GATE-002, register provider applications, grant permissions, admit a native OIDC dependency or silently close session/callback decisions.
+This preparation led to the owner-requested [signed-in implementation](SIGNED_IN_APPLICATION_ENTRY.md), which now owns the selected ephemeral session and loopback callback scope and its `BLOCKED` qualification state. The [public entry](PUBLIC_APPLICATION_ENTRY.md) remains a service check. This handoff does not qualify GATE-002, register provider applications or grant permissions.
 
 ## Current contracts to consume
 
@@ -13,6 +13,7 @@ This is an implementation handoff based on current executable contracts. Authent
 | `GET /api/v1/application/bootstrap` | Public validated deployment identity; no tenant identity | `Application.Branding`, CoreApi bootstrap |
 | `GET /api/v1/account` | `{ "accountId": "<uuid>" }`; JWT plus active exact `(issuer, subject)` binding | `AuthenticatedAccountEndpoint.cs`, `AuthenticatedAccountAccess.cs` |
 | `GET /api/v1/account/tenants` | Array of `{ "tenantId": "<uuid>", "displayName": "<text>" }`; only current active memberships in active tenants for that account | `TenantMembershipEndpoint.cs`, `PostgresTenantMembershipDirectory.cs` |
+| `GET /api/v1/account/tenants/page` | Bounded `{ items, nextTenantId }`, at most 50 current memberships; the implemented picker uses this route | `TenantMembershipEndpoint.cs`, bounded Tenancy directory |
 | `GET /api/v1/tenants/{tenantId}/workspace` | `{ "tenantId": "<uuid>", "displayName": "<text>" }`; current account, membership-derived context, persisted `workspace_viewer` and final current-membership read | `TenantWorkspaceEndpoint.cs`, `TenantRequestAccess.cs` |
 
 Protected responses are no-store. Token claims or a selected tenant ID do not grant workspace entry. Use the **access token** for CoreApi; an ID token authenticates the OIDC client and is not an API bearer credential. Email, provider organization and role claims do not replace the stable account or current membership.
@@ -76,7 +77,7 @@ Static-only permits placeholders and proves no live login. Live discovery/user t
 |---|---|
 | The checked-in inventory has example issuer/client/project values; the host has no OIDC/session code | Provide a real non-secret inventory and settle the Web session proposal; exercise real provider login/logout |
 | GATE-002 still has its own backend case/operating acceptance requirements | Obtain that owner qualification before claiming authenticated frontend production readiness; this public-entry pull-forward does not qualify it |
-| `ListActiveAsync` currently materializes all matching memberships without a maximum/page contract | The backend owner must earn a bounded membership-list contract, or document/prove an authoritative membership cap, before a production frontend claims bounded tenant discovery. A client body cap alone does not bound the DB query |
+| The legacy array endpoint materializes all matching memberships | The new picker uses the independently bounded page contract; the legacy contract is preserved. Actual PostgreSQL regressions guard paging/current membership. |
 | Native callback/protected secret storage and Windows supported-machine behavior remain unproved | Actual Windows packaging/browser/security POCs with the intended installation profile |
 | Web refresh/revocation/rotation/restart and multi-node promises remain open | Accept exact session scope, then add real framework/provider/process regressions |
 

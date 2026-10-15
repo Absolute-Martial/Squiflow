@@ -97,3 +97,20 @@ h2 { font-size: 23px; font-weight: 550; letter-spacing: -.035em; margin: 26px 0 
     .footer-state { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+
+.workspace-main { width: min(880px, 100%); margin: 0 auto; padding: 56px 0 64px; flex: 1; }
+.workspace-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.workspace-panel { background: white; border: 1px solid var(--line, #dedfd5); border-radius: 20px; padding: clamp(24px, 5vw, 48px); }
+.workspace-panel h1 { font-size: clamp(30px, 5vw, 48px); line-height: 1.15; overflow-wrap: anywhere; margin: 14px 0 20px; }
+.access-status { padding: 16px; background: #f5f8ef; border-radius: 10px; font-size: 14px; line-height: 1.6; margin-bottom: 28px; }
+.tenant-options { border: 0; padding: 0; margin: 24px 0; display: grid; gap: 10px; min-width: 0; }
+.tenant-options legend { margin-bottom: 14px; }
+.tenant-option { display: flex; gap: 14px; align-items: center; padding: 18px; border: 1px solid #dedfd5; border-radius: 10px; cursor: pointer; overflow-wrap: anywhere; }
+.tenant-option input { accent-color: #263c32; flex: 0 0 auto; }
+.tenant-option:has(input:checked) { background: #f5f8ef; border-color: #7e9264; }
+.picker-pagination { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 18px; }
+.account-reference { margin-top: 30px; font-size: 11px; color: #657061; overflow-wrap: anywhere; }
+.empty-state { padding: 24px 0; line-height: 1.7; }
+form .button { width: 100%; }
+a.button { text-decoration: none; }
+@media (max-width: 600px) { .workspace-main { padding: 32px 0; } .workspace-toolbar { gap: 12px; } }

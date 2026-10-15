@@ -1,0 +1,17 @@
+@page "/login-result"
+@inject AuthenticationStateProvider Authentication
+<PageTitle>Application sign-in</PageTitle>
+<main class="workspace-main">
+    <section class="workspace-panel">
+        <p class="eyebrow">APPLICATION ACCESS</p>
+        <h1>@(signedOut ? "You are signed out." : "Sign-in was not completed.")</h1>
+        <p class="panel-copy" role="status">@(signedOut ? "Your application session has been cleared. Your identity-provider browser session may still be signed in." : "Try signing in again. Contact support if the problem continues.")</p>
+        <a class="button" href="/">Return to application entry <span aria-hidden="true">↗</span></a>
+    </section>
+</main>
+@code {
+    [SupplyParameterFromQuery] public string? Status { get; set; }
+    private bool signedOut;
+    protected override async Task OnInitializedAsync() => signedOut = Status == "signed-out" &&
+        (await Authentication.GetAuthenticationStateAsync()).User.Identity?.IsAuthenticated != true;
+}

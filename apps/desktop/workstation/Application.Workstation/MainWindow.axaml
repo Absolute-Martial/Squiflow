@@ -44,7 +44,7 @@
             <StackPanel Spacing="8">
               <Label Target="{Binding #ServiceAddressBox}" Content="Service address" FontSize="12" Padding="0" />
               <TextBox Name="ServiceAddressBox" Text="{Binding Address, Mode=TwoWay}"
-                       IsReadOnly="{Binding ConnectCommand.IsRunning}" MaxLength="2048"
+                       IsReadOnly="{Binding IsBusy}" MaxLength="2048"
                        Watermark="https://app.example.com" FontSize="12" Padding="10,12"
                        AutomationProperties.Name="Application service address" />
             </StackPanel>
@@ -58,11 +58,14 @@
               </StackPanel>
             </Border>
             <Button Name="ConnectButton" Classes="primary" Content="Check connection  ↗" Command="{Binding ConnectCommand}"
-                    HorizontalAlignment="Stretch" IsDefault="True" AutomationProperties.Name="Check connection" />
+                    HorizontalAlignment="Stretch" IsDefault="{Binding IsConnectionDefault}" AutomationProperties.Name="Check connection" />
             <Button Name="CancelButton" Content="Cancel check" Command="{Binding CancelCommand}"
                     IsVisible="{Binding ConnectCommand.IsRunning}" HorizontalAlignment="Center" FontSize="12" />
             <TextBlock Text="Checking a connection does not create or change any business records."
                        TextWrapping="Wrap" FontSize="10" LineHeight="17" TextAlignment="Center" Foreground="{StaticResource Muted}" />
+            <ContentControl Content="{Binding Access}" IsVisible="{Binding HasLogin}">
+              <ContentControl.ContentTemplate><DataTemplate x:DataType="local:TenantEntryViewModel"><local:TenantEntryPanel /></DataTemplate></ContentControl.ContentTemplate>
+            </ContentControl>
           </StackPanel>
         </Border>
       </Grid>

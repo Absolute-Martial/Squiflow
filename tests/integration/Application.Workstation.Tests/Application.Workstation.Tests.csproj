@@ -7,5 +7,7 @@
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
     <ProjectReference Include="../../../apps/desktop/workstation/Application.Workstation/Application.Workstation.csproj" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <Compile Include="../../support/EntryProtocolFixture.cs" Link="EntryProtocolFixture.cs" />
   </ItemGroup>
 </Project>

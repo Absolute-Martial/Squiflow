@@ -7,6 +7,48 @@ namespace Application.Tenancy.Postgres.Tests;
 public sealed class TenantMembershipDirectoryTests : PostgresTestDatabase
 {
     [Fact]
+    public async Task BoundedDiscoveryUsesRealDatabaseOrderingAndRechecksCurrentMembership()
+    {
+        await CreateMigrationRunner().ApplyAsync(TimeSpan.FromSeconds(10), CancellationToken.None);
+        var account = Guid.NewGuid();
+        var other = Guid.NewGuid();
+        await SeedAccountsAsync(account, other);
+        var now = DateTimeOffset.UtcNow;
+        var ids = Enumerable.Range(1, 53).Select(i => Guid.Parse($"00000000-0000-0000-0000-{i:D12}")).ToArray();
+        await using (var setup = CreateContext())
+        {
+            foreach (var id in ids)
+            {
+                setup.Tenants.Add(new TenantRow { Id = id, DisplayName = "Current tenant", Availability = TenantAvailability.Active, CreatedAt = now });
+                setup.Memberships.Add(new TenantMembershipRow { TenantId = id, AccountId = account, Availability = MembershipAvailability.Active, CreatedAt = now, ActivatedAt = now, Revision = 1 });
+            }
+            setup.Memberships.Add(new TenantMembershipRow { TenantId = ids[0], AccountId = other, Availability = MembershipAvailability.Active, CreatedAt = now, ActivatedAt = now, Revision = 1 });
+            await setup.SaveChangesAsync();
+        }
+        await using var query = CreateContext(await CreateReadOnlyRuntimeRoleAsync());
+        var directory = new PostgresTenantMembershipDirectory(query);
+        var first = await directory.BrowseActiveAsync(account, null, default);
+        Assert.Equal(ids[..50], first.Items.Select(x => x.TenantId));
+        Assert.Equal(ids[49], first.NextTenantId);
+        await using (var change = CreateContext())
+        {
+            var membership = await change.Memberships.SingleAsync(x => x.AccountId == account && x.TenantId == ids[51]);
+            membership.Availability = MembershipAvailability.Suspended;
+            membership.SuspendedAt = now;
+            var tenant = await change.Tenants.SingleAsync(x => x.Id == ids[52]);
+            tenant.Availability = TenantAvailability.Suspended;
+            tenant.SuspendedAt = now;
+            await change.SaveChangesAsync();
+        }
+        var second = await directory.BrowseActiveAsync(account, first.NextTenantId, default);
+        Assert.Equal(ids[50], Assert.Single(second.Items).TenantId);
+        Assert.Null(second.NextTenantId);
+        Assert.Null(await directory.FindActiveAsync(account, ids[51], default));
+        Assert.Null(await directory.FindActiveAsync(account, ids[52], default));
+        Assert.Equal(ids[0], Assert.Single((await directory.BrowseActiveAsync(other, null, default)).Items).TenantId);
+    }
+
+    [Fact]
     public async Task DirectoryReturnsOnlyCurrentActiveMembershipsWithoutCrossAccountLeakage()
     {
         await CreateMigrationRunner()

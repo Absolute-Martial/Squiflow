@@ -324,6 +324,8 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
             services.AddSingleton<IAccountBindingDirectory>(_bindings);
             services.RemoveAll<ITenantMembershipDirectory>();
             services.AddSingleton<ITenantMembershipDirectory>(_memberships);
+            services.RemoveAll<IBoundedTenantMembershipDirectory>();
+            services.AddSingleton<IBoundedTenantMembershipDirectory>(_memberships);
             services.RemoveAll<ITenantWorkspaceAuthorization>();
             services.AddSingleton<ITenantWorkspaceAuthorization>(_workspaceAuthorization);
             services.RemoveAll<ITenantOrderAuthorization>();
@@ -407,10 +409,22 @@ public sealed class WhiteLabelApiFactory : WebApplicationFactory<Program>
         }
     }
 
-    private sealed class TestTenantMembershipDirectory : ITenantMembershipDirectory
+    private sealed class TestTenantMembershipDirectory : ITenantMembershipDirectory, IBoundedTenantMembershipDirectory
     {
         private readonly Dictionary<Guid, List<TenantMembership>> _memberships = [];
         private readonly object _gate = new();
+
+        public async Task<TenantMembershipPage> BrowseActiveAsync(Guid accountId, Guid? afterTenantId, CancellationToken cancellationToken)
+        {
+            var rows = (await ListActiveAsync(accountId, cancellationToken))
+                .Where(value => !afterTenantId.HasValue || value.TenantId.CompareTo(afterTenantId.Value) > 0)
+                .OrderBy(value => value.TenantId).Take(TenantMembershipPage.MaximumCount + 1).ToArray();
+            var items = rows.Take(TenantMembershipPage.MaximumCount).ToArray();
+            return new(items, rows.Length > items.Length ? items[^1].TenantId : null);
+        }
+
+        public async Task<TenantMembership?> FindActiveAsync(Guid accountId, Guid tenantId, CancellationToken cancellationToken) =>
+            (await ListActiveAsync(accountId, cancellationToken)).SingleOrDefault(value => value.TenantId == tenantId);
 
         public void Add(Guid accountId, TenantMembership membership)
         {

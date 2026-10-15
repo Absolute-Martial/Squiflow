@@ -3,6 +3,7 @@
 @implements IDisposable
 @inject ApplicationEntryClient Client
 @inject Uri ServiceAddress
+@inject IConfiguration Configuration
 
 <PageTitle>@(check?.Application?.Brand.DisplayName ?? "Application connection")</PageTitle>
 @if (check?.Application is { } identity)
@@ -11,13 +12,7 @@
 }
 <a href="#main" class="skip-link">Skip to content</a>
 <div class="entry-shell">
-    <header class="topbar">
-        <a class="wordmark" href="/" aria-label="Application entry">
-            <span class="brand-symbol" aria-hidden="true">↗</span>
-            <span>@(check?.Application?.Brand.ShortName ?? "Application connection")</span>
-        </a>
-        <span class="surface-label">WEB APPLICATION <span class="surface-line"></span> v0.0.1</span>
-    </header>
+    <ApplicationHeader Identity="check?.Application" />
     <main id="main" class="entry-main">
         <section class="intro" aria-labelledby="entry-title">
             <p class="eyebrow"><span class="small-rule"></span> YOUR WORKSPACE</p>
@@ -56,19 +51,19 @@
                     <button class="cancel-button" @onclick="Cancel">Cancel check</button>
                 }
             </div>
+            @if (check?.Status == ConnectionStatus.Ready && Configuration.GetValue<bool>("Authentication:Enabled"))
+            {
+                <AuthorizeView>
+                    <Authorized><a class="button" href="/workspace">Continue to workspace <span aria-hidden="true">↗</span></a></Authorized>
+                    <NotAuthorized>
+                        <form method="post" action="/auth/login" data-enhance="false"><AntiforgeryToken /><button class="button">Sign in <span aria-hidden="true">↗</span></button></form>
+                    </NotAuthorized>
+                </AuthorizeView>
+            }
             <p class="check-caption">Checking a connection does not create or change any business records.</p>
         </section>
     </main>
-    <footer class="page-footer">
-        <span>@(check?.Application?.Brand.LegalName ?? "Application service connection")</span>
-        @if (check?.Application is { } links)
-        {
-            <nav aria-label="Application information">
-                <a href="@links.SupportUrl">Support</a><a href="@links.PrivacyUrl">Privacy</a><a href="@links.TermsUrl">Terms</a>
-            </nav>
-        }
-        <span class="footer-state">ONLINE SERVICE CHECK</span>
-    </footer>
+    <ApplicationFooter Identity="check?.Application" />
 </div>
 
 @code {

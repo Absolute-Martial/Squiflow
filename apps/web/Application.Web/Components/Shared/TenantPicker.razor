@@ -1,0 +1,44 @@
+<section aria-labelledby="tenant-title">
+    <p class="eyebrow">YOUR WORKSPACES</p>
+    <h1 id="tenant-title">Choose where to work.</h1>
+    <p class="panel-copy">Select a workspace. Your access is checked when you enter.</p>
+    @if (Page.Items.Length == 0)
+    {
+        <p class="empty-state" role="status">No workspaces are available on this page. Contact support if you need access.</p>
+    }
+    else
+    {
+        <fieldset class="tenant-options" disabled="@Busy">
+            <legend class="identity-label">Available workspaces</legend>
+            @foreach (var tenant in Page.Items)
+            {
+                <label class="tenant-option" @key="tenant.TenantId">
+                    <input type="radio" name="workspace" checked="@(Selected == tenant.TenantId)"
+                           @onchange="() => SelectedChanged.InvokeAsync(tenant.TenantId)" />
+                    <span>@tenant.DisplayName</span>
+                </label>
+            }
+        </fieldset>
+        <button class="button" disabled="@(Busy || Selected is null)" @onclick="Enter">Enter workspace <span aria-hidden="true">↗</span></button>
+    }
+    <div class="picker-pagination">
+        @if (Page.NextTenantId is not null)
+        {
+            <button class="cancel-button" disabled="@Busy" @onclick="Next">Next workspaces</button>
+        }
+        @if (HasPrevious)
+        {
+            <button class="cancel-button" disabled="@Busy" @onclick="First">Back to first page</button>
+        }
+    </div>
+</section>
+@code {
+    [Parameter, EditorRequired] public TenantEntryPage Page { get; set; } = new([], null);
+    [Parameter] public Guid? Selected { get; set; }
+    [Parameter] public EventCallback<Guid> SelectedChanged { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public bool HasPrevious { get; set; }
+    [Parameter] public EventCallback Enter { get; set; }
+    [Parameter] public EventCallback Next { get; set; }
+    [Parameter] public EventCallback First { get; set; }
+}

@@ -7,5 +7,6 @@
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
     <ProjectReference Include="../../../apps/web/Application.Web/Application.Web.csproj" />
+    <Compile Include="../../support/EntryProtocolFixture.cs" Link="EntryProtocolFixture.cs" />
   </ItemGroup>
 </Project>

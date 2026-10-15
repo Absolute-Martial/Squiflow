@@ -117,6 +117,16 @@ app.MapGet("/api/v1/account/tenants", TenantMembershipEndpoint.ListAsync)
     .ProducesProblem(StatusCodes.Status500InternalServerError)
     .ProducesProblem(StatusCodes.Status504GatewayTimeout);
 
+app.MapGet("/api/v1/account/tenants/page", TenantMembershipEndpoint.BrowseAsync)
+    .WithName("BrowseAuthenticatedAccountTenants")
+    .WithTags("Account")
+    .WithSummary("Returns at most fifty current active memberships, ordered by tenant identity.")
+    .WithCoreApiAccess(EndpointAccess.AuthenticatedTenantMemberships)
+    .RequireAuthorization()
+    .Produces<TenantMembershipPageResponse>()
+    .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403)
+    .ProducesProblem(503).ProducesProblem(500).ProducesProblem(504);
+
 app.MapGet("/api/v1/tenants/{tenantId:guid}/workspace", TenantWorkspaceEndpoint.GetAsync)
     .WithName("GetTenantWorkspace")
     .WithTags("Tenant")

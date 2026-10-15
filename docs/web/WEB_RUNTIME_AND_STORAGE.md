@@ -4,7 +4,7 @@
 
 ## 1. Current decision
 
-The selected Web architecture is **online-only for business operations** at v0.0.1. Only the bounded [public entry](../implementation/PUBLIC_APPLICATION_ENTRY.md) is introduced; authenticated business workflows remain `NOT_INTRODUCED`.
+The selected Web architecture is **online-only for business operations** at v0.0.1. The bounded [public entry](../implementation/PUBLIC_APPLICATION_ENTRY.md) is introduced. Configured [signed-in entry](../implementation/SIGNED_IN_APPLICATION_ENTRY.md) now has an ephemeral server-ticket implementation receiving qualification; business capability pages remain `NOT_INTRODUCED`.
 
 Do not implement partial offline business behavior now.
 

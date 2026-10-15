@@ -90,11 +90,11 @@ Exact inspected results/screenshots are retained under `artifacts/application-en
 | `publish-web.log`, `publish-workstation.log`, `publish-workstation-win-x64.log` | Independent framework-dependent publish artifacts, including a Windows x64 GUI executable; requires .NET 10. Cross-publish is build evidence only. |
 | `catalog-check.log`, `login-preflight-tests.log`, `login-inventory-static.json` | 119-task catalog validated; topology static regressions passed; placeholder inventory explicitly reports `NOT_RUN_STATIC_ONLY`. No live login evidence. |
 
-The shared adapter, public Web journey, desktop presentation state and repository host graphs are `PRODUCTION_HONEST` for this bounded implementation claim. Authentication and business/local-state responsibilities listed below are `NOT_INTRODUCED`. `BLOCKED = none` applies only to this declared public implementation scope; it does not clear the repository's existing blockers or certify an untested target.
+The shared adapter, public Web journey, desktop presentation state and repository host graphs are `PRODUCTION_HONEST` for this bounded implementation claim. Business/local-state responsibilities listed below are `NOT_INTRODUCED`; the separately requested signed-in entry now has its own qualification owner. `BLOCKED = none` applies only to this declared public implementation scope; it does not clear the repository's existing blockers or certify an untested target.
 
 Linux/native or headless evidence does not qualify live Windows accessibility, installation or supported-machine behavior; those need the actual target before a Windows release claim. No Linux product-support policy is introduced by using that environment for local execution evidence. Requalification requires the real target OS/browser/deployment, and any changed contracts, dependencies or lifetime/security behavior named in the guard table.
 
-Authentication, account/tenant selection, protected business screens, valuable drafts, native PKCE callback, credential storage, local durability/encryption, sync, Guard, signing and updates remain `NOT_INTRODUCED`. No open session/callback decision is closed by this public implementation.
+Authentication, account/tenant selection and native PKCE callback are now separately introduced under [signed-in entry](SIGNED_IN_APPLICATION_ENTRY.md), with qualification BLOCKED. Protected business capability screens, valuable drafts, persisted credentials, local durability/encryption, sync, Guard, signing and updates remain `NOT_INTRODUCED`. This public implementation does not qualify the separate session/callback responsibility.
 
 The owner-selected next task, login/tenant-entry preparation for both hosts, is
 recorded in [the readiness handoff](LOGIN_AND_TENANT_ENTRY_READINESS.md).

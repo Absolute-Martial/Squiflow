@@ -14,13 +14,25 @@ public sealed class ConnectionViewModel : ObservableObject
     private string heading = "Connection not checked";
     private string message = "Enter your application service address and check the connection.";
 
-    public ConnectionViewModel(ApplicationEntryClient client, string address = "")
+    public ConnectionViewModel(ApplicationEntryClient client, string address = "", TenantEntryViewModel? access = null)
     {
         this.client = client;
         this.address = address;
-        ConnectCommand = new AsyncRelayCommand(CheckAsync);
+        Access = access;
+        ConnectCommand = new AsyncRelayCommand(CheckAsync, () => Access?.IsBusy != true);
         CancelCommand = ConnectCommand.CreateCancelCommand();
+        ConnectCommand.PropertyChanged += (_, args) => { if (args.PropertyName == nameof(IAsyncRelayCommand.IsRunning)) OnPropertyChanged(nameof(IsBusy)); };
+        if (Access is not null) Access.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(TenantEntryViewModel.IsBusy)) { OnPropertyChanged(nameof(IsBusy)); ConnectCommand.NotifyCanExecuteChanged(); }
+            if (args.PropertyName == nameof(TenantEntryViewModel.IsSignedIn)) OnPropertyChanged(nameof(IsConnectionDefault));
+        };
     }
+
+    public TenantEntryViewModel? Access { get; }
+    public bool IsBusy => ConnectCommand.IsRunning || Access?.IsBusy == true;
+    public bool HasLogin => Access is not null;
+    public bool IsConnectionDefault => Access?.IsSignedIn != true;
 
     public string Address { get => address; set => SetProperty(ref address, value); }
     public string ApplicationName { get => applicationName; private set => SetProperty(ref applicationName, value); }
@@ -32,6 +44,7 @@ public sealed class ConnectionViewModel : ObservableObject
 
     private async Task CheckAsync(CancellationToken cancellationToken)
     {
+        Access?.SetServiceAvailable(null, false);
         ApplicationName = "Application connection";
         LegalName = string.Empty;
         if (!ServiceAddress.TryParse(Address, out var serviceAddress))
@@ -51,6 +64,7 @@ public sealed class ConnectionViewModel : ObservableObject
             Message = result.Message;
             ApplicationName = result.Application?.Brand.DisplayName ?? "Application connection";
             LegalName = result.Application?.Brand.LegalName ?? string.Empty;
+            Access?.SetServiceAvailable(serviceAddress, result.Status == ConnectionStatus.Ready);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

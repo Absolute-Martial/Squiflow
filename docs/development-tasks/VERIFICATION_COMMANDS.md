@@ -54,3 +54,16 @@ The guard owns a synthetic loopback public-contract fixture and the actual Web p
 Live ZITADEL, DNS/TLS, object/key/payment providers, target deployment, CI, backup/restore and load/release drills require the named authorized environment. Record the exact task-created test/runbook command and expected assertions as part of its bounded implementation. Testcontainers proves the selected local provider property; it does not qualify a managed IdP, cloud account, remote CI or production node.
 
 If tooling/access is unavailable, return meaningful scoped tests plus static findings, exact unrun commands and expected assertions. Classify introduced material claims as awaiting evidence. Do not install a large toolchain, remove checks, serialize/retry failing suites or substitute mocks merely to obtain a qualification label.
+
+The configured signed-in entry has an additional real HTTPS browser/process guard:
+
+```sh
+APPLICATION_ENTRY_PLAYWRIGHT_PATH=/path/to/node_modules/playwright \
+PLAYWRIGHT_BROWSERS_PATH=/path/to/browsers \
+node eng/test-signed-in-entry-browser.cjs
+```
+
+It requires OpenSSL and a built Web host. It uses an isolated signed local issuer
+and temporary per-process certificate trust; it does not qualify live ZITADEL or
+Windows. Exact session/API scope and current qualification limits belong to
+`docs/implementation/SIGNED_IN_APPLICATION_ENTRY.md`.

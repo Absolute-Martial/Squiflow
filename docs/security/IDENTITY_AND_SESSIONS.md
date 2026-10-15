@@ -2,7 +2,7 @@
 
 **Version:** v0.0.1
 
-**Current implementation:** the stable SquiFlow account plus external `(issuer, subject)` binding schema/query and its PostgreSQL migrator exist. CoreApi validates a configured HTTPS issuer, exact audience, signature, expiry and required single `iss`/`sub` identity through ASP.NET Core JWT bearer authentication, then resolves an active account. Active tenant-membership listing and membership-derived `TenantContext` also exist. Real ZITADEL-instance evidence, login/session flows, account provisioning/linking APIs, tenant provisioning/administration and device/session state remain `NOT_INTRODUCED`.
+**Current implementation:** the stable SquiFlow account plus external `(issuer, subject)` binding schema/query and its PostgreSQL migrator exist. CoreApi validates a configured HTTPS issuer, exact audience, signature, expiry and required single `iss`/`sub` identity through ASP.NET Core JWT bearer authentication, then resolves an active account. Active tenant-membership listing and membership-derived `TenantContext` also exist. Configured Web/native login and ephemeral sessions now exist under the [signed-in entry owner](../implementation/SIGNED_IN_APPLICATION_ENTRY.md), with live qualification `BLOCKED`. That owner records token custody, exact callback/session scope and guarded bounded tenant discovery. Real ZITADEL-instance qualification and ongoing device/session lifecycle remain separate pending responsibilities.
 
 ## 1. Selected identity platform
 

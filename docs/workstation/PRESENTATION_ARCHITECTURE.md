@@ -1,7 +1,7 @@
 # Workstation Presentation Architecture
 
 **Version:** v0.0.1
-**Status:** Accepted architecture and source-admission direction. The bounded [public entry](../implementation/PUBLIC_APPLICATION_ENTRY.md) earns the desktop host; authenticated/local-first business runtime remains absent. Broader visual layout remains evidence driven.
+**Status:** Accepted architecture and source-admission direction. The bounded [public entry](../implementation/PUBLIC_APPLICATION_ENTRY.md) earns the desktop host; configured [signed-in entry](../implementation/SIGNED_IN_APPLICATION_ENTRY.md) now exists receiving live qualification; local-first business runtime remains absent. Broader visual layout remains evidence driven.
 **Authority:** This document owns the Avalonia Workstation shell/presentation composition boundary: what the desktop host owns, what business modules contribute to the Workstation UI, how navigation/commands are registered, and the initial visual/interaction discipline. It does not replace `docs/architecture/APPLICATION_KERNEL_AND_MODULES.md`, domain/application ownership, Web presentation ownership, sync authority, or observability ownership.
 
 ## 1. Decision

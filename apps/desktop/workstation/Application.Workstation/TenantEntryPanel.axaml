@@ -1,0 +1,31 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:Application.Workstation" xmlns:entry="using:Application.ApplicationEntry"
+             x:Class="Application.Workstation.TenantEntryPanel" x:DataType="local:TenantEntryViewModel">
+  <StackPanel Spacing="12" Margin="0,12,0,0">
+    <Border BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="0,18,0,0">
+      <TextBlock Text="WORKSPACE ACCESS" Classes="eyebrow" />
+    </Border>
+    <TextBlock Name="AccessMessage" Text="{Binding Message}" TextWrapping="Wrap" FontSize="12" AutomationProperties.LiveSetting="Polite" />
+    <Button Name="SignInButton" Content="Sign in with browser  ↗" Command="{Binding SignInCommand}" IsVisible="{Binding ShowSignIn}"
+            Classes="primary" HorizontalAlignment="Stretch" />
+    <StackPanel IsVisible="{Binding ShowPicker}" Spacing="10">
+      <Label Content="Workspace" Target="{Binding #TenantChoice}" Padding="0" FontSize="12" />
+      <ComboBox Name="TenantChoice" ItemsSource="{Binding Tenants}" SelectedItem="{Binding SelectedTenant, Mode=TwoWay}"
+                HorizontalAlignment="Stretch" AutomationProperties.Name="Choose workspace" IsEnabled="{Binding IsIdle}">
+        <ComboBox.ItemTemplate><DataTemplate x:DataType="entry:TenantEntry"><TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" /></DataTemplate></ComboBox.ItemTemplate>
+      </ComboBox>
+      <Button Name="EnterWorkspaceButton" Content="Enter workspace  ↗" Command="{Binding EnterCommand}" IsDefault="{Binding ShowPicker}" Classes="primary" HorizontalAlignment="Stretch" />
+      <Button Content="Next workspaces" Command="{Binding NextCommand}" IsVisible="{Binding HasNextPage}" />
+      <Button Content="Reload first page" Command="{Binding RefreshCommand}" />
+    </StackPanel>
+    <StackPanel IsVisible="{Binding HasWorkspace}" Spacing="10">
+      <TextBlock Name="WorkspaceName" Text="{Binding WorkspaceName}" FontWeight="SemiBold" FontSize="20" TextWrapping="Wrap" />
+      <Button Content="Recheck access" Command="{Binding EnterCommand}" />
+      <Button Content="Switch workspace" Command="{Binding RefreshCommand}" />
+    </StackPanel>
+    <TextBlock Text="{Binding AccountReference}" FontSize="10" Foreground="{StaticResource Muted}" TextWrapping="Wrap" IsVisible="{Binding IsSignedIn}" />
+    <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsBusy}" Height="3" />
+    <Button Content="Cancel access check" Command="{Binding CancelCommand}" IsVisible="{Binding IsBusy}" />
+    <Button Content="Sign out" Command="{Binding SignOutCommand}" IsVisible="{Binding IsSignedIn}" />
+  </StackPanel>
+</UserControl>

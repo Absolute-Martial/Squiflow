@@ -4,7 +4,7 @@ These rules apply below `apps/desktop/workstation/` in addition to the root inst
 
 ## Current state
 
-`Application.Workstation` implements only the public launch/service-connection journey owned by `docs/implementation/PUBLIC_APPLICATION_ENTRY.md`. Authentication, local business persistence, sync, Guard and protected business screens remain absent. Expand only when a real current slice earns the responsibility; do not restore the old project by symmetry or memory.
+`Application.Workstation` implements the public launch/service-connection journey owned by `docs/implementation/PUBLIC_APPLICATION_ENTRY.md` and configured signed-in entry owned by `docs/implementation/SIGNED_IN_APPLICATION_ENTRY.md`, whose live qualification remains BLOCKED. Local business persistence, sync, Guard and protected business capability screens remain absent. Expand only when a real current slice earns the responsibility; do not restore the old project by symmetry or memory.
 
 ## Role
 

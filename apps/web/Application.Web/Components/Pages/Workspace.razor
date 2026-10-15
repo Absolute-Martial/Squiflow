@@ -1,0 +1,129 @@
+@page "/workspace"
+@attribute [Authorize]
+@rendermode Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer
+@implements IDisposable
+@inject ApplicationEntryClient PublicClient
+@inject TenantEntryClient Client
+@inject Uri ServiceAddress
+@inject AuthenticationStateProvider Authentication
+@inject WebSessionTickets Tickets
+
+<PageTitle>@(identity?.Brand.DisplayName ?? "Workspace entry")</PageTitle>
+<a href="#main" class="skip-link">Skip to content</a>
+<div class="entry-shell">
+    <ApplicationHeader Identity="identity" />
+    <main id="main" class="workspace-main" aria-busy="@busy.ToString().ToLowerInvariant()">
+        <div class="workspace-toolbar">
+            <span class="eyebrow">WORKSPACE ENTRY</span>
+            <form method="post" action="/auth/logout" data-enhance="false"><AntiforgeryToken /><button class="cancel-button">Sign out</button></form>
+        </div>
+        <section class="workspace-panel">
+            <div class="access-status" role="status" aria-live="polite" aria-atomic="true">@message</div>
+            @if (workspace is { } current)
+            {
+                <p class="eyebrow">WORKSPACE</p><h1>@current.DisplayName</h1>
+                <p class="panel-copy">Your workspace entry check succeeded.</p>
+                <div class="panel-actions">
+                    <button class="button" disabled="@busy" @onclick="EnterAsync">Recheck access</button>
+                    <button class="cancel-button" disabled="@busy" @onclick="() => LoadAsync(null)">Switch workspace</button>
+                </div>
+            }
+            else if (page is not null)
+            {
+                <TenantPicker Page="page" Selected="selected" SelectedChanged="Select" Busy="busy" HasPrevious="@(after is not null)"
+                              Enter="EnterAsync" Next="() => LoadAsync(page.NextTenantId)" First="() => LoadAsync(null)" />
+            }
+            else if (!busy)
+            {
+                <h1>Workspace entry</h1>
+                <button class="button" @onclick="() => LoadAsync(null)">Check access again</button>
+                <a class="cancel-button" href="/">Return to application entry</a>
+            }
+            @if (account is { } resolved)
+            {
+                <p class="account-reference">Account reference: @resolved.AccountId.ToString("D")</p>
+            }
+            @if (busy)
+            {
+                <button class="cancel-button" @onclick="Cancel">Cancel access check</button>
+            }
+        </section>
+    </main>
+    <ApplicationFooter Identity="identity" Label="SIGNED-IN ENTRY" />
+</div>
+
+@code {
+    private PublicApplicationIdentity? identity;
+    private AccountEntry? account;
+    private TenantEntryPage? page;
+    private TenantEntry? workspace;
+    private Guid? selected;
+    private Guid? after;
+    private CancellationTokenSource? pending;
+    private bool busy;
+    private bool disposed;
+    private string message = "Checking current access…";
+
+    protected override Task OnInitializedAsync() => LoadAsync(null);
+    private void Select(Guid value) => selected = value;
+    private async Task<string?> CredentialAsync()
+    {
+        var state = await Authentication.GetAuthenticationStateAsync();
+        return Tickets.AccessToken(state.User.FindFirst(WebSessionTickets.SessionClaim)?.Value);
+    }
+
+    private async Task RunAsync(Func<string, CancellationToken, Task> action)
+    {
+        if (busy || disposed) return;
+        busy = true;
+        workspace = null;
+        message = "Checking current access…";
+        using var operation = new CancellationTokenSource();
+        pending = operation;
+        try
+        {
+            var credential = await CredentialAsync();
+            if (credential is null) { Fail(TenantEntryFailure.SignInRequired); return; }
+            await action(credential, operation.Token);
+            operation.Token.ThrowIfCancellationRequested();
+            if (await CredentialAsync() is null) Fail(TenantEntryFailure.SignInRequired);
+        }
+        catch (OperationCanceledException) when (operation.IsCancellationRequested)
+        {
+            account = null; page = null; workspace = null; message = "Access check canceled. Try again when you are ready.";
+        }
+        finally { pending = null; busy = false; }
+    }
+
+    private Task LoadAsync(Guid? continuation) => RunAsync(async (credential, cancellation) =>
+    {
+        account = null; page = null; selected = null; after = continuation;
+        var branding = await PublicClient.CheckAsync(ServiceAddress, cancellation);
+        identity = branding.Application;
+        if (branding.Status != ConnectionStatus.Ready) { message = branding.Message; return; }
+        var resolved = await Client.AccountAsync(ServiceAddress, credential, cancellation);
+        if (resolved.Value is null) { Fail(resolved.Failure); return; }
+        var memberships = await Client.TenantsAsync(ServiceAddress, credential, continuation, cancellation);
+        if (memberships.Value is null) { Fail(memberships.Failure); return; }
+        account = resolved.Value; page = memberships.Value; message = page.Items.Length == 0 ? "No workspaces are available on this page." : "Choose a workspace to continue.";
+    });
+
+    private Task EnterAsync() => RunAsync(async (credential, cancellation) =>
+    {
+        if (selected is not { } tenant) return;
+        var resolved = await Client.AccountAsync(ServiceAddress, credential, cancellation);
+        if (resolved.Value is null) { Fail(resolved.Failure); return; }
+        var entered = await Client.WorkspaceAsync(ServiceAddress, credential, tenant, cancellation);
+        if (entered.Value is null) { Fail(entered.Failure); return; }
+        account = resolved.Value; workspace = entered.Value; message = "Workspace access confirmed.";
+    });
+
+    private void Fail(TenantEntryFailure failure)
+    {
+        workspace = null;
+        if (failure != TenantEntryFailure.TenantDenied) { account = null; page = null; selected = null; }
+        message = TenantEntryMessages.For(failure);
+    }
+    private void Cancel() => pending?.Cancel();
+    public void Dispose() { disposed = true; pending?.Cancel(); GC.SuppressFinalize(this); }
+}

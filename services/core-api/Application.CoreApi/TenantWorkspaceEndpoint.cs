@@ -14,7 +14,7 @@ internal static class TenantWorkspaceEndpoint
         ClaimsPrincipal principal,
         ResolveAccountBinding resolveAccount,
         ResolveTenantContext resolveTenantContext,
-        ITenantMembershipDirectory memberships,
+        IBoundedTenantMembershipDirectory memberships,
         IAuthorizationService authorization,
         CancellationToken cancellationToken)
     {
@@ -41,10 +41,8 @@ internal static class TenantWorkspaceEndpoint
             return denied;
         }
 
-        var currentMembership = (await memberships.ListActiveAsync(
-                access.TenantContext!.AccountId,
-                cancellationToken))
-            .SingleOrDefault(value => value.TenantId == tenantId);
+        var currentMembership = await memberships.FindActiveAsync(
+            access.TenantContext!.AccountId, tenantId, cancellationToken);
         if (currentMembership is null)
         {
             return TenantRequestAccess.Problem(
