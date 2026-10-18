@@ -44,19 +44,20 @@ JS
     APPLICATION_UI_ARTIFACTS="$browser_output/quotations" timeout --signal=TERM --kill-after=10s 10m node eng/test-quotation-web.cjs
     APPLICATION_UI_ARTIFACTS="$browser_output/operations" timeout --signal=TERM --kill-after=10s 10m node eng/test-operations-web.cjs
     APPLICATION_UI_ARTIFACTS="$browser_output/administration" timeout --signal=TERM --kill-after=10s 10m node eng/test-tenant-administration-web.cjs
+    APPLICATION_UI_ARTIFACTS="$browser_output/customers" timeout --signal=TERM --kill-after=10s 10m node eng/test-customer-operations-web.cjs
     node <<'JS'
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const root = process.env.APPLICATION_UI_ARTIFACTS;
-for (const [journey, filename] of [['entry', 'signed-in-browser-results.json'], ['business', 'business-browser-results.json'], ['quotations', 'quotation-browser-results.json'], ['operations', 'operations-browser-results.json'], ['administration', 'tenant-administration-browser-results.json']]) {
+for (const [journey, filename] of [['entry', 'signed-in-browser-results.json'], ['business', 'business-browser-results.json'], ['quotations', 'quotation-browser-results.json'], ['operations', 'operations-browser-results.json'], ['administration', 'tenant-administration-browser-results.json'], ['customers', 'customer-operations-browser-results.json']]) {
 const output = path.join(root, journey);
 const result = JSON.parse(fs.readFileSync(path.join(output, filename), 'utf8'));
 assert.ok(typeof result.browser === 'string' && result.browser.length > 0, 'Missing actual browser version.');
 assert.ok(Array.isArray(result.events) && result.events.length > 0, 'Missing browser journey results.');
 if (journey === 'entry' || journey === 'business') assert.equal(result.liveZitadel, 'NOT_RUN_CONTROLLED_LOCAL_ISSUER');
 if (journey === 'quotations') assert.equal(result.liveProviders, 'NOT_RUN_CONTROLLED_HTTPS_CONTRACT_FIXTURE');
-if (journey === 'operations' || journey === 'administration') {
+if (journey === 'operations' || journey === 'administration' || journey === 'customers') {
     assert.equal(result.liveIdentityProvider, 'NOT_RUN_CONTROLLED_LOCAL_ISSUER');
     assert.equal(result.backendProvider, 'NOT_RUN_CONTROLLED_HTTP_CONTRACT_FIXTURE');
 }

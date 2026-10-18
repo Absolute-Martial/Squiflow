@@ -37,6 +37,8 @@
                 <a href="@($"/workspace/{current.TenantId:D}/billing")">Billing and payments</a>
                 <a href="@($"/workspace/{current.TenantId:D}/administration")">Tenant administration</a>
                 <a href="@($"/workspace/{current.TenantId:D}/profile-policy")">Program order policy</a>
+                <a href="@($"/workspace/{current.TenantId:D}/customers/duplicates")">Duplicate review</a>
+                <a href="@($"/workspace/{current.TenantId:D}/customers/imports")">Customer imports</a>
             </nav>
             <div class="panel-actions actions-inline">
                 <button class="button" disabled="@busy" @onclick="EnterAsync">Recheck access <ArrowIcon /></button>

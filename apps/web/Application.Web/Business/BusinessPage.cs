@@ -85,7 +85,10 @@ public abstract class BusinessPage : ComponentBase, IDisposable
         if (result.Failure == BusinessFailure.SignInRequired) { Workspace = null; Reset(); }
     }
 
-    protected async Task<T?> SaveAsync<T>(string resource, object payload, Func<T, bool> validate, CancellationToken ct, HttpMethod? method = null) where T : class
+    protected Task<T?> SaveAsync<T>(string resource, object payload, Func<T, bool> validate, CancellationToken ct, HttpMethod? method = null) where T : class =>
+        SaveCommandAsync(resource, () => BusinessCommand.Create(TenantId, resource, payload, method), validate, ct);
+
+    protected async Task<T?> SaveCommandAsync<T>(string resource, Func<BusinessCommand> create, Func<T, bool> validate, CancellationToken ct) where T : class
     {
         if (PendingCommand is not null && (PendingCommand.Resource != resource || PendingCommand.TenantId != TenantId))
         {
@@ -94,7 +97,7 @@ public abstract class BusinessPage : ComponentBase, IDisposable
             return null;
         }
         var recovering = PendingCommand is not null;
-        try { PendingCommand ??= BusinessCommand.Create(TenantId, resource, payload, method); }
+        try { PendingCommand ??= create(); }
         catch (ArgumentException) { Show(new BusinessResult<T>(null, BusinessFailure.InvalidRequest)); return null; }
         var result = await Api.SendAsync(PendingCommand, validate, ct);
         ct.ThrowIfCancellationRequested();

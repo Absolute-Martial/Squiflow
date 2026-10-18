@@ -1,0 +1,171 @@
+@page "/workspace/{TenantId:guid}/customers/imports"
+@page "/workspace/{TenantId:guid}/customers/imports/{ImportId:guid}"
+@attribute [Authorize]
+@rendermode Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer
+@inherits BusinessPage
+@implements IAsyncDisposable
+@using Microsoft.JSInterop
+@inject IJSRuntime JavaScript
+
+<PageTitle>Customer imports</PageTitle>
+<BusinessShell Identity="Identity" Workspace="Workspace" TenantId="TenantId" Active="imports" Busy="Busy" Message="@Message" Tone="@Tone">
+    <div class="business-heading"><div><p class="eyebrow">VALIDATE · REVIEW · ACCEPT</p><h1>Customer imports</h1></div><a class="cancel-button" href="@($"/workspace/{TenantId:D}/customers/duplicates")">Duplicate review</a></div>
+    <p class="panel-copy">Prepare a retained CSV plan, review its saved rows, then explicitly accept durable import work. Planning does not create customers. The service rechecks current authority and duplicate evidence during execution. Refresh saved work to observe progress; unsent selections are lost when this page closes.</p>
+    <PendingRequestNotice Command="PendingCommand" />
+    @if (PendingCommand is not null) { <button class="button" disabled="@Busy" @onclick="RetryAsync">Retry saved request</button> }
+    <section class="business-panel" aria-labelledby="import-plan"><h2 id="import-plan">Prepare a CSV plan</h2>
+        <p>Use UTF-8 comma-separated CSV with the required name header. Maximum 10 MiB and 10,000 data rows. Unknown columns, malformed quoting and invalid rows are checked by the service.</p>
+        <button class="cancel-button" disabled="@Locked" @onclick="TemplateAsync">Download CSV template</button>
+        <form @onsubmit="PlanAsync" @onsubmit:preventDefault><fieldset class="business-form" disabled="@Locked"><legend class="visually-hidden">Customer CSV and retention</legend>
+            <label for="import-file">Customer CSV file</label><InputFile @key="fileSelection" id="import-file" accept=".csv,text/csv" OnChange="ChooseFileAsync" />
+            @if (fileName.Length > 0) { <p>Selected file: @fileName · @fileBytes bytes</p> }
+            <label for="import-retention">Source retention</label><select id="import-retention" @bind="retention" @bind:after="() => planConfirmed = false"><option value="default">Default — expires after seven days</option><option value="archive">Archive — retain under tenant storage allowance</option></select>
+            <label class="check-field"><input type="checkbox" @bind="planConfirmed" /> I reviewed this CSV and its source-retention choice.</label>
+            <button class="button" type="submit" disabled="@(!planConfirmed || uploaded is null)">Prepare retained import plan</button>
+        </fieldset></form>
+        @if (planReceipt is { } planned) { <dl class="record-facts"><dt>Saved import</dt><dd>@planned.ImportId</dd><dt>Contract</dt><dd>@planned.ContractVersion</dd><dt>Source SHA-256</dt><dd>@planned.ManifestHash</dd><dt>Rows</dt><dd>@planned.RowCount</dd><dt>Pending rows</dt><dd>@planned.PendingRows</dd><dt>Rejected rows</dt><dd>@planned.RejectedRows</dd><dt>Rows needing explicit duplicate decisions</dt><dd>@planned.RowsRequiringDecision</dd></dl><p>The reference below is ready. Load the saved import and review its rows before accepting work.</p> }
+    </section>
+    <section class="business-panel" aria-labelledby="import-saved"><h2 id="import-saved">Saved import and work</h2>
+        <form @onsubmit="LookupAsync" @onsubmit:preventDefault><fieldset class="business-form" disabled="@Locked"><legend class="visually-hidden">Saved import lookup</legend><label for="import-reference">Import reference</label><input id="import-reference" maxlength="36" required @bind="importReference" /><button class="cancel-button" type="submit">Load saved import</button></fieldset></form>
+        @if (summary is { } current)
+        {
+            <dl class="record-facts"><dt>Import</dt><dd>@current.ImportId</dd><dt>Source SHA-256</dt><dd>@current.ManifestHash</dd><dt>Total rows</dt><dd>@current.RowCount</dd><dt>Pending</dt><dd>@current.Pending</dd><dt>Imported</dt><dd>@current.Imported</dd><dt>Mapped to existing</dt><dd>@current.MappedToExisting</dd><dt>Rejected</dt><dd>@current.Rejected</dd><dt>Failed</dt><dd>@current.Failed</dd></dl>
+            @if (current.Work is { } work) { <h3>Work @CustomerOperationsContracts.WorkState(work.Status)</h3><dl class="record-facts"><dt>Work reference</dt><dd>@work.WorkId</dd><dt>Processed rows</dt><dd>@work.ProcessedRows</dd><dt>Remaining rows</dt><dd>@work.RemainingRows</dd><dt>Accepted (UTC)</dt><dd>@work.CreatedAt.ToString("u")</dd><dt>Completed (UTC)</dt><dd>@(work.CompletedAt?.ToString("u") ?? "Not completed")</dd><dt>Last execution outcome</dt><dd>@work.LastError</dd></dl> }
+            @if (current.Source is { } stored) { <h3>Retained source</h3><dl class="record-facts"><dt>State</dt><dd>@CustomerOperationsContracts.SourceState(stored.State)</dd><dt>Retention</dt><dd>@(stored.Retention == 1 ? "Default seven days" : "Tenant archive")</dd><dt>Bytes</dt><dd>@stored.ByteLength</dd><dt>Expires (UTC)</dt><dd>@(stored.ExpiresAt?.ToString("u") ?? "No default expiry")</dd><dt>Source outcome</dt><dd>@stored.FailureCode</dd></dl><button class="cancel-button" disabled="@(Locked || stored.State != 3)" @onclick="SourceAsync">Download retained CSV source</button> }
+            <button class="cancel-button" disabled="@Locked" @onclick="() => RowsAsync(0)">Review first row page</button>
+        }
+    </section>
+    @if (rows is { } rowPage)
+    {
+        <section class="business-panel" aria-labelledby="import-rows"><h2 id="import-rows">Saved row preview and results</h2><p>Up to two rows per page to keep detailed previews bounded. Required duplicate decisions must explicitly create a new identity, map to a known active canonical customer, or reject the row. Other valid undecided rows will create new customers only after acceptance.</p>
+            @if (rowPage.Items.Length == 0) { <p class="empty-state">No rows on this page.</p> }
+            @foreach (var row in rowPage.Items)
+            {
+                <article class="business-panel" aria-label="@($"Import row {row.RowNumber}")"><h3>Row @row.RowNumber · @CustomerOperationsContracts.RowState(row.Status)</h3><p class="record-reference">Source-row SHA-256: @row.SourceRowHash</p>
+                    @if (row.Intent is { } intent) { <dl class="record-facts"><dt>Name</dt><dd>@intent.DisplayName</dd><dt>Customer type</dt><dd>@intent.CustomerType</dd><dt>Email</dt><dd>@intent.Email</dd><dt>Phone</dt><dd>@intent.Phone</dd><dt>External registration ID</dt><dd>@intent.ExternalRegistrationId</dd><dt>Address</dt><dd>@intent.AddressLine1 · @intent.AddressLine2 · @intent.City</dd><dt>Notes</dt><dd>@intent.Notes</dd></dl> }
+                    <dl class="record-facts"><dt>Validation / execution outcome</dt><dd>@row.ErrorCode · @row.ErrorMessage</dd><dt>Duplicate evidence</dt><dd>@row.DuplicateEvidence</dd><dt>Customer result</dt><dd>@row.CustomerId</dd><dt>Retained decision</dt><dd>@(row.Decision?.ToString() ?? "Not accepted")</dd><dt>Mapping target</dt><dd>@row.MappingCustomerId</dd><dt>Attempts</dt><dd>@row.Attempts</dd></dl>
+                    @if (row.Intent is not null && row.Status == 1 && drafts.TryGetValue(row.RowNumber, out var draft))
+                    { <fieldset class="business-form" disabled="@DecisionsLocked"><legend>@(row.RequiresDecision ? "Explicit duplicate decision required" : "Optional row decision")</legend><label for="@($"import-decision-{row.RowNumber}")">Decision for row @row.RowNumber</label><select id="@($"import-decision-{row.RowNumber}")" @bind="draft.Kind" @bind:after="ClearAccept"><option value="">@(row.RequiresDecision ? "Choose an explicit decision" : "Default: create new after acceptance")</option><option value="CreateNew">Create a new customer</option><option value="MapToExisting">Map to an existing customer</option><option value="Reject">Reject this row</option></select>@if (draft.Kind == "MapToExisting") { <label for="@($"import-map-{row.RowNumber}")">Mapping customer reference for row @row.RowNumber</label><input id="@($"import-map-{row.RowNumber}")" maxlength="36" @bind="draft.Target" @bind:after="ClearAccept" /> }</fieldset> }
+                </article>
+            }
+            @if (rowPage.NextRowNumber is { } next) { <button class="cancel-button" disabled="@Locked" @onclick="() => RowsAsync(next)">Review next row page</button> }
+        </section>
+    }
+    <section class="business-panel" aria-labelledby="import-accept"><h2 id="import-accept">Accept reviewed import work</h2>
+        <p>@(fullyReviewed ? "All saved row pages have been loaded for review." : "Load the saved import and review every row page first.")</p><p>Prepared explicit decisions: @drafts.Values.Count(d => d.Kind.Length > 0). Required duplicate decisions still missing: @drafts.Values.Count(d => d.Required && d.Kind.Length == 0). These selections are unsent until acceptance.</p>
+        <fieldset class="business-form" disabled="@DecisionsLocked"><legend class="visually-hidden">Explicit import acceptance</legend><label class="check-field"><input type="checkbox" @bind="acceptConfirmed" /> I reviewed every saved row and required duplicate decision, including default creation for other valid rows.</label><button class="button" disabled="@(!fullyReviewed || !acceptConfirmed || drafts.Values.Any(d => d.Required && d.Kind.Length == 0))" @onclick="AcceptAsync">Accept reviewed import</button></fieldset>
+        @if (summary?.Work is not null) { <p>This import already has retained work. Refresh its saved summary and row results instead of creating replacement work.</p> }
+    </section>
+</BusinessShell>
+
+@code {
+    [Parameter] public Guid? ImportId { get; set; }
+    private ImportPlanReceipt? planReceipt;
+    private ImportSummary? summary;
+    private ImportRows? rows;
+    private byte[]? uploaded;
+    private string fileName = "", retention = "default", importReference = "", sourceHash = "";
+    private long fileBytes;
+    private int fileSelection, reviewedThrough;
+    private Guid? activeImport;
+    private bool planConfirmed, acceptConfirmed, fullyReviewed, pendingPlan;
+    private readonly Dictionary<int, DecisionDraft> drafts = [];
+    private IJSObjectReference? downloadModule;
+    private bool Locked => Busy || PendingCommand is not null;
+    private bool DecisionsLocked => Locked || summary is null || summary.Work is not null;
+    private sealed class DecisionDraft(int row, string hash, bool required) { public int Row { get; } = row; public string Hash { get; } = hash; public bool Required { get; } = required; public string Kind { get; set; } = ""; public string Target { get; set; } = ""; }
+    private void Invalid(string text) { Message = text; Tone = "error"; }
+    private void ClearAccept() => acceptConfirmed = false;
+    protected override void Reset() { planReceipt = null; summary = null; rows = null; uploaded = null; fileName = sourceHash = ""; retention = "default"; importReference = ImportId?.ToString("D") ?? ""; fileBytes = 0; fileSelection++; reviewedThrough = 0; activeImport = null; planConfirmed = acceptConfirmed = fullyReviewed = pendingPlan = false; drafts.Clear(); }
+    protected override Task LoadAsync(CancellationToken ct) => ImportId.HasValue ? ReadImportAsync(ct) : Task.CompletedTask;
+    private Task ChooseFileAsync(InputFileChangeEventArgs args) => RunAsync(async ct =>
+    {
+        uploaded = null; planConfirmed = false; fileName = ""; fileBytes = 0;
+        try
+        {
+            var file = args.File;
+            if (file.Size is < 1 or > BusinessApiClient.MaximumImportBytes || !BusinessValidation.Text(file.Name, 255)) { Invalid("Choose one CSV file from 1 byte through 10 MiB with a bounded file name."); return; }
+            await using var input = file.OpenReadStream(BusinessApiClient.MaximumImportBytes, ct);
+            using var bytes = new MemoryStream(); await input.CopyToAsync(bytes, ct); ct.ThrowIfCancellationRequested();
+            if (bytes.Length != file.Size || bytes.Length > BusinessApiClient.MaximumImportBytes) { Invalid("The selected file changed or exceeds the supported size. Choose it again."); return; }
+            uploaded = bytes.ToArray(); fileName = file.Name; fileBytes = uploaded.Length; Message = "CSV selected. Review source retention, then prepare the saved plan."; Tone = "neutral";
+        }
+        catch (IOException) { Invalid("The file could not be read within the supported bound. Choose it again."); }
+        catch (InvalidOperationException) { Invalid("Choose one CSV file at a time."); }
+    });
+    private Task PlanAsync() => RunAsync(async ct =>
+    {
+        if (PendingCommand is null && (uploaded is null || !planConfirmed)) { Invalid("Choose a bounded CSV and confirm its retention before planning."); return; }
+        if (PendingCommand is null) sourceHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(uploaded!));
+        pendingPlan = true;
+        var value = await SaveCommandAsync<ImportPlanReceipt>("customers/imports", () => BusinessCommand.ImportCsv(TenantId, uploaded!, retention),
+            x => CustomerOperationsContracts.Plan(x) && string.Equals(x.ManifestHash, sourceHash, StringComparison.OrdinalIgnoreCase), ct);
+        uploaded = null;
+        if (value is not null) { planReceipt = value; importReference = value.ImportId.ToString("D"); summary = null; rows = null; drafts.Clear(); activeImport = null; reviewedThrough = 0; fullyReviewed = acceptConfirmed = planConfirmed = false; fileSelection++; fileName = ""; fileBytes = 0; Message += " Plan retained; no customers were created by planning. Load its saved rows to review."; }
+    });
+    private Task LookupAsync() => RunAsync(ReadImportAsync);
+    private async Task ReadImportAsync(CancellationToken ct)
+    {
+        rows = null; acceptConfirmed = false;
+        if (!Guid.TryParse(importReference, out var id) || id == Guid.Empty) { summary = null; Invalid("Enter a saved import reference."); return; }
+        var previous = summary;
+        summary = null;
+        if (activeImport != id) { drafts.Clear(); reviewedThrough = 0; fullyReviewed = false; }
+        var result = await Api.GetAsync<ImportSummary>(TenantId, $"customers/imports/{id:D}", x => CustomerOperationsContracts.Summary(x, id) &&
+            (previous?.ImportId != id || string.Equals(x.ManifestHash, previous.ManifestHash, StringComparison.Ordinal)), ct);
+        summary = result.Value; activeImport = id; Show(result);
+    }
+    private Task RowsAsync(int after) => RunAsync(async ct =>
+    {
+        rows = null; acceptConfirmed = false;
+        if (summary is not { } current) { Invalid("Load a saved import before its rows."); return; }
+        var result = await Api.GetAsync<ImportRows>(TenantId, $"customers/imports/{current.ImportId:D}/rows?limit=2&afterRowNumber={after}", x => CustomerOperationsContracts.Rows(x, after, current.RowCount) && x.Items.All(r => r.RowNumber <= current.RowCount + 1), ct);
+        Show(result); if (result.Value is not { } page) return;
+        foreach (var row in page.Items.Where(r => r.Intent is not null && r.Status == 1))
+        {
+            if (drafts.TryGetValue(row.RowNumber, out var existing) && existing.Hash != row.SourceRowHash) { drafts.Clear(); fullyReviewed = false; reviewedThrough = 0; Invalid("Saved row evidence changed. Reload the import and review it again."); return; }
+            if (!drafts.ContainsKey(row.RowNumber)) drafts[row.RowNumber] = new(row.RowNumber, row.SourceRowHash, row.RequiresDecision);
+        }
+        rows = page;
+        if (after == reviewedThrough) { reviewedThrough = page.Items.LastOrDefault()?.RowNumber ?? after; if (page.NextRowNumber is null) fullyReviewed = true; }
+    });
+    private Task AcceptAsync() => RunAsync(async ct =>
+    {
+        if (summary is not { } current || PendingCommand is null && (!fullyReviewed || !acceptConfirmed || current.Work is not null)) { Invalid("Review every saved row page and confirm acceptance of this import."); return; }
+        var decisions = new List<object>();
+        foreach (var draft in drafts.Values.OrderBy(d => d.Row))
+        {
+            if (draft.Kind.Length == 0) { if (draft.Required) { Invalid("Every possible duplicate needs an explicit decision."); return; } continue; }
+            Guid? target = null;
+            if (draft.Kind is not ("CreateNew" or "MapToExisting" or "Reject") || draft.Kind == "MapToExisting" && (!Guid.TryParse(draft.Target, out var id) || id == Guid.Empty)) { Invalid("Choose a supported row decision and a valid active customer reference for each mapping."); return; }
+            if (draft.Kind == "MapToExisting") target = Guid.Parse(draft.Target);
+            decisions.Add(new { rowNumber = draft.Row, sourceRowHash = draft.Hash, kind = draft.Kind, customerId = target });
+        }
+        pendingPlan = false;
+        var value = await SaveAsync<ImportWork>($"customers/imports/{current.ImportId:D}/accept", new { decisions },
+            x => CustomerOperationsContracts.Work(x, current.ImportId) && (long)x.ProcessedRows + x.RemainingRows <= current.RowCount, ct);
+        if (value is not null) { summary = current with { Work = value }; rows = null; drafts.Clear(); acceptConfirmed = fullyReviewed = false; Message = $"Import work {CustomerOperationsContracts.WorkState(value.Status)}. Refresh the saved import to observe retained row results; acceptance is not proof that rows were imported."; Tone = "ready"; }
+    });
+    private Task RetryAsync() => pendingPlan ? PlanAsync() : AcceptAsync();
+    private Task TemplateAsync() => DownloadAsync("customers/import-template", "customer-import-v1-template.csv", null);
+    private Task SourceAsync() => summary is { Source: { } source } current ? DownloadAsync($"customers/imports/{current.ImportId:D}/source", $"customer-import-{current.ImportId:D}.csv", source) : Task.CompletedTask;
+    private Task DownloadAsync(string resource, string filename, ImportSource? source) => RunAsync(async ct =>
+    {
+        var result = await Api.GetCsvAsync(TenantId, resource, x => CustomerOperationsContracts.Csv(x, source), ct);
+        Show(result); if (result.Value is not { } value) return;
+        try
+        {
+            downloadModule ??= await JavaScript.InvokeAsync<IJSObjectReference>("import", ct, "./customer-import-download.js");
+            using var stream = new MemoryStream(value.Content, false); using var reference = new DotNetStreamReference(stream);
+            await downloadModule.InvokeVoidAsync("downloadCsv", ct, filename, reference); ct.ThrowIfCancellationRequested();
+            Message = "CSV download offered to your browser. Use your browser's downloads to locate the file."; Tone = "ready";
+        }
+        catch (JSException) { Invalid("The browser could not start the CSV download. Try again from this saved import."); }
+    });
+    public async ValueTask DisposeAsync()
+    {
+        Dispose();
+        if (downloadModule is not null) { try { await downloadModule.DisposeAsync(); } catch (JSDisconnectedException) { } }
+        GC.SuppressFinalize(this);
+    }
+}

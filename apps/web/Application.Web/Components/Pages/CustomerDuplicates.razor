@@ -1,0 +1,113 @@
+@page "/workspace/{TenantId:guid}/customers/duplicates"
+@attribute [Authorize]
+@rendermode Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer
+@inherits BusinessPage
+
+<PageTitle>Customer duplicate review</PageTitle>
+<BusinessShell Identity="Identity" Workspace="Workspace" TenantId="TenantId" Active="duplicates" Busy="Busy" Message="@Message" Tone="@Tone">
+    <div class="business-heading"><div><p class="eyebrow">CUSTOMER IDENTITIES</p><h1>Customer duplicate review</h1></div><a class="cancel-button" href="@($"/workspace/{TenantId:D}/customers/imports")">Customer imports</a></div>
+    <p class="panel-copy">Names and contact details are matching signals. Review the current physical identities and exact revisions before recording a decision. Consolidation redirects the source to the selected survivor; it preserves saved history and does not combine contact fields or rewrite issued facts.</p>
+    <PendingRequestNotice Command="PendingCommand" />
+    @if (PendingCommand is not null) { <button class="button" disabled="@Busy" @onclick="RetryAsync">Retry saved request</button> }
+    <section class="business-panel" aria-labelledby="duplicate-search"><h2 id="duplicate-search">Find possible matches</h2>
+        <form @onsubmit="SearchAsync" @onsubmit:preventDefault><fieldset class="business-form" disabled="@Locked"><legend class="visually-hidden">Customer matching signals</legend>
+            <label for="duplicate-name">Name to compare</label><input id="duplicate-name" maxlength="200" required @bind="name" />
+            <label for="duplicate-email">Matching email (optional)</label><input id="duplicate-email" type="email" maxlength="254" @bind="email" />
+            <label for="duplicate-phone">Matching phone (optional)</label><input id="duplicate-phone" maxlength="32" @bind="phone" />
+            <label for="duplicate-external">Matching external registration ID (optional)</label><input id="duplicate-external" maxlength="200" @bind="externalId" />
+            <label for="duplicate-organization">Matching organization reference (optional)</label><input id="duplicate-organization" maxlength="36" @bind="organization" />
+            <label for="duplicate-program">Matching program reference (optional)</label><input id="duplicate-program" maxlength="36" @bind="program" />
+            <label for="duplicate-exclude">Exclude customer reference (optional)</label><input id="duplicate-exclude" maxlength="36" @bind="exclude" />
+            <label class="check-field"><input type="checkbox" @bind="fuzzy" /> Include bounded fuzzy-name discovery; this is not merge authority.</label>
+            <button class="button" type="submit">Find possible duplicates</button>
+        </fieldset></form>
+        @if (matches is { } found)
+        {
+            @if (found.Candidates.Length == 0) { <p class="empty-state">No candidates matched these signals. A match search is not proof that the customer is unique.</p> }
+            @if (found.HasMore) { <p class="status-box warning">More candidates exist. Refine the signals to review another bounded set; this is not an exhaustive result.</p> }
+            <ul class="record-list">@foreach (var item in found.Candidates)
+                { <li><strong>@item.Customer.DisplayName</strong><span class="record-reference">@item.Customer.IndividualId · Revision @item.Customer.Revision</span><span>@item.Customer.Email · @item.Customer.Phone · @item.Customer.ExternalRegistrationId</span><span>@string.Join(", ", item.Evidence.Select(e => CustomerOperationsContracts.Evidence(e.Kind)))</span><span>@(item.RequiresManualReview ? "Manual review required" : "Prior review recorded")</span>@if (item.Resolution is { } decision) { <span>@CustomerOperationsContracts.Outcome(decision.Outcome) · @decision.ResolvedAt.ToString("u") · @decision.Reason</span> }<a class="cancel-button" href="@($"/workspace/{TenantId:D}/customers/individuals/{item.Customer.IndividualId:D}")">Review saved customer</a><button class="cancel-button" disabled="@Locked" @onclick="() => Choose(item.Customer)">Use @item.Customer.DisplayName as other customer</button></li> }</ul>
+        }
+    </section>
+    <div class="business-columns">
+        <section class="business-panel" aria-labelledby="duplicate-pair"><h2 id="duplicate-pair">Exact customer pair</h2><fieldset class="business-form" disabled="@Locked"><legend class="visually-hidden">Physical customer identities and revisions</legend>
+            <label for="duplicate-source">Source customer reference</label><input id="duplicate-source" maxlength="36" @bind="source" @bind:after="ClearConfirmation" />
+            <label for="duplicate-source-revision">Expected source customer revision</label><input id="duplicate-source-revision" type="number" min="1" step="1" @bind="sourceRevision" @bind:after="ClearConfirmation" />
+            <button class="cancel-button" @onclick="ReadSourceAsync">Load source customer</button>
+            <label for="duplicate-other">Other customer / selected survivor reference</label><input id="duplicate-other" maxlength="36" @bind="other" @bind:after="ClearConfirmation" />
+            <label for="duplicate-other-revision">Expected other customer revision</label><input id="duplicate-other-revision" type="number" min="1" step="1" @bind="otherRevision" @bind:after="ClearConfirmation" />
+            <label for="duplicate-reason">Review reason (optional)</label><textarea id="duplicate-reason" maxlength="1000" @bind="reason" @bind:after="ClearConfirmation"></textarea>
+        </fieldset>
+        @if (sourceCustomer is { } current) { <p>Loaded source: @current.DisplayName · Revision @current.Revision · @current.Availability</p>@if (current.RedirectTargetIndividualId is { } redirect) { <p class="status-box warning">This physical source has been consolidated. Review its current successor @redirect and supply that identity's own current revision before another decision.</p> } }
+        </section>
+        <section class="business-panel" aria-labelledby="duplicate-decision"><h2 id="duplicate-decision">Record review decision</h2>
+            <form @onsubmit="ResolveAsync" @onsubmit:preventDefault><fieldset class="business-form" disabled="@Locked"><legend class="visually-hidden">Duplicate review outcome</legend>
+                <label for="duplicate-outcome">Review outcome</label><select id="duplicate-outcome" @bind="outcome" @bind:after="ClearConfirmation"><option value="PotentialDuplicate">Potential duplicate</option><option value="KeepSeparate">Keep separate</option><option value="Dismiss">Dismiss candidate pair</option></select>
+                <label class="check-field"><input type="checkbox" @bind="reviewConfirmed" /> I reviewed both physical customer identities, current revisions and this decision.</label>
+                <button class="button" type="submit" disabled="@(!reviewConfirmed)">Save duplicate review</button>
+            </fieldset></form>
+            <details class="business-details"><summary>Consolidate source into survivor</summary><form @onsubmit="ConsolidateAsync" @onsubmit:preventDefault><fieldset class="business-form" disabled="@Locked"><legend class="visually-hidden">Explicit customer consolidation</legend>
+                <p>The other customer above is the survivor. The service separately checks consolidation permission, both exact revisions and the current redirect graph. This cannot be undone by editing contact details.</p>
+                <label for="duplicate-consolidate-confirm">Type “Consolidate” to confirm redirect</label><input id="duplicate-consolidate-confirm" autocomplete="off" @bind="consolidateConfirmation" @bind:event="oninput" />
+                <button class="button button-danger" type="submit" disabled='@(consolidateConfirmation != "Consolidate")'>Consolidate exact customer pair</button>
+            </fieldset></form></details>
+        </section>
+    </div>
+    @if (receipt?.Resolution is { } saved) { <section class="business-panel" aria-labelledby="duplicate-receipt"><h2 id="duplicate-receipt">Saved duplicate decision</h2><dl class="record-facts"><dt>Resolution</dt><dd>@saved.ResolutionId</dd><dt>Source</dt><dd>@saved.CustomerId</dd><dt>Other / survivor</dt><dd>@saved.OtherCustomerId</dd><dt>Outcome</dt><dd>@CustomerOperationsContracts.Outcome(saved.Outcome)</dd><dt>Recorded by</dt><dd>@saved.ActorAccountId</dd><dt>Recorded (UTC)</dt><dd>@saved.ResolvedAt.ToString("u")</dd><dt>Reason</dt><dd>@saved.Reason</dd><dt>Retained evidence</dt><dd>@saved.Evidence</dd></dl></section> }
+    <section class="business-panel" aria-labelledby="duplicate-history"><h2 id="duplicate-history">Retained resolution history</h2><p>Uses the source customer reference above. Each page contains up to five immutable decisions involving that physical identity.</p><button class="cancel-button" disabled="@Locked" @onclick="() => HistoryAsync(null)">Load duplicate resolution history</button>
+        @if (history is { } rows) { <ul class="record-list">@foreach (var entry in rows) { <li><strong>@CustomerOperationsContracts.Outcome(entry.Outcome)</strong><span>@entry.CustomerId → @entry.OtherCustomerId</span><span>@entry.ActorAccountId · @entry.ResolvedAt.ToString("u") · @entry.Reason</span><span>@entry.Evidence</span></li> }</ul>@if (rows.Length == 0) { <p class="empty-state">No retained resolutions on this page.</p> }@if (rows.Length == 5) { <button class="cancel-button" disabled="@Locked" @onclick="() => HistoryAsync(rows[^1].ResolutionId)">Next resolution history</button> } }
+    </section>
+</BusinessShell>
+
+@code {
+    private string name = "", email = "", phone = "", externalId = "", organization = "", program = "", exclude = "", source = "", other = "", reason = "", consolidateConfirmation = "", outcome = "PotentialDuplicate";
+    private long sourceRevision = 1, otherRevision = 1;
+    private bool fuzzy, reviewConfirmed, pendingConsolidate;
+    private DuplicateSearchPage? matches;
+    private IndividualRecord? sourceCustomer;
+    private DuplicateReceipt? receipt;
+    private DuplicateResolution[]? history;
+    private bool Locked => Busy || PendingCommand is not null;
+    private static string? Optional(string value) => string.IsNullOrWhiteSpace(value) ? null : value;
+    private static bool OptionalId(string value, out Guid? id) { id = null; if (string.IsNullOrWhiteSpace(value)) return true; if (!Guid.TryParse(value, out var parsed) || parsed == Guid.Empty) return false; id = parsed; return true; }
+    private void Invalid(string text) { Message = text; Tone = "error"; }
+    private void ClearConfirmation() { reviewConfirmed = false; consolidateConfirmation = ""; }
+    protected override void Reset() { name = email = phone = externalId = organization = program = exclude = source = other = reason = consolidateConfirmation = ""; outcome = "PotentialDuplicate"; sourceRevision = otherRevision = 1; fuzzy = reviewConfirmed = pendingConsolidate = false; matches = null; sourceCustomer = null; receipt = null; history = null; }
+    private void Choose(DuplicateCustomer value) { other = value.IndividualId.ToString("D"); otherRevision = value.Revision; ClearConfirmation(); }
+    private Task SearchAsync() => RunAsync(async ct =>
+    {
+        matches = null;
+        if (!OperationsContracts.Text(name, 200) || !BusinessValidation.Text(email, 254, false) || !BusinessValidation.Text(phone, 32, false) || !BusinessValidation.Text(externalId, 200, false) || !OptionalId(organization, out var org) || !OptionalId(program, out var prog) || !OptionalId(exclude, out var excluded)) { Invalid("Enter a name and bounded matching signals with valid optional references."); return; }
+        var result = await Api.QueryAsync<DuplicateSearchPage>(TenantId, "customers/duplicates/search", new { name, email = Optional(email), phone = Optional(phone), externalId = Optional(externalId), organizationId = org, programId = prog, excludeCustomerId = excluded, limit = 2, includeFuzzyNameDiscovery = fuzzy }, x => CustomerOperationsContracts.Search(x, TenantId), ct);
+        matches = result.Value; Show(result);
+    });
+    private Task ReadSourceAsync() => RunAsync(async ct =>
+    {
+        sourceCustomer = null; ClearConfirmation();
+        if (!Guid.TryParse(source, out var id) || id == Guid.Empty) { Invalid("Enter the source customer reference."); return; }
+        var result = await Api.GetAsync<IndividualRecord>(TenantId, $"customers/individuals/{id:D}", x => CustomerContracts.Individual(x, id), ct);
+        sourceCustomer = result.Value; if (sourceCustomer is { } current) sourceRevision = current.Revision; Show(result);
+    });
+    private Task ResolveAsync() => ChangeAsync(false);
+    private Task ConsolidateAsync() => ChangeAsync(true);
+    private Task ChangeAsync(bool consolidate) => RunAsync(async ct =>
+    {
+        if (!Guid.TryParse(source, out var from) || from == Guid.Empty || !Guid.TryParse(other, out var to) || to == Guid.Empty || from == to || sourceRevision < 1 || otherRevision < 1 || !BusinessValidation.Text(reason, 1000, false) || PendingCommand is null && (consolidate ? consolidateConfirmation != "Consolidate" : !reviewConfirmed)) { Invalid("Review two distinct physical identities, their exact positive revisions, bounded reason and confirmation."); return; }
+        var state = consolidate ? 3 : outcome switch { "PotentialDuplicate" => 1, "KeepSeparate" => 2, "Dismiss" => 4, _ => 0 };
+        if (state == 0) { Invalid("Choose a supported review outcome."); return; }
+        object payload = consolidate ? new { sourceCustomerId = from, canonicalCustomerId = to, expectedSourceRevision = sourceRevision, expectedCanonicalRevision = otherRevision, reason = Optional(reason) } :
+            (object)new { customerId = from, otherCustomerId = to, expectedCustomerRevision = sourceRevision, expectedOtherRevision = otherRevision, outcome, reason = Optional(reason) };
+        pendingConsolidate = consolidate;
+        var value = await SaveAsync<DuplicateReceipt>("customers/duplicates/" + (consolidate ? "consolidate" : "resolve"), payload, x => CustomerOperationsContracts.Receipt(x, from, to, state, consolidate), ct);
+        if (value is not null) { receipt = value; matches = null; sourceCustomer = null; history = null; ClearConfirmation(); Message += " Reload current customer facts before another decision."; }
+    });
+    private Task HistoryAsync(Guid? after) => RunAsync(async ct =>
+    {
+        history = null;
+        if (!Guid.TryParse(source, out var id) || id == Guid.Empty) { Invalid("Enter the source customer reference for history."); return; }
+        var result = await Api.GetAsync<DuplicateResolution[]>(TenantId, $"customers/individuals/{id:D}/duplicate-resolutions?limit=5" + (after.HasValue ? $"&afterResolutionId={after:D}" : ""),
+            x => x.Length <= 5 && x.All(r => r is not null && CustomerOperationsContracts.Resolution(r) && (r.CustomerId == id || r.OtherCustomerId == id) && r.ResolutionId != after) && x.Select(r => r.ResolutionId).Distinct().Count() == x.Length, ct);
+        history = result.Value; Show(result);
+    });
+    private Task RetryAsync() => ChangeAsync(pendingConsolidate);
+}

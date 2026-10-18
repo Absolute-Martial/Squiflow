@@ -30,12 +30,14 @@ public sealed record BusinessResult<T>(T? Value, BusinessFailure Failure, bool R
 
 public sealed class BusinessCommand
 {
-    private BusinessCommand(Guid tenantId, string resource, byte[] body, HttpMethod method)
+    private BusinessCommand(Guid tenantId, string resource, byte[] body, HttpMethod method, string contentType = "application/json", string? retention = null)
     {
         TenantId = tenantId;
         Resource = resource;
         Body = body;
         Method = method;
+        ContentType = contentType;
+        Retention = retention;
         Key = Guid.NewGuid().ToString("N");
     }
 
@@ -44,6 +46,8 @@ public sealed class BusinessCommand
     public string Key { get; }
     public HttpMethod Method { get; }
     internal byte[] Body { get; }
+    internal string ContentType { get; }
+    internal string? Retention { get; }
     private string? session;
 
     internal bool BindSession(string key) => string.Equals(Interlocked.CompareExchange(ref session, key, null) ?? key, key, StringComparison.Ordinal);
@@ -53,8 +57,17 @@ public sealed class BusinessCommand
         if (method is not null && method != HttpMethod.Post && method != HttpMethod.Put) throw new ArgumentException("Unsupported business method.", nameof(method));
         BusinessApiClient.RequirePath(tenantId, resource);
         var body = JsonSerializer.SerializeToUtf8Bytes(payload, BusinessApiClient.JsonOptions);
-        if (body.Length > (resource == "quotations" || resource.StartsWith("quotations/", StringComparison.Ordinal) ? BusinessApiClient.MaximumQuotationRequestBytes : BusinessApiClient.MaximumRequestBytes)) throw new ArgumentException("The request exceeds the supported size.", nameof(payload));
+        if (body.Length > (BusinessApiClient.IsImportAcceptance(resource) ? BusinessApiClient.MaximumImportDecisionBytes : resource == "quotations" || resource.StartsWith("quotations/", StringComparison.Ordinal) ? BusinessApiClient.MaximumQuotationRequestBytes : BusinessApiClient.MaximumRequestBytes)) throw new ArgumentException("The request exceeds the supported size.", nameof(payload));
         return new(tenantId, resource, body, method ?? HttpMethod.Post);
+    }
+
+    public static BusinessCommand ImportCsv(Guid tenantId, byte[] content, string retention)
+    {
+        BusinessApiClient.RequirePath(tenantId, "customers/imports");
+        ArgumentNullException.ThrowIfNull(content);
+        if (content.Length is < 1 or > BusinessApiClient.MaximumImportBytes || retention is not ("default" or "archive"))
+            throw new ArgumentException("A bounded CSV and supported retention choice are required.", nameof(content));
+        return new(tenantId, "customers/imports", content.ToArray(), HttpMethod.Post, "text/csv", retention);
     }
 }
 
@@ -63,6 +76,8 @@ public sealed class BusinessApiClient(HttpClient http, Uri origin, Authenticatio
     public const int MaximumRequestBytes = 8192;
     public const int MaximumQuotationRequestBytes = 64 * 1024;
     public const int MaximumResponseBytes = 256 * 1024;
+    public const int MaximumImportBytes = 10 * 1024 * 1024;
+    public const int MaximumImportDecisionBytes = 2 * 1024 * 1024;
     internal static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { MaxDepth = 16 };
 
     public Task<BusinessResult<T>> GetAsync<T>(Guid tenantId, string resource, Func<T, bool> validate,
@@ -80,8 +95,25 @@ public sealed class BusinessApiClient(HttpClient http, Uri origin, Authenticatio
         CancellationToken cancellationToken = default) where T : class =>
         RequestAsync(tenantId, resource, BusinessCommand.Create(tenantId, resource, payload), false, validate, cancellationToken);
 
+    public Task<BusinessResult<BusinessCsv>> GetCsvAsync(Guid tenantId, string resource, Func<BusinessCsv, bool> validate,
+        CancellationToken cancellationToken = default)
+    {
+        var parts = resource.Split('/');
+        if (resource != "customers/import-template" && !(parts.Length == 4 && parts[0] == "customers" && parts[1] == "imports" &&
+            Guid.TryParse(parts[2], out var id) && id != Guid.Empty && parts[3] == "source"))
+            throw new ArgumentException("A protected customer import CSV resource is required.", nameof(resource));
+        return RequestAsync(tenantId, resource, null, false, validate, cancellationToken, "text/csv",
+            resource == "customers/import-template" ? MaximumRequestBytes : MaximumImportBytes, bytes => new BusinessCsv(bytes));
+    }
+
+    internal static bool IsImportAcceptance(string resource)
+    {
+        var parts = resource.Split('/');
+        return parts.Length == 4 && parts[0] == "customers" && parts[1] == "imports" && Guid.TryParse(parts[2], out var id) && id != Guid.Empty && parts[3] == "accept";
+    }
+
     private async Task<BusinessResult<T>> RequestAsync<T>(Guid tenantId, string resource, BusinessCommand? command, bool mutation,
-        Func<T, bool> validate, CancellationToken cancellationToken) where T : class
+        Func<T, bool> validate, CancellationToken cancellationToken, string responseType = "application/json", int responseLimit = MaximumResponseBytes, Func<byte[], T>? decode = null) where T : class
     {
         RequirePath(tenantId, resource);
         if (!ServiceAddress.TryParse(origin.AbsoluteUri, out _)) throw new InvalidOperationException("A safe CoreApi origin is required.");
@@ -98,12 +130,13 @@ public sealed class BusinessApiClient(HttpClient http, Uri origin, Authenticatio
             using var request = new HttpRequestMessage(command is null ? HttpMethod.Get : command.Method,
                 new Uri(origin, $"/api/v1/tenants/{tenantId:D}/{resource}"));
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(responseType));
             if (command is not null)
             {
                 if (mutation) request.Headers.Add("Idempotency-Key", command.Key);
                 request.Content = new ByteArrayContent(command.Body);
-                request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+                request.Content.Headers.ContentType = new MediaTypeHeaderValue(command.ContentType) { CharSet = "utf-8" };
+                if (command.Retention is not null) request.Headers.Add("X-Tenant-Import-Retention", command.Retention);
             }
             using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, budget.Token).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
@@ -116,14 +149,14 @@ public sealed class BusinessApiClient(HttpClient http, Uri origin, Authenticatio
                 HttpStatusCode.BadRequest or HttpStatusCode.RequestEntityTooLarge or HttpStatusCode.UnprocessableEntity => BusinessFailure.InvalidRequest,
                 HttpStatusCode.Conflict => BusinessFailure.Conflict,
                 HttpStatusCode.OK or HttpStatusCode.Created => BusinessFailure.None,
-                HttpStatusCode.Accepted when command is not null && resource.StartsWith("authorization/", StringComparison.Ordinal) && resource != "authorization/owner-transfer" => BusinessFailure.None,
+                HttpStatusCode.Accepted when command is not null && (IsImportAcceptance(resource) || resource.StartsWith("authorization/", StringComparison.Ordinal) && resource != "authorization/owner-transfer") => BusinessFailure.None,
                 _ => !mutation ? BusinessFailure.Unavailable : BusinessFailure.Unknown,
             };
             if (failure != BusinessFailure.None) return new(null, failure);
-            if (!string.Equals(response.Content.Headers.ContentType?.MediaType, "application/json", StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(response.Content.Headers.ContentType?.MediaType, responseType, StringComparison.OrdinalIgnoreCase))
                 return new(null, !mutation ? BusinessFailure.InvalidResponse : BusinessFailure.Unknown);
-            var bytes = await ReadBoundedAsync(response.Content, budget.Token).ConfigureAwait(false);
-            var value = JsonSerializer.Deserialize<T>(bytes, JsonOptions);
+            var bytes = await ReadBoundedAsync(response.Content, responseLimit, budget.Token).ConfigureAwait(false);
+            var value = decode is null ? JsonSerializer.Deserialize<T>(bytes, JsonOptions) : decode(bytes);
             cancellationToken.ThrowIfCancellationRequested();
             if (tickets.AccessToken(session) is null) return new(null, !mutation ? BusinessFailure.SignInRequired : BusinessFailure.Unknown);
             if (value is null || !validate(value)) return new(null, !mutation ? BusinessFailure.InvalidResponse : BusinessFailure.Unknown);
@@ -148,18 +181,20 @@ public sealed class BusinessApiClient(HttpClient http, Uri origin, Authenticatio
             throw new ArgumentException("A bounded tenant business path is required.", nameof(resource));
     }
 
-    private static async Task<byte[]> ReadBoundedAsync(HttpContent content, CancellationToken cancellationToken)
+    private static async Task<byte[]> ReadBoundedAsync(HttpContent content, int maximum, CancellationToken cancellationToken)
     {
-        if (content.Headers.ContentLength > MaximumResponseBytes) throw new InvalidDataException();
+        if (content.Headers.ContentLength > maximum) throw new InvalidDataException();
         await using var source = await content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
         using var buffer = new MemoryStream();
         var chunk = new byte[4096];
         int count;
         while ((count = await source.ReadAsync(chunk, cancellationToken).ConfigureAwait(false)) != 0)
         {
-            if (buffer.Length + count > MaximumResponseBytes) throw new InvalidDataException();
+            if (buffer.Length + count > maximum) throw new InvalidDataException();
             buffer.Write(chunk, 0, count);
         }
         return buffer.ToArray();
     }
 }
+
+public sealed record BusinessCsv(byte[] Content);

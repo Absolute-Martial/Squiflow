@@ -41,7 +41,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const output = process.env.APPLICATION_UI_ARTIFACTS;
 fs.mkdirSync(output, { recursive: true });
-const journeys = { 'test-business-web.cjs': ['business', 'business-browser-results.json'], 'test-quotation-web.cjs': ['quotations', 'quotation-browser-results.json'], 'test-operations-web.cjs': ['operations', 'operations-browser-results.json'], 'test-tenant-administration-web.cjs': ['administration', 'tenant-administration-browser-results.json'], 'test-signed-in-entry-browser.cjs': ['entry', 'signed-in-browser-results.json'] };
+const journeys = { 'test-business-web.cjs': ['business', 'business-browser-results.json'], 'test-quotation-web.cjs': ['quotations', 'quotation-browser-results.json'], 'test-operations-web.cjs': ['operations', 'operations-browser-results.json'], 'test-tenant-administration-web.cjs': ['administration', 'tenant-administration-browser-results.json'], 'test-customer-operations-web.cjs': ['customers', 'customer-operations-browser-results.json'], 'test-signed-in-entry-browser.cjs': ['entry', 'signed-in-browser-results.json'] };
 const [journey, filename] = journeys[path.basename(process.argv[1])];
 const mode = !process.env.FAKE_BROWSER_TARGET || process.env.FAKE_BROWSER_TARGET === journey ? process.env.FAKE_BROWSER_MODE : undefined;
 if (mode === 'failed') process.exit(19);
@@ -156,7 +156,7 @@ class VerificationTests(unittest.TestCase):
         (axe / "package.json").write_text(json.dumps({"version": "4.11.0"}))
         (axe / "axe.min.js").write_text("fixture")
         self.env.update(APPLICATION_ENTRY_PLAYWRIGHT_PATH=str(playwright), APPLICATION_ENTRY_AXE_PATH=str(axe / "axe.min.js"))
-        for name in ("test-signed-in-entry-browser.cjs", "test-business-web.cjs", "test-quotation-web.cjs", "test-operations-web.cjs", "test-tenant-administration-web.cjs"):
+        for name in ("test-signed-in-entry-browser.cjs", "test-business-web.cjs", "test-quotation-web.cjs", "test-operations-web.cjs", "test-tenant-administration-web.cjs", "test-customer-operations-web.cjs"):
             (self.root / "eng" / name).write_text(FAKE_BROWSER_GUARD)
 
     def test_browser_wrapper_validates_fresh_evidence_and_checksums(self):
@@ -182,7 +182,7 @@ class VerificationTests(unittest.TestCase):
 
     def test_each_additional_journey_failure_rejects_the_combined_receipt(self):
         self.prepare_browser()
-        for journey in ("quotations", "operations", "administration"):
+        for journey in ("quotations", "operations", "administration", "customers"):
             with self.subTest(journey=journey):
                 self.env.update(FAKE_BROWSER_MODE="failed", FAKE_BROWSER_TARGET=journey)
                 result = self.run_script("verify-web-browser.sh")
