@@ -24,6 +24,7 @@ The only remote operations are `GET /api/v1/application/bootstrap` and `GET /hea
 - Refuse redirects and HTTP cookies; bound the pool to two connections per origin. No token, credential or business record crosses this adapter.
 - Resolve relative branding links against the CoreApi origin. Reject backslashes and unsafe schemes. Razor encodes names and Avalonia binds them as plain text.
 - Clear previous identity before a new check and on failure. Not-ready may retain freshly validated identity but cannot show available/success. Cancel/close never imply success.
+- Editing the Workstation service address also clears the previous identity and connection result, cancels any old check and clears signed-in workspace state. Returning to the previous address still requires a new check; a late response cannot restore that address's result.
 
 The visual baseline uses neutral colors, status text, labeled controls, keyboard access and responsive Web layout. Names, legal identity and Web support/privacy/terms/favicon come from validated deployment branding. There is no codename, invented tenant data or placeholder business navigation. One desktop action does not earn module registries or docking.
 
@@ -98,3 +99,9 @@ Authentication, account/tenant selection and native PKCE callback are now separa
 
 The owner-selected next task, login/tenant-entry preparation for both hosts, is
 recorded in [the readiness handoff](LOGIN_AND_TENANT_ENTRY_READINESS.md).
+
+The [2026-10-19 Workstation review](../review/WORKSTATION_AND_ADMIN_WEB_2026_10_19.md)
+records the address-change and close-lifetime corrections and their exact current
+evidence, including the current native project tests and Linux execution/publication.
+The historical qualification above does not qualify this changed source; repository
+and supported-Windows qualification must be read from the current receipt.

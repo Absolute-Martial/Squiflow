@@ -52,6 +52,15 @@ APPLICATION_OIDC_API_SCOPE
 
 All four are required together and both origins must use HTTPS. There is no native secret setting. The API scope is one explicit scope, such as ZITADEL's documented project audience scope; verify emitted `aud` against CoreApi, without equating it to a frontend client ID. Check the configured public service before signing in.
 
+Changing the Workstation service address invalidates its previous connection and
+clears credentials, memberships, selection and workspace confirmation. Switching
+back to the configured address still requires another successful connection check.
+The API origin remains pinned to deployment configuration. Closing the access
+model disables future sign-in admission, cancels pending access/sign-in and ignores
+late credentials or connection updates; repeated disposal is harmless. The
+[current review receipt](../review/WORKSTATION_AND_ADMIN_WEB_2026_10_19.md) separates
+focused offline model checks from the native project and Windows qualification.
+
 ## Source admission and evidence
 
 | Mechanism / owner | Pin and permanent guard | Qualification still required |

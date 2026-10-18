@@ -150,6 +150,7 @@ Use these as review guidance, not ceremony quotas.
 - Prefer immutable records/value objects/snapshots for contracts, revisions and facts where mutation is not domain meaning.
 - Keep authoritative, provisional, derived, cached and presentation-only state distinct.
 - Avoid unexplained magic business/config values.
+- Read deployment-specific API, identity-provider and public origins from validated configuration; do not embed a deployment address or use an illustrative/test address as a runtime fallback. Keep synthetic addresses in explicit test fixtures or clearly labeled documentation. Protocol loopback addresses, framework namespace URIs and canonical provider endpoints follow their owning boundary; they are not tenant/deployment defaults.
 - Keep public surface minimal; `internal`/private by default when external use is not required.
 - SOLID is pressure-testing guidance, not one-interface-per-class.
 - DRY targets duplicated knowledge/business meaning, not every similar-looking line.

@@ -22,6 +22,11 @@ Interactive Server cannot safely turn one shared server certificate into per-hum
 
 Certificate private keys remain device/edge held according to the selected transport. They are never uploaded into application JavaScript or exported into tenant sessions.
 
+The [2026-10-19 source review and UI task map](../review/WORKSTATION_AND_ADMIN_WEB_2026_10_19.md)
+identifies the existing AdminApi operations a future UI can consume and the concrete
+transport evidence still needed. It introduces no Admin Web runtime or device-proof
+substitute and does not close this prerequisite.
+
 ## Availability and recovery
 
 Admin Web/AdminApi private reachability and recovery are independent of Tenant Web/CoreApi availability and public tenant edge health. Losing CoreApi must not remove the operator recovery path.

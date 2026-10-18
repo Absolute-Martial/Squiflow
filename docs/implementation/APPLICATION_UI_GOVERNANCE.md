@@ -95,6 +95,29 @@ The product-version regression guard remains `ProductVersionMarkersMatchTheLocke
 
 ## Change log
 
+### 2026-10-19 forced-color current navigation
+
+**Patch:** current business navigation uses system colors and an underline in
+forced-color mode, preserving a visible current-page cue. The generated Web style
+continues to come from the shared source; semantic tokens are unchanged. The
+rendered browser guard checks the current link's cue and 4.5:1 text contrast in
+that mode. Exact verification and the earlier incomplete reports remain in
+[the current review](../review/WORKSTATION_AND_ADMIN_WEB_2026_10_19.md).
+
+### 2026-10-19 Workstation connection and close state
+
+**Patch:** editing the native service address now clears prior branding and
+signed-in workspace state, cancels the old connection check and requires a new
+check. Canceled responses cannot overwrite the new address's unchecked state.
+Closing the access model is idempotent and prevents subsequent connection updates
+from reopening sign-in. Existing components, tokens, layout and public bindings
+are retained; product version remains `v0.0.1`.
+
+Five new permanent native regressions cover changed-address state and close/late
+responses. The [review receipt](../review/WORKSTATION_AND_ADMIN_WEB_2026_10_19.md)
+records the full native test/format/publication and Linux rendered checks, separately
+from the initial offline model checks. Supported-Windows qualification remains pending.
+
 All entries remain within product `v0.0.1`; classifications do not assign new release numbers.
 
 | Revision / entry | Class | Change and consumer impact |
