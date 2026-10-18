@@ -1,0 +1,113 @@
+@page "/workspace/{TenantId:guid}/quotations"
+@page "/workspace/{TenantId:guid}/quotations/{QuotationId:guid}"
+@attribute [Authorize]
+@rendermode Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer
+@inherits BusinessPage
+
+<PageTitle>Quotations</PageTitle>
+<BusinessShell Identity="Identity" Workspace="Workspace" TenantId="TenantId" Active="quotations" Busy="Busy" Message="@Message" Tone="@Tone">
+    <div class="business-heading"><div><p class="eyebrow">SALES OFFERS</p><h1>Quotations</h1></div><a class="cancel-button" href="@Root">Start a new quotation</a></div>
+    <PendingRequestNotice Command="PendingCommand" />
+    @if (PendingCommand is not null) { <button class="button" disabled="@Busy" @onclick="RetryAsync">Retry saved request</button> }
+    <section class="business-panel" aria-labelledby="quotation-lookup"><h2 id="quotation-lookup">Find a quotation</h2>
+        <p class="panel-copy">Use a saved reference. The service supports quotation lookup and issued history, rather than a quotation directory.</p>
+        <form @onsubmit="FindAsync" @onsubmit:preventDefault><fieldset class="business-form" disabled="@Locked"><legend class="visually-hidden">Quotation lookup</legend>
+            <label for="quotation-reference">Quotation reference</label><input id="quotation-reference" required maxlength="36" @bind="reference" />
+            <button class="cancel-button" type="submit">Load quotation</button>
+        </fieldset></form>
+    </section>
+    @if (quote is { } saved)
+    {
+        <section class="business-panel" aria-label="Quotation identity"><h2>Saved quotation</h2>
+            <dl class="record-facts"><dt>Reference</dt><dd>@saved.QuotationId</dd><dt>Version</dt><dd>@saved.Version</dd><dt>Number</dt><dd>@(saved.Number?.ToString() ?? "Assigned at first issue")</dd><dt>Created (UTC)</dt><dd>@saved.CreatedAt.ToString("u")</dd></dl>
+            <a class="cancel-button" href="@($"{Root}/{saved.QuotationId:D}")">Reload saved quotation</a>
+        </section>
+        @if (saved.Draft is { } draft) { <QuotationOfferView Offer="draft" Label="Saved draft" /> }
+        @if (saved.CurrentIssued is { } issued)
+        {
+            <section class="business-panel" aria-label="Issued revision"><h2>Issued revision @issued.RevisionNumber</h2><p class="record-reference">@issued.RevisionId · Issued (UTC) @issued.IssuedAt.ToString("u") · @issued.IssuedByAccountId</p></section>
+            <QuotationOfferView Offer="issued.Offer" Label="Current immutable issued offer" />
+        }
+        @if (saved.CurrentResponse is { } response) { <QuotationResponseView Response="response" Label="Current recorded response" /> }
+    }
+    @if (commandReceipt is { } receipt)
+    {
+        <section class="business-panel" aria-label="Quotation command receipt"><h2>Recorded outcome</h2><dl class="record-facts"><dt>Quotation</dt><dd>@receipt.QuotationId</dd><dt>Version</dt><dd>@receipt.Version</dd></dl>
+            @if (receipt.Response is { } response) { <QuotationResponseView Response="response" Label="Response in saved command receipt" /> }
+            @if (receipt.Conversion is { } link) { <p>Converted to Order revision @link.OriginalOrder.Revision. This is the retained original conversion identity.</p><a class="button" href="@($"/workspace/{TenantId:D}/orders/{link.OriginalOrder.OrderId:D}")">Open linked order</a> }
+        </section>
+    }
+    else if (quote?.Conversion is { } link)
+    { <section class="business-panel"><h2>Converted quotation</h2><a class="button" href="@($"/workspace/{TenantId:D}/orders/{link.OriginalOrder.OrderId:D}")">Open linked order</a></section> }
+    @if (quote?.CurrentResponse?.Kind != "accepted" && quote?.Conversion is null)
+    {
+        <section class="business-panel" aria-labelledby="quotation-editor"><h2 id="quotation-editor">@(quote is null ? "Create a quotation draft" : "Replace quotation draft")</h2>
+            <p class="panel-copy">Saving retains the complete draft on the service. It does not issue an offer. A replacement preserves all earlier issued facts. Catalog replacements require an explicit conversion revision again for non-base units; quotation detail does not return that revision.</p>
+            <form @onsubmit="DraftAsync" @onsubmit:preventDefault><fieldset class="business-form" disabled="@Locked"><legend class="visually-hidden">Quotation draft</legend>
+                <label for="quotation-summary">Offer summary</label><input id="quotation-summary" required maxlength="200" @bind="summary" />
+                <label for="quotation-currency">Offer currency</label><input id="quotation-currency" required maxlength="3" pattern="[A-Z]{3}" @bind="currency" />
+                <label for="quotation-until">Valid until (ISO timestamp with Z or explicit offset)</label><input id="quotation-until" required maxlength="64" @bind="validUntil" /><span class="field-hint">For example: 2026-12-31T18:00:00+05:45. No lifetime or local midnight is inferred.</span>
+                <label for="quotation-terms">Offer terms (optional)</label><input id="quotation-terms" maxlength="2000" @bind="terms" />
+                <label for="quotation-individual">Individual customer reference (optional)</label><input id="quotation-individual" maxlength="36" @bind="individual" />
+                <label for="quotation-organization">Organization reference (optional)</label><input id="quotation-organization" maxlength="36" @bind="organization" />
+                <label for="quotation-program">Program reference (optional)</label><input id="quotation-program" maxlength="36" @bind="program" />
+                <label for="quotation-mode">Offer pricing mode</label><select id="quotation-mode" @bind="mode"><option value="manual">Supplied prices</option><option value="catalog">Catalog and Pricing</option></select>
+                @if (mode == "catalog") { <label class="check-field"><input type="checkbox" @bind="wholesale" /> Wholesale applies to selection.</label> }
+                @for (var index = 0; index < lines.Count; index++)
+                {
+                    var line = lines[index]; var n = index + 1;
+                    <fieldset class="business-form" @key="line"><legend>Offer line @n</legend>
+                        <label for="@($"quote-quantity-{n}")">Offer quantity @n</label><input id="@($"quote-quantity-{n}")" type="number" required min="0.0001" step="0.0001" @bind="line.Quantity" />
+                        @if (mode == "manual")
+                        {
+                            <label for="@($"quote-description-{n}")">Offer description @n</label><input id="@($"quote-description-{n}")" required maxlength="300" @bind="line.Description" />
+                            <label for="@($"quote-unit-{n}")">Offer unit code @n</label><input id="@($"quote-unit-{n}")" required maxlength="16" pattern="[A-Za-z0-9]+" @bind="line.UnitCode" />
+                            <label for="@($"quote-price-{n}")">Offer unit price @n</label><input id="@($"quote-price-{n}")" type="number" required min="0" step="0.0001" @bind="line.UnitPrice" />
+                        }
+                        else
+                        {
+                            <label for="@($"quote-item-{n}")">Offer item reference @n</label><input id="@($"quote-item-{n}")" required maxlength="36" @bind="line.Item" />
+                            <label for="@($"quote-unit-ref-{n}")">Offer unit reference @n</label><input id="@($"quote-unit-ref-{n}")" required maxlength="36" @bind="line.Unit" />
+                            <label for="@($"quote-conversion-{n}")">Offer conversion revision @n (non-base units)</label><input id="@($"quote-conversion-{n}")" type="number" min="1" step="1" @bind="line.ConversionRevision" />
+                            <label for="@($"quote-override-{n}")">Override price @n (optional)</label><input id="@($"quote-override-{n}")" type="number" min="0" step="0.0001" @bind="line.OverridePrice" />
+                            <label for="@($"quote-reason-{n}")">Override reason @n (required with override)</label><input id="@($"quote-reason-{n}")" maxlength="500" @bind="line.OverrideReason" />
+                        }
+                        @if (lines.Count > 1) { <button class="cancel-button" type="button" @onclick="() => lines.Remove(line)">Remove offer line @n</button> }
+                    </fieldset>
+                }
+                <button class="cancel-button" type="button" disabled="@(lines.Count >= 100)" @onclick="() => lines.Add(new())">Add offer line</button>
+                @if (quote is not null) { <label class="check-field"><input type="checkbox" @bind="replaceConfirmed" /> Replace the complete saved draft with these values.</label> }
+                <button class="button" type="submit" disabled="@(quote is not null && !replaceConfirmed)">@(quote is null ? "Save quotation draft" : "Replace quotation draft")</button>
+            </fieldset></form>
+        </section>
+    }
+    <section class="business-panel" aria-labelledby="quotation-actions"><h2 id="quotation-actions">Issue, response and conversion</h2>
+        <p class="panel-copy">These actions use independent permissions. Known references and versions can be used without quotation-view permission. Customer response evidence is recorded by an operator; it is not a verified customer signature. Each action rechecks current state on the service.</p>
+        <fieldset class="business-form" disabled="@Locked"><legend class="visually-hidden">Exact quotation action</legend>
+            <label for="quotation-action-ref">Action quotation reference</label><input id="quotation-action-ref" maxlength="36" @bind="actionReference" />
+            <label for="quotation-version">Expected quotation version</label><input id="quotation-version" type="number" min="1" step="1" @bind="version" />
+            <label for="quotation-issued-ref">Issued revision reference</label><input id="quotation-issued-ref" maxlength="36" @bind="issuedReference" />
+            <label for="quotation-evidence">Response evidence or expiry reason</label><input id="quotation-evidence" maxlength="2000" @bind="evidence" />
+            <label for="quotation-claim">Responding customer claim (accept/reject)</label><input id="quotation-claim" maxlength="300" @bind="claim" />
+            <label for="quotation-action">Quotation action</label><select id="quotation-action" @bind="action" @bind:after="ClearConfirmation"><option value="issue">Issue saved draft</option><option value="accept">Record acceptance</option><option value="reject">Record rejection</option><option value="expire">Record expiry</option><option value="convert">Convert accepted offer to Order</option></select>
+            <label class="check-field"><input type="checkbox" @bind="actionConfirmed" /> Record this exact action against the entered version and revision.</label>
+            <button class="button @((action is "reject" or "expire" or "cancel" or "recover-cancel") ? "button-danger" : "")" disabled="@(!actionConfirmed)" @onclick="ActAsync">@ActionLabel</button>
+            <button class="cancel-button" @onclick="() => HistoryAsync(0)">Load issued history</button>
+            <button class="cancel-button" @onclick="ReadResponseAsync">Read exact issued response</button>
+        </fieldset>
+    </section>
+    @if (historicalResponse is { } fact) { <QuotationResponseView Response="fact" Label="Historical issued response" /> }
+    @if (history is { } retained)
+    {
+        <section class="business-panel" aria-labelledby="quotation-history"><h2 id="quotation-history">Immutable issued history</h2>
+            @if (retained.Items.Length == 0) { <p class="empty-state">No issued revisions on this page.</p> }
+            @foreach (var item in retained.Items)
+            {
+                <h3>Issued revision @item.RevisionNumber</h3><p class="record-reference">@item.RevisionId · @item.IssuedAt.ToString("u")</p>
+                <QuotationOfferView Offer="item.Offer" Label="Historical offer" />
+                <button class="cancel-button" disabled="@Locked" @onclick="() => SelectIssued(item)">Use issued revision @item.RevisionNumber for response lookup</button>
+            }
+            @if (retained.NextAfterRevision is { } next) { <button class="cancel-button" disabled="@Locked" @onclick="() => HistoryAsync(next)">Next issued revisions</button> }
+        </section>
+    }
+</BusinessShell>

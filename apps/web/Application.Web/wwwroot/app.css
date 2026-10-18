@@ -514,3 +514,234 @@ form .button {
         border-color: ButtonText;
     }
 }
+
+.business-main {
+    inline-size: 100%;
+    flex: 1;
+    padding-block: var(--space-8);
+    min-inline-size: 0;
+}
+.business-heading, .section-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    margin-block-end: var(--space-5);
+}
+.business-heading h1 {
+    font-size: clamp(var(--font-page), 5vw, var(--font-title));
+    margin-block: var(--space-3) var(--space-5);
+}
+.business-navigation {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-block: var(--space-4) var(--space-6);
+}
+.business-navigation a {
+    display: inline-flex;
+    align-items: center;
+    min-block-size: var(--size-control);
+    padding: var(--space-3) var(--space-4);
+    border: var(--border-thin) solid var(--color-control);
+    border-radius: var(--radius-control);
+    background: var(--color-surface);
+    font-size: var(--font-small);
+    font-weight: 600;
+    text-decoration: none;
+}
+.business-navigation a:hover {
+    background: var(--color-subtle);
+}
+.business-navigation a[aria-current="page"] {
+    background: var(--color-action);
+    color: var(--color-onAction);
+}
+.business-columns {
+    display: grid;
+    gap: var(--space-5);
+    align-items: start;
+}
+.business-panel {
+    min-inline-size: 0;
+    padding: var(--space-5);
+    margin-block-end: var(--space-5);
+    border: var(--border-thin) solid var(--color-line);
+    border-radius: var(--radius-panel);
+    background: var(--color-surface);
+    overflow-wrap: anywhere;
+}
+.business-panel h2 {
+    overflow-wrap: anywhere;
+}
+.business-form {
+    display: grid;
+    gap: var(--space-3);
+    min-inline-size: 0;
+    padding: 0;
+    border: 0;
+    margin-block: var(--space-5);
+}
+.business-form-grid > div {
+    display: grid;
+    gap: var(--space-3);
+    min-inline-size: 0;
+}
+.business-form textarea {
+    resize: vertical;
+}
+.business-form label {
+    font-size: var(--font-small);
+    font-weight: 600;
+}
+.business-form input, .business-form select, .business-form textarea {
+    inline-size: 100%;
+    min-inline-size: 0;
+    min-block-size: var(--size-control);
+    padding: var(--space-3);
+    border: var(--border-thin) solid var(--color-control);
+    border-radius: var(--radius-control);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: inherit;
+}
+.business-form input:disabled, .business-form select:disabled, .business-form textarea:disabled {
+    background: var(--color-disabled);
+    color: var(--color-disabledText);
+    cursor: not-allowed;
+}
+.business-form select:focus-visible, .business-form textarea:focus-visible, summary:focus-visible {
+    outline: var(--border-focus) solid var(--color-focus);
+    outline-offset: var(--space-1);
+}
+.business-form .check-field, .check-field {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-block-size: var(--size-control);
+    font-size: var(--font-small);
+}
+.check-field input[type="checkbox"] {
+    inline-size: var(--size-icon);
+    block-size: var(--size-icon);
+    min-block-size: 0;
+    flex-shrink: 0;
+    accent-color: var(--color-action);
+}
+.field-hint, .record-reference {
+    color: var(--color-muted);
+    font-size: var(--font-caption);
+    overflow-wrap: anywhere;
+}
+.record-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.record-list li {
+    display: grid;
+    gap: var(--space-1);
+    padding-block: var(--space-4);
+    border-block-end: var(--border-thin) solid var(--color-line);
+    min-inline-size: 0;
+}
+.record-list a, .record-button {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-3);
+    min-block-size: var(--size-control);
+    min-inline-size: 0;
+    padding: var(--space-2);
+    border: 0;
+    border-radius: var(--radius-control);
+    background: transparent;
+    color: var(--color-text);
+    text-align: start;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    overflow-wrap: anywhere;
+}
+.record-list a:hover, .record-button:hover {
+    background: var(--color-subtle);
+}
+.record-button:disabled {
+    color: var(--color-disabledText);
+    cursor: not-allowed;
+}
+.record-facts {
+    display: grid;
+    gap: var(--space-2);
+    margin-block: var(--space-5);
+    min-inline-size: 0;
+    font-size: var(--font-small);
+}
+.record-facts dt {
+    color: var(--color-muted);
+    font-weight: 600;
+}
+.record-facts dd {
+    margin: 0 0 var(--space-3);
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
+}
+.record-facts a {
+    display: inline-flex;
+    align-items: center;
+    min-block-size: var(--size-control);
+    overflow-wrap: anywhere;
+}
+.state-label {
+    padding: var(--space-2) var(--space-3);
+    border: var(--border-thin) solid var(--color-control);
+    border-radius: var(--radius-control);
+    font-size: var(--font-small);
+}
+.business-details {
+    margin-block: var(--space-5);
+    border-block-start: var(--border-thin) solid var(--color-line);
+    padding-block-start: var(--space-3);
+}
+.business-details summary {
+    min-block-size: var(--size-control);
+    padding-block: var(--space-3);
+    font-weight: 600;
+    cursor: pointer;
+}
+.button-danger {
+    background: var(--color-danger);
+    color: var(--color-onAction);
+}
+.button-danger:hover, .button-danger:active {
+    background: var(--color-danger);
+    text-decoration: underline;
+}
+.price-amount {
+    font-size: var(--font-section);
+    font-weight: 600;
+}
+.visually-hidden {
+    position: absolute;
+    inline-size: var(--border-thin);
+    block-size: var(--border-thin);
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+@media (min-width: 960px) {
+    .business-main {
+        padding-block: var(--space-12);
+    }
+    .business-columns, .business-form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .business-panel {
+        padding: var(--space-6);
+    }
+    .record-facts {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
+        gap: var(--space-3) var(--space-5);
+    }
+}

@@ -1,0 +1,86 @@
+@page "/workspace/{TenantId:guid}/order-approvals"
+@page "/workspace/{TenantId:guid}/order-approvals/{RequestId:guid}"
+@page "/workspace/{TenantId:guid}/orders/{OrderId:guid}/approval"
+@attribute [Authorize]
+@rendermode Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer
+@inherits BusinessPage
+
+<PageTitle>Order approvals</PageTitle>
+<BusinessShell Identity="Identity" Workspace="Workspace" TenantId="TenantId" Active="approvals" Busy="Busy" Message="@Message" Tone="@Tone">
+    <div class="business-heading"><div><p class="eyebrow">INDEPENDENT REVIEW</p><h1>Order approvals</h1></div><a class="cancel-button" href="@Root">Approval inbox</a></div>
+    <PendingRequestNotice Command="PendingCommand" />
+    @if (PendingCommand is not null) { <button class="button" disabled="@Busy" @onclick="RetryAsync">Retry saved request</button> }
+    <section class="business-panel" aria-labelledby="approval-inbox"><div class="section-toolbar"><h2 id="approval-inbox">Durable approval inbox</h2><button class="cancel-button" disabled="@Locked" @onclick="() => BrowseAsync(null)">Refresh approvals</button></div>
+        <label class="check-field"><input type="checkbox" disabled="@Locked" @bind="recovery" /> Inspect current Owner recovery work (requires recovery authority).</label>
+        <p class="panel-copy">Refresh applies this selection. Inbox access is independent of full Order-subject access. Entries describe current observed staleness and assignee availability; reading never changes the request.</p>
+        @if (page is { } inbox)
+        {
+            @if (inbox.Items.Length == 0) { <p class="empty-state">No approval requests on this page.</p> }
+            <ul class="record-list">@foreach (var row in inbox.Items)
+                { <li><a href="@($"{Root}/{row.RequestId:D}")">Request @row.RequestId <ArrowIcon /></a><span>Order @row.OrderId · Order revision @row.OrderRevision · Request revision @row.RequestRevision · @row.State</span><span>Requested by @row.RequestedByAccountId · Assigned to @row.AssignedAccountId</span>
+                    @if (row.SubjectStale) { <strong>The submitted subject is stale. Review the current Order before a new request.</strong> }
+                    @if (row.AssigneeUnavailable) { <strong>The assignee is unavailable. Current Owner recovery or requester cancellation may be needed.</strong> }
+                </li> }</ul>
+            @if (inbox.NextCursor is { } next) { <button class="cancel-button" disabled="@Locked" @onclick="() => BrowseAsync(next)">Next approval requests</button> }
+            @if (after is not null) { <button class="cancel-button" disabled="@Locked" @onclick="() => BrowseAsync(null)">First approval requests</button> }
+        }
+    </section>
+    <div class="business-columns">
+        <section class="business-panel" aria-labelledby="approval-submit"><h2 id="approval-submit">Request exact-revision approval</h2>
+            <p class="panel-copy">Use an eligible independent active account reference. The requester and the author of this revision cannot approve their own work. The service validates membership, independent grants, assignment and the current subject.</p>
+            <form @onsubmit="SubmitAsync" @onsubmit:preventDefault><fieldset class="business-form" disabled="@Locked"><legend class="visually-hidden">Submit approval request</legend>
+                <label for="approval-order">Order reference</label><input id="approval-order" required maxlength="36" @bind="orderReference" />
+                <label for="approval-order-revision">Expected Order revision</label><input id="approval-order-revision" type="number" required min="1" step="1" @bind="orderRevision" />
+                <label for="approval-assignee">Assigned account reference</label><input id="approval-assignee" required maxlength="36" @bind="assignee" />
+                <label for="approval-pending-revision">Existing stale pending request revision (optional)</label><input id="approval-pending-revision" type="number" min="1" step="1" @bind="pendingRevision" />
+                <label class="check-field"><input type="checkbox" @bind="submitConfirmed" /> Submit this exact Order revision; replace a stale pending request only at the explicitly entered request revision.</label>
+                <button class="button" type="submit" disabled="@(!submitConfirmed)">Submit approval request</button>
+                @if (Guid.TryParse(orderReference, out var currentOrder) && currentOrder != Guid.Empty)
+                { <a class="cancel-button" href="@($"/workspace/{TenantId:D}/orders/{currentOrder:D}/program-reference")">Review program reference and pinned policy</a><a class="cancel-button" href="@($"/workspace/{TenantId:D}/orders/{currentOrder:D}")">Review current Order</a> }
+            </fieldset></form>
+        </section>
+        <section class="business-panel" aria-labelledby="approval-lookup"><h2 id="approval-lookup">Read a request and its subject</h2>
+            <form @onsubmit="FindAsync" @onsubmit:preventDefault><fieldset class="business-form" disabled="@Locked"><legend class="visually-hidden">Approval detail lookup</legend>
+                <label for="approval-reference">Approval request reference</label><input id="approval-reference" required maxlength="36" @bind="requestReference" />
+                <button class="cancel-button" type="submit">Load approval request</button><button class="cancel-button" type="button" @onclick="() => HistoryAsync(null)">Load approval history</button>
+            </fieldset></form>
+        </section>
+    </div>
+    @if (detail is { } current)
+    {
+        <section class="business-panel" aria-label="Current approval request"><h2>Request @current.State</h2>
+            <dl class="record-facts"><dt>Request</dt><dd>@current.RequestId</dd><dt>Order</dt><dd>@current.OrderId</dd><dt>Request revision</dt><dd>@current.Revision</dd><dt>Requester</dt><dd>@current.RequestedByAccountId</dd><dt>Assignee</dt><dd>@current.AssignedAccountId</dd><dt>Last actor</dt><dd>@current.LastActorAccountId</dd><dt>Last change</dt><dd>@current.Change</dd><dt>Changed (UTC)</dt><dd>@current.UpdatedAt.ToString("u")</dd><dt>Reason</dt><dd>@(current.Reason ?? "Not supplied")</dd></dl>
+            <a class="cancel-button" href="@($"{Root}/{current.RequestId:D}")">Reload saved approval</a>
+        </section>
+        <ApprovalSubjectView Subject="current.Subject" Label="Current request subject" />
+    }
+    @if (receipt is { } applied)
+    { <section class="business-panel" aria-label="Approval command receipt"><h2>Saved @applied.State receipt</h2><dl class="record-facts"><dt>Request</dt><dd>@applied.RequestId</dd><dt>Order</dt><dd>@applied.OrderId</dd><dt>Order revision</dt><dd>@applied.OrderRevision</dd><dt>Request revision</dt><dd>@applied.RequestRevision</dd></dl><a class="cancel-button" href="@($"{Root}/{applied.RequestId:D}")">Open saved approval request</a><a class="cancel-button" href="@($"/workspace/{TenantId:D}/orders/{applied.OrderId:D}")">Return to Order for separate commitment</a></section> }
+    <section class="business-panel" aria-labelledby="approval-decide"><h2 id="approval-decide">Decision, cancellation and recovery</h2>
+        <p class="panel-copy">Each action checks its own current permission and actor identity. A requester can cancel by a known request reference/revision even after losing view access. Owner recovery never approves the Owner's own work. All actions require the expected request revision.</p>
+        <fieldset class="business-form" disabled="@Locked"><legend class="visually-hidden">Approval transition</legend>
+            <label for="approval-command-reference">Action request reference</label><input id="approval-command-reference" maxlength="36" @bind="commandReference" />
+            <label for="approval-command-revision">Expected request revision</label><input id="approval-command-revision" type="number" min="1" step="1" @bind="requestRevision" />
+            <label for="approval-action">Approval action</label><select id="approval-action" @bind="action" @bind:after="ClearConfirmation"><option value="approve">Approve exact subject</option><option value="reject">Reject request</option><option value="cancel">Cancel my pending request</option><option value="reassign">Owner recovery: reassign</option><option value="recover-cancel">Owner recovery: cancel</option></select>
+            <label for="approval-reason">Decision or recovery reason (required except approval)</label><input id="approval-reason" maxlength="1024" @bind="reason" /><span class="field-hint">Up to 512 Unicode characters without controls.</span>
+            @if (action == "reassign") { <label for="approval-reassign">New assigned account reference</label><input id="approval-reassign" maxlength="36" @bind="newAssignee" /> }
+            <label class="check-field"><input type="checkbox" @bind="actionConfirmed" /> Record this exact action against the entered request revision.</label>
+            <button class="button @((action is "reject" or "expire" or "cancel" or "recover-cancel") ? "button-danger" : "")" disabled="@(!actionConfirmed)" @onclick="TransitionAsync">@ActionLabel</button>
+        </fieldset>
+        @if (action is "reassign" or "recover-cancel")
+        {
+            <p>Recovery requires current initial-Owner authority and recent trusted strong authentication. Verification signs out the old session and returns to Billing. Reopen this saved approval after verification; unsent edits are not retained.</p>
+            @if (!VerificationAvailable) { <p>Fresh identity verification is unavailable. Contact the service operator.</p> }
+            @if (VerificationAvailable && PendingCommand is null)
+            { <form method="post" action="/auth/verify-identity" data-enhance="false"><AntiforgeryToken /><input type="hidden" name="tenantId" value="@TenantId" /><button class="cancel-button" disabled="@Busy" type="submit">Verify identity for approval recovery</button></form> }
+        }
+    </section>
+    @if (history is { } snapshots)
+    {
+        <section class="business-panel" aria-labelledby="approval-history"><h2 id="approval-history">Immutable approval history</h2>
+            @foreach (var entry in snapshots.Items)
+            { <section class="business-panel"><h3>Request revision @entry.Revision · @entry.Change · @entry.State</h3><p>@entry.UpdatedAt.ToString("u") · @entry.LastActorAccountId</p><p>@entry.Reason</p><ApprovalSubjectView Subject="entry.Subject" Label="@($"Request revision {entry.Revision} subject")" /></section> }
+            @if (snapshots.NextRevision is { } next) { <button class="cancel-button" disabled="@Locked" @onclick="() => HistoryAsync(next)">Earlier approval history</button> }
+        </section>
+    }
+</BusinessShell>

@@ -1,4 +1,6 @@
-<a href="#main" class="skip-link" data-enhance-nav="false">Skip to content</a>
+@inject NavigationManager Navigation
+
+<a href="@MainHref" class="skip-link" data-enhance-nav="false">Skip to content</a>
 <div class="entry-shell">
     <ApplicationHeader Identity="Identity" />
     <main id="main" class="@MainClass" tabindex="-1">
@@ -8,6 +10,15 @@
 </div>
 
 @code {
+    private string MainHref
+    {
+        get
+        {
+            var current = Navigation.Uri;
+            var fragment = current.IndexOf('#');
+            return (fragment < 0 ? current : current[..fragment]) + "#main";
+        }
+    }
     [Parameter] public PublicApplicationIdentity? Identity { get; set; }
     [Parameter] public string MainClass { get; set; } = "workspace-main";
     [Parameter] public string FooterLabel { get; set; } = "ONLINE SERVICE CHECK";

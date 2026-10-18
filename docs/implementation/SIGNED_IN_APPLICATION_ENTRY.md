@@ -38,6 +38,7 @@ Authentication:PublicOrigin = canonical HTTPS Web origin
 Authentication:ClientId = registered confidential Web client
 Authentication:ClientSecret = deployment secret; never source or browser
 Authentication:ApiScope = exact CoreApi audience scope
+Authentication:StrongAuthenticationAcr = optional exact deployment-selected ACR for fresh Web correction verification
 ```
 
 Workstation's optional login configuration comes from:
@@ -79,3 +80,15 @@ Its temporary certificate trust is confined to the owned Web test process; it ne
 Primary source basis: [ASP.NET Core server ticket storage](https://learn.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.authentication.cookies.iticketstore?view=aspnetcore-10.0), [Duende automatic native flow](https://docs.duendesoftware.com/identitymodel-oidcclient/automatic/), and the inspected pinned `OidcClient`, `AuthorizeClient`, `Policy` and `NoValidationIdentityTokenValidator` source.
 
 Customers/Orders capability screens, high-risk actions, native protected persistence/sync, installation/update/signing and provider-global revocation remain `NOT_INTRODUCED`. This is not complete product qualification.
+
+## Web fresh identity verification
+
+The bounded commercial Web extension adds `POST /auth/verify-identity` under
+[the Web commercial owner](WEB_COMMERCIAL_WORKSPACE.md). It requires current
+session/antiforgery, invalidates the old server ticket before a fresh PKCE login,
+requests a configured ACR and zero authentication age, and returns to a fixed
+validated tenant Billing route through protected OIDC state. It does not grant
+financial authority, prove that the identity provider honoured the request, or
+change Workstation login. CoreApi independently checks actual trusted token
+claims. Controlled framework/browser tests and live ZITADEL ACR/auth-time
+qualification remain separate evidence.

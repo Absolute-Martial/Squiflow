@@ -1,0 +1,295 @@
+@page "/workspace/{TenantId:guid}/catalog"
+@page "/workspace/{TenantId:guid}/catalog/items/{ItemId:guid}"
+@page "/workspace/{TenantId:guid}/catalog/units/{UnitId:guid}"
+@attribute [Authorize]
+@rendermode Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer
+@inherits BusinessPage
+
+<PageTitle>Catalog</PageTitle>
+<BusinessShell Identity="Identity" Workspace="Workspace" TenantId="TenantId" Active="catalog" Busy="Busy" Message="@Message" Tone="@Tone">
+    <div class="business-heading"><div><p class="eyebrow">PRODUCTS AND SERVICES</p><h1>Catalog</h1></div><a class="cancel-button" href="@Root">Catalog home</a></div>
+    <PendingRequestNotice Command="PendingCommand" />
+    @if (PendingCommand is not null) { <button class="button" disabled="@Busy" @onclick="RetryAsync">Retry saved request</button> }
+    @if (selectedItem is { } item)
+    {
+        <section class="business-panel" aria-label="Item details">
+            <div class="section-toolbar"><div><p class="eyebrow">CATALOG ITEM</p><h2>@item.Name</h2></div><span class="state-label">@item.Status</span></div>
+            <p class="panel-copy">@item.Description</p>
+            <dl class="record-facts"><dt>Reference</dt><dd>@item.ItemId</dd><dt>Code</dt><dd>@(item.Code ?? "Not supplied")</dd><dt>Kind</dt><dd>@item.Kind</dd><dt>Base unit</dt><dd><a href="@($"{Root}/units/{item.BaseUnitId:D}")">@item.BaseUnitId</a></dd><dt>Stock mode</dt><dd>@item.StockMode</dd><dt>Availability</dt><dd>@(item.Availability ?? "Not applicable")</dd><dt>Revision</dt><dd>@item.Revision</dd></dl>
+            <div class="panel-actions actions-inline"><a class="button" href="@($"/workspace/{TenantId:D}/pricing?item={item.ItemId:D}&unit={item.BaseUnitId:D}")">Work with prices <ArrowIcon /></a>
+                <a class="cancel-button" href="@($"{Root}/items/{item.ItemId:D}")">Reload item</a></div>
+            @if (item.Status == "active")
+            {
+                <details class="business-details"><summary>Edit item display</summary>
+                    <form @onsubmit="RenameItemAsync" @onsubmit:preventDefault><fieldset class="business-form" disabled="@(Busy || PendingCommand is not null)">
+                        <legend class="visually-hidden">Item display</legend><label for="edit-item-name">New item name</label><input id="edit-item-name" required maxlength="200" @bind="editName" />
+                        <label for="edit-item-description">New item description (optional)</label><input id="edit-item-description" maxlength="1000" @bind="editDescription" />
+                        <button class="button" type="submit">Save item display</button></fieldset></form>
+                </details>
+                @if (item.StockMode == "availabilityOnly")
+                {
+                    <button class="cancel-button" disabled="@(Busy || PendingCommand is not null)" @onclick="AvailabilityAsync">@(item.Availability == "available" ? "Mark unavailable" : "Mark available")</button>
+                }
+                <details class="business-details"><summary>Retire item</summary>
+                    <p>Retirement is permanent. Historical records remain available.</p>
+                    <label class="check-field"><input type="checkbox" @bind="itemRetireConfirmed" disabled="@(Busy || PendingCommand is not null)" /> Permanently retire this item.</label>
+                    <button class="button button-danger" disabled="@(Busy || PendingCommand is not null || !itemRetireConfirmed)" @onclick="() => RetireAsync(false)">Retire item</button>
+                </details>
+            }
+        </section>
+    }
+    @if (selectedUnit is { } unit)
+    {
+        <section class="business-panel" aria-label="Unit details">
+            <div class="section-toolbar"><div><p class="eyebrow">UNIT</p><h2>@unit.Name</h2></div><span class="state-label">@unit.Status</span></div>
+            <dl class="record-facts"><dt>Reference</dt><dd>@unit.UnitId</dd><dt>Code</dt><dd>@unit.Code</dd><dt>Decimal places</dt><dd>@unit.Precision</dd><dt>Revision</dt><dd>@unit.Revision</dd></dl>
+            <a class="cancel-button" href="@($"{Root}/units/{unit.UnitId:D}")">Reload unit</a>
+            @if (unit.Status == "active")
+            {
+                <details class="business-details"><summary>Edit unit name</summary>
+                    <form @onsubmit="RenameUnitAsync" @onsubmit:preventDefault><fieldset class="business-form" disabled="@(Busy || PendingCommand is not null)">
+                        <legend class="visually-hidden">Unit display</legend><label for="edit-unit-name">New unit name</label><input id="edit-unit-name" required maxlength="200" @bind="editUnitName" />
+                        <button class="button" type="submit">Save unit name</button>
+                    </fieldset></form>
+                </details>
+                <details class="business-details"><summary>Retire unit</summary>
+                    <p>Retirement is permanent. Historical records remain available.</p>
+                    <label class="check-field"><input type="checkbox" @bind="unitRetireConfirmed" disabled="@(Busy || PendingCommand is not null)" /> Permanently retire this unit.</label>
+                    <button class="button button-danger" disabled="@(Busy || PendingCommand is not null || !unitRetireConfirmed)" @onclick="() => RetireAsync(true)">Retire unit</button>
+                </details>
+            }
+        </section>
+    }
+    <div class="business-columns">
+        <section class="business-panel" aria-labelledby="items-heading">
+            <div class="section-toolbar"><h2 id="items-heading">Items</h2><button class="cancel-button" disabled="@(Busy || PendingCommand is not null)" @onclick="() => RefreshItemsAsync(null)">Refresh items</button></div>
+            @if (items is { } itemPage)
+            {
+                @if (itemPage.Items.Length == 0) { <p class="empty-state">No items on this page. Create a unit, then add a product or service.</p> }
+                <ul class="record-list">@foreach (var row in itemPage.Items)
+                    { <li @key="row.ItemId"><a href="@($"{Root}/items/{row.ItemId:D}")">@row.Name <ArrowIcon /></a><span class="record-reference">@(row.Code ?? "No code") · @row.Kind · @row.Status</span></li> }</ul>
+                <div class="picker-pagination">
+                    @if (itemPage.NextCursor is { } next) { <button class="cancel-button" disabled="@(Busy || PendingCommand is not null)" @onclick="() => RefreshItemsAsync(next)">Next items</button> }
+                    @if (itemAfter is not null) { <button class="cancel-button" disabled="@(Busy || PendingCommand is not null)" @onclick="() => RefreshItemsAsync(null)">First items</button> }
+                </div>
+            }
+            else if (!Busy) { <p class="empty-state">Item browse is unavailable. Refresh to check current access.</p> }
+        </section>
+        <section class="business-panel" aria-labelledby="new-item-heading">
+            <h2 id="new-item-heading">Create an item</h2>
+            <form @onsubmit="CreateItemAsync" @onsubmit:preventDefault>
+                <fieldset class="business-form" disabled="@(Busy || PendingCommand is not null)"><legend class="visually-hidden">New catalog item</legend>
+                    <label for="item-name">Item name</label><input id="item-name" required maxlength="200" @bind="itemName" />
+                    <label for="item-code">Item code (optional)</label><input id="item-code" maxlength="64" @bind="itemCode" />
+                    <label for="item-description">Description (optional)</label><input id="item-description" maxlength="1000" @bind="itemDescription" />
+                    <label for="item-kind">Kind</label><select id="item-kind" @bind="kind"><option value="service">Service</option><option value="product">Product</option></select>
+                    <label for="item-base-unit">Base unit</label><select id="item-base-unit" required @bind="baseUnit"><option value="">Choose an active unit</option>
+                        @if (units is { } availableUnits) { @foreach (var row in availableUnits.Items.Where(row => row.Status == "active")) { <option value="@row.UnitId.ToString("D")">@row.Name (@row.Code)</option> } }
+                    </select>
+                    <label for="item-unit-reference">Or enter a base unit reference</label><input id="item-unit-reference" maxlength="36" @bind="unitReference" />
+                    <span class="field-hint">Use a reference when the unit is on another page or catalog viewing is restricted.</span>
+                    <label for="item-stock-mode">Stock mode</label><select id="item-stock-mode" @bind="stockMode"><option value="nonStock">Non-stock</option><option value="availabilityOnly">Availability only</option><option value="preciseStock">Precise stock flag</option></select>
+                    <span class="field-hint">Stock mode does not introduce numerical inventory. Availability-only items begin unavailable.</span>
+                    <button class="button" type="submit">Create item <ArrowIcon /></button>
+                </fieldset>
+            </form>
+        </section>
+        <section class="business-panel" aria-labelledby="units-heading">
+            <div class="section-toolbar"><h2 id="units-heading">Units</h2><button class="cancel-button" disabled="@(Busy || PendingCommand is not null)" @onclick="() => RefreshUnitsAsync(null)">Refresh units</button></div>
+            @if (units is { } unitPage)
+            {
+                @if (unitPage.Items.Length == 0) { <p class="empty-state">No units on this page. Add the unit you sell in.</p> }
+                <ul class="record-list">@foreach (var row in unitPage.Items)
+                    { <li @key="row.UnitId"><a href="@($"{Root}/units/{row.UnitId:D}")">@row.Name <ArrowIcon /></a><span class="record-reference">@row.Code · @row.Precision decimal places · @row.Status</span></li> }</ul>
+                <div class="picker-pagination">
+                    @if (unitPage.NextCursor is { } next) { <button class="cancel-button" disabled="@(Busy || PendingCommand is not null)" @onclick="() => RefreshUnitsAsync(next)">Next units</button> }
+                    @if (unitAfter is not null) { <button class="cancel-button" disabled="@(Busy || PendingCommand is not null)" @onclick="() => RefreshUnitsAsync(null)">First units</button> }
+                </div>
+            }
+            else if (!Busy) { <p class="empty-state">Unit browse is unavailable. Refresh to check current access.</p> }
+        </section>
+        <section class="business-panel" aria-labelledby="new-unit-heading">
+            <h2 id="new-unit-heading">Create a unit</h2><p class="panel-copy">Code and decimal precision define the unit's meaning and cannot be changed later.</p>
+            <form @onsubmit="CreateUnitAsync" @onsubmit:preventDefault>
+                <fieldset class="business-form" disabled="@(Busy || PendingCommand is not null)"><legend class="visually-hidden">New catalog unit</legend>
+                    <label for="unit-name">Unit name</label><input id="unit-name" required maxlength="200" @bind="unitName" />
+                    <label for="unit-code">Unit code</label><input id="unit-code" required maxlength="64" pattern="[A-Za-z0-9_\-]+" @bind="unitCode" />
+                    <label for="unit-precision">Decimal places</label><input id="unit-precision" type="number" required min="0" max="9" step="1" @bind="precision" />
+                    <button class="button" type="submit">Create unit <ArrowIcon /></button>
+                </fieldset>
+            </form>
+        </section>
+    </div>
+    <section class="business-panel" aria-labelledby="conversion-heading">
+        <h2 id="conversion-heading">Direct unit conversions</h2>
+        <p class="panel-copy">Target quantity = source quantity × numerator ÷ denominator. Each published revision is immutable; reverse conversions are separate. Use zero as the expected revision for first publication.</p>
+        <fieldset class="business-form business-form-grid" disabled="@(Busy || PendingCommand is not null)"><legend class="visually-hidden">Direct conversion</legend>
+            <div><label for="conversion-source">Source unit reference</label><input id="conversion-source" maxlength="36" @bind="conversionSource" /></div>
+            <div><label for="conversion-target">Target unit reference</label><input id="conversion-target" maxlength="36" @bind="conversionTarget" /></div>
+            <div><label for="conversion-revision">Expected or lookup revision</label><input id="conversion-revision" type="number" min="0" step="1" @bind="conversionRevision" /></div>
+            <div><label for="conversion-numerator">Numerator</label><input id="conversion-numerator" type="number" min="0.000000001" step="0.000000001" @bind="numerator" /></div>
+            <div><label for="conversion-denominator">Denominator</label><input id="conversion-denominator" type="number" min="0.000000001" step="0.000000001" @bind="denominator" /></div>
+            <label class="check-field"><input type="checkbox" @bind="conversionConfirmed" /> Publish this exact conversion as a new revision.</label>
+            <button class="cancel-button" @onclick="ReadConversionAsync">Read conversion revision</button>
+            <button class="button" disabled="@(!conversionConfirmed)" @onclick="PublishConversionAsync">Publish conversion</button>
+        </fieldset>
+        @if (conversion is { } savedConversion)
+        { <dl class="record-facts"><dt>Source</dt><dd>@savedConversion.SourceUnitId</dd><dt>Target</dt><dd>@savedConversion.TargetUnitId</dd><dt>Revision</dt><dd>@savedConversion.Revision</dd><dt>Factor</dt><dd>@savedConversion.Numerator / @savedConversion.Denominator</dd></dl> }
+    </section>
+</BusinessShell>
+
+@code {
+    [Parameter] public Guid? ItemId { get; set; }
+    [Parameter] public Guid? UnitId { get; set; }
+    private CatalogItemPage? items;
+    private CatalogUnitPage? units;
+    private CatalogItem? selectedItem;
+    private CatalogUnit? selectedUnit;
+    private string? itemAfter;
+    private string? unitAfter;
+    private string itemName = "", itemCode = "", itemDescription = "", unitName = "", unitCode = "", baseUnit = "", unitReference = "";
+    private string kind = "service", stockMode = "nonStock", editName = "", editDescription = "", pendingAction = "";
+    private int precision;
+    private string editUnitName = "", conversionSource = "", conversionTarget = "";
+    private bool itemRetireConfirmed, unitRetireConfirmed, conversionConfirmed;
+    private long conversionRevision;
+    private decimal numerator = 1, denominator = 1;
+    private CatalogConversion? conversion;
+    private string Root => $"/workspace/{TenantId:D}/catalog";
+    protected override void Reset()
+    {
+        items = null; units = null; selectedItem = null; selectedUnit = null; itemAfter = null; unitAfter = null;
+        itemName = itemCode = itemDescription = unitName = unitCode = baseUnit = unitReference = editName = editDescription = pendingAction = "";
+        kind = "service"; stockMode = "nonStock"; precision = 0;
+        editUnitName = conversionSource = conversionTarget = ""; itemRetireConfirmed = unitRetireConfirmed = conversionConfirmed = false;
+        conversionRevision = 0; numerator = denominator = 1; conversion = null;
+    }
+    protected override async Task LoadAsync(CancellationToken ct)
+    {
+        await ReadUnitsAsync(null, ct);
+        await ReadItemsAsync(null, ct);
+        if (ItemId is { } itemId)
+        {
+            var result = await Api.GetAsync<CatalogItem>(TenantId, $"catalog/items/{itemId:D}", row => CatalogPricingContracts.Item(row, itemId), ct);
+            selectedItem = result.Value; Show(result);
+            if (selectedItem is { } item) { editName = item.Name; editDescription = item.Description ?? ""; }
+        }
+        if (UnitId is { } unitId)
+        {
+            var result = await Api.GetAsync<CatalogUnit>(TenantId, $"catalog/units/{unitId:D}", row => CatalogPricingContracts.Unit(row, unitId), ct);
+            selectedUnit = result.Value; editUnitName = selectedUnit?.Name ?? ""; Show(result);
+        }
+    }
+    private Task RefreshItemsAsync(string? cursor) => RunAsync(ct => ReadItemsAsync(cursor, ct));
+    private Task RefreshUnitsAsync(string? cursor) => RunAsync(ct => ReadUnitsAsync(cursor, ct));
+    private async Task ReadItemsAsync(string? cursor, CancellationToken ct)
+    {
+        items = null; itemAfter = cursor;
+        var result = await Api.GetAsync<CatalogItemPage>(TenantId, BusinessValidation.PagePath("catalog/items", cursor),
+            page => BusinessValidation.Page(page.Items, page.NextCursor, row => CatalogPricingContracts.Item(row), row => row.ItemId) && (page.NextCursor is null || page.NextCursor != cursor), ct);
+        items = result.Value; Show(result);
+    }
+    private async Task ReadUnitsAsync(string? cursor, CancellationToken ct)
+    {
+        units = null; unitAfter = cursor;
+        var result = await Api.GetAsync<CatalogUnitPage>(TenantId, BusinessValidation.PagePath("catalog/units", cursor),
+            page => BusinessValidation.Page(page.Items, page.NextCursor, row => CatalogPricingContracts.Unit(row), row => row.UnitId) && (page.NextCursor is null || page.NextCursor != cursor), ct);
+        units = result.Value; Show(result);
+    }
+    private Task CreateUnitAsync() => RunAsync(async ct =>
+    {
+        if (PendingCommand is null && (!BusinessValidation.Text(unitName, 200) || !BusinessValidation.Text(unitCode, 64) || precision is < 0 or > 9))
+        { Message = "Enter a unit name, code and decimal precision from 0 to 9."; Tone = "error"; return; }
+        pendingAction = "unit";
+        var value = await SaveAsync<CatalogUnit>("catalog/units", new { code = unitCode, name = unitName, precision }, row => CatalogPricingContracts.Unit(row), ct);
+        if (value is not null) { selectedUnit = value; unitRetireConfirmed = false; editUnitName = value.Name; unitName = unitCode = ""; baseUnit = value.UnitId.ToString("D"); await RefreshAfterSaveAsync(ct); }
+    });
+    private Task CreateItemAsync() => RunAsync(async ct =>
+    {
+        if (!Guid.TryParse(string.IsNullOrWhiteSpace(unitReference) ? baseUnit : unitReference, out var unitId) || unitId == Guid.Empty || !BusinessValidation.Text(itemName, 200))
+        { Message = "Enter an item name and select or enter its active base unit."; Tone = "error"; return; }
+        pendingAction = "item";
+        var value = await SaveAsync<CatalogItem>("catalog/items", new { code = string.IsNullOrWhiteSpace(itemCode) ? null : itemCode, name = itemName,
+            description = string.IsNullOrWhiteSpace(itemDescription) ? null : itemDescription, kind, baseUnitId = unitId, stockMode }, row => CatalogPricingContracts.Item(row) && row.BaseUnitId == unitId, ct);
+        if (value is not null) { selectedItem = value; itemRetireConfirmed = false; editName = value.Name; editDescription = value.Description ?? ""; itemName = itemCode = itemDescription = ""; await RefreshAfterSaveAsync(ct); }
+    });
+    private Task RenameItemAsync() => RunAsync(async ct =>
+    {
+        if (selectedItem is not { } item) return;
+        pendingAction = "display";
+        var value = await SaveAsync<CatalogChange>($"catalog/items/{item.ItemId:D}/display", new { expectedRevision = item.Revision, name = editName, description = editDescription },
+            row => row.Id == item.ItemId && row.Revision > item.Revision && row.Status == "active", ct);
+        if (value is not null) selectedItem = item with { Name = editName, Description = editDescription, Revision = value.Revision };
+    });
+    private Task AvailabilityAsync() => RunAsync(async ct =>
+    {
+        if (selectedItem is not { } item) return;
+        var availability = item.Availability == "available" ? "unavailable" : "available";
+        pendingAction = "availability";
+        var value = await SaveAsync<CatalogChange>($"catalog/items/{item.ItemId:D}/availability", new { expectedRevision = item.Revision, availability },
+            row => row.Id == item.ItemId && row.Revision > item.Revision && row.Status == availability && row.ChangedAt.HasValue, ct);
+        if (value is not null) selectedItem = item with { Availability = value.Status, Revision = value.Revision, AvailabilityChangedAt = value.ChangedAt };
+    });
+    private async Task RefreshAfterSaveAsync(CancellationToken ct)
+    {
+        var receiptMessage = Message;
+        await ReadUnitsAsync(null, ct);
+        if (Workspace is null) return;
+        var unitReadFailed = Tone == "error";
+        await ReadItemsAsync(null, ct);
+        if (Workspace is null) return;
+        var readFailed = unitReadFailed || Tone == "error";
+        Message = receiptMessage + (readFailed ? " The save receipt is confirmed, but a catalog list could not be refreshed." : "");
+        Tone = readFailed ? "warning" : "ready";
+    }
+    private Task RetryAsync() => pendingAction switch { "unit" => CreateUnitAsync(), "item" => CreateItemAsync(), "display" => RenameItemAsync(), "availability" => AvailabilityAsync(), "unit-name" => RenameUnitAsync(), "retire-unit" => RetireAsync(true), "retire-item" => RetireAsync(false), "conversion" => PublishConversionAsync(), _ => Task.CompletedTask };
+    private Task RenameUnitAsync() => RunAsync(async ct =>
+    {
+        if (selectedUnit is not { } unit || !BusinessValidation.Text(editUnitName, 200)) return;
+        pendingAction = "unit-name";
+        var value = await SaveAsync<CatalogChange>($"catalog/units/{unit.UnitId:D}/display", new { expectedRevision = unit.Revision, name = editUnitName },
+            row => row.Id == unit.UnitId && row.Revision == unit.Revision + 1 && row.Status == "active", ct);
+        if (value is not null) selectedUnit = unit with { Name = editUnitName, Revision = value.Revision };
+    });
+    private Task RetireAsync(bool isUnit) => RunAsync(async ct =>
+    {
+        if (PendingCommand is null && !(isUnit ? unitRetireConfirmed : itemRetireConfirmed)) return;
+        var id = isUnit ? selectedUnit?.UnitId : selectedItem?.ItemId;
+        var revision = isUnit ? selectedUnit?.Revision : selectedItem?.Revision;
+        if (id is null || revision is null) return;
+        pendingAction = isUnit ? "retire-unit" : "retire-item";
+        var value = await SaveAsync<CatalogChange>($"catalog/{(isUnit ? "units" : "items")}/{id:D}/retire", new { expectedRevision = revision },
+            row => row.Id == id && row.Revision == revision + 1 && row.Status == "retired" && row.ChangedAt.HasValue, ct);
+        if (value is not null)
+        {
+            if (isUnit) selectedUnit = selectedUnit! with { Status = "retired", Revision = value.Revision, RetiredAt = value.ChangedAt };
+            else selectedItem = selectedItem! with { Status = "retired", Revision = value.Revision, RetiredAt = value.ChangedAt };
+            itemRetireConfirmed = unitRetireConfirmed = false;
+        }
+    });
+    private bool ConversionContext(out Guid source, out Guid target)
+    {
+        var sourceValid = Guid.TryParse(conversionSource, out source);
+        var targetValid = Guid.TryParse(conversionTarget, out target);
+        if (sourceValid && targetValid && source != Guid.Empty && target != Guid.Empty && source != target && conversionRevision >= 0) return true;
+        Message = "Enter two different unit references and a nonnegative revision."; Tone = "error"; return false;
+    }
+    private static bool ValidConversion(CatalogConversion row, Guid source, Guid target, long revision) =>
+        row.SourceUnitId == source && row.TargetUnitId == target && row.Revision == revision && row.Numerator > 0 && row.Denominator > 0 && row.PublishedAt != default;
+    private Task ReadConversionAsync() => RunAsync(async ct =>
+    {
+        conversion = null;
+        if (!ConversionContext(out var source, out var target) || conversionRevision < 1) { Message = "Enter a positive lookup revision and two different unit references."; Tone = "error"; return; }
+        var result = await Api.GetAsync<CatalogConversion>(TenantId, $"catalog/units/{source:D}/conversions/{target:D}?revision={conversionRevision}", row => ValidConversion(row, source, target, conversionRevision), ct);
+        conversion = result.Value; Show(result);
+    });
+    private Task PublishConversionAsync() => RunAsync(async ct =>
+    {
+        if (!ConversionContext(out var source, out var target) || (PendingCommand is null && (!conversionConfirmed || numerator <= 0 || denominator <= 0)))
+        { Message = "Confirm a conversion with positive factors."; Tone = "error"; return; }
+        pendingAction = "conversion";
+        var value = await SaveAsync<CatalogConversion>($"catalog/units/{source:D}/conversions/{target:D}", new { expectedRevision = conversionRevision, numerator, denominator },
+            row => ValidConversion(row, source, target, conversionRevision + 1), ct);
+        if (value is not null) { conversion = value; conversionRevision = value.Revision; conversionConfirmed = false; }
+    });
+}

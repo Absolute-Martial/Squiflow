@@ -1,0 +1,225 @@
+@page "/workspace/{TenantId:guid}/pricing"
+@attribute [Authorize]
+@rendermode Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer
+@inherits BusinessPage
+@using System.Globalization
+
+<PageTitle>Pricing</PageTitle>
+<BusinessShell Identity="Identity" Workspace="Workspace" TenantId="TenantId" Active="pricing" Busy="Busy" Message="@Message" Tone="@Tone">
+    <div class="business-heading"><div><p class="eyebrow">SELLING PRICES</p><h1>Pricing</h1></div></div>
+    <PendingRequestNotice Command="PendingCommand" />
+    @if (PendingCommand is not null) { <button class="button" disabled="@Busy" @onclick="RetryAsync">Retry saved request</button> }
+    <section class="business-panel" aria-labelledby="price-context">
+        <h2 id="price-context">Item and selection context</h2><p class="panel-copy">Use catalog references. Prices and selection are checked by the service for this workspace.</p>
+        <fieldset class="business-form business-form-grid" disabled="@(Busy || PendingCommand is not null)"><legend class="visually-hidden">Pricing context</legend>
+            <div><label for="price-item">Item reference</label><input id="price-item" required maxlength="36" @bind="itemReference" /></div>
+            <div><label for="price-unit">Unit reference</label><input id="price-unit" required maxlength="36" @bind="unitReference" /></div>
+            <div><label for="price-currency">Currency</label><input id="price-currency" required maxlength="3" pattern="[A-Z]{3}" @bind="currency" /></div>
+            <div><label for="price-conversion">Direct conversion revision (optional)</label><input id="price-conversion" type="number" min="1" step="1" @bind="conversionRevision" /></div>
+            <div><label for="price-customer">Individual customer reference (optional)</label><input id="price-customer" maxlength="36" @bind="customerReference" /></div>
+            <div><label for="price-organization">Organization reference (optional)</label><input id="price-organization" maxlength="36" @bind="organizationReference" /></div>
+            <div><label for="price-program">Program reference (optional)</label><input id="price-program" maxlength="36" @bind="programReference" /></div>
+            <label class="check-field"><input type="checkbox" @bind="wholesale" /> Wholesale applies to this selection</label>
+        </fieldset>
+        <div class="panel-actions actions-inline">
+            <button class="button" disabled="@(Busy || PendingCommand is not null)" @onclick="ResolveAsync">Resolve current price <ArrowIcon /></button>
+            <button class="cancel-button" disabled="@(Busy || PendingCommand is not null)" @onclick="() => HistoryAsync(null)">Load price history</button>
+        </div>
+        @if (resolution is { } resolved)
+        {
+            <div class="status-box @(resolved.Status == "PriceResolved" ? "ready" : "warning")" role="status">
+                <div><strong class="status-title">@ResolutionTitle(resolved.Status)</strong>
+                    @if (resolved.UnitPrice is { } amount) { <p class="price-amount">@amount.ToString("0.0000", CultureInfo.InvariantCulture) @resolvedCurrency</p> }
+                    <p class="status-detail">@resolved.Why</p>
+                    <p class="record-reference">Evaluated (UTC): @resolved.EvaluatedAt.ToString("u") · Policy revision: @resolved.PolicyRevision</p>
+                    @if (resolved.RevisionId is { } revision) { <p class="record-reference">Selected revision: @revision</p> }
+                </div>
+            </div>
+        }
+    </section>
+    <div class="business-columns">
+        <section class="business-panel" aria-labelledby="new-price">
+            <h2 id="new-price">Draft a price</h2><p class="panel-copy">A draft does not take effect until a separately authorized publication. All times below are UTC.</p>
+            <form @onsubmit="DraftAsync" @onsubmit:preventDefault><fieldset class="business-form" disabled="@(Busy || PendingCommand is not null)"><legend class="visually-hidden">Price draft</legend>
+                <label for="price-scope">Price scope</label><select id="price-scope" @bind="scope"><option value="default">Default</option><option value="wholesale">Wholesale</option><option value="customer">Individual customer</option><option value="organization">Organization</option><option value="program">Program</option></select>
+                <label for="price-target">Scope target reference (required for customer, organization or program)</label><input id="price-target" maxlength="36" @bind="targetReference" />
+                <label for="price-amount">Base unit price</label><input id="price-amount" type="number" required min="0" max="999999999999999.9999" step="0.0001" @bind="unitPrice" />
+                <label for="price-valid-from">Valid from (UTC)</label><input id="price-valid-from" type="datetime-local" required @bind="validFrom" />
+                <label for="price-valid-to">Valid to (UTC, optional)</label><input id="price-valid-to" type="datetime-local" @bind="validTo" />
+                <label for="price-existing">Existing price reference (optional, for its next revision)</label><input id="price-existing" maxlength="36" @bind="priceReference" />
+                <button class="button" type="submit">Save price draft <ArrowIcon /></button>
+            </fieldset></form>
+        </section>
+        <section class="business-panel" aria-labelledby="revision-controls">
+            <h2 id="revision-controls">Review and publish</h2><p class="panel-copy">Read, publish and retire are separate permissions. You can use a known revision reference even when history viewing is unavailable.</p>
+            <fieldset class="business-form" disabled="@(Busy || PendingCommand is not null)"><legend class="visually-hidden">Price revision actions</legend>
+                <label for="price-revision">Price revision reference</label><input id="price-revision" maxlength="36" @bind="revisionReference" />
+                <button class="cancel-button" @onclick="ReadRevisionAsync">Read revision</button>
+                <label for="price-supersede">Published revision to supersede (optional)</label><input id="price-supersede" maxlength="36" @bind="supersedeReference" />
+                <label class="check-field"><input type="checkbox" @bind="publishConfirmed" /> Publish this exact revision and its validity period.</label>
+                <button class="button" disabled="@(!publishConfirmed)" @onclick="PublishAsync">Publish price revision</button>
+                <details class="business-details"><summary>Retire a revision</summary><p class="panel-copy">Retirement stops this revision being selected for new work and preserves historical records.</p>
+                    <label class="check-field"><input type="checkbox" @bind="retireConfirmed" /> Retire the referenced price revision.</label>
+                    <button class="button button-danger" disabled="@(!retireConfirmed)" @onclick="RetireAsync">Retire price revision</button>
+                </details>
+            </fieldset>
+        </section>
+    </div>
+    @if (price is { } current)
+    {
+        <section class="business-panel" aria-label="Price revision receipt">
+            <div class="section-toolbar"><h2>Price revision @current.Revision</h2><span class="state-label">@current.State</span></div>
+            <dl class="record-facts"><dt>Price</dt><dd>@current.PriceId</dd><dt>Revision reference</dt><dd>@current.RevisionId</dd><dt>Item</dt><dd>@current.ItemId</dd><dt>Unit</dt><dd>@current.UnitCode (@current.UnitId)</dd><dt>Base unit price</dt><dd>@current.BaseUnitPrice.ToString("0.0000", CultureInfo.InvariantCulture) @current.CurrencyCode</dd><dt>Scope</dt><dd>@current.Scope @(current.TargetId?.ToString("D"))</dd><dt>Valid from (UTC)</dt><dd>@current.ValidFrom.ToString("u")</dd><dt>Valid to (UTC)</dt><dd>@(current.ValidTo?.ToString("u") ?? "No end date")</dd></dl>
+        </section>
+    }
+    @if (history is { } revisions)
+    {
+        <section class="business-panel" aria-labelledby="history-heading">
+            <h2 id="history-heading">Price history</h2><p class="panel-copy">@historyContext</p>
+            @if (revisions.Items.Length == 0) { <p class="empty-state">No price revisions for this context on this page.</p> }
+            <ul class="record-list">@foreach (var row in revisions.Items)
+                { <li @key="row.RevisionId"><button class="record-button" disabled="@(Busy || PendingCommand is not null)" @onclick="() => SelectRevision(row)">Revision @row.Revision · @row.Scope · @row.State</button><span>@row.BaseUnitPrice.ToString("0.0000", CultureInfo.InvariantCulture) @row.CurrencyCode / @row.UnitCode</span><span class="record-reference">@row.RevisionId</span></li> }</ul>
+            @if (revisions.AfterRevision is { } next) { <button class="cancel-button" disabled="@(Busy || PendingCommand is not null)" @onclick="() => HistoryAsync(next)">Next price revisions</button> }
+        </section>
+    }
+    <section class="business-panel" aria-labelledby="policy-heading">
+        <div class="section-toolbar"><h2 id="policy-heading">Pricing policy</h2><button class="cancel-button" disabled="@(Busy || PendingCommand is not null)" @onclick="ReadPolicyAsync">Load current policy</button></div>
+        @if (policy is { } currentPolicy)
+        {
+            <dl class="record-facts"><dt>Policy revision</dt><dd>@currentPolicy.Policy.PolicyRevision</dd><dt>Minimum unit price</dt><dd>@currentPolicy.Policy.MinimumUnitPrice</dd><dt>Maximum unit price</dt><dd>@currentPolicy.Policy.MaximumUnitPrice</dd><dt>Maximum decrease</dt><dd>@(currentPolicy.Policy.MaximumDecreasePercent?.ToString(CultureInfo.InvariantCulture) ?? "No percentage limit")</dd><dt>Maximum increase</dt><dd>@(currentPolicy.Policy.MaximumIncreasePercent?.ToString(CultureInfo.InvariantCulture) ?? "No percentage limit")</dd></dl>
+        }
+        <details class="business-details"><summary>Publish a pricing policy</summary><p class="panel-copy">Requires pricing publication permission. Enter revision zero only for the first policy; otherwise load the current policy before replacing it.</p>
+            <form @onsubmit="PolicyAsync" @onsubmit:preventDefault><fieldset class="business-form" disabled="@(Busy || PendingCommand is not null)"><legend class="visually-hidden">Policy publication</legend>
+                <label for="policy-revision">Expected policy revision</label><input id="policy-revision" type="number" required min="0" step="1" @bind="policyRevision" />
+                <label for="policy-minimum">Minimum unit price</label><input id="policy-minimum" type="number" required min="0" step="0.0001" @bind="minimumPrice" />
+                <label for="policy-maximum">Maximum unit price</label><input id="policy-maximum" type="number" required min="0" step="0.0001" @bind="maximumPrice" />
+                <label for="policy-decrease">Maximum decrease percent (optional)</label><input id="policy-decrease" type="number" min="0" max="100" step="0.0001" @bind="maximumDecrease" />
+                <label for="policy-increase">Maximum increase percent (optional)</label><input id="policy-increase" type="number" min="0" max="10000" step="0.0001" @bind="maximumIncrease" />
+                <label class="check-field"><input type="checkbox" @bind="policyConfirmed" /> Publish these limits as the next policy revision.</label>
+                <button class="button" type="submit" disabled="@(!policyConfirmed)">Publish pricing policy</button>
+            </fieldset></form>
+        </details>
+    </section>
+</BusinessShell>
+
+@code {
+    [SupplyParameterFromQuery(Name = "item")] public Guid? Item { get; set; }
+    [SupplyParameterFromQuery(Name = "unit")] public Guid? Unit { get; set; }
+    private string itemReference = "", unitReference = "", currency = "NPR", scope = "default", targetReference = "", priceReference = "";
+    private string customerReference = "", organizationReference = "", programReference = "", revisionReference = "", supersedeReference = "";
+    private DateTime? validFrom;
+    private DateTime? validTo;
+    private string pendingAction = "", resolvedCurrency = "", historyContext = "";
+    private long? conversionRevision;
+    private bool wholesale, publishConfirmed, retireConfirmed, policyConfirmed;
+    private decimal unitPrice, minimumPrice, maximumPrice;
+    private decimal? maximumDecrease, maximumIncrease;
+    private long policyRevision;
+    private PriceRevision? price;
+    private PriceResolution? resolution;
+    private PriceHistory? history;
+    private PricingPolicy? policy;
+
+    protected override void Reset()
+    {
+        itemReference = Item?.ToString("D") ?? ""; unitReference = Unit?.ToString("D") ?? ""; currency = "NPR"; scope = "default";
+        targetReference = priceReference = customerReference = organizationReference = programReference = revisionReference = supersedeReference = pendingAction = resolvedCurrency = historyContext = "";
+        validFrom = DateTime.SpecifyKind(DateTime.UtcNow.Date, DateTimeKind.Unspecified); validTo = null; conversionRevision = null;
+        wholesale = publishConfirmed = retireConfirmed = policyConfirmed = false; unitPrice = minimumPrice = maximumPrice = 0;
+        maximumDecrease = maximumIncrease = null; policyRevision = 0; price = null; resolution = null; history = null; policy = null;
+    }
+    private static bool OptionalId(string text, out Guid? id)
+    {
+        id = null;
+        if (string.IsNullOrWhiteSpace(text)) return true;
+        if (!Guid.TryParse(text, out var value) || value == Guid.Empty) return false;
+        id = value; return true;
+    }
+    private bool Context(out Guid item, out Guid unit)
+    {
+        var itemValid = Guid.TryParse(itemReference, out item);
+        var unitValid = Guid.TryParse(unitReference, out unit);
+        if (itemValid && unitValid && item != Guid.Empty && unit != Guid.Empty && CatalogPricingContracts.Currency(currency) && (!conversionRevision.HasValue || conversionRevision > 0)) return true;
+        Message = "Enter item and unit references, a three-letter uppercase currency, and a positive conversion revision when needed."; Tone = "error"; return false;
+    }
+    private Task DraftAsync() => RunAsync(async ct =>
+    {
+        if (!Context(out var item, out var unit) || !OptionalId(targetReference, out var target) || !OptionalId(priceReference, out var existing) ||
+            validFrom is null || validTo <= validFrom || !CatalogPricingContracts.Money(unitPrice) ||
+            (scope is "default" or "wholesale" ? target is not null : target is null))
+        { Message = "Check the item, unit, scope target, nonnegative price and UTC validity period."; Tone = "error"; return; }
+        pendingAction = "draft";
+        var value = await SaveAsync<PriceRevision>("pricing/drafts", new { itemId = item, unitId = unit, currencyCode = currency, scope, targetId = target,
+            baseUnitPrice = unitPrice, validFrom = new DateTimeOffset(DateTime.SpecifyKind(validFrom.Value, DateTimeKind.Utc)),
+            validTo = validTo.HasValue ? new DateTimeOffset(DateTime.SpecifyKind(validTo.Value, DateTimeKind.Utc)) : (DateTimeOffset?)null, priceId = existing, conversionRevision },
+            row => CatalogPricingContracts.Price(row) && row.ItemId == item && row.UnitId == unit && row.CurrencyCode == currency && row.State == "Draft", ct);
+        if (value is not null) { SelectRevision(value); resolution = null; }
+    });
+    private Task ReadRevisionAsync() => RunAsync(async ct =>
+    {
+        price = null;
+        if (!Guid.TryParse(revisionReference, out var revision) || revision == Guid.Empty) { Message = "Enter a valid price revision reference."; Tone = "error"; return; }
+        var result = await Api.GetAsync<PriceRevision>(TenantId, $"pricing/revisions/{revision:D}", row => CatalogPricingContracts.Price(row, revision), ct);
+        if (result.Value is { } value) SelectRevision(value);
+        Show(result);
+    });
+    private Task PublishAsync() => ChangePublicationAsync(false);
+    private Task RetireAsync() => ChangePublicationAsync(true);
+    private Task ChangePublicationAsync(bool retire) => RunAsync(async ct =>
+    {
+        if (!Guid.TryParse(revisionReference, out var revision) || revision == Guid.Empty || !OptionalId(supersedeReference, out var supersede) ||
+            (PendingCommand is null && !(retire ? retireConfirmed : publishConfirmed)))
+        { Message = "Enter the exact revision reference and confirm the action."; Tone = "error"; return; }
+        pendingAction = retire ? "retire" : "publish";
+        var value = await SaveAsync<PriceRevision>($"pricing/revisions/{revision:D}/{(retire ? "retire" : "publish")}",
+            retire ? (object)new { } : new { supersedeRevisionId = supersede },
+            row => CatalogPricingContracts.Price(row, revision) && row.State == (retire ? "Retired" : "Published"), ct);
+        if (value is not null) { SelectRevision(value); resolution = null; }
+    });
+    private Task ResolveAsync() => RunAsync(async ct =>
+    {
+        resolution = null;
+        if (!Context(out var item, out var unit) || !OptionalId(customerReference, out var customer) || !OptionalId(organizationReference, out var organization) || !OptionalId(programReference, out var program))
+        { Message = "Check all selection references."; Tone = "error"; return; }
+        var result = await Api.QueryAsync<PriceResolution>(TenantId, "pricing/resolve", new { itemId = item, unitId = unit, currencyCode = currency,
+            customerId = customer, organizationId = organization, programId = program, wholesaleApplicable = wholesale, conversionRevision }, CatalogPricingContracts.Resolution, ct);
+        resolution = result.Value; resolvedCurrency = currency; Show(result);
+    });
+    private Task HistoryAsync(long? after) => RunAsync(async ct =>
+    {
+        history = null;
+        if (!Context(out var item, out var unit) || !OptionalId(customerReference, out var customer) || !OptionalId(organizationReference, out var organization) || !OptionalId(programReference, out var program))
+        { Message = "Check all history references."; Tone = "error"; return; }
+        var result = await Api.QueryAsync<PriceHistory>(TenantId, "pricing/history", new { itemId = item, unitId = unit, currencyCode = currency,
+            customerId = customer, organizationId = organization, programId = program, wholesaleApplicable = wholesale, conversionRevision, limit = 25, afterRevision = after },
+            page => page.Items is { Length: <= 25 } && page.Items.All(row => row is not null && CatalogPricingContracts.Price(row) && row.ItemId == item && row.UnitId == unit && row.CurrencyCode == currency && (!after.HasValue || row.Revision > after)) &&
+                page.Items.Select(row => row.RevisionId).Distinct().Count() == page.Items.Length &&
+                (!page.AfterRevision.HasValue || page.Items.Length == 25 && page.AfterRevision == page.Items[^1].Revision), ct);
+        history = result.Value; historyContext = $"Item {item:D}; unit {unit:D}; {currency}."; Show(result);
+    });
+    private void SelectRevision(PriceRevision value) { price = value; revisionReference = value.RevisionId.ToString("D"); publishConfirmed = retireConfirmed = false; }
+    private Task ReadPolicyAsync() => RunAsync(async ct =>
+    {
+        policy = null;
+        var result = await Api.GetAsync<PricingPolicy>(TenantId, "pricing/policy", row => CatalogPricingContracts.Policy(row, TenantId), ct);
+        if (result.Value is { } value) SetPolicy(value);
+        Show(result);
+    });
+    private Task PolicyAsync() => RunAsync(async ct =>
+    {
+        if (PendingCommand is null && (!policyConfirmed || policyRevision < 0 || !CatalogPricingContracts.Money(minimumPrice) || !CatalogPricingContracts.Money(maximumPrice) || maximumPrice < minimumPrice ||
+            maximumDecrease is < 0 or > 100 || maximumIncrease is < 0 or > 10000))
+        { Message = "Check and confirm the policy revision, unit-price limits and percentage bounds."; Tone = "error"; return; }
+        pendingAction = "policy";
+        var value = await SaveAsync<PricingPolicy>("pricing/policy", new { expectedRevision = policyRevision, minimumUnitPrice = minimumPrice, maximumUnitPrice = maximumPrice,
+            maximumDecreasePercent = maximumDecrease, maximumIncreasePercent = maximumIncrease }, row => CatalogPricingContracts.Policy(row, TenantId) && row.Policy.PolicyRevision == policyRevision + 1, ct);
+        if (value is not null) { SetPolicy(value); resolution = null; }
+    });
+    private void SetPolicy(PricingPolicy value)
+    {
+        policy = value; policyRevision = value.Policy.PolicyRevision; minimumPrice = value.Policy.MinimumUnitPrice; maximumPrice = value.Policy.MaximumUnitPrice;
+        maximumDecrease = value.Policy.MaximumDecreasePercent; maximumIncrease = value.Policy.MaximumIncreasePercent; policyConfirmed = false;
+    }
+    private Task RetryAsync() => pendingAction switch { "draft" => DraftAsync(), "publish" => PublishAsync(), "retire" => RetireAsync(), "policy" => PolicyAsync(), _ => Task.CompletedTask };
+    private static string ResolutionTitle(string status) => status switch { "PriceResolved" => "Current price resolved", "PriceMissing" => "No matching published price", "PriceExpired" => "Matching price has expired", "PriceConflict" => "Conflicting published prices", _ => "A separately authorized price override is required" };
+}

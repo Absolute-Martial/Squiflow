@@ -43,3 +43,44 @@ Command responses return only `id` and `revision`, with `Idempotency-Replayed: t
 Transport rejects duplicate, unknown and missing required JSON members, invalid enum spellings, oversized bodies and malformed queries. Purchasing owns decimal, dependency, revision, source and correction invariants. Native PostgreSQL uses immutable source/events/receipts, projection-column-only updates, caller/operation-key and aggregate locks, expected revisions, forced RLS and deferred evidence completeness guards. Reads and replays compare typed head, source, journal and receipt contracts; malformed/unsupported evidence fails closed with safe errors. No raw provider exception, financial text or request body is a public error contract.
 
 Fresh command authority and Catalog/Orders source checks after lock acquisition reuse the held connection and transaction through provider-owned public query ports. They do not lease a second connection from the same pool. Tenancy owns its active account/tenant/membership, authorization revision and initial-Owner observation; Catalog owns the unit query and publication pin; Orders owns a single-statement committed-line reference query that exposes no customer or selling-price data. A before/after authority observation change fails closed. The native CoreApi journey must use the configured production data-source factory at pool sizes one and two, including bounded concurrent commands; an unrestricted test pool is insufficient evidence for this guarantee.
+
+## Tenant Web operator presentation
+
+The `Purchasing` page presents the accepted supplier-service case through the
+existing checked-workspace shell and server-side business client. Routes are
+`/workspace/{tenantId}/purchasing`, its `/suppliers/{supplierId}` detail and
+`/requests/{purchaseId}` detail. It provides supplier create/revise/retire,
+protected supplier history and balance, request creation with optional committed
+Order-line attribution, actual partial receipts/costs, payment to an exact receipt,
+actual refund against an exact payment, cancellation of the unreceived remainder,
+and linked correction with optional receipt/payment/refund replacement.
+
+The page sends exact retained revisions and NPR amounts with at most two decimal
+places. It never rounds entered money or decides receipt/payment/refund limits;
+the existing server owns precision, source eligibility and dependency validation.
+All independent permissions remain server checks. Read denial does not hide or
+grant another command. Original entry IDs and effective correction event IDs are
+shown together so operators can identify the correct payable or journal target.
+Successful command receipts clear prior financial projections; a fresh protected
+read supplies current balances. Supplier amounts remain separate from customer
+financial facts, stock and fulfillment.
+
+An unknown save preserves one exact tenant/resource/body/key envelope in the
+existing page/session and disables new operations until recovery. It is not
+browser-authoritative persistence or offline recovery. Linked financial
+corrections require the typed `Correct supplier entry` confirmation in addition
+to the server's current initial-Owner, correction-right and recent-authentication
+checks. Cancellation and supplier retirement have distinct confirmations. The
+existing antiforgery-protected fresh-identity route returns to Billing; the page
+states that behavior and how to return. Verification is disabled with the other
+controls while an unknown save remains unresolved.
+
+Focused `Application.Web.Tests` and `eng/test-operations-web.cjs` recur for this
+presentation scope. The browser guard exercises actual Blazor controls using
+controlled identity/HTTP contracts, including supplier/request revisions, exact
+receipt/payment/refund links, unknown-result replay, typed correction, balance,
+encoding, denial, malformed/unavailable responses, pagination and narrow reflow.
+These fixtures do not qualify live identity, PostgreSQL/OpenFGA, or the final
+integrated product. Requalify after DTO/routes, money/quantity presentation,
+revision or envelope handling, correction/authentication or shared UI changes.
+The integrator owns shared route allowlisting/navigation and the normal final gate.

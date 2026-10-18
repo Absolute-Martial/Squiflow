@@ -1,0 +1,39 @@
+@if (Command is not null)
+{
+    <NavigationLock ConfirmExternalNavigation="@(!allowLeave)" OnBeforeInternalNavigation="BeforeNavigation" />
+    <aside class="status-box warning" aria-label="Saved request recovery">
+        <div>
+            <strong class="status-title">Keep this request until its outcome is known.</strong>
+            <p class="status-detail">Retry sends the same saved request. Leaving this page loses the retry reference; the operation may already have been saved.</p>
+            <p class="record-reference">Request reference: @Command.Key</p>
+            <label class="check-field"><input type="checkbox" @bind="allowLeave" /> I will check existing records before creating a replacement if I leave.</label>
+            @if (navigationBlocked)
+            {
+                <p role="alert">Retry the request, or acknowledge the record check above before leaving.</p>
+            }
+        </div>
+    </aside>
+}
+
+@code {
+    [Parameter] public BusinessCommand? Command { get; set; }
+    private bool allowLeave;
+    private bool navigationBlocked;
+    private BusinessCommand? previous;
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(Command, previous)) return;
+        previous = Command;
+        allowLeave = false;
+        navigationBlocked = false;
+    }
+
+    private void BeforeNavigation(LocationChangingContext context)
+    {
+        if (allowLeave) return;
+        navigationBlocked = true;
+        context.PreventNavigation();
+        StateHasChanged();
+    }
+}

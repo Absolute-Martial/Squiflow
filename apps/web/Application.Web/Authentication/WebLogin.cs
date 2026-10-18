@@ -73,6 +73,12 @@ internal static class WebLogin
             options.Events.OnRedirectToIdentityProvider = context =>
             {
                 context.ProtocolMessage.RedirectUri = new Uri(login.PublicOrigin, "/signin-oidc").AbsoluteUri;
+                if (context.Properties.Items.TryGetValue("application.verify_identity", out var verification) && verification == "true")
+                {
+                    context.ProtocolMessage.Prompt = "login";
+                    context.ProtocolMessage.MaxAge = "0";
+                    context.ProtocolMessage.AcrValues = login.StrongAuthenticationAcr;
+                }
                 return Task.CompletedTask;
             };
             options.Events.OnTicketReceived = context =>
@@ -135,5 +141,23 @@ internal static class WebLogin
             await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
             return Results.LocalRedirect("/login-result?status=signed-out");
         });
+        app.MapPost("/auth/verify-identity", async (HttpContext context, IAntiforgery antiforgery) =>
+        {
+            if (context.Request.ContentLength > 4096) return Results.StatusCode(413);
+            var size = context.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>();
+            if (size is { IsReadOnly: false }) size.MaxRequestBodySize = 4096;
+            try { await antiforgery.ValidateRequestAsync(context); }
+            catch (AntiforgeryValidationException) { return Results.BadRequest(); }
+            if (login?.StrongAuthenticationAcr is null) return Results.StatusCode(503);
+            var form = await context.Request.ReadFormAsync(context.RequestAborted);
+            if (form.Count != 2 || form.Files.Count != 0 || form["tenantId"].Count != 1 || !Guid.TryParse(form["tenantId"], out var tenant) || tenant == Guid.Empty)
+                return Results.BadRequest();
+            // Invalidate the previous server ticket before a fresh interactive sign-in or account change.
+            await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            var properties = new AuthenticationProperties { RedirectUri = $"/workspace/{tenant:D}/billing" };
+            properties.Items["application.verify_identity"] = "true";
+            await context.ChallengeAsync(OpenIdConnectDefaults.AuthenticationScheme, properties);
+            return Results.Empty;
+        }).RequireAuthorization();
     }
 }

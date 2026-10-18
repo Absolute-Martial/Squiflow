@@ -1,0 +1,83 @@
+@page "/workspace/{TenantId:guid}/fulfillment"
+@page "/workspace/{TenantId:guid}/fulfillment/orders/{OrderId:guid}"
+@attribute [Authorize]
+@rendermode Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer
+@inherits BusinessPage
+
+<PageTitle>Fulfillment</PageTitle>
+<BusinessShell Identity="Identity" Workspace="Workspace" TenantId="TenantId" Active="fulfillment" Busy="Busy" Message="@Message" Tone="@Tone">
+    <div class="business-heading"><div><p class="eyebrow">SERVICE WORK &amp; PICKUP</p><h1>Fulfillment</h1></div><a class="cancel-button" href="@Root">Fulfillment directory</a></div>
+    <p class="panel-copy">Record work for one committed, program-attributed, catalog-priced non-stock service line. Completing work does not record pickup or payment. Each action checks its own current permission.</p>
+    <PendingRequestNotice Command="PendingCommand" />
+    @if (PendingCommand is not null) { <button class="button" disabled="@Busy" @onclick="RetryAsync">Retry saved request</button> }
+    @if (receipt is { } saved)
+    {
+        <section class="status-box ready" aria-label="Fulfillment command receipt"><div><h2>Fulfillment request saved</h2><dl class="record-facts"><dt>Order</dt><dd>@saved.OrderId</dd><dt>Saved revision</dt><dd>@saved.Revision</dd><dt>Stage at this revision</dt><dd>@saved.Stage</dd></dl>
+            <a class="cancel-button" href="@($"{Root}/orders/{saved.OrderId:D}")">Load current fulfillment</a><p>This receipt confirms the saved operation. Viewing current work needs separate permission.</p></div></section>
+    }
+    @if (work is { } current)
+    {
+        <section class="business-panel" aria-labelledby="fulfillment-current"><div class="section-toolbar"><h2 id="fulfillment-current">Current service work</h2><span class="state-label">@current.Stage</span></div>
+            <dl class="record-facts"><dt>Order reference</dt><dd>@current.OrderId</dd><dt>Fulfillment revision</dt><dd>@current.Revision</dd><dt>Retained unit</dt><dd>@current.UnitCode · @current.UnitPrecision decimal places</dd><dt>Ordered</dt><dd>@current.OrderedQuantity</dd><dt>Completed</dt><dd>@current.CompletedQuantity</dd><dt>Picked up</dt><dd>@current.HandedOffQuantity</dd>
+                @if (current.ActiveDispositionId is { } blocker) { <dt>Unresolved disposition</dt><dd>@current.ActiveDispositionKind · @blocker</dd> }</dl>
+            <p>Recipient labels and reasons appear only in protected history. An unresolved disposition blocks completion and pickup.</p>
+        </section>
+    }
+    <section class="business-panel" aria-labelledby="fulfillment-inbox"><div class="section-toolbar"><h2 id="fulfillment-inbox">Progress inbox</h2><button class="cancel-button" disabled="@Locked" @onclick="() => InboxAsync(null)">Refresh fulfillment inbox</button></div>
+        @if (inbox is { } page)
+        {
+            @if (page.Items.Length == 0) { <p class="empty-state">No service work on this page. Use a committed Order reference below to start eligible work.</p> }
+            <ul class="record-list">@foreach (var item in page.Items) { <li><a href="@($"{Root}/orders/{item.OrderId:D}")">Order @item.OrderId <ArrowIcon /></a><span>@item.Stage · Revision @item.Revision</span><span>@item.CompletedQuantity / @item.OrderedQuantity @item.UnitCode completed · @item.HandedOffQuantity picked up</span></li> }</ul>
+            @if (page.NextCursor is { } next) { <button class="cancel-button" disabled="@Locked" @onclick="() => InboxAsync(next)">Next fulfillment records</button> }
+        }
+        else if (!Busy) { <p class="empty-state">Load the inbox to check current fulfillment viewing access. Work and pickup recording have independent permissions.</p> }
+    </section>
+    <section class="business-panel" aria-labelledby="fulfillment-actions"><h2 id="fulfillment-actions">Record service progress</h2>
+        <fieldset class="business-form" disabled="@Locked"><legend class="visually-hidden">Fulfillment commands</legend>
+            <label for="work-order">Committed Order reference</label><input id="work-order" maxlength="36" @bind="orderReference" />
+            <label for="work-revision">Expected fulfillment revision (0 before first start)</label><input id="work-revision" type="number" min="0" step="1" @bind="expectedRevision" />
+            <div class="panel-actions actions-inline"><button class="cancel-button" @onclick="LoadWorkAsync">Load service work</button><button class="cancel-button" @onclick="() => HistoryAsync(null)">Load fulfillment history</button></div>
+            <details class="business-details"><summary>Start eligible work</summary><div class="business-form"><p>Requires work recording permission. The service verifies the committed Order and current catalog eligibility.</p>
+                <label for="work-order-revision">Expected committed Order revision</label><input id="work-order-revision" type="number" min="1" step="1" @bind="orderRevision" />
+                <label class="check-field"><input type="checkbox" @bind="startReviewed" /> I reviewed this exact committed Order and fulfillment revision.</label><button class="button" disabled="@(!startReviewed)" @onclick="StartAsync">Start service work</button>
+            </div></details>
+            <details class="business-details"><summary>Record good completion</summary><div class="business-form"><p>Requires work recording permission. Enter an exact quantity in the retained unit; the service checks precision and remaining work.</p>
+                <label for="work-complete">Good-completion quantity</label><input id="work-complete" type="number" min="0.0001" step="any" @bind="completionQuantity" />
+                <label class="check-field"><input type="checkbox" @bind="completionReviewed" /> I reviewed the completed quantity and current revision.</label><button class="button" disabled="@(!completionReviewed)" @onclick="CompleteAsync">Record completion</button>
+            </div></details>
+            <details class="business-details"><summary>Record customer pickup</summary><div class="business-form"><p>Requires separate handoff recording permission. This records operator evidence, not payment, acceptance or legal proof.</p>
+                <label for="work-pickup">Pickup quantity</label><input id="work-pickup" type="number" min="0.0001" step="any" @bind="pickupQuantity" />
+                <label for="work-recipient">Pickup recipient label</label><input id="work-recipient" maxlength="256" @bind="recipient" />
+                <label class="check-field"><input type="checkbox" @bind="pickupReviewed" /> I reviewed the actual pickup quantity and recipient.</label><button class="button" disabled="@(!pickupReviewed)" @onclick="PickupAsync">Record pickup</button>
+            </div></details>
+            <details class="business-details"><summary>Pause or resolve work</summary><div class="business-form">
+                <label for="work-disposition">Disposition</label><select id="work-disposition" @bind="disposition"><option>Stopped</option><option>Disputed</option><option>Defective</option></select>
+                <label for="work-affected">Affected quantity (optional)</label><input id="work-affected" type="number" min="0.0001" step="any" @bind="affectedQuantity" />
+                <label for="work-disposition-reason">Disposition reason</label><textarea id="work-disposition-reason" maxlength="1024" @bind="dispositionReason"></textarea>
+                <label class="check-field"><input type="checkbox" @bind="dispositionReviewed" /> I reviewed this blocker and its reason.</label><button class="button" disabled="@(!dispositionReviewed)" @onclick="DispositionAsync">Record disposition</button>
+                <label for="work-resolve">Resolution reason</label><textarea id="work-resolve" maxlength="1024" @bind="resolveReason"></textarea>
+                <label class="check-field"><input type="checkbox" @bind="resolutionReviewed" /> I reviewed the active disposition and this resolution.</label><button class="button" disabled="@(!resolutionReviewed)" @onclick="ResolveAsync">Resolve disposition</button>
+            </div></details>
+            <details class="business-details"><summary>Correct a fulfillment entry</summary><div class="business-form"><p>Requires the current initial Owner, correction permission and recent strong authentication. Corrections retain original events and cannot invalidate dependent facts. They do not establish a return or refund.</p>
+                @if (VerificationAvailable) { <form method="post" action="/auth/verify-identity" data-enhance="false"><AntiforgeryToken /><input type="hidden" name="tenantId" value="@TenantId" /><button class="cancel-button" type="submit">Verify identity for fulfillment correction</button></form><p>Verification starts a fresh sign-in and returns to Billing. Return to Fulfillment from workspace navigation. Unsent entries are lost; resolve saved requests first.</p> }
+                else { <p>Fresh identity verification is unavailable until your administrator configures it.</p> }
+                <label for="work-target">Fulfillment event reference to correct</label><input id="work-target" maxlength="36" @bind="targetEvent" />
+                <label for="work-correction-reason">Fulfillment correction reason</label><textarea id="work-correction-reason" maxlength="1024" @bind="correctionReason"></textarea>
+                <label for="work-replacement">Replacement fulfillment fact</label><select id="work-replacement" @bind="replacementKind"><option value="None">Remove mistaken entry without replacement</option><option>Completion</option><option>Handoff</option><option>Disposition</option></select>
+                @if (replacementKind != "None") { <label for="work-replace-quantity">Replacement quantity (optional for disposition)</label><input id="work-replace-quantity" type="number" step="any" @bind="replacementQuantity" /> }
+                @if (replacementKind == "Handoff") { <label for="work-replace-recipient">Replacement recipient label</label><input id="work-replace-recipient" maxlength="256" @bind="replacementRecipient" /> }
+                @if (replacementKind == "Disposition") { <label for="work-replace-disposition">Replacement disposition</label><select id="work-replace-disposition" @bind="replacementDisposition"><option>Stopped</option><option>Disputed</option><option>Defective</option></select> }
+                <label for="work-confirm">Type “Correct fulfillment” to confirm</label><input id="work-confirm" autocomplete="off" @bind="correctionConfirmation" @bind:event="oninput" />
+                <button class="button button-danger" disabled='@(correctionConfirmation != "Correct fulfillment")' @onclick="CorrectAsync">Correct fulfillment entry</button>
+            </div></details>
+        </fieldset>
+    </section>
+    @if (history is { } events)
+    {
+        <section class="business-panel" aria-labelledby="fulfillment-history"><h2 id="fulfillment-history">Protected fulfillment history</h2><p>Observed revision @events.ObservedRevision. Recipient labels and reasons are protected records.</p>
+            <ol class="record-list">@foreach (var item in events.Items) { <li><strong>Revision @item.Revision · @item.Kind · @(item.IsActive ? "Active" : "Corrected")</strong><span class="record-reference">Event @item.EventId · Actor @item.ActorAccountId · @item.RecordedAt.ToString("u")</span><span>@item.Quantity @item.Recipient @item.Disposition</span><span>@item.Reason</span>
+                @if (item.TargetEventId is { } target) { <span class="record-reference">Corrects @target</span> } @if (item.Replacement is { } replacement) { <span>Replacement @replacement.Kind · @replacement.Quantity · @replacement.Recipient · @replacement.Disposition</span> }</li> }</ol>
+            @if (events.NextRevision is { } next) { <button class="cancel-button" disabled="@Locked" @onclick="() => HistoryAsync(next)">Earlier fulfillment events</button> }
+        </section>
+    }
+</BusinessShell>

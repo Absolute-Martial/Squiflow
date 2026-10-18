@@ -1,0 +1,62 @@
+<ApplicationShell Identity="Identity" MainClass="business-main" FooterLabel="ONLINE WORKSPACE">
+    <div data-enhance-nav="false">
+    <div class="workspace-toolbar">
+        <a class="cancel-button" href="/workspace">Switch workspace</a>
+        <form method="post" action="/auth/logout" data-enhance="false">
+            <AntiforgeryToken />
+            <button class="cancel-button">Sign out</button>
+        </form>
+    </div>
+    @if (Workspace is { } current)
+    {
+        <p class="eyebrow">@current.DisplayName</p>
+        <nav class="business-navigation" aria-label="Workspace business">
+            <a href="@($"/workspace/{TenantId:D}/customers")" aria-current="@(Active == "customers" ? "page" : null)">Organizations</a>
+            <a href="@($"/workspace/{TenantId:D}/customers/individuals")" aria-current="@(Active == "individuals" ? "page" : null)">Individuals</a>
+            <a href="@($"/workspace/{TenantId:D}/catalog")" aria-current="@(Active == "catalog" ? "page" : null)">Catalog</a>
+            <a href="@($"/workspace/{TenantId:D}/pricing")" aria-current="@(Active == "pricing" ? "page" : null)">Pricing</a>
+            <a href="@($"/workspace/{TenantId:D}/quotations")" aria-current='@(Active == "quotations" ? "page" : null)'>Quotations</a>
+            <a href="@($"/workspace/{TenantId:D}/order-approvals")" aria-current='@(Active == "approvals" ? "page" : null)'>Order approvals</a>
+            <a href="@($"/workspace/{TenantId:D}/orders")" aria-current="@(Active == "orders" ? "page" : null)">Orders</a>
+            <a href="@($"/workspace/{TenantId:D}/fulfillment")" aria-current='@(Active == "fulfillment" ? "page" : null)'>Fulfillment</a>
+            <a href="@($"/workspace/{TenantId:D}/purchasing")" aria-current='@(Active == "purchasing" ? "page" : null)'>Purchasing</a>
+            <a href="@($"/workspace/{TenantId:D}/billing")" aria-current='@(Active == "billing" ? "page" : null)'>Billing</a>
+        </nav>
+    }
+    <div tabindex="-1" @ref="status" class="business-status" aria-busy="@Busy.ToString().ToLowerInvariant()">
+        <StatusMessage Message="@Message" Tone="@Tone" />
+    </div>
+    @if (Workspace is not null)
+    {
+        @ChildContent
+        <p class="check-caption">Only a confirmed save receipt means a request was saved. If your connection is lost, check current records before creating a replacement. Unsent entries are lost when you leave this page.</p>
+    }
+    else
+    {
+        <h1>Workspace unavailable</h1>
+        <a class="button" href="/workspace">Check workspace access</a>
+    }
+    </div>
+</ApplicationShell>
+
+@code {
+    [Parameter] public PublicApplicationIdentity? Identity { get; set; }
+    [Parameter] public TenantEntry? Workspace { get; set; }
+    [Parameter] public Guid TenantId { get; set; }
+    [Parameter] public string Active { get; set; } = "";
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public string Message { get; set; } = "";
+    [Parameter] public string Tone { get; set; } = "neutral";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    private ElementReference status;
+    private string? previous;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!Busy && previous != Message)
+        {
+            previous = Message;
+            if (!firstRender) await status.FocusAsync();
+        }
+    }
+}

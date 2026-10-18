@@ -1,0 +1,230 @@
+@page "/workspace/{TenantId:guid}/orders"
+@page "/workspace/{TenantId:guid}/orders/{OrderId:guid}"
+@attribute [Authorize]
+@rendermode Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer
+@inherits BusinessPage
+@using System.Globalization
+
+<PageTitle>Orders</PageTitle>
+<BusinessShell Identity="Identity" Workspace="Workspace" TenantId="TenantId" Active="orders" Busy="Busy" Message="@Message" Tone="@Tone">
+    <div class="business-heading"><div><p class="eyebrow">SALES</p><h1>Orders</h1></div><a class="cancel-button" href="@Root">New order and directory</a></div>
+    <PendingRequestNotice Command="PendingCommand" />
+    @if (PendingCommand is not null) { <button class="button" disabled="@Busy" @onclick="RetryAsync">Retry saved request</button> }
+    @if (order is { } current)
+    {
+        <section class="business-panel" aria-label="Saved order">
+            <div class="section-toolbar"><h2>@current.Summary</h2><span class="state-label">@current.State</span></div>
+            <dl class="record-facts"><dt>Order reference</dt><dd>@current.OrderId</dd><dt>Revision</dt><dd>@current.Revision</dd><dt>Total</dt><dd>@Amount(current.Total) @current.CurrencyCode</dd></dl>
+            <a class="cancel-button" href="@($"{Root}/{current.OrderId:D}")">Reload saved order</a>
+            <a class="cancel-button" href="@($"{Root}/{current.OrderId:D}/program-reference")">Program reference and policy</a>
+            @if (current.State == "draft") { <a class="cancel-button" href="@($"{Root}/{current.OrderId:D}/approval")">Request order approval</a> }
+            @if (current.State == "committed") { <a class="cancel-button" href="@($"/workspace/{TenantId:D}/fulfillment/{current.OrderId:D}")">Fulfillment and pickup</a> }
+            <ol class="record-list">@foreach (var line in current.Lines) { <li><strong>@line.Description</strong><span>@line.Quantity @line.UnitCode × @Amount(line.UnitPrice) = @Amount(line.LineTotal) @current.CurrencyCode</span></li> }</ol>
+            @if (current.QuotationOrigin is { } origin) { <p>Quotation @origin.Number, revision @origin.RevisionNumber. Its accepted offer is retained.</p> }
+            <div class="panel-actions actions-inline">
+                <button class="cancel-button" disabled="@(Busy || PendingCommand is not null)" @onclick="ReadActionsAsync">Check available actions</button>
+                <button class="cancel-button" disabled="@(Busy || PendingCommand is not null)" @onclick="() => HistoryAsync(null)">Load order history</button>
+            </div>
+            @if (actions is { } guidance)
+            {
+                <ul class="record-list">@foreach (var action in guidance.Actions) { <li><strong>@action.Action</strong><span>@OrderContracts.Reason(action.UnavailabilityCode)</span></li> }</ul>
+            }
+            @if (current.State == "draft")
+            {
+                <details class="business-details"><summary>Commit or abandon this draft</summary>
+                    <p>Commit freezes the order for downstream work. Abandon permanently closes this draft. Each action checks its own current permission and expected revision.</p>
+                    <fieldset class="business-form" disabled="@(Busy || PendingCommand is not null)"><legend class="visually-hidden">Order transition</legend>
+                        <label class="check-field"><input type="checkbox" @bind="commitConfirmed" /> Commit this exact saved revision.</label>
+                        <button class="button" disabled="@(!commitConfirmed)" @onclick="() => TransitionAsync(false)">Commit order</button>
+                        <label class="check-field"><input type="checkbox" @bind="abandonConfirmed" /> Permanently abandon this exact saved draft.</label>
+                        <button class="button button-danger" disabled="@(!abandonConfirmed)" @onclick="() => TransitionAsync(true)">Abandon draft</button>
+                    </fieldset>
+                </details>
+            }
+        </section>
+    }
+    @if (order is null && OrderId is null || order is { State: "draft", QuotationOrigin: null })
+    {
+        <section class="business-panel" aria-labelledby="draft-heading">
+            <h2 id="draft-heading">@(order is null ? "Create an order draft" : "Replace the saved draft")</h2>
+            <p class="panel-copy">Save retains the complete draft on the service. Manual prices require independent manual-pricing authority. Catalog mode resolves and freezes current authoritative prices. Replacement replaces every line and the customer attribution.</p>
+            <form @onsubmit="SaveDraftAsync" @onsubmit:preventDefault><fieldset class="business-form" disabled="@(Busy || PendingCommand is not null)"><legend class="visually-hidden">Order draft</legend>
+                <label for="order-summary">Order summary</label><input id="order-summary" required maxlength="200" @bind="summary" />
+                <label for="order-currency">Order currency</label><input id="order-currency" required maxlength="3" pattern="[A-Z]{3}" @bind="currency" />
+                <label for="order-mode">Pricing mode</label><select id="order-mode" @bind="mode"><option value="manual">Manual priced lines</option><option value="catalog">Catalog and published pricing</option></select>
+                <label for="order-organization">Customer organization reference (optional)</label><input id="order-organization" maxlength="36" @bind="organizationReference" />
+                <label for="order-program">Customer program reference (optional, belongs to organization)</label><input id="order-program" maxlength="36" @bind="programReference" />
+                @if (mode == "catalog")
+                {
+                    <label for="order-individual">Individual customer reference (optional)</label><input id="order-individual" maxlength="36" @bind="individualReference" />
+                    <label class="check-field"><input type="checkbox" @bind="wholesale" /> Wholesale applies to catalog selection.</label>
+                }
+                @for (var index = 0; index < lines.Count; index++)
+                {
+                    var line = lines[index]; var number = index + 1;
+                    <fieldset class="business-form business-line" @key="line"><legend>Line @number</legend>
+                        <label for="@($"order-quantity-{number}")">Quantity @number</label><input id="@($"order-quantity-{number}")" type="number" required min="0.0001" step="0.0001" @bind="line.Quantity" />
+                        @if (mode == "manual")
+                        {
+                            <label for="@($"order-description-{number}")">Description @number</label><input id="@($"order-description-{number}")" required maxlength="300" @bind="line.Description" />
+                            <label for="@($"order-unit-{number}")">Unit code @number</label><input id="@($"order-unit-{number}")" required maxlength="16" pattern="[A-Za-z0-9]+" @bind="line.UnitCode" />
+                            <label for="@($"order-price-{number}")">Unit price @number</label><input id="@($"order-price-{number}")" type="number" required min="0" step="0.0001" @bind="line.UnitPrice" />
+                        }
+                        else
+                        {
+                            <label for="@($"order-item-{number}")">Catalog item reference @number</label><input id="@($"order-item-{number}")" required maxlength="36" @bind="line.ItemReference" />
+                            <label for="@($"order-unit-ref-{number}")">Catalog unit reference @number</label><input id="@($"order-unit-ref-{number}")" required maxlength="36" @bind="line.UnitReference" />
+                            <label for="@($"order-conversion-{number}")">Conversion revision @number (optional)</label><input id="@($"order-conversion-{number}")" type="number" min="1" step="1" @bind="line.ConversionRevision" />
+                        }
+                        @if (lines.Count > 1) { <button class="cancel-button" type="button" @onclick="() => lines.Remove(line)">Remove line @number</button> }
+                    </fieldset>
+                }
+                <button class="cancel-button" type="button" disabled="@(lines.Count >= 10)" @onclick="() => lines.Add(new())">Add line</button>
+                @if (order is not null) { <label class="check-field"><input type="checkbox" @bind="replaceConfirmed" /> Replace all content of this saved draft with the entered values.</label> }
+                <button class="button" type="submit" disabled="@(order is not null && !replaceConfirmed)">@(order is null ? "Save order draft" : "Replace order draft")</button>
+            </fieldset></form>
+        </section>
+    }
+    <section class="business-panel" aria-labelledby="order-directory">
+        <div class="section-toolbar"><h2 id="order-directory">Saved orders</h2><button class="cancel-button" disabled="@(Busy || PendingCommand is not null)" @onclick="() => BrowseAsync(null)">Refresh orders</button></div>
+        @if (page is { } directory)
+        {
+            @if (directory.Items.Length == 0) { <p class="empty-state">No orders on this page.</p> }
+            <ul class="record-list">@foreach (var row in directory.Items) { <li><a href="@($"{Root}/{row.OrderId:D}")">@row.Summary <ArrowIcon /></a><span>@row.State · @Amount(row.Total) @row.CurrencyCode · Revision @row.Revision</span></li> }</ul>
+            @if (directory.NextCursor is { } next) { <button class="cancel-button" disabled="@(Busy || PendingCommand is not null)" @onclick="() => BrowseAsync(next)">Next orders</button> }
+            @if (after is not null) { <button class="cancel-button" disabled="@(Busy || PendingCommand is not null)" @onclick="() => BrowseAsync(null)">First orders</button> }
+        }
+        else if (!Busy) { <p class="empty-state">@(directoryInvalidated ? "The order changed. Refresh orders to load the current directory." : "Order browse is unavailable. Refresh to check access.")</p> }
+    </section>
+    @if (history is { } recorded)
+    {
+        <section class="business-panel" aria-labelledby="order-history"><h2 id="order-history">Order history</h2>
+            <ol class="record-list">@foreach (var row in recorded.Items) { <li><strong>Revision @row.Order.Revision · @row.Change</strong><span>@row.Order.Summary · @row.Order.State · @Amount(row.Order.Total) @row.Order.CurrencyCode</span><span class="record-reference">@row.RecordedAt.ToString("u") · @row.ChangedByAccountId</span></li> }</ol>
+            @if (recorded.NextBeforeRevision is { } before) { <button class="cancel-button" disabled="@(Busy || PendingCommand is not null)" @onclick="() => HistoryAsync(before)">Earlier order history</button> }
+        </section>
+    }
+</BusinessShell>
+
+@code {
+    [Parameter] public Guid? OrderId { get; set; }
+    private OrderRecord? order;
+    private OrderPage? page;
+    private OrderActions? actions;
+    private OrderHistory? history;
+    private string summary = "", currency = "NPR", mode = "manual", organizationReference = "", programReference = "", individualReference = "", pendingAction = "";
+    private string? after;
+    private bool wholesale, commitConfirmed, abandonConfirmed, replaceConfirmed, directoryInvalidated;
+    private readonly List<LineEntry> lines = [new()];
+    private string Root => $"/workspace/{TenantId:D}/orders";
+    private static string Amount(decimal value) => value.ToString("0.0000", CultureInfo.InvariantCulture);
+    protected override void Reset()
+    {
+        order = null; page = null; actions = null; history = null; after = null;
+        directoryInvalidated = false; summary = organizationReference = programReference = individualReference = pendingAction = ""; currency = "NPR"; mode = "manual";
+        wholesale = commitConfirmed = abandonConfirmed = replaceConfirmed = false; lines.Clear(); lines.Add(new());
+    }
+    protected override async Task LoadAsync(CancellationToken ct)
+    {
+        await ReadPageAsync(null, ct);
+        if (OrderId is { } id)
+        {
+            var result = await Api.GetAsync<OrderRecord>(TenantId, $"orders/{id:D}", row => OrderContracts.Record(row, id), ct);
+            if (result.Value is { } value) SelectOrder(value);
+            Show(result);
+        }
+    }
+    private void SelectOrder(OrderRecord value)
+    {
+        order = value; summary = value.Summary; currency = value.CurrencyCode;
+        organizationReference = value.CustomerContext?.OrganizationId.ToString("D") ?? ""; programReference = value.CustomerContext?.ProgramId?.ToString("D") ?? "";
+        lines.Clear(); lines.AddRange(value.Lines.Select(row => new LineEntry { Description = row.Description, UnitCode = row.UnitCode, Quantity = row.Quantity, UnitPrice = row.UnitPrice,
+            ItemReference = row.CommercialFacts?.Catalog.ItemId.ToString("D") ?? "", UnitReference = row.CommercialFacts?.Catalog.UnitId.ToString("D") ?? "",
+            ConversionRevision = row.CommercialFacts?.Catalog.Conversion is { Revision: > 0 } conversion && conversion.SourceUnitId != conversion.TargetUnitId ? conversion.Revision : null }));
+        mode = value.Lines.All(row => row.CommercialFacts is not null) ? "catalog" : "manual";
+        individualReference = value.Lines[0].CommercialFacts?.PriceSelection.Explanation.Context.CustomerId?.ToString("D") ?? "";
+        wholesale = value.Lines[0].CommercialFacts?.PriceSelection.Explanation.Context.WholesaleApplicable ?? false;
+        actions = null; history = null; replaceConfirmed = commitConfirmed = abandonConfirmed = false;
+    }
+    private void InvalidateDirectory() { page = null; after = null; directoryInvalidated = true; }
+    private Task BrowseAsync(string? cursor) => RunAsync(ct => ReadPageAsync(cursor, ct));
+    private async Task ReadPageAsync(string? cursor, CancellationToken ct)
+    {
+        page = null; after = cursor; directoryInvalidated = false;
+        var result = await Api.GetAsync<OrderPage>(TenantId, BusinessValidation.PagePath("orders", cursor),
+            row => BusinessValidation.Page(row.Items, row.NextCursor, item => OrderContracts.Summary(item), item => item.OrderId) && (row.NextCursor is null || row.NextCursor != cursor), ct);
+        page = result.Value; Show(result);
+    }
+    private static bool OptionalId(string text, out Guid? id)
+    {
+        id = null; if (string.IsNullOrWhiteSpace(text)) return true;
+        if (!Guid.TryParse(text, out var value) || value == Guid.Empty) return false;
+        id = value; return true;
+    }
+    private Task SaveDraftAsync() => RunAsync(async ct =>
+    {
+        if (order is not null && PendingCommand is null && !replaceConfirmed) return;
+        if (!BusinessValidation.Text(summary, 200) || !CatalogPricingContracts.Currency(currency) ||
+            !OptionalId(organizationReference, out var organization) || !OptionalId(programReference, out var program) ||
+            !OptionalId(individualReference, out var individual) || program.HasValue && !organization.HasValue ||
+            lines.Count is < 1 or > 100 || lines.Any(row => row.Quantity <= 0))
+        { Message = "Check the summary, currency, attribution and positive line quantities."; Tone = "error"; return; }
+        var customer = organization.HasValue ? new OrderCustomer(organization.Value, program) : null;
+        object payload;
+        var resource = order is null ? "orders" : $"orders/{order.OrderId:D}/draft";
+        if (mode == "catalog")
+        {
+            if (lines.Any(row => !Guid.TryParse(row.ItemReference, out var item) || item == Guid.Empty || !Guid.TryParse(row.UnitReference, out var unit) || unit == Guid.Empty || row.ConversionRevision is < 1))
+            { Message = "Enter catalog item and unit references for every line."; Tone = "error"; return; }
+            payload = new { summary, currencyCode = currency, expectedRevision = order?.Revision, customerId = individual, customerContext = customer, wholesaleApplicable = wholesale,
+                lines = lines.Select(row => new { itemId = Guid.Parse(row.ItemReference), unitId = Guid.Parse(row.UnitReference), row.Quantity, row.ConversionRevision }).ToArray() };
+            resource = order is null ? "orders/catalog-priced" : $"orders/{order.OrderId:D}/catalog-priced-draft";
+        }
+        else
+        {
+            if (lines.Any(row => !BusinessValidation.Text(row.Description, 300) || !BusinessValidation.Text(row.UnitCode, 16) || !CatalogPricingContracts.Money(row.UnitPrice)))
+            { Message = "Check each line description, unit code and nonnegative unit price."; Tone = "error"; return; }
+            var entered = lines.Select(row => new { row.Description, row.Quantity, row.UnitCode, row.UnitPrice }).ToArray();
+            payload = order is null ? new { summary, currencyCode = currency, customerContext = customer, lines = entered } :
+                (object)new { expectedRevision = order.Revision, summary, currencyCode = currency, customerContext = customer, lines = entered };
+        }
+        pendingAction = "draft";
+        var saved = await SaveAsync<OrderRecord>(resource, payload, row => OrderContracts.Record(row, order?.OrderId) && row.State == "draft" && (order is null || row.Revision == order.Revision + 1), ct, order is null ? HttpMethod.Post : HttpMethod.Put);
+        if (saved is not null) { SelectOrder(saved); InvalidateDirectory(); }
+    });
+    private Task TransitionAsync(bool abandon) => RunAsync(async ct =>
+    {
+        if (order is not { } current || PendingCommand is null && !(abandon ? abandonConfirmed : commitConfirmed)) return;
+        pendingAction = abandon ? "abandon" : "commit";
+        var value = await SaveAsync<OrderTransition>($"orders/{current.OrderId:D}/{pendingAction}", new { expectedRevision = current.Revision },
+            row => row.OrderId == current.OrderId && row.Revision == current.Revision + 1 && row.State == (abandon ? "abandoned" : "committed") && (abandon ? row.AbandonedAt.HasValue : row.CommittedAt.HasValue), ct);
+        if (value is not null) { SelectOrder(current with { State = value.State, Revision = value.Revision, AbandonedAt = value.AbandonedAt, CommittedAt = value.CommittedAt }); InvalidateDirectory(); }
+    });
+    private Task ReadActionsAsync() => RunAsync(async ct =>
+    {
+        actions = null; if (order is not { } current) return;
+        var result = await Api.GetAsync<OrderActions>(TenantId, $"orders/{current.OrderId:D}/actions", row => row.OrderId == current.OrderId && row.ObservedRevision == current.Revision && row.Actions is { Length: 3 } &&
+            row.Actions.All(action => action is not null && action.Action is "revise" or "commit" or "abandon" && (action.Available ? action.UnavailabilityCode is null : BusinessValidation.Text(action.UnavailabilityCode, 100))) && row.Actions.Select(action => action.Action).Distinct().Count() == 3, ct);
+        actions = result.Value; Show(result);
+    });
+    private Task HistoryAsync(long? before) => RunAsync(async ct =>
+    {
+        history = null; if (order is not { } current) return;
+        var result = await Api.GetAsync<OrderHistory>(TenantId, $"orders/{current.OrderId:D}/history?limit=25" + (before.HasValue ? $"&beforeRevision={before}" : ""),
+            row => row.CurrentRevision >= current.Revision && row.Items is { Length: <= 25 } && row.Items.All(item => item is not null && item.Order is not null && OrderContracts.Record(item.Order, current.OrderId) &&
+                item.Order.Revision <= row.CurrentRevision && (!before.HasValue || item.Order.Revision < before) && item.ChangedByAccountId != Guid.Empty && item.RecordedAt != default &&
+                item.Change is "created" or "revised" or "abandoned" or "committed" or "program-reference-updated") && row.Items.Select(item => item.Order.Revision).Distinct().Count() == row.Items.Length &&
+                (!row.NextBeforeRevision.HasValue || row.Items.Length > 0 && row.NextBeforeRevision == row.Items[^1].Order.Revision && row.NextBeforeRevision > 0), ct);
+        history = result.Value; Show(result);
+    });
+    private Task RetryAsync() => pendingAction switch { "draft" => SaveDraftAsync(), "commit" => TransitionAsync(false), "abandon" => TransitionAsync(true), _ => Task.CompletedTask };
+    private sealed class LineEntry
+    {
+        public string Description { get; set; } = "";
+        public string UnitCode { get; set; } = "EA";
+        public decimal Quantity { get; set; } = 1;
+        public decimal UnitPrice { get; set; }
+        public string ItemReference { get; set; } = "";
+        public string UnitReference { get; set; } = "";
+        public long? ConversionRevision { get; set; }
+    }
+}

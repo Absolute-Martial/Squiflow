@@ -1,0 +1,81 @@
+@page "/workspace/{TenantId:guid}/customers/organizations/{OrganizationId:guid}/representatives"
+@attribute [Authorize]
+@rendermode Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer
+@inherits BusinessPage
+
+<PageTitle>Customer representatives</PageTitle>
+<BusinessShell Identity="Identity" Workspace="Workspace" TenantId="TenantId" Active="customers" Busy="Busy" Message="@Message" Tone="@Tone">
+    <div class="business-heading"><div><p class="eyebrow">CUSTOMERS</p><h1>Representatives</h1></div><a class="cancel-button" href="@($"/workspace/{TenantId:D}/customers/organizations/{OrganizationId:D}/programs")">Organization and programs</a></div>
+    <p class="panel-copy">Organization reference: @OrganizationId. A representative relationship grants no login, approval or billing authority.</p>
+    <PendingRequestNotice Command="PendingCommand" />
+    @if (PendingCommand is not null) { <button class="button" disabled="@Busy" @onclick="RetryAsync">Retry saved request</button> }
+    <div class="business-columns">
+        <section class="business-panel" aria-labelledby="link-representative">
+            <h2 id="link-representative">Link a representative</h2>
+            <form @onsubmit="LinkAsync" @onsubmit:preventDefault><fieldset class="business-form" disabled="@(Busy || PendingCommand is not null)"><legend class="visually-hidden">New representative relationship</legend>
+                <label for="representative-individual">Individual reference</label><input id="representative-individual" required maxlength="36" @bind="individualReference" />
+                <label for="representative-program">Program reference (optional)</label><input id="representative-program" maxlength="36" @bind="programReference" />
+                <button class="button" type="submit">Link representative</button>
+            </fieldset></form>
+            <a class="cancel-button" href="@($"/workspace/{TenantId:D}/customers/individuals")">Find or create an individual</a>
+        </section>
+        <section class="business-panel" aria-labelledby="find-representative">
+            <h2 id="find-representative">Find a relationship</h2><p class="panel-copy">Use a saved relationship reference. The service supports lookup rather than a relationship directory.</p>
+            <form @onsubmit="FindAsync" @onsubmit:preventDefault><fieldset class="business-form" disabled="@(Busy || PendingCommand is not null)"><legend class="visually-hidden">Relationship lookup</legend>
+                <label for="representative-reference">Relationship reference</label><input id="representative-reference" required maxlength="36" @bind="relationshipReference" />
+                <button class="cancel-button" type="submit">Find relationship</button>
+            </fieldset></form>
+        </section>
+    </div>
+    @if (relationship is { } current)
+    {
+        <section class="business-panel" aria-label="Representative relationship">
+            <h2>Saved relationship</h2><dl class="record-facts"><dt>Reference</dt><dd>@current.RepresentativeId</dd><dt>Individual</dt><dd><a href="@($"/workspace/{TenantId:D}/customers/individuals/{current.IndividualId:D}")">@current.IndividualId</a></dd><dt>Program</dt><dd>@(current.ProgramId?.ToString("D") ?? "Organization representative")</dd><dt>Availability</dt><dd>@current.Availability</dd><dt>Revision</dt><dd>@current.Revision</dd></dl>
+            @if (current.Availability == "active")
+            {
+                <fieldset class="business-form" disabled="@(Busy || PendingCommand is not null)"><legend class="visually-hidden">Unlink relationship</legend>
+                    <label class="check-field"><input type="checkbox" @bind="unlinkConfirmed" /> Deactivate this exact relationship, preserving its history.</label>
+                    <button class="button button-danger" disabled="@(!unlinkConfirmed)" @onclick="UnlinkAsync">Unlink representative</button>
+                </fieldset>
+            }
+        </section>
+    }
+</BusinessShell>
+
+@code {
+    [Parameter] public Guid OrganizationId { get; set; }
+    private string individualReference = "", programReference = "", relationshipReference = "", pendingAction = "";
+    private bool unlinkConfirmed;
+    private RepresentativeRecord? relationship;
+    private string Resource => $"customers/organizations/{OrganizationId:D}/representatives";
+    protected override void Reset() { individualReference = programReference = relationshipReference = pendingAction = ""; unlinkConfirmed = false; relationship = null; }
+    private bool Valid(RepresentativeRecord row, Guid? id = null) => row.RepresentativeId != Guid.Empty && (!id.HasValue || row.RepresentativeId == id) &&
+        row.OrganizationId == OrganizationId && row.IndividualId != Guid.Empty && row.ProgramId != Guid.Empty && row.Revision > 0 &&
+        row.Availability is "active" or "inactive" && row.CreatedAt != default;
+    private Task FindAsync() => RunAsync(async ct =>
+    {
+        relationship = null; unlinkConfirmed = false;
+        if (!Guid.TryParse(relationshipReference, out var id) || id == Guid.Empty) { Message = "Enter a valid relationship reference."; Tone = "error"; return; }
+        var result = await Api.GetAsync<RepresentativeRecord>(TenantId, $"{Resource}/{id:D}", row => Valid(row, id), ct);
+        relationship = result.Value; Show(result);
+    });
+    private Task LinkAsync() => RunAsync(async ct =>
+    {
+        Guid? program = null;
+        if (!Guid.TryParse(individualReference, out var individual) || individual == Guid.Empty ||
+            !string.IsNullOrWhiteSpace(programReference) && (!Guid.TryParse(programReference, out var parsed) || (program = parsed) == Guid.Empty))
+        { Message = "Enter the individual reference and a valid program reference when applicable."; Tone = "error"; return; }
+        pendingAction = "link";
+        var value = await SaveAsync<RepresentativeRecord>(Resource, new { individualId = individual, programId = program }, row => Valid(row) && row.IndividualId == individual && row.ProgramId == program && row.Availability == "active", ct);
+        if (value is not null) { relationship = value; relationshipReference = value.RepresentativeId.ToString("D"); unlinkConfirmed = false; }
+    });
+    private Task UnlinkAsync() => RunAsync(async ct =>
+    {
+        if (relationship is not { } current || PendingCommand is null && !unlinkConfirmed) return;
+        pendingAction = "unlink";
+        var value = await SaveAsync<RepresentativeRecord>($"{Resource}/{current.RepresentativeId:D}/unlink", new { expectedRevision = current.Revision },
+            row => Valid(row, current.RepresentativeId) && row.Revision == current.Revision + 1 && row.Availability == "inactive" && row.ChangedAt.HasValue, ct);
+        if (value is not null) { relationship = value; unlinkConfirmed = false; }
+    });
+    private Task RetryAsync() => pendingAction == "link" ? LinkAsync() : UnlinkAsync();
+}

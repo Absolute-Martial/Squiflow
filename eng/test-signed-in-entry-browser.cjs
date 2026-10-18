@@ -136,7 +136,7 @@ async function run() {
     await new Promise(resolve => fixture.listen(0, '127.0.0.1', resolve)); fixtureOrigin = `https://127.0.0.1:${fixture.address().port}`;
     const probe = http.createServer(); await new Promise(resolve => probe.listen(0, '127.0.0.1', resolve));
     webOrigin = `https://127.0.0.1:${probe.address().port}`; await new Promise(resolve => probe.close(resolve));
-    await startWeb(); browser = await chromium.launch({ headless: true });
+    await startWeb(); browser = await chromium.launch({ headless: true, executablePath: process.env.APPLICATION_ENTRY_BROWSER_EXECUTABLE || undefined });
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
     const page = await context.newPage();
     page.on('response', response => browserResponses.push({ path: new URL(response.url()).pathname, status: response.status() }));

@@ -1,0 +1,121 @@
+@page "/workspace/{TenantId:guid}/customers/individuals"
+@page "/workspace/{TenantId:guid}/customers/individuals/{IndividualId:guid}"
+@attribute [Authorize]
+@rendermode Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer
+@inherits BusinessPage
+
+<PageTitle>Individuals</PageTitle>
+<BusinessShell Identity="Identity" Workspace="Workspace" TenantId="TenantId" Active="individuals" Busy="Busy" Message="@Message" Tone="@Tone">
+    <div class="business-heading"><div><p class="eyebrow">CUSTOMERS</p><h1>Individuals</h1></div></div>
+    <PendingRequestNotice Command="PendingCommand" />
+    @if (PendingCommand is not null) { <button class="button" disabled="@Busy" @onclick="RetryAsync">Retry saved request</button> }
+    <div class="business-columns">
+        <section class="business-panel" aria-labelledby="find-individual">
+            <h2 id="find-individual">Find by reference</h2>
+            <p class="panel-copy">Use the reference from a saved individual record. This service currently supports individual lookup rather than a directory.</p>
+            <form @onsubmit="FindAsync" @onsubmit:preventDefault>
+                <fieldset class="business-form" disabled="@(Busy || PendingCommand is not null)">
+                    <legend class="visually-hidden">Individual lookup</legend>
+                    <label for="individual-reference">Individual reference</label>
+                    <input id="individual-reference" required maxlength="36" @bind="reference" />
+                    <button class="button" type="submit">Find individual</button>
+                </fieldset>
+            </form>
+        </section>
+        <section class="business-panel" aria-labelledby="create-individual">
+            <h2 id="create-individual">Create an individual</h2>
+            <p class="panel-copy">Saving checks individual-create permission independently of access to existing contact records.</p>
+            <form @onsubmit="CreateAsync" @onsubmit:preventDefault>
+                <fieldset class="business-form" disabled="@(Busy || PendingCommand is not null)">
+                    <legend class="visually-hidden">New individual</legend>
+                    <label for="individual-name">Display name</label><input id="individual-name" required maxlength="200" autocomplete="name" @bind="name" />
+                    <label for="individual-email">Email (optional)</label><input id="individual-email" type="email" maxlength="254" autocomplete="email" @bind="email" />
+                    <label for="individual-phone">Phone (optional)</label><input id="individual-phone" type="tel" maxlength="32" autocomplete="tel" @bind="phone" />
+                    <button class="button" type="submit">Create individual <ArrowIcon /></button>
+                </fieldset>
+            </form>
+
+        </section>
+    </div>
+    @if (individual is { } current)
+    {
+        <section class="business-panel" aria-label="Individual details">
+            <p class="eyebrow">INDIVIDUAL</p><h2>@current.DisplayName</h2>
+            <dl class="record-facts"><dt>Reference</dt><dd>@current.IndividualId</dd><dt>Availability</dt><dd>@current.Availability</dd><dt>Email</dt><dd>@(current.Email ?? "Not supplied")</dd><dt>Phone</dt><dd>@(current.Phone ?? "Not supplied")</dd><dt>Revision</dt><dd>@current.Revision</dd><dt>Created (UTC)</dt><dd>@current.CreatedAt.ToString("u")</dd></dl>
+            @if (current.RedirectTargetIndividualId is { } target)
+            { <p class="status-box warning">This is a historical consolidated record. Current individual reference: @target</p> }
+            @if (current.RedirectTargetIndividualId is null)
+            {
+                <details class="business-details"><summary>Edit contact</summary>
+                    <form @onsubmit="ContactAsync" @onsubmit:preventDefault><fieldset class="business-form" disabled="@(Busy || PendingCommand is not null)">
+                        <legend class="visually-hidden">Replace individual contact</legend>
+                        <label for="contact-name">Contact display name</label><input id="contact-name" required maxlength="200" @bind="editName" />
+                        <label for="contact-email">Contact email (optional)</label><input id="contact-email" type="email" maxlength="254" @bind="editEmail" />
+                        <label for="contact-phone">Contact phone (optional)</label><input id="contact-phone" type="tel" maxlength="32" @bind="editPhone" />
+                        <button class="button" type="submit">Save contact</button>
+                    </fieldset></form>
+                </details>
+                <button class="cancel-button" disabled="@(Busy || PendingCommand is not null)" @onclick="AvailabilityAsync">@(current.Availability == "active" ? "Mark individual inactive" : "Mark individual active")</button>
+            }
+            <a class="cancel-button" href="@($"/workspace/{TenantId:D}/customers/individuals/{current.IndividualId:D}")">Open saved individual</a>
+        </section>
+    }
+</BusinessShell>
+
+@code {
+    [Parameter] public Guid? IndividualId { get; set; }
+    private IndividualRecord? individual;
+    private string reference = "";
+    private string name = "";
+    private string email = "";
+    private string phone = "";
+    private string editName = "", editEmail = "", editPhone = "", pendingAction = "";
+
+    protected override void Reset() { individual = null; reference = ""; name = ""; email = ""; phone = ""; editName = editEmail = editPhone = pendingAction = ""; }
+    protected override Task LoadAsync(CancellationToken ct) => IndividualId is { } id ? ReadAsync(id, ct) : Task.CompletedTask;
+    private Task FindAsync() => RunAsync(async ct =>
+    {
+        individual = null;
+        if (!Guid.TryParse(reference, out var id) || id == Guid.Empty) { Message = "Enter a valid individual reference."; Tone = "error"; return; }
+        await ReadAsync(id, ct);
+    });
+    private async Task ReadAsync(Guid id, CancellationToken ct)
+    {
+        var result = await Api.GetAsync<IndividualRecord>(TenantId, $"customers/individuals/{id:D}", row => CustomerContracts.Individual(row, id), ct);
+        individual = result.Value; reference = id.ToString("D"); FillContact(); Show(result);
+    }
+    private Task CreateAsync() => RunAsync(async ct =>
+    {
+        if (PendingCommand is null && (!BusinessValidation.Text(name, 200) || !BusinessValidation.Text(email, 254, false) || !BusinessValidation.Text(phone, 32, false)))
+        { Message = "Enter a display name and check the contact lengths."; Tone = "error"; return; }
+        pendingAction = "create";
+        var value = await SaveAsync<IndividualRecord>("customers/individuals", new { displayName = name, email = string.IsNullOrWhiteSpace(email) ? null : email, phone = string.IsNullOrWhiteSpace(phone) ? null : phone }, row => CustomerContracts.Individual(row), ct);
+        if (value is not null) { individual = value; reference = value.IndividualId.ToString("D"); name = ""; email = ""; phone = ""; FillContact(); }
+    });
+    private void FillContact()
+    {
+        editName = individual?.DisplayName ?? ""; editEmail = individual?.Email ?? ""; editPhone = individual?.Phone ?? "";
+    }
+    private Task ContactAsync() => RunAsync(async ct =>
+    {
+        if (individual is not { } current) return;
+        if (!BusinessValidation.Text(editName, 200) || !BusinessValidation.Text(editEmail, 254, false) || !BusinessValidation.Text(editPhone, 32, false))
+        { Message = "Enter a name and check contact lengths."; Tone = "error"; return; }
+        pendingAction = "contact";
+        var value = await SaveAsync<IndividualRecord>($"customers/individuals/{current.IndividualId:D}/contact",
+            new { expectedRevision = current.Revision, displayName = editName, email = string.IsNullOrWhiteSpace(editEmail) ? null : editEmail, phone = string.IsNullOrWhiteSpace(editPhone) ? null : editPhone },
+            row => CustomerContracts.Individual(row, current.IndividualId) && row.Revision == current.Revision + 1, ct);
+        if (value is not null) { individual = value; FillContact(); }
+    });
+    private Task AvailabilityAsync() => RunAsync(async ct =>
+    {
+        if (individual is not { } current) return;
+        var availability = current.Availability == "active" ? "inactive" : "active";
+        pendingAction = "availability";
+        var value = await SaveAsync<IndividualAvailability>($"customers/individuals/{current.IndividualId:D}/availability",
+            new { expectedRevision = current.Revision, availability },
+            row => row.IndividualId == current.IndividualId && row.Availability == availability && row.Revision == current.Revision + 1 && row.AvailabilityChangedAt != default, ct);
+        if (value is not null) individual = current with { Availability = value.Availability, Revision = value.Revision, AvailabilityChangedAt = value.AvailabilityChangedAt };
+    });
+    private Task RetryAsync() => pendingAction switch { "create" => CreateAsync(), "contact" => ContactAsync(), "availability" => AvailabilityAsync(), _ => Task.CompletedTask };
+}

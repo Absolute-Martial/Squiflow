@@ -1,0 +1,7 @@
+<section class="business-panel" aria-label="@Label">
+    <h2>Recorded @Response.Kind</h2><dl class="record-facts"><dt>Quotation</dt><dd>@Response.QuotationId</dd><dt>Issued revision</dt><dd>@Response.IssuedRevisionId</dd><dt>Recording account</dt><dd>@Response.RecordedByAccountId</dd><dt>Recorded (UTC)</dt><dd>@Response.RecordedAt.ToString("u")</dd><dt>Customer claim</dt><dd>@(Response.CustomerClaim ?? "Not applicable")</dd><dt>Evidence</dt><dd>@Response.Evidence</dd></dl>
+</section>
+@code {
+    [Parameter, EditorRequired] public QuotationResponseFact Response { get; set; } = null!;
+    [Parameter] public string Label { get; set; } = "Recorded quotation response";
+}

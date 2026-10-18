@@ -1,0 +1,65 @@
+@page "/workspace/{TenantId:guid}/orders/{OrderId:guid}/program-reference"
+@attribute [Authorize]
+@rendermode Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer
+@inherits BusinessPage
+
+<PageTitle>Order program reference</PageTitle>
+<BusinessShell Identity="Identity" Workspace="Workspace" TenantId="TenantId" Active="approvals" Busy="Busy" Message="@Message" Tone="@Tone">
+    <div class="business-heading"><div><p class="eyebrow">ORDER ADMISSION</p><h1>Program reference</h1></div><a class="cancel-button" href="@($"/workspace/{TenantId:D}/orders/{OrderId:D}")">Open saved order</a></div>
+    <PendingRequestNotice Command="PendingCommand" />
+    @if (PendingCommand is not null) { <button class="button" disabled="@Busy" @onclick="SaveReferenceAsync">Retry saved request</button> }
+    <section class="business-panel"><div class="section-toolbar"><h2>Current order and pinned policy</h2><button class="cancel-button" disabled="@Locked" @onclick="ReloadAsync">Reload order</button></div>
+        <p class="record-reference">Order: @OrderId</p>
+        @if (order is { } current)
+        {
+            <h3>@current.Summary</h3><dl class="record-facts"><dt>State</dt><dd>@current.State</dd><dt>Revision</dt><dd>@current.Revision</dd><dt>Current program reference</dt><dd>@(current.ExternalProgramReference ?? "Not supplied")</dd><dt>Program attribution</dt><dd>@(current.CustomerContext?.ProgramId?.ToString("D") ?? "No program")</dd></dl>
+            @if (current.ProgramPolicy is { } policy)
+            { <dl class="record-facts"><dt>Pinned profile</dt><dd>@policy.ProfileId</dd><dt>Pinned policy revision</dt><dd>@policy.PolicyRevisionId</dd><dt>Program reference required</dt><dd>@policy.RequireReferenceForProgramOrders</dd><dt>Independent approval required</dt><dd>@policy.RequireApprovalForProgramOrders</dd></dl> }
+            else { <p class="status-box warning">This order has no supported pinned policy. The service will refuse changes or commitment until its profile authority is resolved.</p> }
+        }
+    </section>
+    <section class="business-panel" aria-labelledby="set-reference"><h2 id="set-reference">Set or clear supplied reference</h2>
+        <p class="panel-copy">A program reference is supplied text, not proof of approval or payment. Saving advances the Order revision and makes any earlier exact-revision approval stale. A known expected revision can be used with the separate reference-edit permission even when order viewing is denied.</p>
+        <form @onsubmit="SaveReferenceAsync" @onsubmit:preventDefault><fieldset class="business-form" disabled="@Locked"><legend class="visually-hidden">Order program reference edit</legend>
+            <label for="program-expected">Expected Order revision</label><input id="program-expected" type="number" required min="1" step="1" @bind="expectedRevision" />
+            <label for="external-program-reference">Program reference (empty to clear)</label><input id="external-program-reference" maxlength="256" @bind="externalReference" /><span class="field-hint">Up to 128 Unicode characters. Required references are enforced again at commitment.</span>
+            <label class="check-field"><input type="checkbox" @bind="confirmed" /> Replace or clear the supplied reference on this exact Order revision.</label>
+            <button class="button" type="submit" disabled="@(!confirmed)">Save program reference</button>
+        </fieldset></form>
+    </section>
+    @if (receipt is { } saved)
+    { <section class="business-panel" aria-label="Program reference receipt"><h2>Saved reference receipt</h2><dl class="record-facts"><dt>Order</dt><dd>@saved.OrderId</dd><dt>Revision</dt><dd>@saved.Revision</dd><dt>Program reference</dt><dd>@(saved.ExternalProgramReference ?? "Cleared")</dd><dt>Pinned policy</dt><dd>@saved.ProgramPolicy.PolicyRevisionId</dd></dl></section> }
+    <a class="button" href="@($"/workspace/{TenantId:D}/orders/{OrderId:D}/approval")">Request independent approval</a>
+</BusinessShell>
+
+@code {
+    [Parameter] public Guid OrderId { get; set; }
+    private ApprovalOrder? order;
+    private ApprovalProgramReceipt? receipt;
+    private string externalReference = "";
+    private long expectedRevision;
+    private bool confirmed;
+    private bool Locked => Busy || PendingCommand is not null;
+    protected override void Reset() { order = null; receipt = null; externalReference = ""; expectedRevision = 0; confirmed = false; }
+    protected override Task LoadAsync(CancellationToken ct) => ReadAsync(ct);
+    private Task ReloadAsync() => RunAsync(ReadAsync);
+    private async Task ReadAsync(CancellationToken ct)
+    {
+        order = null; receipt = null;
+        var result = await Api.GetAsync<ApprovalOrder>(TenantId, $"orders/{OrderId:D}", row => ApprovalContracts.Order(row, OrderId), ct);
+        if (result.Value is { } value) { order = value; expectedRevision = value.Revision; externalReference = value.ExternalProgramReference ?? ""; confirmed = false; }
+        Show(result);
+    }
+    private Task SaveReferenceAsync() => RunAsync(async ct =>
+    {
+        if (expectedRevision < 1 || PendingCommand is null && !confirmed || !ApprovalContracts.ScalarText(externalReference, 128, false))
+        { Message = "Confirm a positive Order revision and a reference of up to 128 Unicode characters without controls."; Tone = "error"; return; }
+        var value = await SaveAsync<ApprovalProgramReceipt>($"orders/{OrderId:D}/program-reference", new { expectedRevision, externalProgramReference = string.IsNullOrWhiteSpace(externalReference) ? null : externalReference },
+            row => row.OrderId == OrderId && row.Revision == expectedRevision + 1 && row.ProgramPolicy is not null && ApprovalContracts.Policy(row.ProgramPolicy) && ApprovalContracts.ScalarText(row.ExternalProgramReference, 128, false), ct, HttpMethod.Put);
+        if (value is not null)
+        {
+            receipt = value; expectedRevision = value.Revision; externalReference = value.ExternalProgramReference ?? ""; confirmed = false;
+            if (order is not null) order = order with { Revision = value.Revision, ExternalProgramReference = value.ExternalProgramReference, ProgramPolicy = value.ProgramPolicy };
+        }
+    });
+}

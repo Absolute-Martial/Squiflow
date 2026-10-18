@@ -1,0 +1,13 @@
+@using System.Globalization
+<section class="business-panel" aria-label="@Label">
+    <h2>Exact submitted Order revision @Subject.Order.Revision</h2><h3>@Subject.Order.Summary</h3>
+    <dl class="record-facts"><dt>Order</dt><dd>@Subject.Order.OrderId</dd><dt>Total</dt><dd>@Subject.Order.Total.ToString("0.0000", CultureInfo.InvariantCulture) @Subject.Order.CurrencyCode</dd><dt>Revision author</dt><dd>@Subject.RevisionAuthorAccountId</dd><dt>Fingerprint</dt><dd>@Subject.Fingerprint</dd><dt>Organization</dt><dd>@Subject.Order.CustomerContext?.OrganizationId</dd><dt>Program</dt><dd>@Subject.Order.CustomerContext?.ProgramId</dd><dt>Program reference</dt><dd>@(Subject.Order.ExternalProgramReference ?? "Not supplied")</dd><dt>Pinned profile</dt><dd>@Subject.Order.ProgramPolicy?.ProfileId</dd><dt>Pinned policy</dt><dd>@Subject.Order.ProgramPolicy?.PolicyRevisionId</dd></dl>
+    @if (Subject.Order.QuotationOrigin is { } origin) { <p>Quotation @origin.Number, revision @origin.RevisionNumber · @origin.QuotationId · @origin.IssuedRevisionId</p> }
+    <ol class="record-list">@foreach (var line in Subject.Order.Lines)
+        { <li><strong>@line.Description</strong><span>@line.Quantity @line.UnitCode × @line.UnitPrice.ToString("0.0000", CultureInfo.InvariantCulture) = @line.LineTotal.ToString("0.0000", CultureInfo.InvariantCulture) @Subject.Order.CurrencyCode</span></li> }</ol>
+    <p class="panel-copy">This is the retained submitted subject. It may differ from today's Order; the service checks exact-subject freshness and independent authority before a decision and commitment.</p>
+</section>
+@code {
+    [Parameter, EditorRequired] public ApprovalSubject Subject { get; set; } = null!;
+    [Parameter] public string Label { get; set; } = "Exact approval subject";
+}

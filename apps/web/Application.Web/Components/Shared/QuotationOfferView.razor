@@ -1,0 +1,16 @@
+@using System.Globalization
+<section class="business-panel" aria-label="@Label">
+    <div class="section-toolbar"><h2>@Label</h2><span class="state-label">@Offer.Mode</span></div>
+    <h3>@Offer.Summary</h3>
+    <dl class="record-facts"><dt>Total</dt><dd>@Offer.Total.ToString("0.0000", CultureInfo.InvariantCulture) @Offer.CurrencyCode</dd><dt>Valid until (UTC)</dt><dd>@Offer.ValidUntil.ToString("u")</dd><dt>Individual</dt><dd>@(Offer.CustomerId?.ToString("D") ?? "Not supplied")</dd><dt>Organization</dt><dd>@(Offer.CustomerContext?.OrganizationId.ToString("D") ?? "Not supplied")</dd><dt>Program</dt><dd>@(Offer.CustomerContext?.ProgramId?.ToString("D") ?? "Not supplied")</dd></dl>
+    @if (Offer.Terms is { } terms) { <p>@terms</p> }
+    <ol class="record-list">@foreach (var line in Offer.Lines)
+        { <li><strong>@line.Description</strong><span>@line.Quantity @line.UnitCode × @line.UnitPrice.ToString("0.0000", CultureInfo.InvariantCulture) = @line.LineTotal.ToString("0.0000", CultureInfo.InvariantCulture) @Offer.CurrencyCode</span>
+            @if (line.ItemId is { } item) { <span class="record-reference">Item: @item · Unit: @line.UnitId · Price revision: @line.PriceRevisionId · Policy: @line.PolicyRevision</span> }
+            @if (line.Override is { } evidence) { <span>Override: @evidence.UnitPrice · @evidence.Reason · @(evidence.BeyondPolicy ? "Beyond policy" : "Within policy")</span> }
+        </li> }</ol>
+</section>
+@code {
+    [Parameter, EditorRequired] public QuotationOffer Offer { get; set; } = null!;
+    [Parameter] public string Label { get; set; } = "Offer";
+}

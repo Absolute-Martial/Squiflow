@@ -1,0 +1,142 @@
+@page "/workspace/{TenantId:guid}/customers"
+@page "/workspace/{TenantId:guid}/customers/organizations/{OrganizationId:guid}"
+@page "/workspace/{TenantId:guid}/customers/organizations/{OrganizationId:guid}/programs"
+@page "/workspace/{TenantId:guid}/customers/organizations/{OrganizationId:guid}/programs/{ProgramId:guid}"
+@attribute [Authorize]
+@rendermode Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer
+@inherits BusinessPage
+
+<PageTitle>@(OrganizationId.HasValue ? "Customer programs" : "Customer organizations")</PageTitle>
+<BusinessShell Identity="Identity" Workspace="Workspace" TenantId="TenantId" Active="customers" Busy="Busy" Message="@Message" Tone="@Tone">
+    <div class="business-heading">
+        <div><p class="eyebrow">CUSTOMERS</p><h1>@(OrganizationId.HasValue ? "Organization and programs" : "Organizations")</h1></div>
+        @if (OrganizationId.HasValue) { <a class="cancel-button" href="@Root">All organizations</a> }
+    </div>
+    <PendingRequestNotice Command="PendingCommand" />
+    @if (organization is { } owner)
+    {
+        <section class="business-panel" aria-label="Organization details">
+            <p class="eyebrow">ORGANIZATION</p><h2>@owner.DisplayName</h2>
+            <dl class="record-facts"><dt>Reference</dt><dd>@owner.OrganizationId</dd><dt>Created (UTC)</dt><dd>@owner.CreatedAt.ToString("u")</dd></dl>
+            <a class="cancel-button" href="@($"{Root}/organizations/{owner.OrganizationId:D}/representatives")">Manage representatives</a>
+            @if (!OrganizationId.HasValue) { <a class="cancel-button" href="@($"{Root}/organizations/{owner.OrganizationId:D}/programs")">Open organization and programs</a> }
+        </section>
+    }
+    @if (program is { } selectedProgram)
+    {
+        <section class="business-panel" aria-label="Program details">
+            <p class="eyebrow">PROGRAM</p><h2>@selectedProgram.DisplayName</h2>
+            <dl class="record-facts"><dt>Reference</dt><dd>@selectedProgram.ProgramId</dd><dt>Organization</dt><dd>@selectedProgram.OrganizationId</dd><dt>Created (UTC)</dt><dd>@selectedProgram.CreatedAt.ToString("u")</dd></dl>
+        </section>
+    }
+    <div class="business-columns">
+        <section class="business-panel" aria-labelledby="directory-heading">
+            <div class="section-toolbar"><h2 id="directory-heading">@(OrganizationId.HasValue ? "Programs" : "Organization directory")</h2>
+                <button class="cancel-button" disabled="@(Busy || PendingCommand is not null)" @onclick="() => RefreshAsync(null)">Refresh list</button></div>
+            @if (organizations is not null || programs is not null)
+            {
+                @if ((organizations?.Items.Length ?? programs?.Items.Length) == 0) { <p class="empty-state">No records on this page. Create one when you are ready.</p> }
+                <ul class="record-list">
+                    @if (organizations is { } directory)
+                    {
+                        @foreach (var item in directory.Items)
+                        {
+                            <li @key="item.OrganizationId"><a href="@($"{Root}/organizations/{item.OrganizationId:D}/programs")">@item.DisplayName <ArrowIcon /></a><span class="record-reference">@item.OrganizationId</span></li>
+                        }
+                    }
+                    @if (programs is { } directoryPrograms)
+                    {
+                        @foreach (var item in directoryPrograms.Items)
+                        {
+                            <li @key="item.ProgramId"><a href="@($"{Root}/organizations/{OrganizationId:D}/programs/{item.ProgramId:D}")">@item.DisplayName <ArrowIcon /></a><span class="record-reference">@item.ProgramId</span></li>
+                        }
+                    }
+                </ul>
+                <div class="picker-pagination">
+                    @if ((organizations?.NextCursor ?? programs?.NextCursor) is { } next)
+                    { <button class="cancel-button" disabled="@(Busy || PendingCommand is not null)" @onclick="() => RefreshAsync(next)">Next records</button> }
+                    @if (after is not null) { <button class="cancel-button" disabled="@(Busy || PendingCommand is not null)" @onclick="() => RefreshAsync(null)">First records</button> }
+                </div>
+            }
+            else if (!Busy) { <p class="empty-state">The directory could not be loaded. Refresh it to check current access.</p> }
+        </section>
+        <section class="business-panel" aria-labelledby="create-heading">
+            <h2 id="create-heading">@(OrganizationId.HasValue ? "Create a program" : "Create an organization")</h2>
+            <p class="panel-copy">@(OrganizationId.HasValue ? "Programs belong to this organization. Saving checks your program-create permission." : "Keep the stable organization reference for future work. Saving checks your organization-create permission.")</p>
+            <form @onsubmit="CreateAsync" @onsubmit:preventDefault>
+                <fieldset class="business-form" disabled="@(Busy || PendingCommand is not null)">
+                    <legend class="visually-hidden">New customer record</legend>
+                    <label for="customer-name">Display name</label>
+                    <input id="customer-name" required maxlength="200" autocomplete="organization" @bind="name" />
+                    <button class="button" type="submit" disabled="@Busy">@(OrganizationId.HasValue ? "Create program" : "Create organization") <ArrowIcon /></button>
+                </fieldset>
+            </form>
+            @if (PendingCommand is not null) { <button class="button" disabled="@Busy" @onclick="CreateAsync">Retry saved request</button> }
+        </section>
+    </div>
+</BusinessShell>
+
+@code {
+    [Parameter] public Guid? OrganizationId { get; set; }
+    [Parameter] public Guid? ProgramId { get; set; }
+    private OrganizationPage? organizations;
+    private ProgramPage? programs;
+    private OrganizationRecord? organization;
+    private ProgramRecord? program;
+    private string name = "";
+    private string? after;
+    private string Root => $"/workspace/{TenantId:D}/customers";
+    private string Resource => OrganizationId is { } id ? $"customers/organizations/{id:D}/programs" : "customers/organizations";
+
+    protected override void Reset() { organizations = null; programs = null; organization = null; program = null; name = ""; after = null; }
+
+    protected override async Task LoadAsync(CancellationToken ct)
+    {
+        if (OrganizationId is { } id)
+        {
+            var result = await Api.GetAsync<OrganizationRecord>(TenantId, $"customers/organizations/{id:D}", value => CustomerContracts.Organization(value, TenantId, id), ct);
+            organization = result.Value;
+            Show(result);
+            if (ProgramId is { } programId)
+            {
+                var detail = await Api.GetAsync<ProgramRecord>(TenantId, $"{Resource}/{programId:D}", value => CustomerContracts.Program(value, TenantId, id, programId), ct);
+                program = detail.Value;
+                Show(detail);
+            }
+        }
+        await ReadPageAsync(null, ct);
+    }
+
+    private Task RefreshAsync(string? cursor) => RunAsync(ct => ReadPageAsync(cursor, ct));
+    private async Task ReadPageAsync(string? cursor, CancellationToken ct)
+    {
+        organizations = null; programs = null; after = cursor;
+        if (OrganizationId is { } id)
+        {
+            var result = await Api.GetAsync<ProgramPage>(TenantId, BusinessValidation.PagePath(Resource, cursor),
+                value => BusinessValidation.Page(value.Items, value.NextCursor, row => CustomerContracts.Program(row, TenantId, id), row => row.ProgramId) && (value.NextCursor is null || value.NextCursor != cursor), ct);
+            programs = result.Value; Show(result);
+        }
+        else
+        {
+            var result = await Api.GetAsync<OrganizationPage>(TenantId, BusinessValidation.PagePath(Resource, cursor),
+                value => BusinessValidation.Page(value.Items, value.NextCursor, row => CustomerContracts.Organization(row, TenantId), row => row.OrganizationId) && (value.NextCursor is null || value.NextCursor != cursor), ct);
+            organizations = result.Value; Show(result);
+        }
+    }
+
+    private Task CreateAsync() => RunAsync(async ct =>
+    {
+        if (PendingCommand is null && !BusinessValidation.Text(name, 200)) { Message = "Enter a display name of up to 200 characters."; Tone = "error"; return; }
+        if (OrganizationId is { } id)
+        {
+            var value = await SaveAsync<ProgramRecord>(Resource, new { displayName = name }, row => CustomerContracts.Program(row, TenantId, id), ct);
+            if (value is not null) { program = value; name = ""; }
+        }
+        else
+        {
+            var value = await SaveAsync<OrganizationRecord>(Resource, new { displayName = name }, row => CustomerContracts.Organization(row, TenantId), ct);
+            if (value is not null) { organization = value; name = ""; }
+        }
+    });
+}

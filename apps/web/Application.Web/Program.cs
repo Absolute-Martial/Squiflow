@@ -12,6 +12,7 @@ builder.Services.AddSingleton(serviceAddress!);
 builder.Services.AddSingleton(_ => ApplicationEntryClient.CreateHttpClient());
 builder.Services.AddSingleton<ApplicationEntryClient>();
 builder.Services.AddSingleton<TenantEntryClient>();
+builder.Services.AddScoped<Application.Web.Business.BusinessApiClient>();
 var login = WebLoginConfiguration.Read(builder.Configuration);
 WebLogin.Add(builder, login);
 builder.Services.AddRazorComponents().AddInteractiveServerComponents(options =>
@@ -52,6 +53,15 @@ app.Use(async (context, next) =>
     if (login is not null && (context.Request.Path.StartsWithSegments("/auth") ||
         context.Request.Path.StartsWithSegments("/signin-oidc") || context.Request.Path.StartsWithSegments("/workspace")) &&
         (!context.Request.IsHttps || !string.Equals(context.Request.Host.Value, login.PublicOrigin.Authority, StringComparison.OrdinalIgnoreCase)))
+    {
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        return;
+    }
+    if (login is not null && context.Request.Path.StartsWithSegments("/_blazor") &&
+        (!context.Request.IsHttps || !string.Equals(context.Request.Host.Value, login.PublicOrigin.Authority, StringComparison.OrdinalIgnoreCase) ||
+         context.Request.Headers.TryGetValue("Origin", out var origins) &&
+         (origins.Count != 1 || !string.Equals(origins[0], login.PublicOrigin.GetLeftPart(UriPartial.Authority), StringComparison.OrdinalIgnoreCase)) ||
+         context.WebSockets.IsWebSocketRequest && !context.Request.Headers.ContainsKey("Origin")))
     {
         context.Response.StatusCode = StatusCodes.Status400BadRequest;
         return;

@@ -1,0 +1,148 @@
+@page "/workspace/{TenantId:guid}/billing"
+@page "/workspace/{TenantId:guid}/billing/payments/{PaymentId:guid}"
+@page "/workspace/{TenantId:guid}/billing/invoices/{InvoiceId:guid}"
+@attribute [Authorize]
+@rendermode Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer
+@inherits BusinessPage
+
+<PageTitle>Billing</PageTitle>
+<BusinessShell Identity="Identity" Workspace="Workspace" TenantId="TenantId" Active="billing" Busy="Busy" Message="@Message" Tone="@Tone">
+    <div class="business-heading"><div><p class="eyebrow">INVOICES &amp; PAYMENTS</p><h1>Billing</h1></div><a class="cancel-button" href="@Root">Billing directory</a></div>
+    <p class="panel-copy">Invoices preserve the exact debtor and committed prices. Payments start as unconfirmed evidence. Each action checks its own current permission.</p>
+    <PendingRequestNotice Command="PendingCommand" />
+    @if (PendingCommand is not null) { <button class="button" disabled="@Busy" @onclick="RetryAsync">Retry saved request</button> }
+    @if (lastPaymentReceipt is { } receipt)
+    {
+        <section class="status-box ready" aria-label="Payment command receipt"><div><h2>Payment request saved</h2>
+            <dl class="record-facts"><dt>Payment reference</dt><dd>@receipt.PaymentId</dd><dt>Event reference</dt><dd>@receipt.EventId</dd><dt>Saved revision</dt><dd>@receipt.Revision</dd></dl>
+            <a class="cancel-button" href="@($"{Root}/payments/{receipt.PaymentId:D}")">Load current payment</a>
+            <p>Viewing needs separate permission. This receipt confirms the saved operation; it does not confirm that funds were received.</p></div></section>
+    }
+    @if (lastInvoiceReceipt is { } issued)
+    {
+        <section class="status-box ready" aria-label="Invoice command receipt"><div><h2>Invoice issued</h2><p class="record-reference">@issued.InvoiceId</p>
+            <a class="cancel-button" href="@($"{Root}/invoices/{issued.InvoiceId:D}")">Load frozen invoice</a><p>Invoice viewing needs separate permission.</p></div></section>
+    }
+    @if (invoice is { } frozen)
+    {
+        <section class="business-panel" aria-labelledby="frozen-invoice"><h2 id="frozen-invoice">Issued invoice @frozen.OrganizationOrdinal</h2>
+            <dl class="record-facts"><dt>Invoice reference</dt><dd>@frozen.InvoiceId</dd><dt>Order reference</dt><dd>@frozen.SourceOrderId</dd><dt>Committed revision</dt><dd>@frozen.SourceOrderRevision</dd>
+                <dt>Debtor</dt><dd>@frozen.Debtor.Kind · @(frozen.Debtor.IndividualDisplayName ?? frozen.Debtor.ProgramDisplayName ?? frozen.Debtor.OrganizationDisplayName)</dd>
+                <dt>Invoice date (UTC)</dt><dd>@frozen.BusinessDate</dd><dt>Total</dt><dd>@Money(frozen.Total) NPR</dd></dl>
+            <ol class="record-list">@foreach (var line in frozen.Lines) { <li><strong>@line.Description</strong><span>@line.Quantity @line.UnitCode · @Money(line.LineTotal) NPR</span></li> }</ol>
+            <p>Issued facts remain unchanged when a customer is renamed or consolidated.</p>
+        </section>
+    }
+    @if (payment is { } current)
+    {
+        <section class="business-panel" aria-labelledby="current-payment"><div class="section-toolbar"><h2 id="current-payment">Payment</h2><span class="state-label">@current.State</span></div>
+            <dl class="record-facts"><dt>Reference</dt><dd>@current.PaymentId</dd><dt>Revision</dt><dd>@current.Revision</dd><dt>Debtor</dt><dd>@current.DebtorKind · @current.DebtorId</dd>
+                <dt>Original receipt</dt><dd>@Money(current.Amount) NPR · @current.Channel</dd><dt>Active allocations</dt><dd>@Money(current.AllocatedAmount) NPR</dd><dt>Available funds</dt><dd>@Money(current.AvailableAmount) NPR</dd>
+                <dt>Recorded by</dt><dd>@current.RecordedByAccountId</dd><dt>Recorded (UTC)</dt><dd>@current.RecordedAt.ToString("u")</dd><dt>Evidence</dt><dd>@current.Evidence</dd>
+                @if (current.ExternalReference is { } reference) { <dt>Bank reference</dt><dd>@reference</dd> }</dl>
+            <button class="cancel-button" disabled="@Locked" @onclick="() => HistoryAsync(null)">Load payment history</button>
+        </section>
+    }
+    <div class="business-columns">
+        <section class="business-panel" aria-labelledby="receivable-directory"><div class="section-toolbar"><h2 id="receivable-directory">Receivables</h2><button class="cancel-button" disabled="@Locked" @onclick="() => ReceivablesAsync(null)">Refresh receivables</button></div>
+            @if (receivables is { } owed)
+            {
+                @if (owed.Items.Length == 0) { <p class="empty-state">No receivables on this page.</p> }
+                <ul class="record-list">@foreach (var item in owed.Items) { <li><a href="@($"{Root}/invoices/{item.InvoiceId:D}")">Invoice @item.InvoiceId <ArrowIcon /></a><span>@item.DebtorKind · @item.DebtorId</span><span>@Money(item.OutstandingAmount) NPR outstanding · @(item.IsSettled ? "Settled" : "Outstanding")</span></li> }</ul>
+                @if (owed.NextCursor is { } next) { <button class="cancel-button" disabled="@Locked" @onclick="() => ReceivablesAsync(next)">Next receivables</button> }
+            }
+            else if (!Busy) { <p class="empty-state">Load receivables to check current financial viewing access.</p> }
+        </section>
+        <section class="business-panel" aria-labelledby="payment-directory"><div class="section-toolbar"><h2 id="payment-directory">Payments</h2><button class="cancel-button" disabled="@Locked" @onclick="() => PaymentsAsync(null)">Refresh payments</button></div>
+            @if (payments is { } received)
+            {
+                @if (received.Items.Length == 0) { <p class="empty-state">No payments on this page.</p> }
+                <ul class="record-list">@foreach (var item in received.Items) { <li><a href="@($"{Root}/payments/{item.PaymentId:D}")">@item.Channel payment <ArrowIcon /></a><span class="record-reference">@item.PaymentId</span><span>@Money(item.Amount) NPR · @item.State · Revision @item.Revision</span></li> }</ul>
+                @if (received.NextCursor is { } next) { <button class="cancel-button" disabled="@Locked" @onclick="() => PaymentsAsync(next)">Next payments</button> }
+            }
+            else if (!Busy) { <p class="empty-state">Load payments to check current financial viewing access.</p> }
+        </section>
+    </div>
+    <section class="business-panel" aria-labelledby="record-payment"><h2 id="record-payment">Record received-money evidence</h2><p>This creates a pending payment. Another authorized account must independently confirm actual received funds.</p>
+        <p id="financial-evidence-rules" class="check-caption">Receipt, reconciliation and correction notes use one line of up to 1,000 characters.</p>
+        <form @onsubmit="RecordAsync" @onsubmit:preventDefault><fieldset class="business-form" disabled="@Locked"><legend class="visually-hidden">New customer payment</legend>
+            <p class="record-reference">New payment reference: @newPaymentId</p>
+            <label for="record-debtor-kind">Payment debtor kind</label><select id="record-debtor-kind" @bind="recordKind"><option>Organization</option><option>Program</option><option>Individual</option></select>
+            <label for="record-debtor">Payment debtor reference</label><input id="record-debtor" required maxlength="36" @bind="recordDebtor" />
+            <label for="record-amount">Received amount (NPR)</label><input id="record-amount" required type="number" min="0.0001" step="0.0001" @bind="recordAmount" />
+            <label for="record-channel">Receipt channel</label><select id="record-channel" @bind="recordChannel"><option>Cash</option><option>Bank</option></select>
+            @if (recordChannel == "Bank") { <label for="record-bank">Bank external reference</label><input id="record-bank" required maxlength="200" @bind="recordBankReference" /> }
+            <label for="record-evidence">Receipt evidence</label><textarea aria-describedby="financial-evidence-rules" id="record-evidence" required maxlength="1000" @bind="recordEvidence"></textarea>
+            <label class="check-field"><input type="checkbox" @bind="recordReviewed" /> I reviewed the exact debtor, amount, channel and receipt evidence.</label>
+            <button class="button" type="submit" disabled="@(!recordReviewed)">Record pending payment</button>
+        </fieldset></form>
+    </section>
+    <section class="business-panel" aria-labelledby="payment-operation"><h2 id="payment-operation">Reconcile or allocate a payment</h2>
+        <p>Use its current saved revision. A conflict requires a fresh read and your review. Funds and debt limits are checked by the service.</p>
+        <fieldset class="business-form" disabled="@Locked"><legend class="visually-hidden">Existing payment references</legend>
+            <label for="operation-payment">Existing payment reference</label><input id="operation-payment" maxlength="36" @bind="operationPayment" />
+            <label for="operation-revision">Expected payment revision</label><input id="operation-revision" type="number" min="1" step="1" @bind="operationRevision" />
+            <button class="cancel-button" @onclick="LoadPaymentAsync">Load payment by reference</button>
+            <details class="business-details"><summary>Confirm received funds</summary><p>The confirmer must be a different account from the recorder. Reconfirmation after dispute requires new evidence.</p>
+                <label for="confirm-evidence">Received-funds confirmation evidence</label><textarea aria-describedby="financial-evidence-rules" id="confirm-evidence" maxlength="1000" @bind="confirmEvidence"></textarea>
+                <label class="check-field"><input type="checkbox" @bind="confirmReviewed" /> I independently verified that the funds were actually received.</label>
+                <button class="button" disabled="@(!confirmReviewed)" @onclick='() => EvidenceAsync("confirm", confirmEvidence)'>Confirm payment</button>
+            </details>
+            <details class="business-details"><summary>Reject or dispute evidence</summary>
+                <label for="review-evidence">Rejection or dispute evidence</label><textarea aria-describedby="financial-evidence-rules" id="review-evidence" maxlength="1000" @bind="reviewEvidence"></textarea>
+                <p>Rejection is terminal. A dispute blocks new allocations while preserving existing allocations.</p>
+                <label class="check-field"><input type="checkbox" @bind="reviewReviewed" /> I reviewed the current payment and this evidence decision.</label>
+                <div class="panel-actions actions-inline"><button class="cancel-button" disabled="@(!reviewReviewed)" @onclick='() => EvidenceAsync("dispute", reviewEvidence)'>Dispute payment</button>
+                <button class="button button-danger" disabled="@(!reviewReviewed)" @onclick='() => EvidenceAsync("reject", reviewEvidence)'>Reject payment</button></div>
+            </details>
+            <details class="business-details"><summary>Allocate confirmed funds</summary>
+                <label for="allocation-invoice">Receivable invoice reference</label><input id="allocation-invoice" maxlength="36" @bind="allocationInvoice" />
+                <label for="allocation-amount">Allocation amount (NPR)</label><input id="allocation-amount" type="number" min="0.0001" step="0.0001" @bind="allocationAmount" />
+                <label class="check-field"><input type="checkbox" @bind="allocationReviewed" /> I reviewed this exact invoice and allocation amount.</label>
+                <button class="button" disabled="@(!allocationReviewed)" @onclick="AllocateAsync">Allocate payment funds</button>
+            </details>
+            <details class="business-details"><summary>Correct a receipt or allocation</summary><p>Corrections require the current initial Owner, correction permission and recent trusted strong authentication. Reversal corrects evidence; it does not refund money. Release removes one entire allocation.</p>
+                @if (VerificationAvailable)
+                {
+                    <form method="post" action="/auth/verify-identity" data-enhance="false"><AntiforgeryToken /><input type="hidden" name="tenantId" value="@TenantId" />
+                        <button class="cancel-button" type="submit">Verify identity for corrections</button></form>
+                    <p>Verification starts a fresh sign-in and returns here. Unsent entries are lost; resolve saved requests first. The service checks the returned authentication before allowing a correction.</p>
+                }
+                else { <p>Fresh identity verification is unavailable. Your administrator must configure the identity provider before you can request it here.</p> }
+                <label for="correction-reason">Correction reason</label><textarea aria-describedby="financial-evidence-rules" id="correction-reason" maxlength="1000" @bind="correctionReason"></textarea>
+                <label for="release-allocation">Allocation event reference to release</label><input id="release-allocation" maxlength="36" @bind="releaseAllocation" />
+                <label for="correction-confirm">Type “Release allocation” or “Reverse payment” to confirm the chosen correction</label><input id="correction-confirm" maxlength="18" autocomplete="off" @bind="correctionConfirmation" @bind:event="oninput" />
+                <div class="panel-actions actions-inline"><button class="button button-danger" disabled='@(correctionConfirmation != "Release allocation")' @onclick="ReleaseAsync">Release entire allocation</button>
+                <button class="button button-danger" disabled='@(correctionConfirmation != "Reverse payment")' @onclick="ReverseAsync">Reverse entire payment</button></div>
+            </details>
+        </fieldset>
+    </section>
+    <section class="business-panel" aria-labelledby="invoice-entry"><h2 id="invoice-entry">Issue or find an invoice</h2><p>One full invoice per committed Order. The service uses frozen Order prices and the selected exact debtor; the organization ordinal does not pool customer debt.</p>
+        <fieldset class="business-form" disabled="@Locked"><legend class="visually-hidden">Invoice references</legend>
+            <label for="invoice-order">Committed Order reference</label><input id="invoice-order" maxlength="36" @bind="invoiceOrder" />
+            <label for="invoice-order-revision">Expected committed Order revision</label><input id="invoice-order-revision" type="number" min="1" step="1" @bind="invoiceOrderRevision" />
+            <label for="invoice-kind">Invoice debtor choice</label><select id="invoice-kind" @bind="invoiceKind"><option value="Organization">Order organization</option><option value="Program">Order program</option><option value="Individual">Individual customer</option></select>
+            @if (invoiceKind == "Individual") { <label for="invoice-individual">Invoice individual reference</label><input id="invoice-individual" maxlength="36" @bind="invoiceIndividual" /> }
+            <label class="check-field"><input type="checkbox" @bind="invoiceReviewed" /> Issue the full invoice for this exact committed revision and debtor.</label>
+            <button class="button" disabled="@(!invoiceReviewed)" @onclick="IssueAsync">Issue full invoice</button>
+            <button class="cancel-button" @onclick="FindInvoiceByOrderAsync">Find invoice for Order</button>
+            <label for="invoice-reference">Issued invoice reference</label><input id="invoice-reference" maxlength="36" @bind="invoiceReference" />
+            <button class="cancel-button" @onclick="FindInvoiceAsync">Find issued invoice</button>
+        </fieldset>
+    </section>
+    <section class="business-panel" aria-labelledby="debtor-balance"><h2 id="debtor-balance">Exact debtor balance</h2>
+        <form @onsubmit="BalanceAsync" @onsubmit:preventDefault><fieldset class="business-form" disabled="@Locked"><legend class="visually-hidden">Debtor balance lookup</legend>
+            <label for="balance-kind">Balance debtor kind</label><select id="balance-kind" @bind="balanceKind"><option>Organization</option><option>Program</option><option>Individual</option></select>
+            <label for="balance-reference">Balance debtor reference</label><input id="balance-reference" required maxlength="36" @bind="balanceDebtor" />
+            <button class="cancel-button" type="submit">Load debtor balance</button>
+        </fieldset></form>
+        @if (balance is { } totals) { <dl class="record-facts"><dt>Debtor</dt><dd>@totals.DebtorKind · @totals.DebtorId</dd><dt>Recognized invoices</dt><dd>@Money(totals.RecognizedAmount) NPR</dd><dt>Outstanding debt</dt><dd>@Money(totals.OutstandingAmount) NPR</dd><dt>Confirmed unapplied money</dt><dd>@Money(totals.ConfirmedUnappliedAmount) NPR</dd></dl> }
+    </section>
+    @if (history is { } events)
+    {
+        <section class="business-panel" aria-labelledby="payment-history"><h2 id="payment-history">Payment history</h2><ol class="record-list">
+            @foreach (var item in events.Items) { <li><strong>Revision @item.Revision · @item.Operation · @item.State</strong><span>@item.Evidence</span><span class="record-reference">Event @item.EventId · Actor @item.ActorAccountId · @item.RecordedAt.ToString("u")</span>
+                @if (item.Amount is { } amount) { <span>@Money(amount) NPR · Invoice @item.ReceivableId</span> } @if (item.AllocationId is { } allocation) { <span class="record-reference">Released allocation @allocation</span> }</li> }
+            </ol>@if (events.NextCursor is { } next) { <button class="cancel-button" disabled="@Locked" @onclick="() => HistoryAsync(next)">Next payment events</button> }</section>
+    }
+</BusinessShell>

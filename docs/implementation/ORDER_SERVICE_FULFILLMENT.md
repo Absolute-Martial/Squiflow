@@ -85,3 +85,42 @@ Integrated receiving is complete: the unchanged normal repository gate passed 1,
 | Integrated executable and migration surface — repository owners | Exact `./eng/verify.sh` run plus focused CoreApi and DbMigrator Release publications, with inspected outputs and artifact references. | Repository verification contract. | Any change to this runtime, its projects, migration, or verification inputs. |
 
 Each row is supported by the inspected evidence in the receipt and its named recurring guards. This scope does not qualify broader production, delivery, returns, payment, customer evidence, or other COM-014/015 journeys.
+
+## Tenant Web operator presentation
+
+The `Fulfillment` Web page presents the existing service-work contract through
+`BusinessPage`, `BusinessApiClient` and `BusinessShell`. Its directory and
+Order-detail routes are `/workspace/{tenantId}/fulfillment` and
+`/workspace/{tenantId}/fulfillment/orders/{orderId}`. It provides progress inbox,
+protected history, start against the committed Order revision, exact completion,
+pickup recipient evidence, disposition/resolution, and linked correction with
+optional completion, handoff or disposition replacement. The page does not own
+source eligibility, quantities, authorization or state transitions.
+
+Viewing, work recording, handoff and correction remain independent server rights.
+Loaded detail and successful command receipts supply the expected fulfillment
+revision; an operator without view permission may enter a known current revision.
+A successful command clears old projections and displays its retained receipt;
+loading current facts is a separate authorized action. Protected reasons and
+recipient labels are encoded and appear in history, rather than the inbox.
+
+An uncertain save locks new commands and inputs until the exact frozen request
+is retried. The existing envelope retains body, key, tenant and resource within
+that page/session; it is not durable offline storage or restart recovery. Tenant
+navigation resets presentation state. The existing fresh-identity POST includes
+antiforgery protection and only its supported tenant field. It currently returns
+to Billing; the page explains that return and the need to navigate back. The
+server remains authoritative for current initial Owner, correction permission
+and recent trusted authentication. A typed `Correct fulfillment` confirmation
+reviews user intent and grants no authority.
+
+The recurring presentation guards are focused operations tests in
+`Application.Web.Tests` and `eng/test-operations-web.cjs`. The browser guard drives
+the actual Blazor host against controlled identity and HTTP contract fixtures,
+including uncertain saves, current revisions, encoded history, independent
+permission failure, malformed responses, typed corrections and 320px reflow/axe
+checks. It does not prove PostgreSQL, OpenFGA, live identity or deployment behavior.
+Requalify after route/DTO, command-envelope, revision, permission, correction or
+shared component changes. Integration of the shared path allowlist/navigation
+and the final normal repository gate remains with the integrator; this isolated
+presentation evidence does not change backend or whole-product qualification.

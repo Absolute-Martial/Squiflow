@@ -24,6 +24,18 @@
             <p class="eyebrow">WORKSPACE</p>
             <h1>@current.DisplayName</h1>
             <p class="panel-copy">Your workspace entry check succeeded. Access is checked again for each operation.</p>
+            <nav class="business-navigation" aria-label="Workspace business">
+                <a href="@($"/workspace/{current.TenantId:D}/customers")">Organizations and programs</a>
+                <a href="@($"/workspace/{current.TenantId:D}/customers/individuals")">Individuals</a>
+                <a href="@($"/workspace/{current.TenantId:D}/catalog")">Catalog</a>
+                <a href="@($"/workspace/{current.TenantId:D}/pricing")">Pricing</a>
+                <a href="@($"/workspace/{current.TenantId:D}/quotations")">Quotations</a>
+                <a href="@($"/workspace/{current.TenantId:D}/order-approvals")">Order approvals</a>
+                <a href="@($"/workspace/{current.TenantId:D}/orders")">Orders</a>
+                <a href="@($"/workspace/{current.TenantId:D}/fulfillment")">Fulfillment</a>
+                <a href="@($"/workspace/{current.TenantId:D}/purchasing")">Purchasing</a>
+                <a href="@($"/workspace/{current.TenantId:D}/billing")">Billing and payments</a>
+            </nav>
             <div class="panel-actions actions-inline">
                 <button class="button" disabled="@busy" @onclick="EnterAsync">Recheck access <ArrowIcon /></button>
                 <button class="cancel-button" disabled="@busy" @onclick="() => LoadAsync(null)">Switch workspace</button>
