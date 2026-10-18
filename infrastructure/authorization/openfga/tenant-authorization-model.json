@@ -1058,6 +1058,101 @@
               }
             ]
           }
+        },
+        "financial_viewer": {
+          "this": {}
+        },
+        "can_view_receivables": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "financial_viewer"
+                }
+              }
+            ]
+          }
+        },
+        "customer_payment_recorder": {
+          "this": {}
+        },
+        "can_record_customer_payments": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "customer_payment_recorder"
+                }
+              }
+            ]
+          }
+        },
+        "customer_payment_reconciler": {
+          "this": {}
+        },
+        "can_reconcile_customer_payments": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "customer_payment_reconciler"
+                }
+              }
+            ]
+          }
+        },
+        "customer_payment_allocator": {
+          "this": {}
+        },
+        "can_allocate_customer_payments": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "customer_payment_allocator"
+                }
+              }
+            ]
+          }
+        },
+        "customer_payment_corrector": {
+          "this": {}
+        },
+        "can_correct_customer_settlement": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "customer_payment_corrector"
+                }
+              }
+            ]
+          }
         }
       },
       "metadata": {
@@ -1823,6 +1918,76 @@
             ]
           },
           "can_view_invoices": {
+            "directly_related_user_types": []
+          },
+          "financial_viewer": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_view_receivables": {
+            "directly_related_user_types": []
+          },
+          "customer_payment_recorder": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_record_customer_payments": {
+            "directly_related_user_types": []
+          },
+          "customer_payment_reconciler": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_reconcile_customer_payments": {
+            "directly_related_user_types": []
+          },
+          "customer_payment_allocator": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_allocate_customer_payments": {
+            "directly_related_user_types": []
+          },
+          "customer_payment_corrector": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "can_correct_customer_settlement": {
             "directly_related_user_types": []
           }
         }

@@ -122,6 +122,7 @@ internal sealed class OpenFgaTenantAuthorization(
     ITenantOrderFulfillmentAuthorization,
     ITenantPurchasingAuthorization,
     ITenantInvoiceAuthorization,
+    ITenantFinancialAuthorization,
     ITenantProfilePolicyAuthorization
 {
     internal Task<bool> CheckQuotationAsync(Guid account, Guid tenant, Application.Quotations.QuotationCapability capability, CancellationToken ct) =>
@@ -359,6 +360,18 @@ internal sealed class OpenFgaTenantAuthorization(
             TenantPurchasingPermission.RecordReceipt => "can_record_purchase_receipts",
             TenantPurchasingPermission.RecordPayment => "can_record_supplier_payments",
             TenantPurchasingPermission.Correct => "can_correct_purchasing",
+            _ => throw new ArgumentOutOfRangeException(nameof(permission)),
+        }, cancellationToken);
+
+    Task<bool> ITenantFinancialAuthorization.IsAllowedAsync(Guid accountId, Guid tenantId,
+        Application.Invoices.FinancialCapability permission, CancellationToken cancellationToken) =>
+        CheckAsync(accountId, tenantId, permission switch
+        {
+            Application.Invoices.FinancialCapability.View => "can_view_receivables",
+            Application.Invoices.FinancialCapability.Record => "can_record_customer_payments",
+            Application.Invoices.FinancialCapability.Reconcile => "can_reconcile_customer_payments",
+            Application.Invoices.FinancialCapability.Allocate => "can_allocate_customer_payments",
+            Application.Invoices.FinancialCapability.Correct => "can_correct_customer_settlement",
             _ => throw new ArgumentOutOfRangeException(nameof(permission)),
         }, cancellationToken);
 

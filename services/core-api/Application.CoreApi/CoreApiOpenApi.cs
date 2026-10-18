@@ -26,9 +26,27 @@ internal static class CoreApiOpenApi
             options.AddOperationTransformer<CustomerBrowseOperationTransformer>();
             options.AddOperationTransformer<CustomerIndividualBodyTransformer>();
             options.AddOperationTransformer<InvoiceIssueOperationTransformer>();
+            options.AddOperationTransformer<CustomerSettlementOperationTransformer>();
         });
 
         return services;
+    }
+}
+
+internal sealed class CustomerSettlementOperationTransformer : IOpenApiOperationTransformer
+{
+    public Task TransformAsync(OpenApiOperation operation, OpenApiOperationTransformerContext context, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var access = context.Description.ActionDescriptor.EndpointMetadata.OfType<EndpointAccessMetadata>().SingleOrDefault()?.Access;
+        if (access is EndpointAccess.CustomerPaymentRecord or EndpointAccess.CustomerPaymentReconcile or EndpointAccess.CustomerPaymentAllocate
+            or EndpointAccess.CustomerSettlementCorrect)
+        {
+            OrderCreateOperationTransformer.AddRequiredIdempotencyKeyHeader(operation);
+            OrderCreateOperationTransformer.AddReplayHeader(operation);
+            if (access == EndpointAccess.CustomerPaymentRecord) OrderCreateOperationTransformer.AddCreatedLocationHeader(operation);
+        }
+        return Task.CompletedTask;
     }
 }
 

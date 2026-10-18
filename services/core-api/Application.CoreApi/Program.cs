@@ -486,6 +486,7 @@ app.MapOrderApprovalRoutes();
 app.MapFulfillmentRoutes();
 app.MapPurchasingRoutes();
 app.MapInvoiceRoutes();
+app.MapCustomerSettlementRoutes();
 app.MapCustomerRepresentativeEndpoints();
 app.MapTenantProfilePolicyEndpoints();
 

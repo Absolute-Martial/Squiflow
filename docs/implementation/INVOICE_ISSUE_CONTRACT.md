@@ -9,7 +9,10 @@ business decisions. COM-019's choices are closed. COM-020 aligns the existing
 host-neutral capability, COM-021 adds atomic PostgreSQL persistence and COM-022
 adds separately protected issue and immutable-fact reads. Their integration is
 receiving qualification; project or route existence is not evidence of a passed
-gate. Receivables, payments and a frontend remain `NOT_INTRODUCED`.
+gate. The newly introduced customer-settlement runtime is separately owned by
+[CUSTOMER_RECEIVABLES_PAYMENTS_AND_SETTLEMENT.md](CUSTOMER_RECEIVABLES_PAYMENTS_AND_SETTLEMENT.md),
+and Web presentation by [WEB_COMMERCIAL_WORKSPACE.md](WEB_COMMERCIAL_WORKSPACE.md).
+Their existence does not qualify this invoice prerequisite.
 
 ## Source and authority inspected
 

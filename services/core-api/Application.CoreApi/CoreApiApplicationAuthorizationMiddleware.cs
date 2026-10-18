@@ -146,6 +146,10 @@ internal static class CoreApiApplicationAuthorizationMiddleware
             EndpointAccess.InvoiceIssue or EndpointAccess.InvoiceView =>
                 new TenantInvoiceResource(tenantContext, cancellationToken),
 
+            EndpointAccess.FinancialView or EndpointAccess.CustomerPaymentRecord or EndpointAccess.CustomerPaymentReconcile or
+            EndpointAccess.CustomerPaymentAllocate or EndpointAccess.CustomerSettlementCorrect =>
+                new TenantFinancialResource(tenantContext, cancellationToken),
+
             _ => throw new InvalidOperationException(
                 $"Core API access classification {access} has no application-authorization resource contract."),
         };

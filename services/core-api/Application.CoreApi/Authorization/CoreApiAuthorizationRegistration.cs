@@ -12,7 +12,10 @@ internal static class CoreApiAuthorizationRegistration
         services.AddSingleton<OpenFga.Sdk.Client.IOpenFgaClient>(_ =>
             new OpenFga.Sdk.Client.OpenFgaClient(configuration.ToClientConfiguration()));
         services.AddSingleton<OpenFgaTenantAuthorization>();
-        services.AddSingleton<ITenantAuthorizationAdministrationProvider, OpenFgaTenantAuthorizationAdministrationProvider>();
+        services.AddSingleton(_ => new OpenFgaTenantAuthorizationAdministrationClient(configuration));
+        services.AddSingleton<ITenantAuthorizationAdministrationProvider>(serviceProvider =>
+            new OpenFgaTenantAuthorizationAdministrationProvider(
+                serviceProvider.GetRequiredService<OpenFgaTenantAuthorizationAdministrationClient>(), configuration));
         services.AddScoped<TenantAuthorizationReconciler>();
         services.AddSingleton<ITenantWorkspaceAuthorization>(serviceProvider =>
             serviceProvider.GetRequiredService<OpenFgaTenantAuthorization>());
@@ -36,6 +39,8 @@ internal static class CoreApiAuthorizationRegistration
         services.AddSingleton<ITenantInvoiceAuthorization>(serviceProvider =>
             serviceProvider.GetRequiredService<OpenFgaTenantAuthorization>());
         services.AddScoped<IAuthorizationHandler, TenantInvoiceAuthorizationHandler>();
+        services.AddSingleton<ITenantFinancialAuthorization>(provider => provider.GetRequiredService<OpenFgaTenantAuthorization>());
+        services.AddScoped<IAuthorizationHandler, TenantFinancialAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, ViewTenantWorkspaceAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, CreateOrderAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, ViewOrdersAuthorizationHandler>();

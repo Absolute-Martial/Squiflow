@@ -1,18 +1,16 @@
 # Customer receivables, payments and settlement
 
 **Product version:** v0.0.1  
-**Status:** owner-accepted contract on 2026-10-10; receivable, customer-payment and settlement runtime is `NOT_INTRODUCED`  
+**Status:** owner-accepted contract on 2026-10-10; COM-023–025 runtime is introduced and `BLOCKED` receiving integrated qualification  
 **Prerequisite:** COM-020–022 invoice issuance and historical reads qualify before this contract is activated  
 **Focused owner:** invoice-backed customer receivables, manual customer payments, reconciliation, allocation and settlement
 
 The exact first-case business choices are owned by the accepted
 [COM-023–025 proposal](../review/COM_023_025_DECISION_PROPOSAL.md). This document
-is the implementation owner for those choices. It does not qualify or introduce
-runtime behavior. Current invoice issue/read scope remains `BLOCKED` receiving
-qualification under the [invoice owner](INVOICE_ISSUE_CONTRACT.md); customer
-receivables and settlement remain `NOT_INTRODUCED` until implementation begins;
-then each introduced responsibility is `BLOCKED` receiving its own evidence and
-gate qualification.
+is the implementation owner for those choices. The accepted bounded runtime is
+implemented under the existing Invoices capability and is receiving qualification
+together with its invoice/authorization prerequisites. This is not a production
+deployment or whole-product qualification.
 
 The proposal closes the selected business choices. Do not reopen them in code.
 API paths, stable permission identifiers, and routine resource limits belong to
@@ -144,6 +142,70 @@ authority even for empty results, and never reconcile, confirm, allocate, repair
 or otherwise mutate state. They expose no customer email/phone or raw bank or
 provider payload. A cached or paginated balance is explanatory data, not
 credit-admission authority; this contract introduces no credit decision.
+
+## Implemented runtime and receiving qualification
+
+The implementation extends `Application.Invoices` and its existing PostgreSQL
+adapter. It adds no executable, database, shared repository abstraction or
+separate business engine. `20261015120000_CustomerSettlement` validates retained
+invoice history and creates invoice-backed receivables, immutable original
+payments, append-only events and caller-scoped financial receipts in the existing
+`invoices` schema. The invoice issue transaction inserts its matching receivable.
+The deployment migration cannot be rolled back by deleting financial history.
+
+The provider locks the caller/key, payment and then affected receivable. It checks
+current authority after waits and before commit, including before receipt replay.
+Projection SQL combines each financial response in one statement snapshot.
+Payment events and financial receipts commit together; deferred guards reject
+incomplete history. Forced RLS and runtime SELECT/INSERT grants apply to the four
+new tables; runtime UPDATE/DELETE/TRUNCATE/trigger authority is rejected. Views
+run with invoker security. The runtime never repairs history on a read.
+
+Routine bounds are 1,000 characters for evidence/reasons, 200 for bank references,
+128 printable ASCII characters for caller keys, 50 records per read page, and
+resource-/tenant-/filter-bound cursors of at most 160 characters. Each payment
+permits 5,000 ordinary events within a 10,000-event retained limit, reserving
+capacity to release every allocation and reverse the receipt. This does not
+introduce a monetary rounding or partial-release rule. HTTP JSON is at most
+16 KiB and depth six; unknown/duplicate members and numeric strings are rejected.
+
+CoreApi tenant-relative routes are:
+
+| Journey | Routes |
+|---|---|
+| Financial reads | `GET receivables`, `GET receivables/{invoiceId}`, `GET customer-payments`, `GET customer-payments/{paymentId}`, `GET customer-payments/{paymentId}/history`, `GET debtors/{kind}/{debtorId}/balance` |
+| Original receipt | `PUT customer-payments/{paymentId}` |
+| Reconciliation | `POST customer-payments/{paymentId}/confirm`, `/reject`, `/dispute` |
+| Allocation | `POST customer-payments/{paymentId}/allocations` |
+| Correction | `POST customer-payments/{paymentId}/reverse`, `POST customer-payments/{paymentId}/allocations/{allocationId}/release` |
+
+Every mutation requires `Idempotency-Key`. Replies contain only payment/event
+identities and the saved revision; viewing has its own authority. A replay returns
+that original receipt, even when later events changed the current payment.
+The existing invoice issue/read routes keep their separate permissions.
+
+The five independent permission IDs are `receivables.view`, `payments.record`,
+`payments.reconcile`, `payments.allocate` and `payments.correct`. Their relations
+are included in the repository's pinned-model source. Deployment must publish,
+verify and deliberately pin the compatible model before grants/activation; no
+runtime re-pin, default grant or member/Owner shortcut is introduced. The
+reconciliation execution protocol and unresolved-write quarantine are owned by
+[Tenant authorization administration](TENANT_AUTHORIZATION_ADMINISTRATION.md).
+Local model tests do not qualify a target store/model rollout or live identity.
+
+The bounded Web Billing journey is owned by
+[Web commercial workspace](WEB_COMMERCIAL_WORKSPACE.md). It initiates these
+operations and displays receipts/frozen facts. It has no financial authority or
+arithmetic engine. Web correction verification asks the configured identity
+provider for fresh strong authentication; CoreApi still independently validates
+the actual signed token, current Owner and correction right.
+
+The receiving evidence is in
+[the application completion receipt](../review/APPLICATION_COMPLETION_2026_10_16.md).
+It separates focused PostgreSQL/HTTP/UI checks from the final normal gate,
+independent publication, independent review and live-provider/target checks.
+Until those local admission checks are complete this introduced scope remains
+`BLOCKED`; passing focused tests alone does not qualify it.
 
 ## Evidence required before qualification
 

@@ -74,6 +74,11 @@ internal enum EndpointAccess
     PurchasingCorrect,
     InvoiceIssue,
     InvoiceView,
+    FinancialView,
+    CustomerPaymentRecord,
+    CustomerPaymentReconcile,
+    CustomerPaymentAllocate,
+    CustomerSettlementCorrect,
 
 }
 
@@ -152,6 +157,11 @@ internal static class CoreApiApplicationAuthorizationContract
         EndpointAccess.PurchasingCorrect => [new TenantPurchasingRequirement(TenantPurchasingPermission.Correct)],
         EndpointAccess.InvoiceIssue => [new TenantInvoiceRequirement(TenantInvoicePermission.Issue)],
         EndpointAccess.InvoiceView => [new TenantInvoiceRequirement(TenantInvoicePermission.View)],
+        EndpointAccess.FinancialView => [new TenantFinancialRequirement(Application.Invoices.FinancialCapability.View)],
+        EndpointAccess.CustomerPaymentRecord => [new TenantFinancialRequirement(Application.Invoices.FinancialCapability.Record)],
+        EndpointAccess.CustomerPaymentReconcile => [new TenantFinancialRequirement(Application.Invoices.FinancialCapability.Reconcile)],
+        EndpointAccess.CustomerPaymentAllocate => [new TenantFinancialRequirement(Application.Invoices.FinancialCapability.Allocate)],
+        EndpointAccess.CustomerSettlementCorrect => [new TenantFinancialRequirement(Application.Invoices.FinancialCapability.Correct)],
         EndpointAccess.AuthorizedCustomerOrganizationCreation => [CreateOrganizationRequirement.Instance],
         EndpointAccess.AuthorizedCustomerOrganizationRead => [ViewOrganizationsRequirement.Instance],
         EndpointAccess.AuthorizedCustomerOrganizationBrowse => [ViewOrganizationsRequirement.Instance],

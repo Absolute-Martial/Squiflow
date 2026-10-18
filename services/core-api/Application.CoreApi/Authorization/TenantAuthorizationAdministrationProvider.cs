@@ -15,7 +15,9 @@ internal enum TenantAuthorizationProviderOutcome
 
 internal sealed record TenantAuthorizationProviderResult(
     TenantAuthorizationProviderOutcome Outcome,
-    string? FailureCode = null);
+    string? FailureCode = null,
+    bool MutationCompleted = false,
+    bool NoEffectProven = false);
 
 internal interface ITenantAuthorizationAdministrationProvider
 {
@@ -30,6 +32,8 @@ internal sealed class OpenFgaTenantAuthorizationAdministrationProvider(
     OpenFgaAuthorizationConfiguration configuration) : ITenantAuthorizationAdministrationProvider
 {
     private const string RoleAssigneeRelation = "assignee";
+    private readonly bool retriesDisabled = client is not OpenFgaClient || client is OpenFgaTenantAuthorizationAdministrationClient
+        ? true : throw new InvalidOperationException("Tenant authorization reconciliation requires the owned SDK client with retries disabled.");
 
     public async Task<TenantAuthorizationProviderResult> EnsureAsync(
         TenantAuthorizationProposal proposal,
@@ -40,9 +44,12 @@ internal sealed class OpenFgaTenantAuthorizationAdministrationProvider(
         ArgumentNullException.ThrowIfNull(roleAssignments);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(configuration.RequestTimeout);
+        var mutationCompleted = false;
         try
         {
             var mutations = BuildMutations(proposal, roleAssignments);
+            if (mutations.Writes.Count + mutations.Deletes.Count > 100)
+                return new(TenantAuthorizationProviderOutcome.Failed, "provider_mutation_limit", NoEffectProven: true);
             if (mutations.Writes.Count > 0 || mutations.Deletes.Count > 0)
             {
                 await client.Write(
@@ -55,6 +62,7 @@ internal sealed class OpenFgaTenantAuthorizationAdministrationProvider(
                     {
                         StoreId = configuration.StoreId,
                         AuthorizationModelId = configuration.AuthorizationModelId,
+                        Transaction = new TransactionOptions { Disable = false },
                         Conflict = new ConflictOptions
                         {
                             OnDuplicateWrites = OnDuplicateWrites.Ignore,
@@ -64,13 +72,14 @@ internal sealed class OpenFgaTenantAuthorizationAdministrationProvider(
                     timeout.Token).ConfigureAwait(false);
             }
 
+            mutationCompleted = true;
             foreach (var revoked in mutations.RevokedTuples)
             {
                 if (await RevokedTupleStillPresentAsync(revoked, timeout.Token).ConfigureAwait(false))
                 {
                     return new TenantAuthorizationProviderResult(
                         TenantAuthorizationProviderOutcome.Uncertain,
-                        "provider_state_not_observed");
+                        "provider_state_not_observed", MutationCompleted: true);
                 }
             }
 
@@ -82,11 +91,11 @@ internal sealed class OpenFgaTenantAuthorizationAdministrationProvider(
                 {
                     return new TenantAuthorizationProviderResult(
                         TenantAuthorizationProviderOutcome.Uncertain,
-                        "provider_state_not_observed");
+                        "provider_state_not_observed", MutationCompleted: true);
                 }
             }
 
-            return new TenantAuthorizationProviderResult(TenantAuthorizationProviderOutcome.Applied);
+            return new TenantAuthorizationProviderResult(TenantAuthorizationProviderOutcome.Applied, MutationCompleted: true);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -96,25 +105,26 @@ internal sealed class OpenFgaTenantAuthorizationAdministrationProvider(
         {
             return new TenantAuthorizationProviderResult(
                 TenantAuthorizationProviderOutcome.Uncertain,
-                "provider_timeout");
+                "provider_timeout", MutationCompleted: mutationCompleted);
         }
         catch (Exception exception) when (exception is FgaApiValidationError or FgaApiNotFoundError)
         {
             return new TenantAuthorizationProviderResult(
-                TenantAuthorizationProviderOutcome.Failed,
-                "authorization_model_rejected");
+                mutationCompleted ? TenantAuthorizationProviderOutcome.Uncertain : TenantAuthorizationProviderOutcome.Failed,
+                "authorization_model_rejected", MutationCompleted: mutationCompleted,
+                NoEffectProven: !mutationCompleted && retriesDisabled);
         }
         catch (Exception exception) when (IsCredentialDenied(exception))
         {
             return new TenantAuthorizationProviderResult(
                 TenantAuthorizationProviderOutcome.Uncertain,
-                "provider_denied_credential");
+                "provider_denied_credential", MutationCompleted: mutationCompleted);
         }
         catch (Exception exception) when (exception is ApiException or HttpRequestException)
         {
             return new TenantAuthorizationProviderResult(
                 TenantAuthorizationProviderOutcome.Uncertain,
-                "provider_unavailable");
+                "provider_unavailable", MutationCompleted: mutationCompleted);
         }
     }
 
@@ -325,50 +335,43 @@ internal sealed class OpenFgaTenantAuthorizationAdministrationProvider(
 }
 
 internal sealed class TenantAuthorizationReconciler(
-    ITenantAuthorizationAdministrationStore store,
+    ITenantAuthorizationReconciliationStore store,
     ITenantAuthorizationAdministrationProvider provider,
     TimeProvider timeProvider)
 {
     internal async Task<TenantAuthorizationProposal?> ReconcileAsync(
-        Guid tenantId,
-        Guid proposalId,
-        CancellationToken cancellationToken)
+        Guid tenantId, Guid proposalId, CancellationToken cancellationToken)
     {
-        var proposal = await store.MarkAttemptAsync(
-            tenantId, proposalId, timeProvider.GetUtcNow(), cancellationToken).ConfigureAwait(false);
+        await using var session = await store.OpenAsync(tenantId, cancellationToken).ConfigureAwait(false);
+        var proposal = await session.FindAsync(proposalId, cancellationToken).ConfigureAwait(false);
         if (proposal is null || proposal.Status is TenantAuthorizationProposalStatus.Applied or TenantAuthorizationProposalStatus.Failed)
-        {
             return proposal;
-        }
 
-        if (!await store.IsInitialOwnerAsync(
-                proposal.TenantId,
-                proposal.RequestedByAccountId,
-                cancellationToken).ConfigureAwait(false))
-        {
-            return await store.MarkFailedAsync(
-                proposal.TenantId,
-                proposal.ProposalId,
-                "delegator_authority_revoked",
-                timeProvider.GetUtcNow(),
-                cancellationToken).ConfigureAwait(false);
-        }
+        if (!await session.IsInitialOwnerAsync(proposal.RequestedByAccountId, cancellationToken).ConfigureAwait(false))
+            return await session.RejectUnattemptedAsync(proposalId, timeProvider.GetUtcNow(), cancellationToken).ConfigureAwait(false);
+
+        if (proposal.FailureCode == TenantAuthorizationExecution.Observed)
+            return await session.CompleteAsync(proposalId, timeProvider.GetUtcNow(), cancellationToken).ConfigureAwait(false);
+        // A missing remote-call completion cannot be fenced by a replacement PostgreSQL session.
+        if (!TenantAuthorizationExecution.CanDispatch(proposal)) return proposal;
 
         var assignments = proposal.RoleId is { } roleId && proposal.Kind == TenantAuthorizationProposalKind.RetireRole
-            ? await store.ListRoleAssignmentsAsync(proposal.TenantId, roleId, cancellationToken).ConfigureAwait(false)
-            : [];
+            ? await session.ListRoleAssignmentsAsync(roleId, cancellationToken).ConfigureAwait(false) : [];
+        await session.BeginProviderCallAsync(proposalId, timeProvider.GetUtcNow(), cancellationToken).ConfigureAwait(false);
         var result = await provider.EnsureAsync(proposal, assignments, cancellationToken).ConfigureAwait(false);
-        return result.Outcome switch
+        var effect = result.Outcome switch
         {
-            TenantAuthorizationProviderOutcome.Applied => await store.CompleteAsync(
-                proposal.TenantId, proposal.ProposalId, timeProvider.GetUtcNow(), cancellationToken).ConfigureAwait(false),
-            TenantAuthorizationProviderOutcome.Uncertain => await store.MarkUncertainAsync(
-                proposal.TenantId, proposal.ProposalId, result.FailureCode ?? "provider_outcome_uncertain",
-                timeProvider.GetUtcNow(), cancellationToken).ConfigureAwait(false),
-            TenantAuthorizationProviderOutcome.Failed => await store.MarkFailedAsync(
-                proposal.TenantId, proposal.ProposalId, result.FailureCode ?? "provider_rejected",
-                timeProvider.GetUtcNow(), cancellationToken).ConfigureAwait(false),
+            TenantAuthorizationProviderOutcome.Applied => TenantAuthorizationProviderEffect.Observed,
+            TenantAuthorizationProviderOutcome.Failed when result.NoEffectProven => TenantAuthorizationProviderEffect.RejectedWithoutEffect,
+            TenantAuthorizationProviderOutcome.Uncertain when result.MutationCompleted => TenantAuthorizationProviderEffect.FinishedWithoutObservation,
+            TenantAuthorizationProviderOutcome.Failed or TenantAuthorizationProviderOutcome.Uncertain => TenantAuthorizationProviderEffect.Unresolved,
             _ => throw new InvalidOperationException("Unexpected tenant authorization provider outcome."),
         };
+        proposal = await session.RecordProviderOutcomeAsync(proposalId, effect, result.FailureCode,
+            timeProvider.GetUtcNow(), cancellationToken).ConfigureAwait(false);
+        return effect == TenantAuthorizationProviderEffect.Observed &&
+               await session.IsInitialOwnerAsync(proposal.RequestedByAccountId, cancellationToken).ConfigureAwait(false)
+            ? await session.CompleteAsync(proposalId, timeProvider.GetUtcNow(), cancellationToken).ConfigureAwait(false)
+            : proposal;
     }
 }

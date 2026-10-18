@@ -36,7 +36,7 @@ using Xunit;
 namespace Application.CoreApi.Tests;
 
 [Collection(OrderProgramReferenceEndpointGroup.Name)]
-public sealed class InvoiceNativeEndpointTests
+public sealed partial class InvoiceNativeEndpointTests
 {
     private const string PrivateName = "synthetic-invoice-debtor-canary";
     private const string PrivateDescription = "synthetic-invoice-line-canary";
@@ -126,16 +126,18 @@ public sealed class InvoiceNativeEndpointTests
         await GrantAsync(fgaAdmin, storeId, modelId, other, issuer, ["member", "invoice_issuer", "invoice_viewer"]);
         var viewerRole = await GrantRoleAsync(fgaAdmin, storeId, modelId, tenant, viewer, "invoice_viewer");
         await GrantRoleAsync(fgaAdmin, storeId, modelId, tenant, roleIssuer, "invoice_issuer");
-        var runtime = new NpgsqlConnectionStringBuilder(database.GetConnectionString()) { Username = "invoice_http_runtime", Password = "local-invoice-runtime-only" };
+        var runtime = new NpgsqlConnectionStringBuilder(database.GetConnectionString()) { Username = "invoice_http_runtime", Password = "local-invoice-runtime-only", ApplicationName = "invoice-native-" + tenant.ToString("N") };
         using var identity = new WhiteLabelApiFactory();
         foreach (var account in new[] { owner, issuer, viewer, roleIssuer }) identity.Bind(account.ToString("D"), account);
         var ownerToken = identity.CreateToken(owner.ToString("D")); var issuerToken = identity.CreateToken(issuer.ToString("D"));
         var viewerToken = identity.CreateToken(viewer.ToString("D")); var roleIssuerToken = identity.CreateToken(roleIssuer.ToString("D"));
-        var host = CreateHost(identity, runtime.ConnectionString, authorization, 20);
+        var financialClock = new NativeFinancialClock();
+        var host = CreateHost(identity, runtime.ConnectionString, authorization, 20, financialClock);
         try
         {
             Guid orgOrder; Guid quoteOrder; Guid individualOrder; Guid inactiveOrder; Guid draftOrder; Guid usdOrder;
             Guid unattributedOrder; Guid raceOrder; Guid burstOne; Guid burstTwo; Guid individual;
+            Guid permissionWaitOrder; Guid membershipWaitOrder; Guid consolidationOrder; Guid survivorOrder; Guid sourceIndividual; Guid survivorIndividual;
             using (var setupClient = host.CreateClient())
             {
                 setupClient.Timeout = TimeSpan.FromSeconds(30);
@@ -152,6 +154,16 @@ public sealed class InvoiceNativeEndpointTests
                 raceOrder = await PrepareOrderAsync(setupClient, tenant, ownerToken, "race-order", "NPR", organization, program, 1m, 13m);
                 burstOne = await PrepareOrderAsync(setupClient, tenant, ownerToken, "burst-one", "NPR", organization, program, 1m, 17m);
                 burstTwo = await PrepareOrderAsync(setupClient, tenant, ownerToken, "burst-two", "NPR", organization, program, 1m, 19m);
+                permissionWaitOrder = await PrepareOrderAsync(setupClient, tenant, ownerToken, "permission-wait", "NPR", organization, null, 1m, 2m);
+                membershipWaitOrder = await PrepareOrderAsync(setupClient, tenant, ownerToken, "membership-wait", "NPR", organization, null, 1m, 3m);
+                consolidationOrder = await PrepareOrderAsync(setupClient, tenant, ownerToken, "consolidation-wait", "NPR", organization, null, 1m, 4m);
+                survivorOrder = await PrepareOrderAsync(setupClient, tenant, ownerToken, "survivor", "NPR", organization, null, 1m, 5m);
+                var sourcePerson = await SendAsync(setupClient, HttpMethod.Post, $"/api/v1/tenants/{tenant:D}/customers/individuals", ownerToken,
+                    "consolidation-source", new { displayName = "Frozen source debtor", email = "invoice-source@example.test" }, HttpStatusCode.Created);
+                var survivorPerson = await SendAsync(setupClient, HttpMethod.Post, $"/api/v1/tenants/{tenant:D}/customers/individuals", ownerToken,
+                    "consolidation-survivor", new { displayName = "Current survivor debtor", email = "invoice-survivor@example.test" }, HttpStatusCode.Created);
+                sourceIndividual = sourcePerson.GetProperty("individualId").GetGuid();
+                survivorIndividual = survivorPerson.GetProperty("individualId").GetGuid();
                 var validUntil = DateTimeOffset.UtcNow.AddDays(1);
                 validUntil = new DateTimeOffset(validUntil.UtcTicks - validUntil.UtcTicks % 10, TimeSpan.Zero);
                 var quotation = await SendAsync(setupClient, HttpMethod.Post, $"/api/v1/tenants/{tenant:D}/quotations", ownerToken, "quote",
@@ -178,7 +190,7 @@ public sealed class InvoiceNativeEndpointTests
                     "commit-quoted", new { expectedRevision = 1 }, HttpStatusCode.OK);
             }
             await host.DisposeAsync();
-            host = CreateHost(identity, runtime.ConnectionString, authorization, maximumPoolSize);
+            host = CreateHost(identity, runtime.ConnectionString, authorization, maximumPoolSize, financialClock);
             using var client = host.CreateClient(); client.Timeout = TimeSpan.FromSeconds(30);
             Assert.Equal(maximumPoolSize, host.Services.GetRequiredService<RuntimeDatabaseConfiguration>().MaximumPoolSize);
             Assert.Equal(maximumPoolSize, new NpgsqlConnectionStringBuilder(host.Services.GetRequiredService<NpgsqlDataSource>().ConnectionString).MaxPoolSize);
@@ -253,9 +265,21 @@ public sealed class InvoiceNativeEndpointTests
                     SendAsync(client, HttpMethod.Post, OrderPath(tenant, burstOne), issuerToken, "burst-one", new { expectedOrderRevision = 2 }, HttpStatusCode.Created),
                     SendAsync(client, HttpMethod.Post, OrderPath(tenant, burstTwo), roleIssuerToken, "burst-two", new { expectedOrderRevision = 2 }, HttpStatusCode.Created)).WaitAsync(TimeSpan.FromSeconds(30));
 
+            await VerifyRevocationDuringOrganizationWaitAsync(client, admin, database.GetConnectionString(), fgaAdmin, storeId, modelId, tenant, organization,
+                issuer, issuerToken, permissionWaitOrder, membershipWaitOrder, runtime.ApplicationName!);
+            await VerifyConsolidationDuringInvoiceAsync(host, client, admin, database.GetConnectionString(), runtime.ConnectionString, tenant, organization,
+                owner, issuerToken, viewerToken, consolidationOrder, survivorOrder, sourceIndividual, survivorIndividual);
+
+            var paymentId = await VerifySettlementAsync(client, identity, fgaAdmin, storeId, modelId, tenant, other, owner, issuer, viewer,
+                roleIssuer, organization, program, individual, orgInvoice, programInvoice, individualInvoice);
+            await VerifyFinancialRevocationWaitsAsync(client, admin, database.GetConnectionString(), fgaAdmin, storeId, modelId,
+                tenant, organization, issuer, viewer, roleIssuer, owner, orgInvoice, identity, runtime.ApplicationName!, financialClock);
             client.Dispose(); await host.DisposeAsync();
-            host = CreateHost(identity, runtime.ConnectionString, authorization, maximumPoolSize);
+            host = CreateHost(identity, runtime.ConnectionString, authorization, maximumPoolSize, financialClock);
             using var restarted = host.CreateClient(); restarted.Timeout = TimeSpan.FromSeconds(30);
+            var paymentReplay = await SendAsync(restarted, HttpMethod.Put, PaymentPath(tenant, paymentId), issuerToken, "customer-cash-receipt",
+                CashReceipt(organization), HttpStatusCode.OK);
+            Assert.Equal(1, paymentReplay.GetProperty("revision").GetInt64());
             using (var replay = await SendRawAsync(restarted, HttpMethod.Post, OrderPath(tenant, individualOrder), issuerToken, "individual-issue", individualBody))
             {
                 Assert.Equal(HttpStatusCode.OK, replay.StatusCode);
@@ -300,6 +324,9 @@ public sealed class InvoiceNativeEndpointTests
                 await activate.ExecuteNonQueryAsync();
             }
             await server.StopAsync();
+            await SendAsync(restarted, HttpMethod.Get, PaymentPath(tenant, paymentId), viewerToken, null, null, HttpStatusCode.ServiceUnavailable);
+            await SendAsync(restarted, HttpMethod.Put, PaymentPath(tenant, paymentId), issuerToken, "customer-cash-receipt",
+                CashReceipt(organization), HttpStatusCode.ServiceUnavailable);
             await SendAsync(restarted, HttpMethod.Get, InvoicePath(tenant, orgInvoice), viewerToken, null, null, HttpStatusCode.ServiceUnavailable);
             await SendAsync(restarted, HttpMethod.Post, OrderPath(tenant, individualOrder), issuerToken, "individual-issue", individualBody, HttpStatusCode.ServiceUnavailable);
             Assert.Empty(failures);
@@ -327,19 +354,23 @@ public sealed class InvoiceNativeEndpointTests
     }
 
     private WebApplicationFactory<Program> CreateHost(WhiteLabelApiFactory identity, string connectionString,
-        OpenFgaTenantAuthorization authorization, int pool) => identity.WithWebHostBuilder(builder =>
+        OpenFgaTenantAuthorization authorization, int pool, TimeProvider? clock = null) => identity.WithWebHostBuilder(builder =>
     {
         builder.UseSetting("ConnectionStrings:PrimaryDatabase", connectionString);
         builder.UseSetting("Database:MaximumPoolSize", pool.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        builder.UseSetting("HighRiskActions:TenantWebClientId", "tenant-web-financial-test");
+        builder.UseSetting("HighRiskActions:RequiredAcr", "urn:application:assurance:financial-test");
         builder.ConfigureTestServices(services =>
         {
             services.Insert(0, ServiceDescriptor.Singleton<IExceptionHandler>(new CaptureFailures(failures)));
             services.RemoveAll<ILoggerProvider>(); services.AddSingleton<ILoggerProvider>(new CapturedLogs(diagnostics));
+            if (clock is not null) { services.RemoveAll<TimeProvider>(); services.AddSingleton(clock); }
             services.RemoveAll<NpgsqlDataSource>();
             services.AddSingleton(provider => RuntimeDatabaseConfiguration.From(provider.GetRequiredService<IConfiguration>()).CreateDataSource());
             services.RemoveAll<ITenantMembershipDirectory>(); services.AddScoped<ITenantMembershipDirectory, PostgresTenantMembershipDirectory>();
             services.RemoveAll<OpenFgaTenantAuthorization>(); services.AddSingleton(authorization);
             services.RemoveAll<ITenantInvoiceAuthorization>(); services.AddSingleton<ITenantInvoiceAuthorization>(authorization);
+            services.RemoveAll<ITenantFinancialAuthorization>(); services.AddSingleton<ITenantFinancialAuthorization>(authorization);
             services.RemoveAll<ITenantOrderAuthorization>(); services.AddSingleton<ITenantOrderAuthorization>(authorization);
             services.RemoveAll<ITenantCustomerAuthorization>(); services.AddSingleton<ITenantCustomerAuthorization>(authorization);
             services.RemoveAll<ICustomerStore>(); services.AddScoped<ICustomerStore, PostgresCustomerStore>();

@@ -26,6 +26,20 @@ public sealed class InvoiceIssuancePostgresTests(InvoiceDatabaseFixture database
         Assert.Equal(1, invoice.OrganizationOrdinal);
         Assert.Equal(TimeSpan.Zero, invoice.IssuedAt.Offset);
         Assert.Equal(DateOnly.FromDateTime(invoice.IssuedAt.UtcDateTime), invoice.BusinessDate);
+        await using (var connection = new NpgsqlConnection(database.ConnectionString))
+        {
+            await connection.OpenAsync();
+            await using var command = new NpgsqlCommand("SELECT debtor_kind,debtor_id,original_amount,invoice_date,recognized_at FROM invoices.receivables WHERE tenant_id=@tenant AND invoice_id=@invoice", connection);
+            command.Parameters.AddWithValue("tenant", scenario.Context.TenantId); command.Parameters.AddWithValue("invoice", invoice.InvoiceId);
+            await using var reader = await command.ExecuteReaderAsync();
+            Assert.True(await reader.ReadAsync());
+            Assert.Equal((int)InvoiceDebtorKind.Organization, reader.GetInt32(0));
+            Assert.Equal(scenario.OrganizationId, reader.GetGuid(1));
+            Assert.Equal(invoice.Total, reader.GetDecimal(2));
+            Assert.Equal(invoice.BusinessDate, reader.GetFieldValue<DateOnly>(3));
+            Assert.True(reader.GetDateTime(4) >= invoice.IssuedAt.UtcDateTime);
+            Assert.False(await reader.ReadAsync());
+        }
         Assert.Equal(new long[] { 1, 1, 3, 1 }, await database.CountsAsync(scenario.Context.TenantId));
         scenario.Source.Facts = null;
         scenario.Source.DebtorStatus = InvoiceIssueDebtorObservationStatus.Unavailable;
@@ -169,6 +183,7 @@ public sealed class InvoiceIssuancePostgresTests(InvoiceDatabaseFixture database
     [InlineData("issued_invoices")]
     [InlineData("issued_lines")]
     [InlineData("issue_receipts")]
+    [InlineData("receivables")]
     public async Task FailureAtEveryRetainedWriteRollsBackOrdinalInvoiceLinesAndReceipt(string table)
     {
         await using var scenario = await Scenario.CreateAsync(database);
@@ -404,7 +419,7 @@ public sealed class InvoiceIssuancePostgresTests(InvoiceDatabaseFixture database
     {
         await using var context = InvoicesPostgresRegistration.CreateContext(database.ConnectionString);
         Assert.False(context.Database.HasPendingModelChanges());
-        Assert.Equal("20261010120000_FirstInvoiceIssuance", Assert.Single(await context.Database.GetAppliedMigrationsAsync()));
+        Assert.Equal(["20261010120000_FirstInvoiceIssuance", "20261015120000_CustomerSettlement"], await context.Database.GetAppliedMigrationsAsync());
         await Assert.ThrowsAsync<NotSupportedException>(() => context.GetService<IMigrator>().MigrateAsync("0"));
     }
 
@@ -536,6 +551,8 @@ public sealed class InvoiceDatabaseFixture : IAsyncLifetime
             GRANT SELECT,INSERT ON invoices.organization_ordinals,invoices.issued_invoices,invoices.issued_lines,invoices.issue_receipts TO invoice_runtime;
             GRANT UPDATE(last_ordinal) ON invoices.organization_ordinals TO invoice_runtime;
             GRANT EXECUTE ON FUNCTION invoices.valid_debtor(jsonb),invoices.valid_receipt(jsonb) TO invoice_runtime;
+            GRANT SELECT,INSERT ON invoices.receivables,invoices.customer_payments,invoices.customer_payment_events,invoices.customer_financial_receipts TO invoice_runtime;
+            GRANT SELECT ON invoices.receivable_balances,invoices.customer_payment_balances TO invoice_runtime;
             """);
     }
     public Task DisposeAsync() => database.DisposeAsync().AsTask();

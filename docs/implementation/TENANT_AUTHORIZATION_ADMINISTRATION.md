@@ -52,15 +52,81 @@ CoreApi adapts the durable proposal to the explicitly pinned tenant OpenFGA stor
 
 Manual bounded reconciliation is selected for this release. There is no automatic background executor, so ADM-009–012 do **not** activate conditional `OPS-003`.
 
-Reconciliation steps:
+Reconciliation owns a PostgreSQL session advisory lock for the tenant, on one
+borrowed connection. After acquisition it reads the proposal again; a terminal
+proposal returns without a provider call. The same connection serves current
+original-Owner checks, role assignment reads, dispatch evidence, provider outcome
+recording and local completion. It never acquires a nested pool lease, including
+at maximum pool size one. Acquisition (including pool wait) has a ten-second
+budget and honours caller cancellation. Cleanup has a separate five-second budget;
+failed/cancelled acquisition or uncertain unlock evicts the connection before disposal.
+This requires direct/session-affine PostgreSQL; transaction-pooling remapping is
+not qualified. It serializes healthy requests across replicas; it is not a
+remote-provider fence.
 
-1. increment/retain the bounded attempt identity;
-2. recheck that the proposal's original delegator is still the current active initial Owner;
-3. issue idempotent duplicate-safe OpenFGA write/delete against the pinned model;
-4. observe the intended tuple state with `HIGHER_CONSISTENCY`;
-5. only after the intended provider state is observed, atomically apply local metadata/history and advance `TenantAuthorizationRevision` once.
+The existing retained `failure_code` field also carries reserved `execution_*`
+protocol outcomes; these are durable facts, not freely replaceable diagnostics:
 
-Timeout/network ambiguity becomes `Uncertain`, never guessed success. Validation/model rejection becomes `Failed`. Provider success followed by local completion failure converges on replay because the provider mutation is idempotent and completion rechecks the durable proposal/revision.
+| Nonterminal outcome | Meaning and permitted continuation |
+|---|---|
+| `execution_in_flight` | Committed before sending a provider mutation. A new session cannot prove that remote request stopped; retain the Uncertain slot, with no new mutation or completion. |
+| `execution_observed` | The provider operation returned and the intended state was observed at higher consistency, durably recorded before local completion. A current original Owner may complete locally without repeating the write. |
+| `execution_finished:<code>` | The mutation call returned successfully, but subsequent observation failed. No mutation remains in flight from that call; current original-Owner authority may repeat the same semantic attempt within the dispatch budget. |
+| `execution_unresolved:<code>` | Transport/cancellation or another outcome lacks proof that all remote mutations finished. Hold the slot; do not dispatch, complete, or terminally fail automatically. |
+
+Reconciliation has a separate DI-owned OpenFGA client that forces SDK `MaxRetry=0`
+regardless of the shared Check retry configuration. The provider rejects an
+ordinary SDK client; the owned client also disables HTTP redirects and bounds its
+owned transport by the configured request timeout. A successful final response from a retrying writer
+would not prove an earlier timed-out attempt drained. The shared authorization
+Check client keeps its configured retry policy.
+
+The provider uses a single atomic Write request (transaction splitting disabled,
+no more than 100 tuples; the role/assignment ceilings fit that bound), explicit
+store/model pin, duplicate-write/missing-delete tolerance and higher-consistency
+observations. A fresh known rejection can become Failed only with proof that no
+mutation applied: local pre-dispatch rejection, or an atomic Write validation/model
+rejection without SDK retries and without an earlier possible effect. A rejection
+on a later attempt cannot erase an earlier effect. Readback rejection after a
+successful mutation is not proof of no effect. Validation or not-found rejection of
+that readback retains the finished marker and permits bounded retry by the current
+original Owner; it does not become unknown-lifetime quarantine or prove completion.
+
+Dispatch increments the attempt counter, up to 20; status-only calls do not earn
+provider evidence. Local completion is permitted only after the durable observed
+outcome, rechecks the original Owner, and atomically advances the authorization
+revision once. It preserves replay identity/events. Lower store methods cannot
+replace retained execution outcomes with generic failures, terminalize earlier
+unknown attempts, or complete an unobserved effect.
+
+Loss of delegation before any attempt causes Failed with no provider mutation.
+After a possible effect, loss of delegation retains Pending/Uncertain; it never
+issues a new unauthorized grant. An observed effect can complete after the same
+original Owner and tenant become active again. No recovery identity or break-glass
+authority is added.
+
+**Connection-loss and interruption limit:** a PostgreSQL advisory lock disappears
+when its backend dies. It cannot fence a provider request already sent over HTTP.
+The durable in-flight outcome therefore remains authoritative even after a new
+session acquires the lock. A positive/negative provider read alone does not prove
+that an old delayed write cannot apply later. Similarly, a write timeout with no
+known response is quarantined, even if a test/operator later observes the tuple.
+Crashes between remote completion and persistence of `execution_observed` can also
+require this conservative hold. There is no automatic timeout expiry, guessed
+completion, Worker, force-success route or new operational repair ceremony.
+Draining/proving an unresolved external lifetime and any deliberate repair require
+a separately accepted operational procedure; this implementation does not claim
+general automatic recovery of that case.
+
+Existing terminal records from an older writer are not silently rewritten or
+presumed repaired; retained historical effects need integrator disposition before
+activation.
+
+Older Pending/Uncertain proposals with prior attempts but no new durable outcome
+are treated conservatively as unknown; a status counter or historical timeout is
+not upgraded to proof. Deployment must drain old reconciliation executors before
+using this protocol and must not roll back to an old writer that ignores these
+outcomes while such proposals remain. No mixed-old/new-writer guarantee is made.
 
 A provider relation never bypasses tenant admission. Existing computed capability relations continue to intersect the raw permission relation with verified current `tenant#member` context.
 
@@ -133,7 +199,7 @@ The provisioning script independently rejects unsafe existing role attributes/me
 
 ## 8. Evidence and non-claims
 
-Authored regression guards cover host-neutral permission/intents, PostgreSQL idempotency/arbitration/revision/role/Owner semantics, restricted runtime grants, high-risk claim validation and real OpenFGA grant/revoke/custom-role/pinned-model behavior.
+Regression guards cover host-neutral permission/intents, PostgreSQL idempotency/arbitration/revision/role/Owner semantics, restricted runtime grants, high-risk claim validation and real OpenFGA grant/revoke/custom-role/pinned-model behavior. The dedicated CoreApi `TenantAuthorizationReconciliationNativeTests` additionally joins real restricted-role PostgreSQL and pinned OpenFGA with two executors/pools 1 and 2, local-completion fault/restart, authority loss/reactivation, actual applied-write HTTP timeout, backend termination while a write is in flight, and cancelled lock-wait cleanup. Controlled-port `TenantAuthorizationReconcilerTests` test orchestration; they are not substitutes for those native runs. Their actual commands/exits and proof limits belong to the accompanying fix handoff; authoring these tests does not independently qualify this source.
 
 Until those new tests execute in an environment with the locked NuGet graph, PostgreSQL 17 and OpenFGA, this source is **implemented / dynamic acceptance pending**. An earlier GATE-001 run does not qualify code introduced after that baseline.
 
@@ -141,4 +207,4 @@ This slice does not introduce automatic Worker reconciliation, tenant Web/Admin 
 
 ## 9. Requalification triggers
 
-Requalify on permission catalog IDs/relations, delegation ceiling, role/assignment ceilings, proposal arbitration, authorization revision semantics, OpenFGA model/store ID, consistency mode, Owner-transfer/step-up policy, membership semantics, runtime DB grants, or activation of automatic background reconciliation.
+Requalify on execution-lock/connection lifetime, retained outcome-code meaning, provider write atomicity/retries, timeout/cancellation and quarantine/recovery policy, permission catalog IDs/relations, delegation ceiling, role/assignment ceilings, proposal arbitration, authorization revision semantics, OpenFGA model/store ID, consistency mode, Owner-transfer/step-up policy, membership semantics, runtime DB grants, or activation of automatic background reconciliation.

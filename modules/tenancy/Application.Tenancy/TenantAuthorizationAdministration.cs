@@ -107,6 +107,11 @@ public static class TenantPermissionCatalog
         new("purchasing.correct", "purchasing_corrector", "Correct purchasing records"),
         new("invoices.issue", "invoice_issuer", "Issue invoices"),
         new("invoices.view", "invoice_viewer", "View issued invoices"),
+        new("receivables.view", "financial_viewer", "View customer receivables and payments"),
+        new("payments.record", "customer_payment_recorder", "Record customer payment evidence"),
+        new("payments.reconcile", "customer_payment_reconciler", "Reconcile customer payment evidence"),
+        new("payments.allocate", "customer_payment_allocator", "Allocate confirmed customer payments"),
+        new("payments.correct", "customer_payment_corrector", "Correct customer settlement records"),
     ];
 
     public static IReadOnlyList<TenantPermissionDefinition> All { get; } = Array.AsReadOnly(Definitions);

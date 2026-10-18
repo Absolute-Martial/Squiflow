@@ -38,6 +38,7 @@ public static class InvoicesPostgresRegistration
         services.AddScoped<PostgresInvoiceIssueStore>();
         services.AddScoped<IInvoiceIssueStore>(provider => provider.GetRequiredService<PostgresInvoiceIssueStore>());
         services.AddScoped<IInvoiceIssuedFactsReader>(provider => provider.GetRequiredService<PostgresInvoiceIssueStore>());
+        services.AddScoped<ICustomerSettlementStore, PostgresCustomerSettlementStore>();
         return services;
     }
 }

@@ -27,6 +27,7 @@ public sealed class TupleReadAuthorizationIsolationTests
             CancellationToken.None);
 
         Assert.Equal(TenantAuthorizationProviderOutcome.Applied, result.Outcome);
+        Assert.True(result.MutationCompleted);
         Assert.Equal(0, client.TupleReadCount);
     }
 
@@ -46,6 +47,8 @@ public sealed class TupleReadAuthorizationIsolationTests
         // report a retryable outage that would burn the attempt budget for ever.
         Assert.Equal(TenantAuthorizationProviderOutcome.Uncertain, result.Outcome);
         Assert.Equal("provider_denied_credential", result.FailureCode);
+        Assert.True(result.MutationCompleted);
+        Assert.False(result.NoEffectProven);
         Assert.Equal(1, client.TupleReadCount);
     }
 
@@ -59,6 +62,7 @@ public sealed class TupleReadAuthorizationIsolationTests
         var staleObservation = await provider.EnsureAsync(proposal, [], CancellationToken.None);
         Assert.Equal(TenantAuthorizationProviderOutcome.Uncertain, staleObservation.Outcome);
         Assert.Equal("provider_state_not_observed", staleObservation.FailureCode);
+        Assert.True(staleObservation.MutationCompleted);
         Assert.Equal(1, client.WriteCount);
 
         var freshObservation = await provider.EnsureAsync(proposal, [], CancellationToken.None);

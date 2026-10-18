@@ -4,11 +4,10 @@ using NpgsqlTypes;
 
 namespace Application.Tenancy.Postgres;
 
-public sealed class PostgresTenantAuthorizationAdministrationStore(NpgsqlDataSource dataSource)
-    : ITenantAuthorizationAdministrationStore
+public sealed partial class PostgresTenantAuthorizationAdministrationStore(NpgsqlDataSource dataSource)
+    : ITenantAuthorizationAdministrationStore, ITenantAuthorizationReconciliationStore
 {
-    /// <summary>Reconciliation attempts allowed before an unresolved proposal is terminally failed.</summary>
-    private const int MaximumReconciliationAttempts = 20;
+    private const int MaximumReconciliationAttempts = TenantAuthorizationExecution.MaximumAttempts;
 
     public async Task<int?> GetAuthorizationRevisionAsync(Guid tenantId, CancellationToken cancellationToken)
     {
@@ -206,8 +205,15 @@ public sealed class PostgresTenantAuthorizationAdministrationStore(NpgsqlDataSou
         DateTimeOffset occurredAt,
         CancellationToken cancellationToken)
     {
+        await using var session = await OpenAsync(tenantId, cancellationToken).ConfigureAwait(false);
+        return await session.CompleteAsync(proposalId, occurredAt, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<TenantAuthorizationProposal?> CompleteAsync(
+        NpgsqlConnection connection, Guid tenantId, Guid proposalId, DateTimeOffset occurredAt,
+        CancellationToken cancellationToken)
+    {
         ValidateIds(tenantId, proposalId);
-        await using var connection = await dataSource.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
             .ConfigureAwait(false);
         var proposal = await FindProposalForUpdateAsync(connection, transaction, tenantId, proposalId, cancellationToken)
@@ -226,6 +232,23 @@ public sealed class PostgresTenantAuthorizationAdministrationStore(NpgsqlDataSou
         {
             await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
             return proposal;
+        }
+
+        if (proposal.FailureCode != TenantAuthorizationExecution.Observed)
+        {
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+            return proposal;
+        }
+
+        await using (var authority = CreateCommand(connection, transaction, TenantAuthorizationAdministrationSql.IsInitialOwner))
+        {
+            authority.Parameters.AddWithValue("tenant_id", tenantId);
+            authority.Parameters.AddWithValue("account_id", proposal.RequestedByAccountId);
+            if (await authority.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) is not true)
+            {
+                await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+                return proposal;
+            }
         }
 
         var revision = await LockAuthorizationStateAsync(connection, transaction, tenantId, occurredAt, cancellationToken)
@@ -438,8 +461,17 @@ public sealed class PostgresTenantAuthorizationAdministrationStore(NpgsqlDataSou
         bool incrementAttempt,
         CancellationToken cancellationToken)
     {
+        await using var session = (ReconciliationSession)await OpenAsync(tenantId, cancellationToken).ConfigureAwait(false);
+        return await UpdateProposalStatusAsync(session.Connection, tenantId, proposalId, status, failureCode,
+            occurredAt, incrementAttempt, false, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<TenantAuthorizationProposal?> UpdateProposalStatusAsync(
+        NpgsqlConnection connection, Guid tenantId, Guid proposalId, TenantAuthorizationProposalStatus? status,
+        string? failureCode, DateTimeOffset occurredAt, bool incrementAttempt, bool executionTransition,
+        CancellationToken cancellationToken)
+    {
         ValidateIds(tenantId, proposalId);
-        await using var connection = await dataSource.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.ReadCommitted, cancellationToken)
             .ConfigureAwait(false);
         var proposal = await FindProposalForUpdateAsync(connection, transaction, tenantId, proposalId, cancellationToken)
@@ -449,42 +481,22 @@ public sealed class PostgresTenantAuthorizationAdministrationStore(NpgsqlDataSou
             await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
             return proposal;
         }
-        // An unresolved provider outcome is not evidence that the change did not apply. A
-        // timeout or a failed verification can hide a write that succeeded, so this store must
-        // never turn Uncertain into a final Failed: Failed releases the proposal slot, which
-        // would let a later proposal change the same authorization against provider state that
-        // may already reflect this one, while the original change is never completed.
-        //
-        // Marking an attempt likewise only records that reconciliation is about to consult the
-        // authorization provider, so the budget cannot terminalise the proposal from there
-        // either. Once the budget is spent the proposal stays Uncertain, keeps holding its slot
-        // and stays reconcilable, and only the automatic attempt counter stops advancing.
-        if (proposal.AttemptCount >= MaximumReconciliationAttempts)
+        if (!executionTransition)
         {
-            // The budget is spent, so stop consuming automatic attempts. An unresolved
-            // outcome still stays Uncertain; a known rejection still becomes Failed with its
-            // own code, and a confirmed application still becomes Applied.
-            var unresolved = status is null || status == TenantAuthorizationProposalStatus.Uncertain;
-            // Record why the outcome is unresolved. Stamp the exhausted budget only when no
-            // more specific code is available, otherwise the real cause of a wedged proposal
-            // (a provider outage, an unobserved write, a credential that cannot read tuples)
-            // is discarded after twenty attempts and the operator is left with only
-            // attempt_limit_reached.
-            var budgetCode = failureCode is null ? "attempt_limit_reached" : failureCode;
-            await SetProposalStatusAsync(connection, transaction, proposal,
-                unresolved ? TenantAuthorizationProposalStatus.Uncertain : status!.Value,
-                unresolved ? budgetCode : failureCode,
-                occurredAt, incrementAttempt: false, cancellationToken)
-                .ConfigureAwait(false);
+            if (failureCode is not null && TenantAuthorizationExecution.IsProtocolCode(failureCode))
+                throw new ArgumentException("Execution outcome codes require the owned reconciliation session.", nameof(failureCode));
+            if (status == TenantAuthorizationProposalStatus.Failed &&
+                (proposal.AttemptCount > 0 || proposal.Status == TenantAuthorizationProposalStatus.Uncertain))
+                status = TenantAuthorizationProposalStatus.Uncertain;
+            // Lower-level status calls cannot erase evidence of a dispatched or observed effect.
+            if (proposal.AttemptCount > 0 || proposal.Status == TenantAuthorizationProposalStatus.Uncertain)
+                failureCode = proposal.FailureCode ?? failureCode;
         }
-        else
-        {
-            await SetProposalStatusAsync(connection, transaction, proposal,
-                status ?? proposal.Status,
-                incrementAttempt && failureCode is null ? proposal.FailureCode : failureCode,
-                occurredAt, incrementAttempt, cancellationToken)
-                .ConfigureAwait(false);
-        }
+        await SetProposalStatusAsync(connection, transaction, proposal,
+            status ?? proposal.Status,
+            incrementAttempt && failureCode is null ? proposal.FailureCode : failureCode,
+            occurredAt, incrementAttempt && proposal.AttemptCount < MaximumReconciliationAttempts, cancellationToken)
+            .ConfigureAwait(false);
         var updated = await FindProposalForUpdateAsync(connection, transaction, tenantId, proposalId, cancellationToken)
             .ConfigureAwait(false);
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);

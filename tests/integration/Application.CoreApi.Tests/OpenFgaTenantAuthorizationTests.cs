@@ -641,7 +641,7 @@ public sealed class OpenFgaTenantAuthorizationTests : IAsyncLifetime
                 ["Authorization:OpenFga:CredentialMethod"] = "None",
             })
             .Build());
-        using var client = new OpenFgaClient(configuration.ToClientConfiguration());
+        using var client = new OpenFgaTenantAuthorizationAdministrationClient(configuration);
         var provider = new OpenFgaTenantAuthorizationAdministrationProvider(client, configuration);
         var tenantId = Guid.NewGuid();
         var otherTenantId = Guid.NewGuid();
@@ -742,7 +742,7 @@ public sealed class OpenFgaTenantAuthorizationTests : IAsyncLifetime
                 ["Authorization:OpenFga:CredentialMethod"] = "None",
             })
             .Build());
-        using var oldClient = new OpenFgaClient(oldConfiguration.ToClientConfiguration());
+        using var oldClient = new OpenFgaTenantAuthorizationAdministrationClient(oldConfiguration);
         var oldProvider = new OpenFgaTenantAuthorizationAdministrationProvider(oldClient, oldConfiguration);
         Assert.Equal(
             TenantAuthorizationProviderOutcome.Failed,
@@ -772,7 +772,7 @@ public sealed class OpenFgaTenantAuthorizationTests : IAsyncLifetime
                 ["Authorization:OpenFga:CredentialMethod"] = "None",
             })
             .Build());
-        using var client = new OpenFgaClient(configuration.ToClientConfiguration());
+        using var client = new OpenFgaTenantAuthorizationAdministrationClient(configuration);
         var provider = new OpenFgaTenantAuthorizationAdministrationProvider(client, configuration);
         var tenantId = Guid.NewGuid();
         var accountId = Guid.NewGuid();
@@ -871,7 +871,7 @@ public sealed class OpenFgaTenantAuthorizationTests : IAsyncLifetime
                 ["Authorization:OpenFga:CredentialMethod"] = "None",
             })
             .Build());
-        using var client = new OpenFgaClient(configuration.ToClientConfiguration());
+        using var client = new OpenFgaTenantAuthorizationAdministrationClient(configuration);
         var provider = new OpenFgaTenantAuthorizationAdministrationProvider(client, configuration);
         var tenantId = Guid.NewGuid();
         var actorId = Guid.NewGuid();

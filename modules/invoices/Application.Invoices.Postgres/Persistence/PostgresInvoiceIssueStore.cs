@@ -117,6 +117,11 @@ public sealed partial class PostgresInvoiceIssueStore(NpgsqlDataSource source, I
             await ExecuteAsync(connection, transaction, "InsertReceipt", cancellationToken,
                 ("tenant", invoice.TenantId), ("actor", tenantContext.AccountId), ("key", key),
                 ("fingerprint", fingerprint), ("invoice", invoice.InvoiceId), ("response", receiptJson)).ConfigureAwait(false);
+            var financialDebtor = FinancialDebtor.From(invoice.Debtor);
+            await ExecuteAsync(connection, transaction, "InsertCustomerReceivable", cancellationToken,
+                ("tenant", invoice.TenantId), ("invoice", invoice.InvoiceId), ("kind", (int)financialDebtor.Kind),
+                ("debtor", financialDebtor.Id), ("currency", invoice.CurrencyCode), ("amount", invoice.Total),
+                ("date", invoice.BusinessDate)).ConfigureAwait(false);
             committing = true;
             await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
             committing = false;

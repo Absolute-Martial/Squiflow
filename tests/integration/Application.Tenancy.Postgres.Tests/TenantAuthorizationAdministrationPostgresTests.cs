@@ -68,11 +68,11 @@ public sealed class TenantAuthorizationAdministrationPostgresTests : PostgresTes
         Assert.Equal(1, await store.GetAuthorizationRevisionAsync(fixture.TenantId, CancellationToken.None));
         Assert.False(await GrantIsActiveAsync(fixture.TenantId, fixture.TargetAccountId, "orders.view"));
 
-        // A later reconciliation that does observe the provider can still complete it.
-        var completed = await store.CompleteAsync(
+        // A counter/status call is not proof that a remote write finished.
+        var held = await store.CompleteAsync(
             fixture.TenantId, proposal.ProposalId, OccurredAt.AddSeconds(120), CancellationToken.None);
-        Assert.Equal(TenantAuthorizationProposalStatus.Applied, completed!.Status);
-        Assert.Equal(2, await store.GetAuthorizationRevisionAsync(fixture.TenantId, CancellationToken.None));
+        Assert.Equal(TenantAuthorizationProposalStatus.Uncertain, held!.Status);
+        Assert.Equal(1, await store.GetAuthorizationRevisionAsync(fixture.TenantId, CancellationToken.None));
     }
 
     [Fact]
@@ -122,19 +122,22 @@ public sealed class TenantAuthorizationAdministrationPostgresTests : PostgresTes
             TenantAuthorizationProposalResultStatus.AuthorizationRevisionConflict,
             (await store.ProposeAsync(actor, competing, OccurredAt.AddSeconds(3), CancellationToken.None)).Status);
 
-        var attempted = await store.MarkAttemptAsync(
-            fixture.TenantId, proposal.ProposalId, OccurredAt.AddSeconds(4), CancellationToken.None);
-        Assert.Equal(1, attempted!.AttemptCount);
-        var uncertain = await store.MarkUncertainAsync(
-            fixture.TenantId, proposal.ProposalId, "provider_timeout", OccurredAt.AddSeconds(5), CancellationToken.None);
-        Assert.Equal(TenantAuthorizationProposalStatus.Uncertain, uncertain!.Status);
-        Assert.Equal("provider_timeout", uncertain.FailureCode);
-
-        var retried = await store.MarkAttemptAsync(
-            fixture.TenantId, proposal.ProposalId, OccurredAt.AddMilliseconds(5500), CancellationToken.None);
-        Assert.Equal(TenantAuthorizationProposalStatus.Uncertain, retried!.Status);
-        Assert.Equal(2, retried.AttemptCount);
-        Assert.Equal("provider_timeout", retried.FailureCode);
+        await using (var firstAttempt = await store.OpenAsync(fixture.TenantId, CancellationToken.None))
+        {
+            var attempted = await firstAttempt.BeginProviderCallAsync(proposal.ProposalId, OccurredAt.AddSeconds(4), CancellationToken.None);
+            Assert.Equal(1, attempted.AttemptCount);
+            var uncertain = await firstAttempt.RecordProviderOutcomeAsync(proposal.ProposalId,
+                TenantAuthorizationProviderEffect.FinishedWithoutObservation, "provider_timeout", OccurredAt.AddSeconds(5), CancellationToken.None);
+            Assert.Equal(TenantAuthorizationProposalStatus.Uncertain, uncertain.Status);
+            Assert.Equal(TenantAuthorizationExecution.FinishedPrefix + "provider_timeout", uncertain.FailureCode);
+        }
+        await using (var retry = await store.OpenAsync(fixture.TenantId, CancellationToken.None))
+        {
+            var retried = await retry.BeginProviderCallAsync(proposal.ProposalId, OccurredAt.AddMilliseconds(5500), CancellationToken.None);
+            Assert.Equal(2, retried.AttemptCount);
+            await retry.RecordProviderOutcomeAsync(proposal.ProposalId, TenantAuthorizationProviderEffect.Observed,
+                null, OccurredAt.AddMilliseconds(5600), CancellationToken.None);
+        }
 
         var completed = await store.CompleteAsync(
             fixture.TenantId, proposal.ProposalId, OccurredAt.AddSeconds(6), CancellationToken.None);
@@ -162,7 +165,7 @@ public sealed class TenantAuthorizationAdministrationPostgresTests : PostgresTes
     }
 
     [Fact]
-    public async Task PendingProposalAndAttemptStateRecoverThroughANewStoreAfterRestart()
+    public async Task UnknownHistoricalProviderAttemptRemainsHeldThroughANewStoreAfterRestart()
     {
         var fixture = await SeedAsync();
         TenantAuthorizationProposal created;
@@ -195,12 +198,16 @@ public sealed class TenantAuthorizationAdministrationPostgresTests : PostgresTes
         Assert.Equal(1, recovered.AttemptCount);
         Assert.Equal("provider_timeout", recovered.FailureCode);
 
-        // The durable proposal remains reconcilable after the original store/client lifetime ends.
-        var completed = await restartedStore.CompleteAsync(
+        // A restart cannot manufacture proof that an old remote write has finished.
+        var held = await restartedStore.CompleteAsync(
             fixture.TenantId, recovered.ProposalId, OccurredAt.AddSeconds(3), CancellationToken.None);
-        Assert.Equal(TenantAuthorizationProposalStatus.Applied, completed!.Status);
-        Assert.True(await GrantIsActiveAsync(fixture.TenantId, fixture.TargetAccountId, "orders.view"));
-        Assert.Equal(2, await restartedStore.GetAuthorizationRevisionAsync(fixture.TenantId, CancellationToken.None));
+        Assert.Equal(TenantAuthorizationProposalStatus.Uncertain, held!.Status);
+        Assert.False(await GrantIsActiveAsync(fixture.TenantId, fixture.TargetAccountId, "orders.view"));
+        Assert.Equal(1, await restartedStore.GetAuthorizationRevisionAsync(fixture.TenantId, CancellationToken.None));
+        var rejected = await restartedStore.MarkFailedAsync(fixture.TenantId, recovered.ProposalId,
+            "delegator_authority_revoked", OccurredAt.AddSeconds(4), CancellationToken.None);
+        Assert.Equal(TenantAuthorizationProposalStatus.Uncertain, rejected!.Status);
+        Assert.Equal("provider_timeout", rejected.FailureCode);
     }
 
     [Theory]
@@ -590,6 +597,12 @@ public sealed class TenantAuthorizationAdministrationPostgresTests : PostgresTes
         var proposed = await store.ProposeAsync(actor, intent, OccurredAt.AddSeconds(seconds), CancellationToken.None);
         Assert.Equal(TenantAuthorizationProposalResultStatus.Created, proposed.Status);
         var proposal = Assert.IsType<TenantAuthorizationProposal>(proposed.Proposal);
+        await using (var execution = await store.OpenAsync(intent.TenantId, CancellationToken.None))
+        {
+            await execution.BeginProviderCallAsync(proposal.ProposalId, OccurredAt.AddSeconds(seconds + .1), CancellationToken.None);
+            await execution.RecordProviderOutcomeAsync(proposal.ProposalId, TenantAuthorizationProviderEffect.Observed,
+                null, OccurredAt.AddSeconds(seconds + .2), CancellationToken.None);
+        }
         return Assert.IsType<TenantAuthorizationProposal>(await store.CompleteAsync(
             intent.TenantId, proposal.ProposalId, OccurredAt.AddSeconds(seconds + 1), CancellationToken.None));
     }

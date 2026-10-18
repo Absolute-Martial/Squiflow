@@ -56,6 +56,10 @@ internal static class CoreApiPersistenceRegistration
         services.AddScoped<Application.Invoices.Postgres.IInvoiceIssueTransactionalSourceReader>(provider => provider.GetRequiredService<InvoiceSourceReader>());
         Application.Invoices.Postgres.InvoicesPostgresRegistration.AddInvoicesPostgres(services);
         services.AddScoped<Application.Invoices.IssueInvoice>();
+        services.AddScoped<Application.CoreApi.Authorization.FinancialAuthority>();
+        services.AddScoped<Application.Invoices.IFinancialAuthorityReader>(provider => provider.GetRequiredService<Application.CoreApi.Authorization.FinancialAuthority>());
+        services.AddScoped<Application.Invoices.Postgres.IFinancialTransactionalAuthorityReader>(provider => provider.GetRequiredService<Application.CoreApi.Authorization.FinancialAuthority>());
+        services.AddScoped<Application.Invoices.Postgres.IFinancialDebtorReader, FinancialDebtorReader>();
 
         return services;
     }

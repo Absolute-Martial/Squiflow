@@ -36,6 +36,9 @@ internal static class TenantAuthorizationAdministrationSql
     internal static readonly string CountActiveCustomRoles = Load(nameof(CountActiveCustomRoles));
     internal static readonly string CountActiveCustomRoleAssignments = Load(nameof(CountActiveCustomRoleAssignments));
 
+    internal static readonly string LockAuthorizationExecution = Load(nameof(LockAuthorizationExecution));
+    internal static readonly string UnlockAuthorizationExecution = Load(nameof(UnlockAuthorizationExecution));
+
     private static string Load(string name)
     {
         var resource = $"{typeof(TenantAuthorizationAdministrationSql).Namespace}.Sql.{name}.sql";

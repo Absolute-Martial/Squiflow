@@ -759,3 +759,35 @@ BEGIN
     END LOOP;
 END
 $invoice_privileges$;
+
+-- Customer money facts are append-only; balances are query-only invoker views.
+DO $customer_financial_privileges$
+DECLARE
+    runtime_role text := current_setting('app.provision_runtime_role');
+    target_table text;
+    target_column record;
+BEGIN
+    FOREACH target_table IN ARRAY ARRAY[
+        'invoices.receivables','invoices.customer_payments',
+        'invoices.customer_payment_events','invoices.customer_financial_receipts'] LOOP
+        IF to_regclass(target_table) IS NULL OR NOT EXISTS(
+            SELECT 1 FROM pg_class WHERE oid=to_regclass(target_table) AND relrowsecurity AND relforcerowsecurity) THEN
+            RAISE EXCEPTION 'Customer financial table is missing or lacks forced RLS: %',target_table;
+        END IF;
+        IF has_table_privilege(runtime_role,target_table,'UPDATE') OR has_table_privilege(runtime_role,target_table,'DELETE')
+            OR has_table_privilege(runtime_role,target_table,'TRUNCATE') OR has_table_privilege(runtime_role,target_table,'TRIGGER')
+            OR has_table_privilege(runtime_role,target_table,'REFERENCES') THEN
+            RAISE EXCEPTION 'Customer financial runtime privileges are unsafe: %',target_table;
+        END IF;
+        FOR target_column IN SELECT attname FROM pg_attribute WHERE attrelid=to_regclass(target_table) AND attnum>0 AND NOT attisdropped LOOP
+            IF has_column_privilege(runtime_role,target_table,target_column.attname,'UPDATE')
+                OR has_column_privilege(runtime_role,target_table,target_column.attname,'REFERENCES') THEN
+                RAISE EXCEPTION 'Customer financial runtime column privileges are unsafe: %.%',target_table,target_column.attname;
+            END IF;
+        END LOOP;
+        EXECUTE format('GRANT SELECT,INSERT ON %s TO %I',target_table,runtime_role);
+    END LOOP;
+    REVOKE ALL ON invoices.receivable_balances,invoices.customer_payment_balances FROM PUBLIC;
+    EXECUTE format('GRANT SELECT ON invoices.receivable_balances,invoices.customer_payment_balances TO %I',runtime_role);
+END;
+$customer_financial_privileges$;

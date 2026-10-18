@@ -17,6 +17,10 @@ public sealed class InvoiceRuntimeGrantTests
         "invoices.issued_invoices",
         "invoices.issued_lines",
         "invoices.issue_receipts",
+        "invoices.receivables",
+        "invoices.customer_payments",
+        "invoices.customer_payment_events",
+        "invoices.customer_financial_receipts",
     ];
 
     [Fact]
@@ -70,7 +74,8 @@ public sealed class InvoiceRuntimeGrantTests
             JOIN pg_namespace AS n ON n.oid = c.relnamespace
             JOIN pg_attribute AS a ON a.attrelid = c.oid
             WHERE n.nspname = 'invoices'
-              AND c.relname IN ('organization_ordinals', 'issued_invoices', 'issued_lines', 'issue_receipts')
+              AND c.relname IN ('organization_ordinals', 'issued_invoices', 'issued_lines', 'issue_receipts',
+                  'receivables', 'customer_payments', 'customer_payment_events', 'customer_financial_receipts')
               AND a.attnum > 0 AND NOT a.attisdropped
             """;
         await using (var reader = await columns.ExecuteReaderAsync())

@@ -52,7 +52,9 @@ internal static class CoreApiEndpointAccessValidation
                 if (!applicationAuthorization[0].Requirements.Select(requirement => requirement.GetType())
                     .SequenceEqual(expected.Select(requirement => requirement.GetType())) ||
                     !applicationAuthorization[0].Requirements.OfType<TenantInvoiceRequirement>().Select(requirement => requirement.Permission)
-                        .SequenceEqual(expected.OfType<TenantInvoiceRequirement>().Select(requirement => requirement.Permission)))
+                        .SequenceEqual(expected.OfType<TenantInvoiceRequirement>().Select(requirement => requirement.Permission)) ||
+                    !applicationAuthorization[0].Requirements.OfType<TenantFinancialRequirement>().Select(requirement => requirement.Permission)
+                        .SequenceEqual(expected.OfType<TenantFinancialRequirement>().Select(requirement => requirement.Permission)))
                 {
                     throw new InvalidOperationException(
                         "Core API route application authorization must match its declared access contract.");

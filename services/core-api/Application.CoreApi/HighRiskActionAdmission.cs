@@ -10,6 +10,7 @@ internal enum HighRiskAction
     RecoverOrderApproval = 2,
     CorrectOrderFulfillment = 3,
     CorrectPurchasing = 4,
+    CorrectCustomerSettlement = 5,
 }
 
 internal sealed class HighRiskActionAdmissionConfiguration
