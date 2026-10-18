@@ -1,0 +1,57 @@
+name: Web browser
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-browser-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser:
+    name: Actual Web process and Chromium journeys
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      APPLICATION_ENTRY_PLAYWRIGHT_PATH: ${{ runner.temp }}/application-entry-browser/node_modules/playwright
+      APPLICATION_ENTRY_AXE_PATH: ${{ runner.temp }}/application-entry-browser/node_modules/axe-core/axe.min.js
+      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/application-entry-browsers
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install repository SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Provision existing external browser tools
+        run: |
+          node --version
+          npm --version
+          npm install --prefix "$RUNNER_TEMP/application-entry-browser" --no-save --package-lock=false --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org playwright@1.64.0 axe-core@4.11.0
+          node "$APPLICATION_ENTRY_PLAYWRIGHT_PATH/cli.js" install --with-deps chromium
+
+      - name: Build only the Web host graph
+        run: ./eng/build-host.sh web
+
+      - name: Exercise signed-in Web and accessibility journeys
+        run: ./eng/verify-web-browser.sh
+
+      - name: Preserve browser results and screenshots
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: web-browser-evidence
+          path: artifacts/web-browser/
+          if-no-files-found: error
+          retention-days: 14

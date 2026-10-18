@@ -19,6 +19,46 @@
     {
       "path": "services/admin-api/Application.AdminApi/PlatformAdminRequestAuthorizer.cs",
       "reason": "AdminApi pre-handler authorization binds declared endpoint permission to the enforced permission."
+    },
+    {
+      "path": "modules/invoices/Application.Invoices/CustomerSettlement.cs",
+      "reason": "Exact receipt amounts, independent reconciliation and allocation/correction state invariants govern customer money."
+    },
+    {
+      "path": "modules/invoices/Application.Invoices.Postgres/Persistence/PostgresCustomerSettlementStore.cs",
+      "reason": "Financial commands, current-authority replay and append-only events/receipts must remain atomic under concurrency and uncertain commit."
+    },
+    {
+      "path": "modules/invoices/Application.Invoices.Postgres/Persistence/PostgresCustomerSettlementStore.Reads.cs",
+      "reason": "Tenant-bound financial snapshots and typed cursors must reject corrupt history and stale authority."
+    },
+    {
+      "path": "services/core-api/Application.CoreApi/Composition/CustomerSettlementRoutes.cs",
+      "reason": "Strict financial ingress and separately protected receipt-only commands are an untrusted HTTP boundary."
+    },
+    {
+      "path": "services/core-api/Application.CoreApi/Authorization/FinancialAuthority.cs",
+      "reason": "Every financial effect/replay depends on current membership, independent permission and additional correction authority."
+    },
+    {
+      "path": "services/core-api/Application.CoreApi/Authorization/TenantAuthorizationAdministrationProvider.cs",
+      "reason": "Reconciliation must not resurrect revoked provider rights or terminalize uncertain remote writes."
+    },
+    {
+      "path": "modules/tenancy/Application.Tenancy.Postgres/Persistence/PostgresTenantAuthorizationAdministrationStore.Execution.cs",
+      "reason": "Cross-replica execution ownership and durable dispatch evidence must survive loss of a PostgreSQL session."
+    },
+    {
+      "path": "modules/tenancy/Application.Tenancy.Postgres/Persistence/PostgresTenantAuthorizationAdministrationStore.cs",
+      "reason": "Local authorization completion cannot erase uncertain effects or advance the authority revision without owned observed evidence."
+    },
+    {
+      "path": "apps/web/Application.Web/Authentication/WebLogin.cs",
+      "reason": "Web credential custody, callback validation, CSRF and fresh-identity ticket invalidation protect the browser/session boundary."
+    },
+    {
+      "path": "apps/web/Application.Web/Business/BusinessApiClient.cs",
+      "reason": "Server-only bearer custody, frozen mutation retries and response bounds protect business UI requests."
     }
   ]
 }

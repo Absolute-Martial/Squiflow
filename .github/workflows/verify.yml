@@ -56,17 +56,34 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Install repository SDK
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: global.json
 
+      - name: Verify and publish non-Workstation host graph
+        if: matrix.host != 'workstation'
+        run: ./eng/verify-host-ci.sh "${{ matrix.host }}"
+
       - name: Verify host and its owned test graph
+        if: matrix.host == 'workstation'
         run: ./eng/verify-host.sh "${{ matrix.host }}"
 
       - name: Publish this host
+        if: matrix.host == 'workstation'
         run: ./eng/build-host.sh "${{ matrix.host }}" --publish
+
+      - name: Preserve non-Workstation host verification log
+        if: always() && matrix.host != 'workstation'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ matrix.host }}-verification
+          path: artifacts/host-verification/${{ matrix.host }}.log
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Preserve independently built host
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -83,6 +100,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check verification scripts without builds
+        run: python3 eng/test-quality-verification.py
       - name: Install repository SDK
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:

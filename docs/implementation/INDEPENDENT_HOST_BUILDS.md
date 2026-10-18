@@ -12,11 +12,16 @@ independent CI matrix. Their bounded responsibility and supported-platform limit
 are owned by [public application entry](PUBLIC_APPLICATION_ENTRY.md). The shared
 HTTP client's test root is included in both host graphs.
 
+The bounded non-Workstation completion uses `eng/verify-host-ci.sh` for Web,
+CoreApi, AdminApi, AdminBootstrap and DbMigrator, and adds actual Web browser CI.
+The existing Workstation entry and its verification behavior are preserved; this
+completion does not qualify Workstation or introduce another host.
+
 Current executable inventory remains owned by `README.IMPLEMENTATION.md`.
-`eng/hosts.tsv` is the machine-readable mapping from each introduced service host
+`eng/hosts.tsv` is the machine-readable mapping from each introduced executable
 to its project and the verification projects that own that host's current runtime
 or migration graph. `Application.Architecture.Tests` rejects drift between the
-manifest, current service executables and the GitHub host matrix.
+manifest, current executables and the GitHub host matrix.
 
 Use:
 
@@ -24,12 +29,14 @@ Use:
 ./eng/build-host.sh core-api
 ./eng/build-host.sh core-api --publish
 ./eng/verify-host.sh core-api
+./eng/verify-host-ci.sh core-api
+./eng/verify-host-ci.sh web
 ```
 
-Current aliases are `core-api`, `admin-api`, `admin-bootstrap` and `db-migrator`.
-Unsupported/extra arguments fail before dotnet invocation. Workstation, Web UI,
-SyncApi and Worker entries are not predeclared and are added only when those
-executables actually exist.
+The existing build/verify aliases are the entries in `eng/hosts.tsv`.
+`verify-host-ci.sh` accepts exactly one of `core-api`, `admin-api`,
+`admin-bootstrap`, `db-migrator` or `web`. Unsupported/extra arguments fail before
+dotnet invocation. SyncApi and Worker entries remain absent.
 
 ## Host verification ownership
 
@@ -39,8 +46,10 @@ runs every verification project declared for that host in `eng/hosts.tsv`.
 - CoreApi -> `Application.CoreApi.Tests`.
 - AdminApi -> `Application.AdminApi.Tests`.
 - AdminBootstrap -> `Application.AdminBootstrap.Tests`.
+- Web -> `Application.Web.Tests` and the shared `Application.ApplicationEntry.Tests`.
 - DbMigrator -> IdentityAccess, Tenancy, Customers, PlatformAdministration through
-  AdminBootstrap, Orders and Fulfillment PostgreSQL/migration regressions.
+  AdminBootstrap, Orders, Fulfillment, Purchasing and Invoices
+  PostgreSQL/migration regressions, as declared in the manifest.
 
 The DbMigrator breadth is deliberate. `MigrationModules.All` is the current
 registered schema authority; generic migration-registry/lifecycle tests cover
@@ -53,6 +62,66 @@ imply deployment qualification.
 host's own project graph, and fails if the expected host assembly is absent.
 GitHub preserves each independently published host as its own artifact with
 `if-no-files-found: error`.
+
+For the five non-Workstation hosts, `verify-host-ci.sh` invokes the existing host
+verification and publication scripts, retains SDK information and their combined
+log, and requires nonempty host `.dll`, `.deps.json` and `.runtimeconfig.json`
+outputs. It removes the previous host publication before verification and writes
+`SHA256SUMS` only after these checks pass. The same existing host matrix invokes
+this entry point in a fresh checkout per host, with `fail-fast: false`; no solution
+restore/build substitutes for the selected graph. Local runs may reuse ordinary
+NuGet and incremental-build caches. Checksums identify the publication; they do
+not establish signing, provenance attestation or deployment compatibility.
+
+## Actual Web browser CI
+
+`.github/workflows/web-browser.yml` builds only the actual Web graph and invokes
+`eng/verify-web-browser.sh`. It provisions the already-used external Playwright
+1.64.0 (Apache-2.0) and axe-core 4.11.0 (MPL-2.0) under the runner temporary
+directory, using exact package versions, disabled npm lifecycle scripts, and the
+Chromium revision selected by that Playwright version. It adds no runtime or
+repository npm project. The runner's Node.js must be at least version 20; actual
+Node/Playwright/axe and browser versions are recorded. The Linux runner is a test
+environment, not a supported deployment declaration.
+
+The wrapper requires built Release Web runtime files and the existing external
+tools. It runs `eng/test-signed-in-entry-browser.cjs`, which launches the actual
+Web process and Chromium against its controlled local HTTPS issuer/API fixture.
+It covers the existing login/PKCE, tenant selection/switch/denial, empty/disabled
+account, CSRF/session custody, logout/restart, readiness/failure and responsive
+accessibility journeys. The [signed-in entry owner](SIGNED_IN_APPLICATION_ENTRY.md)
+defines their exact meaning and limits. No live ZITADEL, OpenFGA, PostgreSQL or
+complete authenticated business workflow is qualified by the browser fixture.
+
+The wrapper also runs the bounded business, quotation/approval and operations
+journeys in separate evidence directories, and validates all four result contracts
+before creating the combined checksum receipt. Each journey has a ten-minute process
+budget plus a ten-second kill budget. `APPLICATION_ENTRY_BROWSER_EXECUTABLE` may select
+an already installed absolute browser executable for local runs; its actual version
+is recorded. This avoids a browser download without claiming the local browser is
+the CI-pinned Chromium revision.
+Old evidence is removed before preflight. Success requires a fresh final journey
+JSON with the browser version, screenshots and executed accessibility reports
+without reported violations. Incomplete axe rules remain manual-review evidence,
+not conformance. Successful evidence receives `SHA256SUMS`. CI retains diagnostics
+after failure, including partial screenshots, for 14 days; missing files fail the
+upload. It collects no HAR, browser storage, TLS keys or production credentials.
+The generated local test private material stays outside the artifact directory.
+
+Existing local installations can run the same guard after building Web:
+
+```bash
+./eng/build-host.sh web
+APPLICATION_ENTRY_PLAYWRIGHT_PATH=/tmp/application-entry-browser/node_modules/playwright \
+APPLICATION_ENTRY_AXE_PATH=/tmp/application-entry-browser/node_modules/axe-core/axe.min.js \
+PLAYWRIGHT_BROWSERS_PATH=/tmp/application-entry-browsers \
+./eng/verify-web-browser.sh
+```
+
+`python3 eng/test-quality-verification.py` uses fixture dotnet/browser commands
+to test graph selection, exit propagation, required publication/evidence files,
+stale-output rejection and workflow guards without product builds. The existing
+architecture CI job runs it. These checks prove orchestration only.
 
 ## Material coverage review
 
@@ -139,12 +208,21 @@ by OPS-017.
 
 ## Security/static review of the workflows
 
-Current GitHub jobs use read-only repository permissions. Checkout, setup-dotnet
+Verification/security jobs use read-only repository permissions; the existing
+CodeQL job separately has its declared `security-events: write` result-upload
+permission. Checkout, setup-dotnet
 and upload-artifact references are commit pinned. Pull-request jobs receive no
 production credentials. There is no `pull_request_target`, privileged container,
 release deployment, or secret-bearing integration in these workflows. Provider
 integration tests use Testcontainers/local test configuration rather than
 production providers.
+
+The changed host checkout and browser checkout disable persisted Git credentials.
+The browser job receives no production/provider secrets and uploads only its
+dedicated synthetic evidence directory. Existing Gitleaks, locked NuGet audit,
+CodeQL, Coverlet/ReportGenerator and scoped Stryker gates remain in place. Wiring
+or static inspection of these tools is not a passed security/dependency/mutation
+result.
 
 Requalify when action revisions, workflow permissions/triggers, SDK/tool manifests,
 package audit policy, host inventory, host project references, migration registry,
@@ -168,11 +246,17 @@ COLLECT_COVERAGE=1 ./eng/verify.sh
 ./eng/build-host.sh admin-api --publish
 ./eng/build-host.sh admin-bootstrap --publish
 ./eng/build-host.sh db-migrator --publish
+./eng/verify-host-ci.sh core-api
+./eng/verify-host-ci.sh admin-api
+./eng/verify-host-ci.sh admin-bootstrap
+./eng/verify-host-ci.sh db-migrator
+./eng/verify-host-ci.sh web
+./eng/verify-web-browser.sh # with the external-tool environment shown above
 ./eng/mutate-orders.sh
 ./eng/audit-dependencies.sh
 ```
 
-The corresponding GitHub `Verify` and `Security Review` jobs must also be
+The corresponding GitHub `Verify`, `Web browser`, `Security Review` and `CodeQL` jobs must also be
 inspected on the same source before remote-CI success is claimed. Local success
 never substitutes for a remote-run claim, and remote CI never substitutes for
 provider/deployment properties it does not exercise.
@@ -180,3 +264,17 @@ provider/deployment properties it does not exercise.
 In an environment without the locked NuGet graph and Docker/Testcontainers, leave
 OPS-017 acceptance `BLOCKED`; do not replace the missing runs with mocks or older
 source evidence.
+
+For the bounded 2026-10-15 source-only completion, dynamic qualification is
+`BLOCKED`: the integrator has a normal gate running and has not released the
+build/Docker hold. No .NET restore/build/test/publish, browser launch, mutation,
+dependency/secret/static-security scan or remote CI was run for that patch.
+The [completion receipt](../review/OPS_017_NON_WORKSTATION_COMPLETION.md) records
+the exact static/selfcheck results and integration decisions.
+
+The Web browser runner now executes both the signed-in entry guard and
+`eng/test-business-web.cjs` against the built Release Web host, in separate
+`artifacts/web-browser/entry` and `business` directories. Both final result files,
+nonempty screenshots and actual axe reports are required before checksums are
+written. Entry success cannot mask a failed business guard. Controlled issuer/API
+fixtures remain distinct from live providers and native provider evidence.
