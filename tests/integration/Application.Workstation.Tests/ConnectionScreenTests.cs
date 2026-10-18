@@ -87,6 +87,66 @@ public sealed class ConnectionScreenTests
     }
 
     [AvaloniaFact]
+    public async Task EditingTheServiceAddressClearsThePreviousConnectionResult()
+    {
+        var handler = new EntryHandler();
+        using var http = new HttpClient(handler);
+        var model = new ConnectionViewModel(new ApplicationEntryClient(http), "https://api.example.com");
+        await model.ConnectCommand.ExecuteAsync(null);
+        Assert.Equal("Fieldwork", model.ApplicationName);
+        var window = new MainWindow { DataContext = model };
+        window.Show();
+        try
+        {
+            model.Address = "https://api.example.com";
+            Assert.Equal("Fieldwork", model.ApplicationName);
+            window.FindControl<TextBox>("ServiceAddressBox")!.Text = "https://another.example.com";
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal("https://another.example.com", model.Address);
+            Assert.Equal("Application connection", window.Title);
+            Assert.Equal(string.Empty, model.LegalName);
+            Assert.Equal("Connection not checked", window.FindControl<TextBlock>("ConnectionHeading")!.Text);
+            Assert.Contains("address changed", model.Message, StringComparison.Ordinal);
+            Assert.Equal(2, handler.Calls);
+            using var frame = window.CaptureRenderedFrame();
+            Assert.NotNull(frame);
+            var output = Environment.GetEnvironmentVariable("APPLICATION_UI_ARTIFACTS");
+            if (output is not null)
+            {
+                Directory.CreateDirectory(output);
+                frame.Save(Path.Combine(output, "workstation-address-changed.png"));
+            }
+            await model.ConnectCommand.ExecuteAsync(null);
+            Assert.Equal("Service available", model.Heading);
+            Assert.Equal(4, handler.Calls);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task EditingTheAddressDuringACheckCannotRestoreItsPreviousResultOrStatus()
+    {
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var http = new HttpClient(new DelayedEntryHandler(entered, release));
+        var model = new ConnectionViewModel(new ApplicationEntryClient(http), "https://api.example.com");
+        var pending = model.ConnectCommand.ExecuteAsync(null);
+        try
+        {
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            model.Address = "https://another.example.com";
+        }
+        finally { release.TrySetResult(); }
+        await pending.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal("Application connection", model.ApplicationName);
+        Assert.Equal("Connection not checked", model.Heading);
+        Assert.Contains("address changed", model.Message, StringComparison.Ordinal);
+        Assert.True(model.ConnectCommand.CanExecute(null));
+    }
+
+    [AvaloniaFact]
     public async Task PendingChecksDisableDuplicateActionsAndCancelWithoutFalseSuccess()
     {
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -189,6 +249,16 @@ public sealed class ConnectionScreenTests
             entered.TrySetResult();
             await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
             return new(HttpStatusCode.OK);
+        }
+    }
+
+    private sealed class DelayedEntryHandler(TaskCompletionSource entered, TaskCompletionSource release) : DelegatingHandler(new EntryHandler())
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            entered.TrySetResult();
+            await release.Task;
+            return await base.SendAsync(request, CancellationToken.None);
         }
     }
 }

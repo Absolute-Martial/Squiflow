@@ -19,6 +19,7 @@ public sealed class TenantEntryViewModel : ObservableObject, IDisposable
     private string accountReference = "";
     private string message = "Check the configured application service before signing in.";
     private bool serviceReady;
+    private bool disposed;
     private int revision;
 
     public TenantEntryViewModel(INativeSignIn signIn, TenantEntryClient client, TimeProvider? time = null)
@@ -58,6 +59,7 @@ public sealed class TenantEntryViewModel : ObservableObject, IDisposable
 
     public void SetServiceAvailable(Uri? origin, bool ready)
     {
+        if (disposed) return;
         Clear("Check the configured application service before signing in.");
         serviceReady = ready && origin == signIn.CoreApiOrigin;
         Message = serviceReady ? "Sign in using your system browser." : "Sign-in requires the configured HTTPS application service.";
@@ -146,5 +148,13 @@ public sealed class TenantEntryViewModel : ObservableObject, IDisposable
         foreach (var property in new[] { nameof(IsBusy), nameof(IsIdle), nameof(IsSignedIn), nameof(ShowSignIn), nameof(HasNextPage), nameof(HasWorkspace), nameof(ShowPicker), nameof(Tenants) }) OnPropertyChanged(property);
         SignInCommand.NotifyCanExecuteChanged(); RefreshCommand.NotifyCanExecuteChanged(); NextCommand.NotifyCanExecuteChanged(); EnterCommand.NotifyCanExecuteChanged(); CancelCommand.NotifyCanExecuteChanged();
     }
-    public void Dispose() { expiry.Stop(); Clear("Application closed."); GC.SuppressFinalize(this); }
+    public void Dispose()
+    {
+        if (disposed) return;
+        disposed = true;
+        serviceReady = false;
+        expiry.Stop();
+        Clear("Application closed.");
+        GC.SuppressFinalize(this);
+    }
 }

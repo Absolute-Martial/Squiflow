@@ -13,6 +13,7 @@ public sealed class ConnectionViewModel : ObservableObject
     private string legalName = "";
     private string heading = "Connection not checked";
     private string message = "Enter your application service address and check the connection.";
+    private int revision;
 
     public ConnectionViewModel(ApplicationEntryClient client, string address = "", TenantEntryViewModel? access = null)
     {
@@ -34,7 +35,21 @@ public sealed class ConnectionViewModel : ObservableObject
     public bool HasLogin => Access is not null;
     public bool IsConnectionDefault => Access?.IsSignedIn != true;
 
-    public string Address { get => address; set => SetProperty(ref address, value); }
+    public string Address
+    {
+        get => address;
+        set
+        {
+            if (!SetProperty(ref address, value)) return;
+            revision++;
+            ConnectCommand.Cancel();
+            Access?.SetServiceAvailable(null, false);
+            ApplicationName = "Application connection";
+            LegalName = string.Empty;
+            Heading = "Connection not checked";
+            Message = "The service address changed. Check the connection before signing in.";
+        }
+    }
     public string ApplicationName { get => applicationName; private set => SetProperty(ref applicationName, value); }
     public string LegalName { get => legalName; private set => SetProperty(ref legalName, value); }
     public string Heading { get => heading; private set => SetProperty(ref heading, value); }
@@ -44,6 +59,7 @@ public sealed class ConnectionViewModel : ObservableObject
 
     private async Task CheckAsync(CancellationToken cancellationToken)
     {
+        var version = ++revision;
         Access?.SetServiceAvailable(null, false);
         ApplicationName = "Application connection";
         LegalName = string.Empty;
@@ -60,6 +76,7 @@ public sealed class ConnectionViewModel : ObservableObject
         {
             var result = await client.CheckAsync(serviceAddress!, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
+            if (version != revision) return;
             Heading = result.Heading;
             Message = result.Message;
             ApplicationName = result.Application?.Brand.DisplayName ?? "Application connection";
@@ -68,6 +85,7 @@ public sealed class ConnectionViewModel : ObservableObject
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            if (version != revision) return;
             Heading = "Check canceled";
             Message = "The connection check was canceled. Try again when you are ready.";
         }

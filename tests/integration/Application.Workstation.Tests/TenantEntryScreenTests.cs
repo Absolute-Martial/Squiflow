@@ -114,6 +114,88 @@ public sealed class TenantEntryScreenTests
         }
     }
 
+    [AvaloniaFact]
+    public async Task ServiceAddressChangesClearSignedInWorkspaceAndRequireANewConnectionCheck()
+    {
+        using var protocol = new EntryProtocolFixture();
+        using var http = new HttpClient(protocol, false);
+        using var model = new TenantEntryViewModel(new SessionSource(), new TenantEntryClient(http));
+        var connection = new ConnectionViewModel(new ApplicationEntryClient(http), "https://api.example.test", model);
+        model.SetServiceAvailable(new("https://api.example.test"), true);
+        await model.SignInCommand.ExecuteAsync(null);
+        model.SelectedTenant = model.Tenants[0];
+        await model.EnterCommand.ExecuteAsync(null);
+        Assert.True(model.HasWorkspace);
+
+        connection.Address = "https://another.example.test";
+
+        Assert.False(model.IsSignedIn); Assert.False(model.HasWorkspace);
+        Assert.Empty(model.Tenants); Assert.Null(model.SelectedTenant); Assert.Empty(model.AccountReference);
+        Assert.False(model.SignInCommand.CanExecute(null));
+        connection.Address = "https://api.example.test";
+        Assert.False(model.SignInCommand.CanExecute(null));
+        Assert.Equal("Connection not checked", connection.Heading);
+    }
+
+    [AvaloniaFact]
+    public async Task ServiceAddressChangesCannotBeUndoneByALateWorkspaceResponse()
+    {
+        using var protocol = new EntryProtocolFixture();
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var http = new HttpClient(new DelayedWorkspace(protocol, entered, release));
+        using var model = new TenantEntryViewModel(new SessionSource(), new TenantEntryClient(http));
+        var connection = new ConnectionViewModel(new ApplicationEntryClient(http), "https://api.example.test", model);
+        model.SetServiceAvailable(new("https://api.example.test"), true);
+        await model.SignInCommand.ExecuteAsync(null);
+        model.SelectedTenant = model.Tenants[0];
+        var pending = model.EnterCommand.ExecuteAsync(null);
+        try
+        {
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            connection.Address = "https://another.example.test";
+        }
+        finally { release.TrySetResult(); }
+        await pending.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.False(model.IsSignedIn); Assert.False(model.HasWorkspace); Assert.Empty(model.Tenants);
+        Assert.Empty(model.AccountReference); Assert.False(model.SignInCommand.CanExecute(null));
+    }
+
+    [AvaloniaFact]
+    public async Task ClosingDuringSignInCannotBeUndoneByLateCredentialsOrConnectionChecks()
+    {
+        using var protocol = new EntryProtocolFixture();
+        using var http = new HttpClient(protocol, false);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var model = new TenantEntryViewModel(new DelayedSignIn(entered, release), new TenantEntryClient(http));
+        model.SetServiceAvailable(new("https://api.example.test"), true);
+        var pending = model.SignInCommand.ExecuteAsync(null);
+        try
+        {
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            model.Dispose(); model.Dispose();
+            model.SetServiceAvailable(new("https://api.example.test"), true);
+        }
+        finally { release.TrySetResult(); }
+        await pending.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.False(model.IsSignedIn); Assert.Empty(model.Tenants); Assert.False(model.HasWorkspace);
+        Assert.False(model.SignInCommand.CanExecute(null)); Assert.Equal("Application closed.", model.Message);
+    }
+
+    private sealed class DelayedSignIn(TaskCompletionSource entered, TaskCompletionSource release) : INativeSignIn
+    {
+        public Uri CoreApiOrigin { get; } = new("https://api.example.test");
+        public async Task<NativeCredential?> SignInAsync(CancellationToken cancellationToken)
+        {
+            entered.TrySetResult();
+            await release.Task;
+            return new(EntryProtocolFixture.AccessToken, DateTimeOffset.UtcNow.AddMinutes(10));
+        }
+    }
+
     private sealed class SessionSource : INativeSignIn
     {
         public Uri CoreApiOrigin { get; } = new("https://api.example.test");
