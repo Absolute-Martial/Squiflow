@@ -36,7 +36,7 @@ ADM-002 specifically exercises deadline versus caller cancellation, response-sta
 
 ## Future hosts and external checks
 
-Worker and Admin Web do not currently have executable build targets. Tenant Web and Workstation have only the bounded public launch/connection hosts owned by `docs/implementation/PUBLIC_APPLICATION_ENTRY.md`; the commands above verify those exact graphs. Their authenticated business/session journeys remain absent. Future implementation tasks add their own named tests and real provider/browser/target evidence.
+Worker and Admin Web do not currently have executable build targets. Web and Workstation have configured signed-in entry under `docs/implementation/SIGNED_IN_APPLICATION_ENTRY.md`; Web also has bounded commercial/Billing consumers under `docs/implementation/WEB_COMMERCIAL_WORKSPACE.md`. The commands above verify those actual graphs. Workstation business/runtime journeys remain absent. Future implementation tasks add their own named tests and real provider/browser/target evidence.
 
 The public Web browser guard uses a built Release host and an external Playwright installation (tested with 1.64.0 and Chromium). Keep this tool outside product source; it does not introduce an npm frontend project:
 
@@ -67,3 +67,9 @@ It requires OpenSSL and a built Web host. It uses an isolated signed local issue
 and temporary per-process certificate trust; it does not qualify live ZITADEL or
 Windows. Exact session/API scope and current qualification limits belong to
 `docs/implementation/SIGNED_IN_APPLICATION_ENTRY.md`.
+
+For the introduced Web consumers, the combined recurring browser guard is
+`./eng/verify-web-browser.sh` after the Release Web build. It requires the declared
+external Playwright/axe installation, runs entry and commercial guards separately,
+retains current reports/screenshots and fails when either guard or required evidence
+is missing. It does not substitute for real backend provider or live identity tests.
