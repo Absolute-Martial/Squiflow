@@ -343,3 +343,15 @@ The eventual slice must permanently prove:
 - missing/wrong-tenant resources and provider failures produce safe diagnostics;
 - architecture tests keep `Application.Invoices` free of ASP.NET, EF/Npgsql and
   OpenFGA dependencies and preserve independent executable project graphs.
+
+## Tenant Web invoice-record printing — 2026-10-19
+
+The [Web presentation owner](WEB_COMMERCIAL_WORKSPACE.md) adds a browser print view
+of the already-issued record. Its inputs are the existing frozen invoice response;
+it allocates no number, mints no receipt and retains no additional legal document.
+Its printed ordinal remains the existing numeric organization ordinal without a
+new fiscal/printable-number syntax. Current payment state is excluded from this
+frozen view and must be read separately. Earlier PDF/printing exclusions above
+continue to exclude server document generation, legal/fiscal documents, contact or
+address enrichment, print delivery and an authoritative record that printing
+succeeded. Only the client browser's print presentation is introduced here.

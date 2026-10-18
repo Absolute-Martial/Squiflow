@@ -15,6 +15,9 @@ This owner records current reuse, token ownership and how those assets change. R
 | `StatusMessage` / `ArrowIcon` | [Status](../../apps/web/Application.Web/Components/Shared/StatusMessage.razor) and [icon](../../apps/web/Application.Web/Components/Shared/ArrowIcon.razor), used across entry, workspace and result pages | Consistent polite status announcements and decorative vector icons. Status text conveys outcomes independently of color. |
 | `BusinessShell` / `PendingRequestNotice` | Web commercial pages: Customers, Individuals, Representatives, Catalog, Pricing, Orders, Billing, Quotations, Approvals, Fulfillment, Purchasing, Tenant administration, Program order policy, Duplicate review and Customer imports | Shared checked-workspace navigation, status focus, safe saved-request recovery and departure acknowledgement. |
 | `BusinessPage` / `BusinessApiClient` | Web business pages, server-side request and lifetime coordination | Reuse presentation/request semantics only; CoreApi owns business decisions and authorization. |
+| `CustomerContextPicker` | [Picker](../../apps/web/Application.Web/Components/Shared/CustomerContextPicker.razor), used by Orders and Quotations | Shared bounded organization/program selection; applies a pair explicitly and grants no authority. |
+| `CatalogItemPicker` | [Picker](../../apps/web/Application.Web/Components/Shared/CatalogItemPicker.razor), used by Order and Quotation catalog lines | Shared active-item/base-unit selection; conversion, prices and save eligibility remain server-owned. |
+| `InvoiceDocument` | [Record view](../../apps/web/Application.Web/Components/Shared/InvoiceDocument.razor), used by Billing | Keep within Billing; frozen read presentation plus explicit browser printing and separately authorized current-balance action. |
 | `TenantPicker` | [Picker](../../apps/web/Application.Web/Components/Shared/TenantPicker.razor), used by Web Workspace | Keep within this journey while it has one consumer. Its directory does not establish a product-wide contract. |
 | `TenantEntryPanel` | [Panel](../../apps/desktop/workstation/Application.Workstation/TenantEntryPanel.axaml), composed by [MainWindow](../../apps/desktop/workstation/Application.Workstation/MainWindow.axaml) | Keep within native entry; reuse native controls, shared styles and presentation view model. |
 
@@ -104,3 +107,30 @@ All entries remain within product `v0.0.1`; classifications do not assign new re
 | `8e4f4be` | Patch / tooling guidance | Add the pinned Codex UI reference kit and host adapters. Application runtime behavior is unchanged. |
 | `5d2d767` | Minor / additive | Add configured login/account/tenant/workspace entry, shared Web header/footer, tenant picker and native access panel. Existing public entry remains available; live qualification stays with the signed-in owner. |
 | `5645e34` | Minor / additive | Introduce the bounded public Web/Workstation launch, branded connection and availability journey under its focused owner. |
+
+### 2026-10-19 connected client and tenant-Owner workflows
+
+**Minor / additive:** `CustomerContextPicker` is shared by Order and Quotation
+editors. It owns bounded organization/program browsing, explicit selection and
+local cancellation; `TenantId`, `Disabled` and `Selected` are its component contract.
+`CatalogItemPicker` has the same bounded selection role plus a line `Label` and
+returns a saved item, used by both editors. Native selects retain their keyboard
+model; no option is automatically applied to a draft. Both provide loading/status,
+empty, selected, unavailable and disabled states and discard cancelled tenant reads.
+They use the existing business form, details, button, focus and status theme.
+
+`InvoiceDocument` is scoped to Billing, with frozen `Invoice`, `TenantId`, `Disabled`
+and `LoadBalance` inputs. It shows encoded issued facts and delegates only to the
+browser's print UI. Print media uses physical black/white paper, suppresses unrelated
+controls and permits line-item page breaks without introducing a screen palette
+or changing semantic tokens. `apps/design/web.css` remains the source of generated
+Web CSS; native tokens and Workstation behavior are unchanged.
+
+**Patch / corrective:** supplied-price previews become stale when their inputs
+change, exact committed Orders continue into Billing without manual revision
+copying, invoice review is cleared when debtor/revision inputs change, and fresh
+Owner verification returns to its fixed originating administration surface.
+Existing Billing verification retains its fixed default. No component/token removal
+or product-version change is introduced. The current browser guards and focused
+Web tests own regression evidence; real identity deployment and private Admin Web
+remain outside these UI claims.

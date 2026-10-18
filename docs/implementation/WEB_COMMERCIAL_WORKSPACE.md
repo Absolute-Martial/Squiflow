@@ -101,6 +101,39 @@ After explicit tenant selection, the workspace provides working navigation to:
   in browser local/session storage. Private storage keys and provider scopes are
   not presentation contracts.
 
+The connected client continuation additionally provides:
+
+- Shared saved-customer selection for Orders and Quotations: bounded organization
+  and child-program pages, explicit application to the editor and parent/tenant
+  validation. Shared Catalog selection copies an active item and its base-unit
+  reference into the selected line, clearing earlier conversion/override evidence.
+  Browse permission is independent of save permission; known-reference fields remain
+  available. No new individual, quotation or import directory is invented.
+- Manual Order price preview through the existing read-only POST endpoint, without
+  a mutation key or saved Order. Displayed amounts come from CoreApi; changing the
+  supplied currency/lines invalidates the preview. Save and commitment independently
+  recheck current authority and facts. Catalog-priced work still resolves through
+  its existing save path rather than treating supplied-price preview as price selection.
+- Committed Order → Billing navigation. The destination reads the saved Order and
+  copies its actual revision into the invoice form; it never trusts a revision in a
+  URL. Existing invoice lookup by Order remains separately authorized. Current
+  receivable balance is an explicit separate read, and an operator may copy that
+  exact debtor/invoice into payment entry without inferring received funds or amounts.
+  Receivable/payment directories support the existing exact-debtor filter and discard
+  old pages when it changes.
+- A browser-printable **invoice record** containing only frozen issued facts, with
+  screen controls and unrelated workspace content omitted from print media. Browser
+  printing is not server PDF generation, legal/fiscal numbering, a tax invoice,
+  delivery, a payment receipt or evidence of settlement. It introduces no new issued
+  fields and never substitutes current customer contact/address facts for historical
+  invoice facts. No issued data is mutated by opening or closing the print dialog.
+- Initial-Owner verification returns to tenant administration via a single fixed
+  destination selector in the CSRF-protected authentication form. Arbitrary URLs,
+  unknown selectors and duplicate values are rejected; the original Billing form
+  remains compatible. Current strong-authentication and ticket invalidation rules
+  are preserved. Active saved custom roles can be explicitly copied into assignment
+  entry; pending/retired roles are not offered by that convenience control.
+
 Customer attribution on an Order is not debtor or payment authority. Workstation
 business screens remain outside this admitted patch. Private Platform Admin Web
 remains pending by user decision. No navigation points to absent pages.
