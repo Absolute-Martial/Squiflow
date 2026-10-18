@@ -57,9 +57,17 @@ public partial class Quotations
         summary = offer.Summary; currency = offer.CurrencyCode; validUntil = offer.ValidUntil.ToString("O", CultureInfo.InvariantCulture); terms = offer.Terms ?? "";
         individual = offer.CustomerId?.ToString("D") ?? ""; organization = offer.CustomerContext?.OrganizationId.ToString("D") ?? "";
         program = offer.CustomerContext?.ProgramId?.ToString("D") ?? ""; wholesale = offer.WholesaleApplicable; mode = offer.Mode;
-        lines.Clear(); lines.AddRange(offer.Lines.Select(row => new QuotationLineEntry { Description = row.Description, UnitCode = row.UnitCode,
-            Quantity = row.Quantity, UnitPrice = row.UnitPrice, Item = row.ItemId?.ToString("D") ?? "", Unit = row.UnitId?.ToString("D") ?? "",
-            OverridePrice = row.Override?.UnitPrice, OverrideReason = row.Override?.Reason ?? "" }));
+        lines.Clear(); lines.AddRange(offer.Lines.Select(row => new QuotationLineEntry
+        {
+            Description = row.Description,
+            UnitCode = row.UnitCode,
+            Quantity = row.Quantity,
+            UnitPrice = row.UnitPrice,
+            Item = row.ItemId?.ToString("D") ?? "",
+            Unit = row.UnitId?.ToString("D") ?? "",
+            OverridePrice = row.Override?.UnitPrice,
+            OverrideReason = row.Override?.Reason ?? ""
+        }));
     }
     private Task DraftAsync() => RunAsync(async ct =>
     {
@@ -96,6 +104,15 @@ public partial class Quotations
             ct, existing is null ? HttpMethod.Post : HttpMethod.Put);
         if (saved is not null) { SelectQuote(saved); commandReceipt = null; history = null; historicalResponse = null; }
     });
+    private void ChooseCustomer(OrderCustomer customer)
+    {
+        organization = customer.OrganizationId.ToString("D"); program = customer.ProgramId?.ToString("D") ?? ""; replaceConfirmed = false;
+    }
+    private void ChooseItem(QuotationLineEntry line, CatalogItem item)
+    {
+        line.Item = item.ItemId.ToString("D"); line.Unit = item.BaseUnitId.ToString("D"); line.ConversionRevision = null;
+        line.OverridePrice = null; line.OverrideReason = ""; replaceConfirmed = false;
+    }
     private void ClearConfirmation() => actionConfirmed = false;
     private Task ActAsync() => RunAsync(async ct =>
     {

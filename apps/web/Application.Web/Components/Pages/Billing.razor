@@ -1,4 +1,5 @@
 @page "/workspace/{TenantId:guid}/billing"
+@page "/workspace/{TenantId:guid}/billing/orders/{OrderId:guid}"
 @page "/workspace/{TenantId:guid}/billing/payments/{PaymentId:guid}"
 @page "/workspace/{TenantId:guid}/billing/invoices/{InvoiceId:guid}"
 @attribute [Authorize]
@@ -11,6 +12,14 @@
     <p class="panel-copy">Invoices preserve the exact debtor and committed prices. Payments start as unconfirmed evidence. Each action checks its own current permission.</p>
     <PendingRequestNotice Command="PendingCommand" />
     @if (PendingCommand is not null) { <button class="button" disabled="@Busy" @onclick="RetryAsync">Retry saved request</button> }
+    @if (sourceOrder is { } source)
+    {
+        <section class="business-panel" aria-label="Committed Order for billing"><h2>@source.Summary</h2>
+            <dl class="record-facts"><dt>Committed Order</dt><dd>@source.OrderId</dd><dt>Saved revision</dt><dd>@source.Revision</dd><dt>Frozen total</dt><dd>@Money(source.Total) @source.CurrencyCode</dd><dt>Customer organization</dt><dd>@source.CustomerContext?.OrganizationId</dd><dt>Program</dt><dd>@source.CustomerContext?.ProgramId</dd></dl>
+            <p>The invoice form uses this saved revision. Find its existing invoice or review the debtor before requesting issuance.</p>
+            <a class="cancel-button" href="@($"/workspace/{TenantId:D}/orders/{source.OrderId:D}")">Open source Order</a>
+        </section>
+    }
     @if (lastPaymentReceipt is { } receipt)
     {
         <section class="status-box ready" aria-label="Payment command receipt"><div><h2>Payment request saved</h2>
@@ -25,12 +34,14 @@
     }
     @if (invoice is { } frozen)
     {
-        <section class="business-panel" aria-labelledby="frozen-invoice"><h2 id="frozen-invoice">Issued invoice @frozen.OrganizationOrdinal</h2>
-            <dl class="record-facts"><dt>Invoice reference</dt><dd>@frozen.InvoiceId</dd><dt>Order reference</dt><dd>@frozen.SourceOrderId</dd><dt>Committed revision</dt><dd>@frozen.SourceOrderRevision</dd>
-                <dt>Debtor</dt><dd>@frozen.Debtor.Kind · @(frozen.Debtor.IndividualDisplayName ?? frozen.Debtor.ProgramDisplayName ?? frozen.Debtor.OrganizationDisplayName)</dd>
-                <dt>Invoice date (UTC)</dt><dd>@frozen.BusinessDate</dd><dt>Total</dt><dd>@Money(frozen.Total) NPR</dd></dl>
-            <ol class="record-list">@foreach (var line in frozen.Lines) { <li><strong>@line.Description</strong><span>@line.Quantity @line.UnitCode · @Money(line.LineTotal) NPR</span></li> }</ol>
-            <p>Issued facts remain unchanged when a customer is renamed or consolidated.</p>
+        <InvoiceDocument @key="frozen.InvoiceId" Invoice="frozen" TenantId="TenantId" Disabled="@Locked" LoadBalance="ReceivableAsync" />
+    }
+    @if (receivable is { } currentReceivable)
+    {
+        <section class="business-panel" aria-labelledby="invoice-balance"><h2 id="invoice-balance">Current invoice balance</h2>
+            <dl class="record-facts"><dt>Invoice</dt><dd>@currentReceivable.InvoiceId</dd><dt>Exact debtor</dt><dd>@currentReceivable.DebtorKind · @currentReceivable.DebtorId</dd><dt>Recognized</dt><dd>@Money(currentReceivable.OriginalAmount) NPR</dd><dt>Allocated</dt><dd>@Money(currentReceivable.AllocatedAmount) NPR</dd><dt>Outstanding</dt><dd>@Money(currentReceivable.OutstandingAmount) NPR</dd><dt>Settlement</dt><dd>@(currentReceivable.IsSettled ? "Settled" : "Outstanding")</dd></dl>
+            <button class="cancel-button" disabled="@Locked" @onclick="UseReceivable">Use this debtor and invoice for payment entry</button>
+            <p>This copies references only. Record actual receipt evidence and review every allocation separately; a displayed balance does not prove funds were received.</p>
         </section>
     }
     @if (payment is { } current)
@@ -43,6 +54,14 @@
             <button class="cancel-button" disabled="@Locked" @onclick="() => HistoryAsync(null)">Load payment history</button>
         </section>
     }
+    <section class="business-panel" aria-labelledby="financial-filter"><h2 id="financial-filter">Filter financial directories</h2>
+        <form @onsubmit="ApplyDirectoryFilter" @onsubmit:preventDefault><fieldset class="business-form" disabled="@Locked"><legend class="visually-hidden">Exact financial debtor filter</legend>
+            <label for="directory-debtor-kind">Directory debtor kind</label><select id="directory-debtor-kind" @bind="directoryKind"><option>Organization</option><option>Program</option><option>Individual</option></select>
+            <label for="directory-debtor-reference">Directory debtor reference (empty for all permitted debtors)</label><input id="directory-debtor-reference" maxlength="36" @bind="directoryDebtor" />
+            <button class="cancel-button" type="submit">Apply debtor filter</button>
+        </fieldset></form>
+        <p>Current filter: @(directoryFilter is { } filter ? $"{filter.Kind} · {filter.Id}" : "All permitted debtors"). Refresh each directory after changing this filter.</p>
+    </section>
     <div class="business-columns">
         <section class="business-panel" aria-labelledby="receivable-directory"><div class="section-toolbar"><h2 id="receivable-directory">Receivables</h2><button class="cancel-button" disabled="@Locked" @onclick="() => ReceivablesAsync(null)">Refresh receivables</button></div>
             @if (receivables is { } owed)
@@ -119,10 +138,10 @@
     </section>
     <section class="business-panel" aria-labelledby="invoice-entry"><h2 id="invoice-entry">Issue or find an invoice</h2><p>One full invoice per committed Order. The service uses frozen Order prices and the selected exact debtor; the organization ordinal does not pool customer debt.</p>
         <fieldset class="business-form" disabled="@Locked"><legend class="visually-hidden">Invoice references</legend>
-            <label for="invoice-order">Committed Order reference</label><input id="invoice-order" maxlength="36" @bind="invoiceOrder" />
-            <label for="invoice-order-revision">Expected committed Order revision</label><input id="invoice-order-revision" type="number" min="1" step="1" @bind="invoiceOrderRevision" />
-            <label for="invoice-kind">Invoice debtor choice</label><select id="invoice-kind" @bind="invoiceKind"><option value="Organization">Order organization</option><option value="Program">Order program</option><option value="Individual">Individual customer</option></select>
-            @if (invoiceKind == "Individual") { <label for="invoice-individual">Invoice individual reference</label><input id="invoice-individual" maxlength="36" @bind="invoiceIndividual" /> }
+            <label for="invoice-order">Committed Order reference</label><input id="invoice-order" maxlength="36" @bind="invoiceOrder" @bind:after="ClearInvoiceReview" /><button class="cancel-button" @onclick="LoadInvoiceOrderAsync">Load committed Order for billing</button>
+            <label for="invoice-order-revision">Expected committed Order revision</label><input id="invoice-order-revision" type="number" min="1" step="1" @bind="invoiceOrderRevision" @bind:after="() => invoiceReviewed = false" />
+            <label for="invoice-kind">Invoice debtor choice</label><select id="invoice-kind" @bind="invoiceKind" @bind:after="() => invoiceReviewed = false"><option value="Organization">Order organization</option><option value="Program">Order program</option><option value="Individual">Individual customer</option></select>
+            @if (invoiceKind == "Individual") { <label for="invoice-individual">Invoice individual reference</label><input id="invoice-individual" maxlength="36" @bind="invoiceIndividual" @bind:after="() => invoiceReviewed = false" /> }
             <label class="check-field"><input type="checkbox" @bind="invoiceReviewed" /> Issue the full invoice for this exact committed revision and debtor.</label>
             <button class="button" disabled="@(!invoiceReviewed)" @onclick="IssueAsync">Issue full invoice</button>
             <button class="cancel-button" @onclick="FindInvoiceByOrderAsync">Find invoice for Order</button>

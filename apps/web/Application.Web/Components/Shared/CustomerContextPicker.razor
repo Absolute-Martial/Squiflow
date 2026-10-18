@@ -1,0 +1,89 @@
+@implements IDisposable
+@inject BusinessApiClient Api
+
+<details class="business-details">
+    <summary>Choose a saved organization and program</summary>
+    <p>Browse records you can view, then apply an explicit selection to this draft. Saving checks current authority again. You can also enter known references in the fields below.</p>
+    <fieldset class="business-form" disabled="@(Disabled || busy)">
+        <legend class="visually-hidden">Saved customer selection</legend>
+        <button class="cancel-button" type="button" @onclick="() => OrganizationsAsync(null)">Browse saved organizations</button>
+        @if (organizations is { } page)
+        {
+            <label for="@(id + "-organization")">Saved organization</label>
+            <select id="@(id + "-organization")" @bind="organization" @bind:after="ClearPrograms"><option value="">Choose an organization</option>@foreach (var row in page.Items) { <option value="@row.OrganizationId">@row.DisplayName · @row.OrganizationId</option> }</select>
+            @if (page.Items.Length == 0) { <p>No organizations on this page.</p> }
+            @if (page.NextCursor is { } next) { <button class="cancel-button" type="button" @onclick="() => OrganizationsAsync(next)">Next saved organizations</button> }
+            @if (organizationAfter is not null) { <button class="cancel-button" type="button" @onclick="() => OrganizationsAsync(null)">First saved organizations</button> }
+            <button class="cancel-button" type="button" disabled="@(!SelectedOrganization.HasValue)" @onclick="() => ProgramsAsync(null)">Browse programs for selected organization</button>
+        }
+        @if (programs is { } children)
+        {
+            <label for="@(id + "-program")">Saved program (optional)</label>
+            <select id="@(id + "-program")" @bind="program"><option value="">Organization only</option>@foreach (var row in children.Items) { <option value="@row.ProgramId">@row.DisplayName · @row.ProgramId</option> }</select>
+            @if (children.Items.Length == 0) { <p>No programs on this page.</p> }
+            @if (children.NextCursor is { } next) { <button class="cancel-button" type="button" @onclick="() => ProgramsAsync(next)">Next saved programs</button> }
+            @if (programAfter is not null) { <button class="cancel-button" type="button" @onclick="() => ProgramsAsync(null)">First saved programs</button> }
+        }
+        <button class="cancel-button" type="button" disabled="@(!SelectedOrganization.HasValue)" @onclick="UseAsync">Use selected customer context</button>
+    </fieldset>
+    <div role="status" aria-live="polite" aria-busy="@busy.ToString().ToLowerInvariant()">@message</div>
+</details>
+
+@code {
+    [Parameter] public Guid TenantId { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public EventCallback<OrderCustomer> Selected { get; set; }
+    private readonly string id = "customer-choice-" + Guid.NewGuid().ToString("N");
+    private OrganizationPage? organizations;
+    private ProgramPage? programs;
+    private string organization = "", program = "", message = "Browse when you are ready to choose a saved customer.";
+    private string? organizationAfter, programAfter;
+    private Guid tenant;
+    private bool busy, disposed;
+    private CancellationTokenSource lifetime = new();
+    private Guid? SelectedOrganization => Guid.TryParse(organization, out var value) && organizations?.Items.Any(x => x.OrganizationId == value) == true ? value : null;
+    protected override void OnParametersSet()
+    {
+        if (tenant == TenantId) return;
+        lifetime.Cancel(); lifetime.Dispose(); lifetime = new(); tenant = TenantId; busy = false;
+        organizations = null; organization = ""; organizationAfter = null; ClearPrograms();
+        message = "Browse when you are ready to choose a saved customer.";
+    }
+    private void ClearPrograms() { programs = null; program = ""; programAfter = null; }
+    private async Task RunAsync(Func<CancellationToken, Task> action)
+    {
+        if (Disabled || busy || disposed || TenantId == Guid.Empty) return;
+        var current = lifetime; busy = true; message = "Loading saved customers…";
+        try { await action(current.Token); }
+        catch (OperationCanceledException) when (current.IsCancellationRequested) { }
+        finally { if (ReferenceEquals(current, lifetime)) busy = false; }
+    }
+    private Task OrganizationsAsync(string? after) => RunAsync(async ct =>
+    {
+        organizations = null; organization = ""; ClearPrograms();
+        var result = await Api.GetAsync<OrganizationPage>(tenant, BusinessValidation.PagePath("customers/organizations", after),
+            x => BusinessValidation.Page(x.Items, x.NextCursor, row => CustomerContracts.Organization(row, tenant), row => row.OrganizationId) && (x.NextCursor is null || x.NextCursor != after), ct);
+        ct.ThrowIfCancellationRequested(); organizations = result.Value; organizationAfter = after; message = result.Message;
+    });
+    private Task ProgramsAsync(string? after) => RunAsync(async ct =>
+    {
+        if (SelectedOrganization is not { } parent) return;
+        programs = null; program = "";
+        var result = await Api.GetAsync<ProgramPage>(tenant, BusinessValidation.PagePath($"customers/organizations/{parent:D}/programs", after),
+            x => BusinessValidation.Page(x.Items, x.NextCursor, row => CustomerContracts.Program(row, tenant, parent), row => row.ProgramId) && (x.NextCursor is null || x.NextCursor != after), ct);
+        ct.ThrowIfCancellationRequested(); programs = result.Value; programAfter = after; message = result.Message;
+    });
+    private async Task UseAsync()
+    {
+        if (Disabled || busy || disposed || SelectedOrganization is not { } parent) return;
+        Guid? child = null;
+        if (program.Length > 0)
+        {
+            if (!Guid.TryParse(program, out var value) || programs?.Items.Any(x => x.ProgramId == value && x.OrganizationId == parent) != true) return;
+            child = value;
+        }
+        await Selected.InvokeAsync(new(parent, child));
+        message = "Selected customer references copied into this draft. Review them before saving.";
+    }
+    public void Dispose() { disposed = true; lifetime.Cancel(); lifetime.Dispose(); GC.SuppressFinalize(this); }
+}

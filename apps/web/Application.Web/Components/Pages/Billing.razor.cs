@@ -7,6 +7,7 @@ namespace Application.Web.Components.Pages;
 public partial class Billing
 {
     [Inject] private IConfiguration Configuration { get; set; } = null!;
+    [Parameter] public Guid? OrderId { get; set; }
     [Parameter] public Guid? PaymentId { get; set; }
     [Parameter] public Guid? InvoiceId { get; set; }
     private FinancialPage<ReceivableRecord>? receivables;
@@ -14,6 +15,10 @@ public partial class Billing
     private FinancialPage<PaymentEventRecord>? history;
     private PaymentRecord? payment;
     private InvoiceRecord? invoice;
+    private OrderRecord? sourceOrder;
+    private ReceivableRecord? receivable;
+    private string directoryKind = "Organization", directoryDebtor = "";
+    private (string Kind, Guid Id)? directoryFilter;
     private DebtorBalanceRecord? balance;
     private PaymentCommandReceipt? lastPaymentReceipt;
     private InvoiceCommandReceipt? lastInvoiceReceipt;
@@ -39,6 +44,7 @@ public partial class Billing
     {
         receivables = null; payments = null; history = null; payment = null; invoice = null; balance = null;
         lastPaymentReceipt = null; lastInvoiceReceipt = null; newPaymentId = Guid.NewGuid();
+        sourceOrder = null; receivable = null; directoryFilter = null; directoryKind = "Organization"; directoryDebtor = "";
         recordKind = balanceKind = invoiceKind = "Organization"; recordChannel = "Cash";
         recordDebtor = recordEvidence = recordBankReference = operationPayment = confirmEvidence = reviewEvidence = allocationInvoice =
             correctionReason = releaseAllocation = correctionConfirmation = invoiceOrder = invoiceIndividual = invoiceReference = balanceDebtor = pendingOperation = "";
@@ -51,6 +57,7 @@ public partial class Billing
     {
         if (PaymentId is { } id) { operationPayment = id.ToString("D"); await ReadPaymentAsync(id, cancellationToken); }
         else if (InvoiceId is { } invoiceId) { invoiceReference = invoiceId.ToString("D"); await ReadInvoiceAsync(invoiceId, false, cancellationToken); }
+        else if (OrderId is { } orderId) { invoiceOrder = orderId.ToString("D"); await ReadSourceOrderAsync(orderId, cancellationToken); }
     }
 
     private static string PagePath(string resource, string? cursor) => resource + (cursor is null ? "" : "?cursor=" + cursor);
@@ -62,7 +69,7 @@ public partial class Billing
     private Task ReceivablesAsync(string? cursor) => RunAsync(async ct =>
     {
         receivables = null;
-        var result = await Api.GetAsync<FinancialPage<ReceivableRecord>>(TenantId, PagePath("receivables", cursor),
+        var result = await Api.GetAsync<FinancialPage<ReceivableRecord>>(TenantId, DirectoryPath("receivables", cursor),
             value => FinancialContracts.Page(value, FinancialContracts.Receivable, row => row.InvoiceId, cursor), ct);
         receivables = result.Value; Show(result);
     });
@@ -70,7 +77,7 @@ public partial class Billing
     private Task PaymentsAsync(string? cursor) => RunAsync(async ct =>
     {
         payments = null;
-        var result = await Api.GetAsync<FinancialPage<PaymentRecord>>(TenantId, PagePath("customer-payments", cursor),
+        var result = await Api.GetAsync<FinancialPage<PaymentRecord>>(TenantId, DirectoryPath("customer-payments", cursor),
             value => FinancialContracts.Page(value, row => FinancialContracts.Payment(row), row => row.PaymentId, cursor), ct);
         payments = result.Value; Show(result);
     });
@@ -168,7 +175,7 @@ public partial class Billing
     private void PaymentSaved(PaymentCommandReceipt receipt)
     {
         lastPaymentReceipt = receipt; operationPayment = receipt.PaymentId.ToString("D"); operationRevision = receipt.Revision;
-        payment = null; history = null; payments = null; receivables = null; balance = null;
+        payment = null; history = null; payments = null; receivables = null; receivable = null; balance = null;
         recordReviewed = confirmReviewed = reviewReviewed = allocationReviewed = false; correctionConfirmation = "";
         if (receipt.PaymentId == newPaymentId) { newPaymentId = Guid.NewGuid(); recordAmount = 0; recordEvidence = recordBankReference = ""; }
     }
@@ -187,19 +194,19 @@ public partial class Billing
         pendingOperation = "invoice";
         var saved = await SaveAsync<InvoiceCommandReceipt>($"orders/{order:D}/invoice", new { expectedOrderRevision = invoiceOrderRevision, debtor },
             value => value.InvoiceId != Guid.Empty, ct);
-        if (saved is not null) { lastInvoiceReceipt = saved; invoiceReviewed = false; invoice = null; receivables = null; }
+        if (saved is not null) { lastInvoiceReceipt = saved; invoiceReviewed = false; invoice = null; receivable = null; receivables = null; }
     });
 
     private Task FindInvoiceAsync() => RunAsync(async ct =>
     {
-        invoice = null;
+        invoice = null; receivable = null;
         if (!FinancialContracts.Id(invoiceReference, out var id)) { Invalid("Enter the issued invoice reference."); return; }
         await ReadInvoiceAsync(id, false, ct);
     });
 
     private Task FindInvoiceByOrderAsync() => RunAsync(async ct =>
     {
-        invoice = null;
+        invoice = null; receivable = null;
         if (!FinancialContracts.Id(invoiceOrder, out var id)) { Invalid("Enter the committed Order reference."); return; }
         await ReadInvoiceAsync(id, true, ct);
     });
@@ -208,7 +215,59 @@ public partial class Billing
     {
         var result = await Api.GetAsync<InvoiceRecord>(TenantId, byOrder ? $"orders/{id:D}/invoice" : $"invoices/{id:D}",
             value => FinancialContracts.Invoice(value, byOrder ? null : id, byOrder ? id : null), ct);
-        invoice = result.Value; Show(result);
+        invoice = result.Value; receivable = null; Show(result);
+    }
+
+    private void ClearInvoiceReview() { invoiceReviewed = false; sourceOrder = null; }
+    private Task LoadInvoiceOrderAsync() => RunAsync(async ct =>
+    {
+        ClearInvoiceReview();
+        if (!FinancialContracts.Id(invoiceOrder, out var id)) { Invalid("Enter a committed Order reference."); return; }
+        await ReadSourceOrderAsync(id, ct);
+    });
+    private async Task ReadSourceOrderAsync(Guid id, CancellationToken ct)
+    {
+        sourceOrder = null;
+        var result = await Api.GetAsync<OrderRecord>(TenantId, $"orders/{id:D}", value => OrderContracts.Record(value, id), ct);
+        Show(result);
+        if (result.Value is not { } value) return;
+        if (value.State != "committed") { Invalid("This Order is not committed. Open its saved record and complete admission before billing."); return; }
+        sourceOrder = value; invoiceOrderRevision = value.Revision; invoiceReviewed = false;
+    }
+    private Task ReceivableAsync() => RunAsync(async ct =>
+    {
+        receivable = null;
+        if (invoice is not { } current) return;
+        var result = await Api.GetAsync<ReceivableRecord>(TenantId, $"receivables/{current.InvoiceId:D}",
+            value => FinancialContracts.Receivable(value) && value.InvoiceId == current.InvoiceId, ct);
+        receivable = result.Value; Show(result);
+    });
+    private void UseReceivable()
+    {
+        if (Locked || receivable is not { } current) return;
+        recordKind = balanceKind = directoryKind = current.DebtorKind;
+        recordDebtor = balanceDebtor = directoryDebtor = current.DebtorId.ToString("D");
+        allocationInvoice = current.InvoiceId.ToString("D");
+        recordReviewed = allocationReviewed = false;
+        Message = "Debtor and invoice references copied. Enter actual payment evidence and review the allocation separately."; Tone = "neutral";
+    }
+    private string DirectoryPath(string resource, string? cursor)
+    {
+        var filter = directoryFilter is { } debtor ? $"debtorKind={debtor.Kind}&debtorId={debtor.Id:D}" : "";
+        if (cursor is not null) filter += (filter.Length > 0 ? "&" : "") + "cursor=" + Uri.EscapeDataString(cursor);
+        return resource + (filter.Length > 0 ? "?" + filter : "");
+    }
+    private void ApplyDirectoryFilter()
+    {
+        if (Locked) return;
+        if (string.IsNullOrWhiteSpace(directoryDebtor)) directoryFilter = null;
+        else
+        {
+            if (!FinancialContracts.Kind(directoryKind) || !FinancialContracts.Id(directoryDebtor, out var id)) { Invalid("Choose a supported debtor kind and exact saved debtor reference."); return; }
+            directoryFilter = (directoryKind, id);
+        }
+        receivables = null; payments = null;
+        Message = "Directory filter applied. Refresh receivables and payments to load current results."; Tone = "neutral";
     }
 
     private Task BalanceAsync() => RunAsync(async ct =>
@@ -226,7 +285,7 @@ public partial class Billing
         if (pendingOperation == "invoice")
         {
             var result = await SaveAsync<InvoiceCommandReceipt>(command.Resource, new { }, value => value.InvoiceId != Guid.Empty, ct, command.Method);
-            if (result is not null) { lastInvoiceReceipt = result; invoiceReviewed = false; invoice = null; receivables = null; }
+            if (result is not null) { lastInvoiceReceipt = result; invoiceReviewed = false; invoice = null; receivable = null; receivables = null; }
         }
         else if (pendingOperation == "payment")
         {

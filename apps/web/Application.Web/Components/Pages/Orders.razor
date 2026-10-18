@@ -18,7 +18,7 @@
             <a class="cancel-button" href="@($"{Root}/{current.OrderId:D}")">Reload saved order</a>
             <a class="cancel-button" href="@($"{Root}/{current.OrderId:D}/program-reference")">Program reference and policy</a>
             @if (current.State == "draft") { <a class="cancel-button" href="@($"{Root}/{current.OrderId:D}/approval")">Request order approval</a> }
-            @if (current.State == "committed") { <a class="cancel-button" href="@($"/workspace/{TenantId:D}/fulfillment/{current.OrderId:D}")">Fulfillment and pickup</a> }
+            @if (current.State == "committed") { <a class="cancel-button" href="@($"/workspace/{TenantId:D}/fulfillment/{current.OrderId:D}")">Fulfillment and pickup</a><a class="button" href="@($"/workspace/{TenantId:D}/billing/orders/{current.OrderId:D}")">Invoice and settlement</a> }
             <ol class="record-list">@foreach (var line in current.Lines) { <li><strong>@line.Description</strong><span>@line.Quantity @line.UnitCode × @Amount(line.UnitPrice) = @Amount(line.LineTotal) @current.CurrencyCode</span></li> }</ol>
             @if (current.QuotationOrigin is { } origin) { <p>Quotation @origin.Number, revision @origin.RevisionNumber. Its accepted offer is retained.</p> }
             <div class="panel-actions actions-inline">
@@ -52,6 +52,7 @@
                 <label for="order-summary">Order summary</label><input id="order-summary" required maxlength="200" @bind="summary" />
                 <label for="order-currency">Order currency</label><input id="order-currency" required maxlength="3" pattern="[A-Z]{3}" @bind="currency" />
                 <label for="order-mode">Pricing mode</label><select id="order-mode" @bind="mode"><option value="manual">Manual priced lines</option><option value="catalog">Catalog and published pricing</option></select>
+                <CustomerContextPicker TenantId="TenantId" Disabled="@(Busy || PendingCommand is not null)" Selected="ChooseCustomer" />
                 <label for="order-organization">Customer organization reference (optional)</label><input id="order-organization" maxlength="36" @bind="organizationReference" />
                 <label for="order-program">Customer program reference (optional, belongs to organization)</label><input id="order-program" maxlength="36" @bind="programReference" />
                 @if (mode == "catalog")
@@ -72,6 +73,7 @@
                         }
                         else
                         {
+                            <CatalogItemPicker TenantId="TenantId" Disabled="@(Busy || PendingCommand is not null)" Label="@($"order line {number}")" Selected="item => ChooseItem(line, item)" />
                             <label for="@($"order-item-{number}")">Catalog item reference @number</label><input id="@($"order-item-{number}")" required maxlength="36" @bind="line.ItemReference" />
                             <label for="@($"order-unit-ref-{number}")">Catalog unit reference @number</label><input id="@($"order-unit-ref-{number}")" required maxlength="36" @bind="line.UnitReference" />
                             <label for="@($"order-conversion-{number}")">Conversion revision @number (optional)</label><input id="@($"order-conversion-{number}")" type="number" min="1" step="1" @bind="line.ConversionRevision" />
@@ -81,6 +83,18 @@
                 }
                 <button class="cancel-button" type="button" disabled="@(lines.Count >= 10)" @onclick="() => lines.Add(new())">Add line</button>
                 @if (order is not null) { <label class="check-field"><input type="checkbox" @bind="replaceConfirmed" /> Replace all content of this saved draft with the entered values.</label> }
+                @if (mode == "manual")
+                {
+                    <button class="cancel-button" type="button" @onclick="PreviewAsync">Preview supplied prices</button>
+                    @if (CurrentPreview is { } calculated)
+                    {
+                        <section class="business-panel" aria-labelledby="order-preview"><h3 id="order-preview">Server price preview</h3><p>Unsaved supplied-price calculation. Saving rechecks the draft; this preview does not approve prices or commit a charge.</p>
+                            <ol class="record-list">@foreach (var row in calculated.Lines) { <li><strong>@row.Description</strong><span>@row.Quantity @row.UnitCode × @Amount(row.UnitPrice) = @Amount(row.LineTotal) @calculated.CurrencyCode</span></li> }</ol>
+                            <p>Total: <strong>@Amount(calculated.Total) @calculated.CurrencyCode</strong></p>
+                        </section>
+                    }
+                    else if (preview is not null) { <p role="status">The entered prices changed. Preview again to see the current calculation.</p> }
+                }
                 <button class="button" type="submit" disabled="@(order is not null && !replaceConfirmed)">@(order is null ? "Save order draft" : "Replace order draft")</button>
             </fieldset></form>
         </section>
@@ -107,6 +121,8 @@
 
 @code {
     [Parameter] public Guid? OrderId { get; set; }
+    private OrderPricePreview? preview;
+    private string previewInput = "";
     private OrderRecord? order;
     private OrderPage? page;
     private OrderActions? actions;
@@ -119,7 +135,7 @@
     private static string Amount(decimal value) => value.ToString("0.0000", CultureInfo.InvariantCulture);
     protected override void Reset()
     {
-        order = null; page = null; actions = null; history = null; after = null;
+        order = null; page = null; actions = null; history = null; after = null; preview = null; previewInput = "";
         directoryInvalidated = false; summary = organizationReference = programReference = individualReference = pendingAction = ""; currency = "NPR"; mode = "manual";
         wholesale = commitConfirmed = abandonConfirmed = replaceConfirmed = false; lines.Clear(); lines.Add(new());
     }
@@ -135,6 +151,7 @@
     }
     private void SelectOrder(OrderRecord value)
     {
+        preview = null; previewInput = "";
         order = value; summary = value.Summary; currency = value.CurrencyCode;
         organizationReference = value.CustomerContext?.OrganizationId.ToString("D") ?? ""; programReference = value.CustomerContext?.ProgramId?.ToString("D") ?? "";
         lines.Clear(); lines.AddRange(value.Lines.Select(row => new LineEntry { Description = row.Description, UnitCode = row.UnitCode, Quantity = row.Quantity, UnitPrice = row.UnitPrice,
@@ -145,6 +162,33 @@
         wholesale = value.Lines[0].CommercialFacts?.PriceSelection.Explanation.Context.WholesaleApplicable ?? false;
         actions = null; history = null; replaceConfirmed = commitConfirmed = abandonConfirmed = false;
     }
+    private void ChooseCustomer(OrderCustomer customer)
+    {
+        organizationReference = customer.OrganizationId.ToString("D"); programReference = customer.ProgramId?.ToString("D") ?? "";
+        replaceConfirmed = false;
+    }
+    private void ChooseItem(LineEntry line, CatalogItem item)
+    {
+        line.ItemReference = item.ItemId.ToString("D"); line.UnitReference = item.BaseUnitId.ToString("D"); line.ConversionRevision = null;
+        replaceConfirmed = false; preview = null;
+    }
+    private OrderPriceInput PreviewRequest() => new(currency, lines.Select(row => new SuppliedOrderLine(row.Description, row.Quantity, row.UnitCode, row.UnitPrice)).ToArray());
+    private OrderPricePreview? CurrentPreview => mode == "manual" && preview is not null && previewInput == System.Text.Json.JsonSerializer.Serialize(PreviewRequest(), BusinessApiClient.JsonOptions) ? preview : null;
+    private Task PreviewAsync() => RunAsync(async ct =>
+    {
+        if (PendingCommand is not null || mode != "manual") return;
+        preview = null; previewInput = "";
+        var input = PreviewRequest();
+        if (!OrderContracts.PriceInput(input)) { Message = "Check the currency, descriptions, unit codes, positive quantities and supplied prices before previewing."; Tone = "error"; return; }
+        try
+        {
+            var result = await Api.QueryAsync<OrderPricePreview>(TenantId, "orders/price-preview", input, row => OrderContracts.Preview(row, input), ct);
+            ct.ThrowIfCancellationRequested(); preview = result.Value;
+            if (preview is not null) previewInput = System.Text.Json.JsonSerializer.Serialize(input, BusinessApiClient.JsonOptions);
+            Show(result);
+        }
+        catch (ArgumentException) { Message = "This preview exceeds the supported request size. Reduce the line text or line count."; Tone = "error"; }
+    });
     private void InvalidateDirectory() { page = null; after = null; directoryInvalidated = true; }
     private Task BrowseAsync(string? cursor) => RunAsync(ct => ReadPageAsync(cursor, ct));
     private async Task ReadPageAsync(string? cursor, CancellationToken ct)

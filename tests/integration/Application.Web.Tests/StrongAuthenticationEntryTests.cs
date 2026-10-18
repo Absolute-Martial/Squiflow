@@ -9,17 +9,19 @@ namespace Application.Web.Tests;
 
 public sealed partial class BusinessPageTests
 {
-    [Fact]
-    public async Task IdentityVerificationRequiresCurrentSessionCsrfAndConfiguredAssuranceAndUsesFixedLocalReturn()
+    [Theory]
+    [InlineData("billing", null)]
+    [InlineData("administration", "administration")]
+    public async Task IdentityVerificationRequiresCurrentSessionCsrfAndConfiguredAssuranceAndUsesFixedLocalReturn(string destination, string? selector)
     {
         await using var factory = new BusinessFactory();
         using var client = factory.CreateClient(new() { BaseAddress = new("https://web.example.test"), AllowAutoRedirect = false });
         using var anonymous = await client.PostAsync("/auth/verify-identity", new FormUrlEncodedContent([]));
         Assert.Equal(HttpStatusCode.Redirect, anonymous.StatusCode);
         await LoginAsync(factory, client);
-        var route = $"/workspace/{factory.Protocol.FirstTenant:D}/billing";
+        var route = $"/workspace/{factory.Protocol.FirstTenant:D}/{destination}";
         var page = await client.GetStringAsync(route);
-        Assert.Contains("Verify identity for corrections", page, StringComparison.Ordinal);
+        Assert.Contains(destination == "administration" ? "Initial Owner handoff" : "Verify identity for corrections", page, StringComparison.Ordinal);
         var previousSession = factory.LastSession;
         Assert.NotNull(previousSession);
         var tickets = factory.Services.GetRequiredService<WebSessionTickets>();
@@ -27,6 +29,7 @@ public sealed partial class BusinessPageTests
         using var forged = await client.PostAsync("/auth/verify-identity", new FormUrlEncodedContent(new Dictionary<string, string> { ["tenantId"] = factory.Protocol.FirstTenant.ToString("D") }));
         Assert.Equal(HttpStatusCode.BadRequest, forged.StatusCode);
         var form = new Dictionary<string, string> { ["tenantId"] = factory.Protocol.FirstTenant.ToString("D"), ["__RequestVerificationToken"] = AntiForgery(page) };
+        if (selector is not null) form["destination"] = selector;
         form["returnUrl"] = "https://untrusted.example.test/steal";
         using var arbitraryReturn = await client.PostAsync("/auth/verify-identity", new FormUrlEncodedContent(form));
         Assert.Equal(HttpStatusCode.BadRequest, arbitraryReturn.StatusCode);
@@ -46,6 +49,30 @@ public sealed partial class BusinessPageTests
         Assert.Equal(route, callback.Headers.Location!.OriginalString);
         using var signedIn = await client.GetAsync(route);
         Assert.Equal(HttpStatusCode.OK, signedIn.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("https://untrusted.example.test/steal")]
+    [InlineData("//untrusted.example.test")]
+    [InlineData("../administration")]
+    [InlineData("administration?returnUrl=other")]
+    [InlineData("billing")]
+    public async Task VerificationDestinationRejectsAnythingOutsideTheFixedOwnerSelector(string destination)
+    {
+        await using var factory = new BusinessFactory();
+        using var client = factory.CreateClient(new() { BaseAddress = new("https://web.example.test"), AllowAutoRedirect = false });
+        await LoginAsync(factory, client);
+        var page = await client.GetStringAsync($"/workspace/{factory.Protocol.FirstTenant:D}/administration");
+        var session = factory.LastSession;
+        using var response = await client.PostAsync("/auth/verify-identity", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["tenantId"] = factory.Protocol.FirstTenant.ToString("D"),
+            ["__RequestVerificationToken"] = AntiForgery(page),
+            ["destination"] = destination,
+        }));
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Null(response.Headers.Location);
+        Assert.NotNull(factory.Services.GetRequiredService<WebSessionTickets>().AccessToken(session));
     }
 
     [Fact]

@@ -1,0 +1,53 @@
+@using Microsoft.JSInterop
+@using System.Globalization
+@implements IAsyncDisposable
+@inject IJSRuntime JavaScript
+
+<section class="business-panel invoice-document" aria-labelledby="frozen-invoice">
+    <p class="eyebrow">ISSUED INVOICE RECORD</p><h2 id="frozen-invoice">Issued invoice @Invoice.OrganizationOrdinal</h2>
+    <dl class="record-facts"><dt>Invoice reference</dt><dd>@Invoice.InvoiceId</dd><dt>Order reference</dt><dd>@Invoice.SourceOrderId</dd><dt>Committed revision</dt><dd>@Invoice.SourceOrderRevision</dd>
+        <dt>Debtor</dt><dd>@Invoice.Debtor.Kind · @(Invoice.Debtor.IndividualDisplayName ?? Invoice.Debtor.ProgramDisplayName ?? Invoice.Debtor.OrganizationDisplayName)</dd>
+        <dt>Organization</dt><dd>@Invoice.OrganizationId</dd>@if (Invoice.ProgramId.HasValue) { <dt>Program</dt><dd>@Invoice.ProgramId</dd> }
+        @if (Invoice.Debtor.IndividualId.HasValue) { <dt>Individual debtor</dt><dd>@Invoice.Debtor.IndividualId · Observed revision @Invoice.Debtor.ObservedRevision</dd> }
+        <dt>Invoice date (UTC)</dt><dd>@Invoice.BusinessDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)</dd><dt>Issued (UTC)</dt><dd>@Invoice.IssuedAt.ToString("u")</dd><dt>Issued by</dt><dd>@Invoice.IssuedByAccountId</dd></dl>
+    <ol class="record-list">@foreach (var line in Invoice.Lines) { <li><strong>@line.Description</strong><span>@line.Quantity @line.UnitCode × @Money(line.UnitPrice) = @Money(line.LineTotal) @Invoice.CurrencyCode</span></li> }</ol>
+    <p>Total: <strong>@Money(Invoice.Total) @Invoice.CurrencyCode</strong></p>
+    <p>Issued facts remain unchanged when a customer is renamed or consolidated. This record shows issuance; current payment and settlement state is checked separately.</p>
+    <div class="invoice-screen-actions">
+        <a class="cancel-button" href="@($"/workspace/{TenantId:D}/orders/{Invoice.SourceOrderId:D}")">View invoiced Order</a>
+        <button class="cancel-button" type="button" disabled="@Disabled" @onclick="LoadBalance">Load current invoice balance</button>
+        <button class="cancel-button" type="button" disabled="@(Disabled || printing)" @onclick="PrintAsync">Print invoice record</button>
+        <p role="status" aria-live="polite">@message</p>
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public InvoiceRecord Invoice { get; set; } = null!;
+    [Parameter] public Guid TenantId { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public EventCallback LoadBalance { get; set; }
+    private IJSObjectReference? module;
+    private bool printing, disposed;
+    private string message = "";
+    private static string Money(decimal amount) => amount.ToString("0.0000", CultureInfo.InvariantCulture);
+    private async Task PrintAsync()
+    {
+        if (Disabled || printing || disposed) return;
+        printing = true;
+        try
+        {
+            module ??= await JavaScript.InvokeAsync<IJSObjectReference>("import", "./invoice-print.js");
+            if (disposed) return;
+            await module.InvokeVoidAsync("printInvoice");
+            message = "Use your browser's print dialog to print or save this invoice record. Closing the dialog does not change the saved invoice.";
+        }
+        catch (JSException) { message = "The browser could not open printing. Try its Print command while this invoice record is open."; }
+        finally { printing = false; }
+    }
+    public async ValueTask DisposeAsync()
+    {
+        disposed = true;
+        if (module is not null) { try { await module.DisposeAsync(); } catch (JSDisconnectedException) { } }
+        GC.SuppressFinalize(this);
+    }
+}

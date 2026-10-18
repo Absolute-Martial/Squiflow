@@ -18,7 +18,7 @@
             <h3>Custom roles</h3>
             @if (current.Roles.Length == 0) { <p class="empty-state">No custom roles have been recorded. Create a role below using the compiled permission catalog.</p> }
             <ul class="record-list">@foreach (var role in current.Roles)
-                { <li><strong>@role.Name</strong><span>@TenantAdministrationContracts.RoleState(role.Availability) · Revision @role.Revision</span><span class="record-reference">@role.RoleId</span><span>@string.Join(", ", role.PermissionIds)</span><button class="cancel-button" disabled="@ChangesLocked" @onclick="() => SelectRole(role)">Review @role.Name</button></li> }</ul>
+                { <li><strong>@role.Name</strong><span>@TenantAdministrationContracts.RoleState(role.Availability) · Revision @role.Revision</span><span class="record-reference">@role.RoleId</span><span>@string.Join(", ", role.PermissionIds)</span><button class="cancel-button" disabled="@ChangesLocked" @onclick="() => SelectRole(role)">Review @role.Name</button><button class="cancel-button" disabled="@(ChangesLocked || role.Availability != 2)" @onclick="() => ChooseAssignmentRole(role.RoleId)">Use @role.Name for assignment</button></li> }</ul>
         }
         else { <p>Reload administration to obtain the current revision and permission catalog before another change.</p> }
     </section>
@@ -72,7 +72,7 @@
     </section>
     <section class="business-panel" aria-labelledby="owner-handoff"><h2 id="owner-handoff">Initial Owner handoff</h2>
         <p>The current initial Owner transfers the protected designation to an existing active member. This removes the previous Owner's administration authority. The service requires recent strong authentication, the exact tenant revision and no active authorization proposal.</p>
-        @if (VerificationAvailable) { <form method="post" action="/auth/verify-identity" data-enhance="false"><AntiforgeryToken /><input type="hidden" name="tenantId" value="@TenantId" /><button class="cancel-button" type="submit">Verify identity for Owner handoff</button></form><p>Fresh sign-in returns to Billing. Return here through workspace navigation. Resolve saved requests first; unsent entries are lost.</p> }
+        @if (VerificationAvailable) { <form method="post" action="/auth/verify-identity" data-enhance="false"><AntiforgeryToken /><input type="hidden" name="tenantId" value="@TenantId" /><input type="hidden" name="destination" value="administration" /><button class="cancel-button" type="submit">Verify identity for Owner handoff</button></form><p>Fresh sign-in returns to tenant administration. Resolve saved requests first; unsent entries are lost.</p> }
         else { <p>Fresh identity verification is unavailable while a saved request is unresolved or until your administrator configures it.</p> }
         <form @onsubmit="TransferAsync" @onsubmit:preventDefault><fieldset class="business-form" disabled="@ChangesLocked"><legend class="visually-hidden">Owner handoff confirmation</legend>
             <label for="transfer-account">Successor account reference</label><input id="transfer-account" maxlength="36" required @bind="transferTarget" @bind:after="() => transferConfirmation = string.Empty" />

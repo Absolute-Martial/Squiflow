@@ -296,7 +296,9 @@ async function run() {
     await page.getByLabel('I reviewed this role action, full permission replacement and exact revisions.', { exact: true }).check();
     await click('Save custom role proposal'); await reconcile(); await click('Reload administration'); assert.equal(roles[0].revision, 2);
     for (const action of ['assign', 'remove']) {
-        await fill('Assignment role reference', roleId); await fill('Assignment member account reference', memberId);
+        await page.getByRole('button', { name: 'Use Dispatch role for assignment', exact: true }).click();
+        await until(async () => await page.getByLabel('Assignment role reference', { exact: true }).inputValue() === roleId);
+        await fill('Assignment member account reference', memberId);
         await page.getByLabel('Role assignment action', { exact: true }).selectOption(action);
         await page.getByLabel('I reviewed this role, active member and assignment action.', { exact: true }).check();
         await click('Save role assignment proposal'); await reconcile(); await click('Reload administration');
@@ -311,8 +313,11 @@ async function run() {
     malformed = true; await click('Reload administration'); await message('unsupported response'); malformed = false;
     failure = 503; await click('Reload administration'); await message('service is unavailable'); failure = undefined;
     await click('Reload administration');
+    const ownerVerificationCallback = page.waitForResponse(response => new URL(response.url()).pathname === '/signin-oidc' && response.status() === 302);
     await page.getByRole('button', { name: 'Verify identity for Owner handoff', exact: true }).click();
-    await page.waitForURL(`${webOrigin}/workspace/${first.tenantId}/billing`); assert.equal(verificationChecks, 1);
+    await ownerVerificationCallback;
+    await page.waitForURL(`${webOrigin}/workspace/${first.tenantId}/administration`); assert.equal(verificationChecks, 1);
+    await page.getByRole('heading', { name: 'Tenant administration', exact: true }).waitFor();
     await go('profile-policy'); await capture('policy-empty-desktop');
     await page.getByLabel('Require a supplied reference for program Orders', { exact: true }).check();
     await page.getByLabel('Require independent exact-revision approval for program Orders', { exact: true }).check();

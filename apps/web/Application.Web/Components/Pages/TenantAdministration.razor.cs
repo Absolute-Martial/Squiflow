@@ -40,6 +40,7 @@ public partial class TenantAdministration
         permissionConfirmed = roleConfirmed = assignmentConfirmed = false;
         Show(result);
     }
+    private void ChooseAssignmentRole(Guid id) { assignmentRole = id.ToString("D"); assignmentAction = "assign"; assignmentConfirmed = false; }
     private void SelectRole(TenantRoleRecord role)
     {
         roleAction = "revise"; roleReference = role.RoleId.ToString("D"); roleName = role.Name; expectedRole = role.Revision;

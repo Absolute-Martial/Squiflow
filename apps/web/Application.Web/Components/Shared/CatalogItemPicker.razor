@@ -1,0 +1,60 @@
+@implements IDisposable
+@inject BusinessApiClient Api
+
+<details class="business-details">
+    <summary>Choose a saved catalog item for @Label</summary>
+    <p>Choosing an active item copies its reference and base unit. Prices are resolved when the draft is saved. Use the reference fields for a different unit and its conversion evidence.</p>
+    <fieldset class="business-form" disabled="@(Disabled || busy)">
+        <legend class="visually-hidden">Catalog selection for @Label</legend>
+        <button class="cancel-button" type="button" @onclick="() => BrowseAsync(null)">Browse saved items for @Label</button>
+        @if (page is { } current)
+        {
+            <label for="@id">Saved item for @Label</label><select id="@id" @bind="selection"><option value="">Choose an active item</option>@foreach (var row in current.Items) { <option value="@row.ItemId" disabled="@(row.Status != "active")">@row.Name · @(row.Code ?? "No code") · @row.Status</option> }</select>
+            @if (current.Items.Length == 0) { <p>No catalog items on this page.</p> }
+            @if (current.NextCursor is { } next) { <button class="cancel-button" type="button" @onclick="() => BrowseAsync(next)">Next saved items for @Label</button> }
+            @if (after is not null) { <button class="cancel-button" type="button" @onclick="() => BrowseAsync(null)">First saved items for @Label</button> }
+            <button class="cancel-button" type="button" disabled="@(Current is null)" @onclick="UseAsync">Use saved item for @Label</button>
+        }
+    </fieldset>
+    <div role="status" aria-live="polite" aria-busy="@busy.ToString().ToLowerInvariant()">@message</div>
+</details>
+
+@code {
+    [Parameter] public Guid TenantId { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public string Label { get; set; } = "this line";
+    [Parameter] public EventCallback<CatalogItem> Selected { get; set; }
+    private readonly string id = "catalog-choice-" + Guid.NewGuid().ToString("N");
+    private CatalogItemPage? page;
+    private string selection = "", message = "Browse when you are ready to choose a saved item.";
+    private string? after;
+    private Guid tenant;
+    private bool busy, disposed;
+    private CancellationTokenSource lifetime = new();
+    private CatalogItem? Current => Guid.TryParse(selection, out var value) ? page?.Items.SingleOrDefault(x => x.ItemId == value && x.Status == "active") : null;
+    protected override void OnParametersSet()
+    {
+        if (tenant == TenantId) return;
+        lifetime.Cancel(); lifetime.Dispose(); lifetime = new(); tenant = TenantId;
+        page = null; selection = ""; after = null; busy = false; message = "Browse when you are ready to choose a saved item.";
+    }
+    private async Task BrowseAsync(string? cursor)
+    {
+        if (Disabled || busy || disposed || tenant == Guid.Empty) return;
+        var current = lifetime; var ct = current.Token; busy = true; page = null; selection = ""; message = "Loading catalog items…";
+        try
+        {
+            var result = await Api.GetAsync<CatalogItemPage>(tenant, BusinessValidation.PagePath("catalog/items", cursor),
+                x => BusinessValidation.Page(x.Items, x.NextCursor, row => CatalogPricingContracts.Item(row), row => row.ItemId) && (x.NextCursor is null || x.NextCursor != cursor), ct);
+            ct.ThrowIfCancellationRequested(); page = result.Value; after = cursor; message = result.Message;
+        }
+        catch (OperationCanceledException) when (current.IsCancellationRequested) { }
+        finally { if (ReferenceEquals(current, lifetime)) busy = false; }
+    }
+    private async Task UseAsync()
+    {
+        if (Disabled || busy || disposed || Current is not { } item) return;
+        await Selected.InvokeAsync(item); message = "Item and base-unit references copied into this line. Review before saving.";
+    }
+    public void Dispose() { disposed = true; lifetime.Cancel(); lifetime.Dispose(); GC.SuppressFinalize(this); }
+}

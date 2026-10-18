@@ -150,11 +150,13 @@ internal static class WebLogin
             catch (AntiforgeryValidationException) { return Results.BadRequest(); }
             if (login?.StrongAuthenticationAcr is null) return Results.StatusCode(503);
             var form = await context.Request.ReadFormAsync(context.RequestAborted);
-            if (form.Count != 2 || form.Files.Count != 0 || form["tenantId"].Count != 1 || !Guid.TryParse(form["tenantId"], out var tenant) || tenant == Guid.Empty)
+            var administration = form["destination"].Count == 1 && form["destination"] == "administration";
+            if (form.Count != (administration ? 3 : 2) || form.Files.Count != 0 || form["tenantId"].Count != 1 ||
+                form["destination"].Count != (administration ? 1 : 0) || !Guid.TryParse(form["tenantId"], out var tenant) || tenant == Guid.Empty)
                 return Results.BadRequest();
             // Invalidate the previous server ticket before a fresh interactive sign-in or account change.
             await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-            var properties = new AuthenticationProperties { RedirectUri = $"/workspace/{tenant:D}/billing" };
+            var properties = new AuthenticationProperties { RedirectUri = $"/workspace/{tenant:D}/" + (administration ? "administration" : "billing") };
             properties.Items["application.verify_identity"] = "true";
             await context.ChallengeAsync(OpenIdConnectDefaults.AuthenticationScheme, properties);
             return Results.Empty;

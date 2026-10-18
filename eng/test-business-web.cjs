@@ -51,7 +51,7 @@ async function business(request, response, uri, tenantId, resource) {
         let text = ''; for await (const chunk of request) { text += chunk; assert.ok(text.length <= 8192); }
         body = JSON.parse(text);
     }
-    const mutation = request.method !== 'GET' && !['pricing/resolve', 'pricing/history'].includes(resource);
+    const mutation = request.method !== 'GET' && !['pricing/resolve', 'pricing/history', 'orders/price-preview'].includes(resource);
     const key = request.headers['idempotency-key'];
     const receiptKey = tenantId + '/' + key;
     if (mutation) {
@@ -143,8 +143,15 @@ async function business(request, response, uri, tenantId, resource) {
         receivableRows.push({ invoiceId: value.invoiceId, debtorKind: 'Organization', debtorId: value.organizationId, currencyCode: 'NPR', originalAmount: value.total, invoiceDate: value.businessDate, recognizedAt: now(), allocatedAmount: 0, outstandingAmount: value.total, isSettled: false });
         return save({ invoiceId: value.invoiceId }, true);
     }
-    if (resource === 'receivables') return finish({ items: receivableRows, nextCursor: null });
-    if (resource === 'customer-payments') return finish({ items: customerPayments, nextCursor: null });
+    if (resource.startsWith('receivables/')) return finish(receivableRows.find(x => x.invoiceId === resource.split('/')[1]) ?? {}, 200);
+    const filtered = rows => rows.filter(x => !uri.searchParams.has('debtorId') || x.debtorKind === uri.searchParams.get('debtorKind') && x.debtorId === uri.searchParams.get('debtorId'));
+    if (resource === 'receivables') return finish({ items: filtered(receivableRows), nextCursor: null });
+    if (resource === 'customer-payments') return finish({ items: filtered(customerPayments), nextCursor: null });
+    if (resource === 'orders/price-preview') {
+        assert.equal(body.currencyCode, 'NPR'); assert.equal(body.lines.length, 1);
+        assert.equal(body.lines[0].quantity, 2); assert.ok([12.5, 15].includes(body.lines[0].unitPrice));
+        return finish({ currencyCode: 'NPR', lines: [{ position: 1, ...body.lines[0], lineTotal: body.lines[0].unitPrice === 15 ? 30 : 25 }], total: body.lines[0].unitPrice === 15 ? 30 : 25 });
+    }
     if (resource.startsWith('debtors/')) return finish({ debtorKind: 'Organization', debtorId: organizations[0].organizationId, currencyCode: 'NPR', recognizedAmount: 30, outstandingAmount: 30, confirmedUnappliedAmount: 0 });
     const paymentRoute = resource.match(/^customer-payments\/([^/]+)(?:\/(history|confirm|reject|dispute|reverse|allocations)(?:\/([^/]+)\/(release))?)?$/);
     if (paymentRoute) {
@@ -469,7 +476,29 @@ async function run() {
         pricingStatus = status; await click('Resolve current price'); await page.getByText(title, { exact: true }).waitFor();
     }
     await page.getByRole('link', { name: 'Orders', exact: true }).click();
-    await fill('Customer organization reference (optional)', organizations[0].organizationId); await fill('Order summary', 'A durable direct order'); await fill('Description 1', 'Printing'); await fill('Unit price 1', 12.5); await fill('Quantity 1', 2);
+    await page.getByText('Choose a saved organization and program', { exact: true }).click();
+    await page.getByRole('button', { name: 'Browse saved organizations', exact: true }).click();
+    await page.getByLabel('Saved organization', { exact: true }).selectOption(organizations[0].organizationId);
+    await page.getByRole('button', { name: 'Browse programs for selected organization', exact: true }).click();
+    await page.getByLabel('Saved program (optional)', { exact: true }).selectOption(programs[0].programId);
+    await page.getByRole('button', { name: 'Use selected customer context', exact: true }).click();
+    await page.getByText('Selected customer references copied into this draft. Review them before saving.', { exact: true }).waitFor();
+    assert.equal(await page.getByLabel('Customer organization reference (optional)', { exact: true }).inputValue(), organizations[0].organizationId);
+    assert.equal(await page.getByLabel('Customer program reference (optional, belongs to organization)', { exact: true }).inputValue(), programs[0].programId);
+    await fill('Order summary', 'A durable direct order'); await fill('Description 1', 'Printing'); await fill('Unit price 1', 12.5); await fill('Quantity 1', 2);
+    const beforePreview = orders.length;
+    await click('Preview supplied prices'); await saved();
+    await page.getByRole('heading', { name: 'Server price preview', exact: true }).waitFor();
+    assert.equal(orders.length, beforePreview); assert.equal(await page.getByRole('complementary', { name: 'Saved request recovery', exact: true }).count(), 0);
+    await capture('order-price-preview-desktop');
+    await fill('Unit price 1', 15); await page.getByLabel('Order summary', { exact: true }).focus();
+    await page.getByText('The entered prices changed. Preview again to see the current calculation.', { exact: true }).waitFor();
+    assert.equal(await page.getByRole('heading', { name: 'Server price preview', exact: true }).count(), 0);
+    await click('Preview supplied prices'); await saved(); await page.locator('#order-preview').waitFor();
+    await page.setViewportSize({ width: 320, height: 844 }); await capture('order-price-preview-mobile-320'); await page.setViewportSize({ width: 1440, height: 1000 });
+    failure = 403; await click('Preview supplied prices'); await message('do not have access'); failure = undefined;
+    assert.equal(await page.getByRole('button', { name: 'Retry saved request', exact: true }).count(), 0);
+    await fill('Unit price 1', 12.5);
     await click('Add line'); await fill('Description 2', 'Setup'); await fill('Unit price 2', 5);
     await click('Save order draft'); await saved(); assert.equal(orders[0].total, 30);
     await capture('orders-desktop');
@@ -481,7 +510,14 @@ async function run() {
     await page.getByLabel('Commit this exact saved revision.', { exact: true }).check(); await click('Commit order'); await saved(); assert.equal(orders[0].state, 'committed');
     await page.getByRole('link', { name: 'Reload saved order', exact: true }).click(); await page.getByText('committed', { exact: true }).first().waitFor(); assert.equal(await page.getByRole('button', { name: 'Replace order draft', exact: true }).count(), 0);
     await go('orders'); await fill('Order summary', 'Catalog order'); await page.getByLabel('Pricing mode', { exact: true }).selectOption('catalog');
-    await fill('Catalog item reference 1', items[0].itemId); await fill('Catalog unit reference 1', items[0].baseUnitId);
+    await page.getByText('Choose a saved catalog item for order line 1', { exact: true }).click();
+    await page.getByRole('button', { name: 'Browse saved items for order line 1', exact: true }).click();
+    await page.getByLabel('Saved item for order line 1', { exact: true }).selectOption(items[0].itemId);
+    await page.getByRole('button', { name: 'Use saved item for order line 1', exact: true }).click();
+    await page.getByText('Item and base-unit references copied into this line. Review before saving.', { exact: true }).waitFor();
+    assert.equal(await page.getByLabel('Catalog item reference 1', { exact: true }).inputValue(), items[0].itemId);
+    assert.equal(await page.getByLabel('Catalog unit reference 1', { exact: true }).inputValue(), items[0].baseUnitId);
+    await capture('order-catalog-picker-desktop');
     await click('Save order draft'); await saved(); assert.equal(orders[0].total, 12.5);
     await page.getByRole('link', { name: 'Reload saved order', exact: true }).click(); await page.locator('.business-status[aria-busy=false]').waitFor();
     assert.equal(await page.getByLabel('Pricing mode', { exact: true }).inputValue(), 'catalog');
@@ -504,10 +540,39 @@ async function run() {
     await page.getByRole('heading', { name: 'Billing', exact: true }).waitFor();
     await page.locator('.business-status[aria-busy=false]').waitFor();
     const committedForInvoice = orders.find(x => x.state === 'committed');
-    await fill('Committed Order reference', committedForInvoice.orderId); await fill('Expected committed Order revision', committedForInvoice.revision);
+    await go(`orders/${committedForInvoice.orderId}`);
+    await page.getByRole('link', { name: 'Invoice and settlement', exact: true }).click();
+    await page.waitForURL(`${webOrigin}/workspace/${first.tenantId}/billing/orders/${committedForInvoice.orderId}`);
+    await page.getByRole('region', { name: 'Committed Order for billing', exact: true }).waitFor();
+    await page.locator('.business-status[aria-busy=false]').waitFor();
+    assert.equal(await page.getByLabel('Committed Order reference', { exact: true }).inputValue(), committedForInvoice.orderId);
+    assert.equal(await page.getByLabel('Expected committed Order revision', { exact: true }).inputValue(), String(committedForInvoice.revision));
     await page.getByLabel('Issue the full invoice for this exact committed revision and debtor.', { exact: true }).check();
     await click('Issue full invoice'); await saved(); assert.equal(issuedInvoices.length, 1);
     await click('Find invoice for Order'); await saved(); await page.getByRole('heading', { name: 'Issued invoice 1', exact: true }).waitFor();
+    await click('Load current invoice balance'); await saved();
+    await page.getByRole('heading', { name: 'Current invoice balance', exact: true }).waitFor();
+    await page.getByRole('button', { name: 'Use this debtor and invoice for payment entry', exact: true }).click();
+    await message('Debtor and invoice references copied.');
+    assert.equal(await page.getByLabel('Payment debtor reference', { exact: true }).inputValue(), organizations[0].organizationId);
+    assert.equal(await page.getByLabel('Receivable invoice reference', { exact: true }).inputValue(), issuedInvoices[0].invoiceId);
+    await page.getByRole('button', { name: 'Apply debtor filter', exact: true }).click();
+    await message('Directory filter applied.');
+    await click('Refresh receivables'); await saved();
+    await page.evaluate(() => { window.printCalls = 0; window.print = () => window.printCalls++; });
+    await page.getByRole('button', { name: 'Print invoice record', exact: true }).click();
+    await until(() => page.evaluate(() => window.printCalls === 1));
+    await page.emulateMedia({ media: 'print' });
+    assert.equal(await page.getByRole('navigation', { name: 'Workspace business', exact: true }).isVisible(), false);
+    assert.equal(await page.getByRole('heading', { name: 'Billing', exact: true }).isVisible(), false);
+    assert.equal(await page.locator('.invoice-document').isVisible(), true);
+    assert.equal(await page.getByRole('heading', { name: 'Issued invoice 1', exact: true }).isVisible(), true);
+    assert.equal(await page.getByRole('button', { name: 'Print invoice record', exact: true }).isVisible(), false);
+    await page.screenshot({ path: path.join(output, 'invoice-print-record.png'), fullPage: true });
+    await page.emulateMedia({ media: 'screen' });
+    await capture('invoice-continuation-desktop');
+    await page.setViewportSize({ width: 320, height: 844 }); await capture('invoice-continuation-mobile-320'); await page.setViewportSize({ width: 1440, height: 1000 });
+
     assert.equal(await page.locator('script').filter({ hasText: 'North client' }).count(), 0);
     await fill('Payment debtor reference', organizations[0].organizationId); await fill('Received amount (NPR)', 50);
     await fill('Receipt evidence', '<script>Receipt evidence</script>');

@@ -557,6 +557,16 @@ form .button {
     background: var(--color-action);
     color: var(--color-onAction);
 }
+@media (forced-colors: active) {
+    .business-navigation a[aria-current="page"] {
+        background: Canvas;
+        color: LinkText;
+        border-color: LinkText;
+        text-decoration: underline;
+        text-decoration-thickness: {{border.focus}};
+        text-underline-offset: {{space.1}};
+    }
+}
 .business-columns {
     display: grid;
     gap: var(--space-5);
@@ -742,5 +752,31 @@ form .button {
     .record-facts {
         grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
         gap: var(--space-3) var(--space-5);
+    }
+}
+
+@media print {
+    body:has(.invoice-document) .skip-link,
+    body:has(.invoice-document) .entry-shell > :not(main),
+    body:has(.invoice-document) main > div > :not(.invoice-document),
+    body:has(.invoice-document) .invoice-screen-actions {
+        display: none !important;
+    }
+    body:has(.invoice-document) .entry-shell,
+    body:has(.invoice-document) main {
+        display: block;
+        max-inline-size: none;
+        min-block-size: 0;
+        padding: 0;
+        margin: 0;
+    }
+    .invoice-document {
+        border: 0;
+        background: white;
+        color: black;
+        padding: 0;
+    }
+    .invoice-document .record-list li {
+        break-inside: avoid;
     }
 }

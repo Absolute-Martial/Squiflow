@@ -2,6 +2,9 @@ using System.Text.Json.Serialization;
 
 namespace Application.Web.Business;
 
+public sealed record SuppliedOrderLine(string Description, decimal Quantity, string UnitCode, decimal UnitPrice);
+public sealed record OrderPriceInput(string CurrencyCode, SuppliedOrderLine[] Lines);
+public sealed record OrderPricePreview(string CurrencyCode, OrderLine[] Lines, [property: JsonRequired] decimal Total);
 public sealed record OrderCustomer([property: JsonRequired] Guid OrganizationId, Guid? ProgramId);
 public sealed record OrderOrigin([property: JsonRequired] Guid QuotationId, [property: JsonRequired] Guid IssuedRevisionId,
     [property: JsonRequired] long Number, [property: JsonRequired] long RevisionNumber);
@@ -30,6 +33,14 @@ public sealed record OrderHistory([property: JsonRequired] long CurrentRevision,
 
 public static class OrderContracts
 {
+    public static bool PriceInput(OrderPriceInput value) => CatalogPricingContracts.Currency(value.CurrencyCode) && value.Lines is { Length: > 0 and <= 100 } &&
+        value.Lines.All(row => row is not null && BusinessValidation.Text(row.Description, 300) && BusinessValidation.Text(row.UnitCode, 16) &&
+            row.Quantity > 0 && CatalogPricingContracts.Money(row.Quantity) && CatalogPricingContracts.Money(row.UnitPrice));
+    public static bool Preview(OrderPricePreview value, OrderPriceInput input) => value.CurrencyCode == input.CurrencyCode && CatalogPricingContracts.Money(value.Total) &&
+        value.Lines is { } rows && rows.Length == input.Lines.Length && rows.Select((line, i) => line is not null && line.Position == i + 1 &&
+            BusinessValidation.Text(line.Description, 300) && BusinessValidation.Text(line.UnitCode, 16) && line.Quantity == input.Lines[i].Quantity &&
+            line.UnitPrice == input.Lines[i].UnitPrice && CatalogPricingContracts.Money(line.LineTotal) && line.CommercialFacts is null).All(x => x);
+
     public static bool Summary(OrderSummary row, Guid? id = null) => row.OrderId != Guid.Empty && (!id.HasValue || row.OrderId == id) &&
         BusinessValidation.Text(row.Summary, 200) && CatalogPricingContracts.Currency(row.CurrencyCode) && CatalogPricingContracts.Money(row.Total) &&
         row.Revision > 0 && row.CreatedAt != default && row.State is "draft" or "abandoned" or "committed" &&

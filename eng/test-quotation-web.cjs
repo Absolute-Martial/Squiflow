@@ -58,6 +58,9 @@ async function business(request, response, uri, tenantId, resource) {
         let text = ''; for await (const chunk of request) { text += chunk; assert.ok(text.length <= (resource.startsWith('quotations') ? 65536 : 8192)); }
         body = JSON.parse(text);
     }
+    if (request.method === 'GET' && resource === 'customers/organizations') return reply({ items: [{ organizationId: order.customerContext.organizationId, tenantId, displayName: '<script>Saved organization</script>', createdAt: now() }], nextCursor: null });
+    if (request.method === 'GET' && resource === `customers/organizations/${order.customerContext.organizationId}/programs`) return reply({ items: [{ programId: order.customerContext.programId, organizationId: order.customerContext.organizationId, tenantId, displayName: 'Saved program', createdAt: now() }], nextCursor: null });
+    if (request.method === 'GET' && resource === 'catalog/items') return reply({ items: [{ itemId, baseUnitId: unitId, code: 'PRINT', name: 'Saved printing service', description: null, kind: 'service', stockMode: 'nonStock', availability: null, status: 'active', revision: 1, createdAt: now(), retiredAt: null, availabilityChangedAt: null }], nextCursor: null });
     const key = request.headers['idempotency-key'];
     if (request.method !== 'GET') {
         assert.match(key, /^[a-f0-9]{32}$/);
@@ -237,7 +240,7 @@ const fixture = https.createServer({ key: fs.readFileSync(key), cert: fs.readFil
         if (!accountEnabled) return json(response, { code: 'account_disabled' }, 403);
         if (uri.pathname === '/api/v1/account') return json(response, { accountId });
         if (uri.pathname === '/api/v1/account/tenants/page') return json(response, { items: memberships, nextTenantId: null });
-        const businessMatch = uri.pathname.match(/^\/api\/v1\/tenants\/([^/]+)\/(quotations(?:\/.*)?|order-approvals(?:\/.*)?|orders(?:\/.*)?)$/);
+        const businessMatch = uri.pathname.match(/^\/api\/v1\/tenants\/([^/]+)\/(quotations(?:\/.*)?|order-approvals(?:\/.*)?|orders(?:\/.*)?|customers\/organizations(?:\/.*)?|catalog\/items)$/);
         if (businessMatch) return business(request, response, uri, businessMatch[1], businessMatch[2]);
         const match = uri.pathname.match(/^\/api\/v1\/tenants\/([^/]+)\/workspace$/);
         if (match) {
@@ -369,7 +372,31 @@ async function run() {
     expiryClockOffset = 2 * 86400000;
     await check(actionConfirmation); await click('Record expiry'); assert.equal(quotes[2].currentResponse.kind, 'expired'); expiryClockOffset = 0;
     await go('quotations'); await fill('Offer summary', 'Catalog offer'); await fill('Offer currency', 'NPR'); await fill('Valid until (ISO timestamp with Z or explicit offset)', new Date(Date.now() + 86400000).toISOString());
-    await select('Offer pricing mode', 'catalog'); await fill('Offer item reference 1', itemId); await fill('Offer unit reference 1', unitId); await fill('Override price 1 (optional)', 20); await fill('Override reason 1 (required with override)', 'Authorized adjustment');
+    await page.getByText('Choose a saved organization and program', { exact: true }).click();
+    const customerChoice = page.locator('details').filter({ has: page.getByText('Choose a saved organization and program', { exact: true }) });
+    readDenied = true; await page.getByRole('button', { name: 'Browse saved organizations', exact: true }).click();
+    await customerChoice.getByRole('status').getByText('You do not have access', { exact: false }).waitFor();
+    assert.equal(await page.getByLabel('Organization reference (optional)', { exact: true }).isEnabled(), true); readDenied = false;
+    malformed = true; await page.getByRole('button', { name: 'Browse saved organizations', exact: true }).click();
+    await customerChoice.getByRole('status').getByText('unsupported response', { exact: false }).waitFor(); malformed = false;
+    await page.getByRole('button', { name: 'Browse saved organizations', exact: true }).click();
+    await page.getByLabel('Saved organization', { exact: true }).selectOption(order.customerContext.organizationId);
+    await page.getByRole('button', { name: 'Browse programs for selected organization', exact: true }).click();
+    await page.getByLabel('Saved program (optional)', { exact: true }).selectOption(order.customerContext.programId);
+    await page.getByRole('button', { name: 'Use selected customer context', exact: true }).click();
+    await page.getByText('Selected customer references copied into this draft. Review them before saving.', { exact: true }).waitFor();
+    assert.equal(await page.getByLabel('Organization reference (optional)', { exact: true }).inputValue(), order.customerContext.organizationId);
+    assert.equal(await page.getByLabel('Program reference (optional)', { exact: true }).inputValue(), order.customerContext.programId);
+    await select('Offer pricing mode', 'catalog');
+    await page.getByText('Choose a saved catalog item for offer line 1', { exact: true }).click();
+    await page.getByRole('button', { name: 'Browse saved items for offer line 1', exact: true }).click();
+    await page.getByLabel('Saved item for offer line 1', { exact: true }).selectOption(itemId);
+    await page.getByRole('button', { name: 'Use saved item for offer line 1', exact: true }).click();
+    await page.getByText('Item and base-unit references copied into this line. Review before saving.', { exact: true }).waitFor();
+    assert.equal(await page.getByLabel('Offer item reference 1', { exact: true }).inputValue(), itemId);
+    assert.equal(await page.getByLabel('Offer unit reference 1', { exact: true }).inputValue(), unitId);
+    await audit(page, 'quotation-saved-selectors', output);
+    await fill('Override price 1 (optional)', 20); await fill('Override reason 1 (required with override)', 'Authorized adjustment');
     await click('Save quotation draft'); assert.equal(quotes[3].draft.total, 20); await quoteAction('issue', 'Issue quotation'); await audit(page, 'quotation-catalog-override', output);
     await go(`orders/${order.orderId}/program-reference`); await audit(page, 'program-reference-empty', output);
     await fill('Program reference (empty to clear)', 'PO/2026/42'); await check('Replace or clear the supplied reference on this exact Order revision.');
