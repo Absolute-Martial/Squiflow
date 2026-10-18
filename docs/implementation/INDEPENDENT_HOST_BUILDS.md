@@ -93,8 +93,8 @@ accessibility journeys. The [signed-in entry owner](SIGNED_IN_APPLICATION_ENTRY.
 defines their exact meaning and limits. No live ZITADEL, OpenFGA, PostgreSQL or
 complete authenticated business workflow is qualified by the browser fixture.
 
-The wrapper also runs the bounded business, quotation/approval and operations
-journeys in separate evidence directories, and validates all four result contracts
+The wrapper also runs the bounded business, quotation/approval, operations and tenant administration/policy
+journeys in separate evidence directories, and validates all five result contracts
 before creating the combined checksum receipt. Each journey has a ten-minute process
 budget plus a ten-second kill budget. `APPLICATION_ENTRY_BROWSER_EXECUTABLE` may select
 an already installed absolute browser executable for local runs; its actual version

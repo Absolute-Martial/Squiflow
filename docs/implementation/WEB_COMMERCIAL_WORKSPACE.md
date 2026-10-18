@@ -70,10 +70,24 @@ After explicit tenant selection, the workspace provides working navigation to:
   financial corrections, supplier balances and retained history. Purchase directory
   pages are limited to three records to keep the supported response bounded.
 
+- Tenant administration: current compiled permission catalog and retained custom roles,
+  direct grant/revoke proposals, custom-role create/revise/retire, assignment/removal,
+  saved proposal lookup and explicit bounded reconciliation. Pending/Uncertain is
+  displayed separately from Applied; the UI cannot expire, force-complete or bypass
+  a held provider operation. Every mutation uses the current authorization revision.
+  Initial-Owner handoff requires an existing active successor reference, a supplied
+  exact tenant revision, typed successor confirmation and fresh strong authentication.
+  The private platform member/tenant registry is not proxied into this screen.
+- Program order policy: independently protected current policy read, full replacement
+  of the two supported draft requirements and immutable publication of an exact saved
+  revision. Publication advances the policy revision. It does not select/activate a
+  private platform profile or replace policy pinned to existing Orders. Authorized
+  editing/publication can use known revisions when the independent read is denied.
+
 Customer attribution on an Order is not debtor or payment authority. Customer
-duplicate/import, tenant Owner administration/profile-policy and Workstation business
-screens remain outside this admitted patch. Private Platform Admin Web remains pending
-by user decision. No navigation points to absent pages.
+duplicate/import and Workstation business screens remain outside this admitted patch.
+Private Platform Admin Web remains pending by user decision. No navigation points
+to absent pages.
 
 Canonical backend owners:
 [Customers and programs](CUSTOMER_ORGANIZATION_PROGRAM_ATTRIBUTION_SLICE.md),
@@ -164,8 +178,9 @@ explicit review/confirmation. Business state does not grant permissions.
 
 The local client/framework/UI contract scope is guarded by
 `BusinessClientTests`, `BusinessPageTests`, their financial/strong-auth regressions,
-Quotation/Approval/Operations tests and the entry, business, quotation and operations
-browser scripts combined by `eng/verify-web-browser.sh`. The shared skip link preserves
+Quotation/Approval/Operations and tenant administration/policy tests, plus the
+entry, business, quotation, operations and tenant administration browser scripts
+combined by `eng/verify-web-browser.sh`. The shared skip link preserves
 the current route and query before replacing its fragment with `#main`; the actual
 browser guard exercises keyboard activation on a nested route.
 The browser guard runs the actual Release Web process over HTTPS, real OIDC
@@ -184,7 +199,7 @@ Live ZITADEL/provider journeys remain outside this evidence. Requalify on API or
 wire-contract changes, authorization/session/origin changes, retry or disposal
 changes, Blazor/SDK upgrades, CSS/token changes or added Web journeys.
 
-Run from this isolated root (SDK/cache variables are part of the task setup):
+Run from the repository root (SDK/cache variables below are task setup examples):
 
 ```sh
 export DOTNET_CLI_HOME=/tmp/application-entry-dotnet

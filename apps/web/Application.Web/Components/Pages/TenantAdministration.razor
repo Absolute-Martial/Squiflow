@@ -1,0 +1,85 @@
+@page "/workspace/{TenantId:guid}/administration"
+@attribute [Authorize]
+@rendermode Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer
+@inherits BusinessPage
+
+<PageTitle>Tenant administration</PageTitle>
+<BusinessShell Identity="Identity" Workspace="Workspace" TenantId="TenantId" Active="administration" Busy="Busy" Message="@Message" Tone="@Tone">
+    <div class="business-heading"><div><p class="eyebrow">CURRENT OWNER AUTHORITY</p><h1>Tenant administration</h1></div><a class="cancel-button" href="@($"/workspace/{TenantId:D}/profile-policy")">Program order policy</a></div>
+    <p class="panel-copy">Manage existing active members using their account references. The service checks current initial-Owner authority on every action. A saved proposal needs explicit reconciliation before it changes access. Unsent entries are lost when this page closes.</p>
+    <PendingRequestNotice Command="PendingCommand" />
+    @if (PendingCommand is not null) { <button class="button" disabled="@Busy" @onclick="RetryAsync">Retry saved request</button> }
+    <section class="business-panel" aria-labelledby="authorization-current"><div class="section-toolbar"><h2 id="authorization-current">Current administration</h2><button class="cancel-button" disabled="@Locked" @onclick="ReloadAsync">Reload administration</button></div>
+        <p>Removing a direct grant or role assignment may leave effective access through another source.</p>
+        @if (catalog is { } current)
+        {
+            <p>Observed authorization revision: <strong>@current.AuthorizationRevision</strong></p>
+            <div class="business-form"><label for="authorization-revision">Expected authorization revision for the next proposal</label><input id="authorization-revision" type="number" min="1" step="1" disabled="@ChangesLocked" @bind="expectedAuthorization" @bind:after="ClearConfirmations" /></div>
+            <h3>Custom roles</h3>
+            @if (current.Roles.Length == 0) { <p class="empty-state">No custom roles have been recorded. Create a role below using the compiled permission catalog.</p> }
+            <ul class="record-list">@foreach (var role in current.Roles)
+                { <li><strong>@role.Name</strong><span>@TenantAdministrationContracts.RoleState(role.Availability) · Revision @role.Revision</span><span class="record-reference">@role.RoleId</span><span>@string.Join(", ", role.PermissionIds)</span><button class="cancel-button" disabled="@ChangesLocked" @onclick="() => SelectRole(role)">Review @role.Name</button></li> }</ul>
+        }
+        else { <p>Reload administration to obtain the current revision and permission catalog before another change.</p> }
+    </section>
+    <div class="business-columns">
+        <section class="business-panel" aria-labelledby="direct-permission"><h2 id="direct-permission">Direct permission</h2>
+            <form @onsubmit="PermissionAsync" @onsubmit:preventDefault><fieldset class="business-form" disabled="@ChangesLocked"><legend class="visually-hidden">Direct permission proposal</legend>
+                <label for="permission-target">Member account reference</label><input id="permission-target" maxlength="36" required @bind="target" @bind:after="() => permissionConfirmed = false" />
+                <label for="permission-operation">Direct permission action</label><select id="permission-operation" @bind="permissionAction" @bind:after="() => permissionConfirmed = false"><option value="grant">Grant direct permission</option><option value="revoke">Revoke direct permission</option></select>
+                <label for="permission-id">Compiled permission</label><select id="permission-id" required @bind="permission" @bind:after="() => permissionConfirmed = false"><option value="">Choose a permission</option>@if (catalog is { } permissions) { @foreach (var item in permissions.PermissionCatalog.Where(p => p.DelegableByInitialOwner)) { <option value="@item.PermissionId">@item.DisplayName (@item.PermissionId)</option> } }</select>
+                <label class="check-field"><input type="checkbox" @bind="permissionConfirmed" /> I reviewed this active member, direct permission action and authorization revision.</label>
+                <button class="button" type="submit" disabled="@(!permissionConfirmed)">Save direct permission proposal</button>
+            </fieldset></form>
+        </section>
+        <section class="business-panel" aria-labelledby="role-assignment"><h2 id="role-assignment">Role assignment</h2>
+            <form @onsubmit="AssignmentAsync" @onsubmit:preventDefault><fieldset class="business-form" disabled="@ChangesLocked"><legend class="visually-hidden">Role assignment proposal</legend>
+                <label for="assignment-role">Assignment role reference</label><input id="assignment-role" maxlength="36" required @bind="assignmentRole" @bind:after="() => assignmentConfirmed = false" />
+                <label for="assignment-account">Assignment member account reference</label><input id="assignment-account" maxlength="36" required @bind="assignmentAccount" @bind:after="() => assignmentConfirmed = false" />
+                <label for="assignment-action">Role assignment action</label><select id="assignment-action" @bind="assignmentAction" @bind:after="() => assignmentConfirmed = false"><option value="assign">Assign role</option><option value="remove">Remove role assignment</option></select>
+                <label class="check-field"><input type="checkbox" @bind="assignmentConfirmed" /> I reviewed this role, active member and assignment action.</label>
+                <button class="button" type="submit" disabled="@(!assignmentConfirmed)">Save role assignment proposal</button>
+            </fieldset></form>
+        </section>
+    </div>
+    <section class="business-panel" aria-labelledby="custom-role"><div class="section-toolbar"><h2 id="custom-role">Custom role lifecycle</h2><button class="cancel-button" disabled="@ChangesLocked" @onclick="NewRole">Prepare new role</button></div>
+        <p>A role contains 1–32 delegable permissions. Retirement and revision use the exact saved role revision; the service enforces role and assignment limits.</p>
+        <form @onsubmit="RoleAsync" @onsubmit:preventDefault><fieldset class="business-form" disabled="@ChangesLocked"><legend class="visually-hidden">Custom role proposal</legend>
+            <label for="role-action">Role action</label><select id="role-action" @bind="roleAction" @bind:after="() => roleConfirmed = false"><option value="create">Create custom role</option><option value="revise">Revise custom role</option><option value="retire">Retire custom role</option></select>
+            <label for="role-reference">Custom role reference</label><input id="role-reference" maxlength="36" required @bind="roleReference" @bind:after="() => roleConfirmed = false" />
+            @if (roleAction != "create") { <label for="role-revision">Expected custom role revision</label><input id="role-revision" type="number" min="1" step="1" @bind="expectedRole" @bind:after="() => roleConfirmed = false" /> }
+            @if (roleAction != "retire")
+            {
+                <label for="role-name">Custom role name</label><input id="role-name" maxlength="128" required @bind="roleName" @bind:after="() => roleConfirmed = false" />
+                <fieldset><legend>Role permissions (choose 1–32)</legend>@if (catalog is { } roleCatalog) { @foreach (var item in roleCatalog.PermissionCatalog.Where(p => p.DelegableByInitialOwner)) { <label class="check-field"><input type="checkbox" checked="@selectedPermissions.Contains(item.PermissionId)" @onchange="e => TogglePermission(item.PermissionId, e)" /> @item.DisplayName (@item.PermissionId)</label> } }</fieldset>
+            }
+            <label class="check-field"><input type="checkbox" @bind="roleConfirmed" /> I reviewed this role action, full permission replacement and exact revisions.</label>
+            <button class="button" type="submit" disabled="@(!roleConfirmed)">Save custom role proposal</button>
+        </fieldset></form>
+    </section>
+    <section class="business-panel" aria-labelledby="authorization-proposal"><h2 id="authorization-proposal">Saved proposal and reconciliation</h2>
+        <form @onsubmit="LookupAsync" @onsubmit:preventDefault><fieldset class="business-form" disabled="@Locked"><legend class="visually-hidden">Saved proposal lookup</legend><label for="proposal-reference">Authorization proposal reference</label><input id="proposal-reference" maxlength="36" required @bind="proposalReference" /><button class="cancel-button" type="submit">Load saved proposal</button></fieldset></form>
+        @if (proposal is { } saved)
+        {
+            <h3>Proposal @TenantAdministrationContracts.ProposalState(saved.Status)</h3>
+            <dl class="record-facts"><dt>Proposal</dt><dd>@saved.ProposalId</dd><dt>Requested by</dt><dd>@saved.RequestedByAccountId</dd><dt>Request reference</dt><dd>@saved.IdempotencyKey</dd><dt>Expected authorization revision</dt><dd>@saved.ExpectedAuthorizationRevision</dd><dt>Applied authorization revision</dt><dd>@(saved.AppliedAuthorizationRevision?.ToString() ?? "Not confirmed")</dd><dt>Target member</dt><dd>@(saved.TargetAccountId?.ToString() ?? "Not applicable")</dd><dt>Permission</dt><dd>@(saved.PermissionId ?? "Not applicable")</dd><dt>Role</dt><dd>@(saved.RoleId?.ToString() ?? "Not applicable")</dd><dt>Role name</dt><dd>@saved.RoleName</dd><dt>Requested permissions</dt><dd>@string.Join(", ", saved.RequestedPermissions)</dd><dt>Applied permissions</dt><dd>@string.Join(", ", saved.AppliedPermissions)</dd><dt>Attempts</dt><dd>@saved.AttemptCount of 20</dd><dt>Retained outcome</dt><dd>@(saved.FailureCode ?? "No failure recorded")</dd><dt>Updated (UTC)</dt><dd>@saved.UpdatedAt.ToString("u")</dd></dl>
+            @if (saved.Status is 1 or 4)
+            {
+                <p class="status-box warning">Uncertain provider lifetime may keep this proposal held. A status read does not prove completion. Reconciliation cannot bypass an unresolved operation, authority loss or the attempt limit. No force-complete action is available.</p>
+                <fieldset class="business-form" disabled="@Locked"><legend class="visually-hidden">Explicit reconciliation</legend><label class="check-field"><input type="checkbox" @bind="reconcileConfirmed" /> I reviewed the saved proposal and request one bounded reconciliation attempt.</label><button class="button" disabled="@(!reconcileConfirmed)" @onclick="ReconcileAsync">Reconcile saved proposal</button></fieldset>
+            }
+        }
+    </section>
+    <section class="business-panel" aria-labelledby="owner-handoff"><h2 id="owner-handoff">Initial Owner handoff</h2>
+        <p>The current initial Owner transfers the protected designation to an existing active member. This removes the previous Owner's administration authority. The service requires recent strong authentication, the exact tenant revision and no active authorization proposal.</p>
+        @if (VerificationAvailable) { <form method="post" action="/auth/verify-identity" data-enhance="false"><AntiforgeryToken /><input type="hidden" name="tenantId" value="@TenantId" /><button class="cancel-button" type="submit">Verify identity for Owner handoff</button></form><p>Fresh sign-in returns to Billing. Return here through workspace navigation. Resolve saved requests first; unsent entries are lost.</p> }
+        else { <p>Fresh identity verification is unavailable while a saved request is unresolved or until your administrator configures it.</p> }
+        <form @onsubmit="TransferAsync" @onsubmit:preventDefault><fieldset class="business-form" disabled="@ChangesLocked"><legend class="visually-hidden">Owner handoff confirmation</legend>
+            <label for="transfer-account">Successor account reference</label><input id="transfer-account" maxlength="36" required @bind="transferTarget" @bind:after="() => transferConfirmation = string.Empty" />
+            <label for="transfer-tenant-revision">Expected tenant revision</label><input id="transfer-tenant-revision" type="number" min="1" step="1" required @bind="expectedTenant" @bind:after="() => transferConfirmation = string.Empty" /><span class="field-hint">Use the current tenant revision from an authorized registry receipt. This screen does not list private platform registry records.</span>
+            <label for="transfer-confirm">Repeat successor account reference to confirm handoff</label><input id="transfer-confirm" maxlength="36" autocomplete="off" required @bind="transferConfirmation" @bind:event="oninput" />
+            <button class="button button-danger" type="submit" disabled="@(string.IsNullOrWhiteSpace(transferTarget) || transferConfirmation != transferTarget)">Transfer initial Owner</button>
+        </fieldset></form>
+        @if (ownerReceipt is { } handoff) { <dl class="record-facts"><dt>Previous Owner</dt><dd>@handoff.PreviousOwnerAccountId</dd><dt>Current Owner</dt><dd>@handoff.CurrentOwnerAccountId</dd><dt>Tenant revision</dt><dd>@handoff.TenantRevision</dd><dt>Authorization revision</dt><dd>@handoff.AuthorizationRevision</dd></dl> }
+    </section>
+</BusinessShell>

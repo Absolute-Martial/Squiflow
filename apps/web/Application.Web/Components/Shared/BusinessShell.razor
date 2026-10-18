@@ -21,6 +21,8 @@
             <a href="@($"/workspace/{TenantId:D}/fulfillment")" aria-current='@(Active == "fulfillment" ? "page" : null)'>Fulfillment</a>
             <a href="@($"/workspace/{TenantId:D}/purchasing")" aria-current='@(Active == "purchasing" ? "page" : null)'>Purchasing</a>
             <a href="@($"/workspace/{TenantId:D}/billing")" aria-current='@(Active == "billing" ? "page" : null)'>Billing</a>
+            <a href="@($"/workspace/{TenantId:D}/administration")" aria-current='@(Active == "administration" ? "page" : null)'>Tenant administration</a>
+            <a href="@($"/workspace/{TenantId:D}/profile-policy")" aria-current='@(Active == "policy" ? "page" : null)'>Program order policy</a>
         </nav>
     }
     <div tabindex="-1" @ref="status" class="business-status" aria-busy="@Busy.ToString().ToLowerInvariant()">

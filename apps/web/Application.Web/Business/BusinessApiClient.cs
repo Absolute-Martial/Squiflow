@@ -9,11 +9,12 @@ namespace Application.Web.Business;
 
 public enum BusinessFailure { None, SignInRequired, Denied, NotFound, InvalidRequest, Conflict, Unavailable, TimedOut, InvalidResponse, Unknown }
 
-public sealed record BusinessResult<T>(T? Value, BusinessFailure Failure, bool Replayed = false) where T : class
+public sealed record BusinessResult<T>(T? Value, BusinessFailure Failure, bool Replayed = false, bool Accepted = false) where T : class
 {
     public bool Unknown => Failure == BusinessFailure.Unknown;
     public string Message => Failure switch
     {
+        BusinessFailure.None when Accepted => "Request accepted for processing. Review the saved operation before another action.",
         BusinessFailure.None => Replayed ? "The earlier request was already saved. Its original receipt is shown." : "Request completed.",
         BusinessFailure.SignInRequired => "Your session has ended. Sign in again, then check the current record before sending another request.",
         BusinessFailure.Denied => "You do not have access to this operation. Each operation needs its own permission.",
@@ -115,6 +116,7 @@ public sealed class BusinessApiClient(HttpClient http, Uri origin, Authenticatio
                 HttpStatusCode.BadRequest or HttpStatusCode.RequestEntityTooLarge or HttpStatusCode.UnprocessableEntity => BusinessFailure.InvalidRequest,
                 HttpStatusCode.Conflict => BusinessFailure.Conflict,
                 HttpStatusCode.OK or HttpStatusCode.Created => BusinessFailure.None,
+                HttpStatusCode.Accepted when command is not null && resource.StartsWith("authorization/", StringComparison.Ordinal) && resource != "authorization/owner-transfer" => BusinessFailure.None,
                 _ => !mutation ? BusinessFailure.Unavailable : BusinessFailure.Unknown,
             };
             if (failure != BusinessFailure.None) return new(null, failure);
@@ -125,7 +127,7 @@ public sealed class BusinessApiClient(HttpClient http, Uri origin, Authenticatio
             cancellationToken.ThrowIfCancellationRequested();
             if (tickets.AccessToken(session) is null) return new(null, !mutation ? BusinessFailure.SignInRequired : BusinessFailure.Unknown);
             if (value is null || !validate(value)) return new(null, !mutation ? BusinessFailure.InvalidResponse : BusinessFailure.Unknown);
-            return new(value, BusinessFailure.None, response.Headers.TryGetValues("Idempotency-Replayed", out var replay) && replay.SequenceEqual(["true"]));
+            return new(value, BusinessFailure.None, response.Headers.TryGetValues("Idempotency-Replayed", out var replay) && replay.SequenceEqual(["true"]), response.StatusCode == HttpStatusCode.Accepted);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { return new(null, !mutation ? BusinessFailure.TimedOut : BusinessFailure.Unknown); }
         catch (HttpRequestException) { return new(null, !mutation ? BusinessFailure.Unavailable : BusinessFailure.Unknown); }
@@ -137,7 +139,7 @@ public sealed class BusinessApiClient(HttpClient http, Uri origin, Authenticatio
     internal static void RequirePath(Guid tenantId, string resource)
     {
         if (tenantId == Guid.Empty || string.IsNullOrEmpty(resource) || resource.Length > 1024 ||
-            !(resource == "quotations" || resource.StartsWith("quotations/", StringComparison.Ordinal) || resource == "order-approvals" || resource.StartsWith("order-approvals?", StringComparison.Ordinal) || resource.StartsWith("order-approvals/", StringComparison.Ordinal) || resource.StartsWith("customers/", StringComparison.Ordinal) || resource.StartsWith("catalog/", StringComparison.Ordinal) || resource.StartsWith("pricing/", StringComparison.Ordinal) || resource == "orders" || resource.StartsWith("orders?", StringComparison.Ordinal) || resource.StartsWith("orders/", StringComparison.Ordinal) || resource.StartsWith("invoices/", StringComparison.Ordinal) ||
+            !(resource == "authorization" || resource.StartsWith("authorization/", StringComparison.Ordinal) || resource == "profile-policy" || resource == "profile-policy/publish" || resource == "quotations" || resource.StartsWith("quotations/", StringComparison.Ordinal) || resource == "order-approvals" || resource.StartsWith("order-approvals?", StringComparison.Ordinal) || resource.StartsWith("order-approvals/", StringComparison.Ordinal) || resource.StartsWith("customers/", StringComparison.Ordinal) || resource.StartsWith("catalog/", StringComparison.Ordinal) || resource.StartsWith("pricing/", StringComparison.Ordinal) || resource == "orders" || resource.StartsWith("orders?", StringComparison.Ordinal) || resource.StartsWith("orders/", StringComparison.Ordinal) || resource.StartsWith("invoices/", StringComparison.Ordinal) ||
                 resource == "receivables" || resource.StartsWith("receivables?", StringComparison.Ordinal) || resource.StartsWith("receivables/", StringComparison.Ordinal) ||
                 resource == "customer-payments" || resource.StartsWith("customer-payments?", StringComparison.Ordinal) || resource.StartsWith("customer-payments/", StringComparison.Ordinal) ||
                 resource.StartsWith("debtors/", StringComparison.Ordinal) || resource == "fulfillment" || resource.StartsWith("fulfillment?", StringComparison.Ordinal) || resource.StartsWith("purchasing/", StringComparison.Ordinal)) ||

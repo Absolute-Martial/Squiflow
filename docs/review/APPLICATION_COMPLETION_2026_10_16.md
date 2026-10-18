@@ -156,9 +156,10 @@ Only the missing Web asset and small browser tooling packages were fetched; no
 browser binary or container image was downloaded. Restore runs that disabled NuGet
 audit are compilation setup only and are not dependency-audit evidence. The final
 canonical coverage gate, matching publications, dependency/mutation checks and
-remote CI remain pending until their actual runs are inspected. Customer
-import/duplicate and tenant Owner administration/profile-policy screens remain
-unintroduced; no placeholder navigation or completion claim is made for them.
+remote CI remain pending until their actual runs are inspected. At this receipt's
+four-journey checkpoint, customer import/duplicate and tenant Owner administration/
+profile-policy screens were unintroduced. The later Owner/policy continuation below
+records the additional scope separately.
 
 The canonical `COLLECT_COVERAGE=1 ./eng/verify.sh` was attempted on current root
 with an explicit empty-source offline NuGet configuration. Token checks passed;
@@ -177,3 +178,45 @@ SHA256 checksums. `current-publications-20261018-results.json` and individual lo
 identify these publication runs; they are separate from host test runs. No browser
 binary, container image or desktop package download was required. The canonical
 coverage gate remains blocked at desktop dependency restore as described above.
+
+## Tenant Owner and program policy continuation — 2026-10-18
+
+After the four-journey checkpoint, the current session committed the verified
+backend, Web, quality-wrapper and receiving-documentation patches separately on
+`codex/application-completion`. The first push failed with an inspected DNS error
+resolving `github.com`; no remote publication is inferred from local commits.
+Incoming skills, `skills-lock.json` and `eng/verify.sh` were excluded.
+
+The Web host now also presents tenant Owner authorization administration and
+program order policy under the [focused Web owner](../implementation/WEB_COMMERCIAL_WORKSPACE.md).
+Proposal creation accepts the API's 202 response only on the asynchronous
+authorization paths; ordinary synchronous mutations still treat unexpected 202
+as unknown. Pending, Applied, Failed and Uncertain are distinct UI outcomes.
+The screen offers only explicit bounded reconciliation; provider quarantine,
+current Owner checks and dispatch budgets remain authoritative below transport.
+Policy publication follows the actual persisted revision increment and displays
+the immutable publication and current policy head together. Private profile
+publication/activation, private Admin Web and Workstation remain outside this patch.
+
+Customer import/duplicate screens remain unintroduced. The repository coverage,
+dependency audit, mutation and live-provider qualification limits above remain open.
+
+The exact current Web Release suite completed with exit 0: **128 passed, 0 failed,
+0 skipped**. Full Web graph format verification and independent Web publication
+also completed with exit 0. The combined five-journey browser wrapper completed
+with exit 0 on installed Chrome 155: **71 screenshots, 68 accessibility reports,
+0 reported violations**. Fifteen reports retain incomplete rules requiring manual
+assessment; no accessibility conformance is inferred. Screenshots of the actual
+320px policy publication and forced-colors administration states were inspected
+for readable labels, wrapping and visible control boundaries. The quality-wrapper
+self-check suite passed all 11 tests; its fixtures prove wrapper failure handling,
+not business behavior.
+
+Current evidence is under `artifacts/application-completion-2026-10-15/tenant-owner-web/`:
+`final-results.json`, `final-web-tests.log`, `final-web-format.log`,
+`final-web-publish.log`, `combined-five-browser.log`, `browser-summary.json`,
+`quality-selfchecks.log` and retained `combined-five-browser/SHA256SUMS`. Earlier
+failed compile/fixture runs remain in the same directory and are superseded only
+by the inspected passing runs. No additional packages or browser binaries were
+downloaded for this continuation. CoreApi source is unchanged since its inspected
+724-test pass; those are existing backend evidence, not newly rerun tests.

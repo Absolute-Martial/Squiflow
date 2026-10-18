@@ -1,0 +1,94 @@
+@page "/workspace/{TenantId:guid}/profile-policy"
+@attribute [Authorize]
+@rendermode Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer
+@inherits BusinessPage
+
+<PageTitle>Program order policy</PageTitle>
+<BusinessShell Identity="Identity" Workspace="Workspace" TenantId="TenantId" Active="policy" Busy="Busy" Message="@Message" Tone="@Tone">
+    <div class="business-heading"><div><p class="eyebrow">TENANT POLICY</p><h1>Program order policy</h1></div><a class="cancel-button" href="@($"/workspace/{TenantId:D}/administration")">Tenant administration</a></div>
+    <p class="panel-copy">Edit the two supported program-order requirements, then explicitly publish an immutable policy revision. Publication does not activate a tenant application profile or replace policy already pinned to saved Orders. Private platform profile publication and activation remain separate.</p>
+    <PendingRequestNotice Command="PendingCommand" />
+    @if (PendingCommand is not null) { <button class="button" disabled="@Busy" @onclick="RetryAsync">Retry saved request</button> }
+    <section class="business-panel" aria-labelledby="policy-current"><div class="section-toolbar"><h2 id="policy-current">Current draft policy</h2><button class="cancel-button" disabled="@Locked" @onclick="ReloadAsync">Reload policy</button></div>
+        @if (policy is { } current) { <dl class="record-facts"><dt>Draft revision</dt><dd>@current.Revision</dd><dt>Program reference required</dt><dd>@current.RequireReferenceForProgramOrders</dd><dt>Independent approval required</dt><dd>@current.RequireApprovalForProgramOrders</dd><dt>Last published policy reference</dt><dd>@(current.PublishedPolicyRevisionId?.ToString() ?? "No published revision")</dd></dl> }
+        else { <p>Read, edit and publish each check their own current permission. With a known revision, an authorized editor or publisher can use the separate forms even when policy viewing is denied.</p> }
+    </section>
+    <div class="business-columns">
+        <section class="business-panel" aria-labelledby="policy-edit"><h2 id="policy-edit">Edit draft requirements</h2>
+            <p>Both requirements are a full replacement at the entered draft revision. Unsent values are lost when this page closes.</p>
+            <form @onsubmit="EditAsync" @onsubmit:preventDefault><fieldset class="business-form" disabled="@Locked"><legend class="visually-hidden">Edit program order policy</legend>
+                <label for="policy-edit-revision">Expected policy draft revision</label><input id="policy-edit-revision" type="number" min="0" step="1" required @bind="editRevision" @bind:after="() => editConfirmed = false" />
+                <label class="check-field"><input type="checkbox" @bind="requireReference" @bind:after="() => editConfirmed = false" /> Require a supplied reference for program Orders</label>
+                <label class="check-field"><input type="checkbox" @bind="requireApproval" @bind:after="() => editConfirmed = false" /> Require independent exact-revision approval for program Orders</label>
+                <label class="check-field"><input type="checkbox" @bind="editConfirmed" /> I reviewed both draft requirements and the exact policy revision.</label>
+                <button class="button" type="submit" disabled="@(!editConfirmed)">Save policy draft</button>
+            </fieldset></form>
+        </section>
+        <section class="business-panel" aria-labelledby="policy-publish"><h2 id="policy-publish">Publish immutable policy</h2>
+            <p>Publish the already saved draft at its exact revision. Unsaved form values are not published. Review the saved requirements before confirming.</p>
+            <form @onsubmit="PublishAsync" @onsubmit:preventDefault><fieldset class="business-form" disabled="@Locked"><legend class="visually-hidden">Publish program order policy</legend>
+                <label for="policy-publish-revision">Saved policy revision to publish</label><input id="policy-publish-revision" type="number" min="1" step="1" required @bind="publishRevision" @bind:after="() => publishConfirmed = false" />
+                <label class="check-field"><input type="checkbox" @bind="publishConfirmed" /> I reviewed the saved draft at this exact revision and want an immutable publication.</label>
+                <button class="button" type="submit" disabled="@(!publishConfirmed)">Publish saved policy revision</button>
+            </fieldset></form>
+        </section>
+    </div>
+    @if (receipt?.PublishedPolicy is { } published)
+    {
+        <section class="business-panel" aria-labelledby="policy-publication"><h2 id="policy-publication">Saved policy publication receipt</h2>
+            <dl class="record-facts"><dt>Published policy</dt><dd>@published.PolicyRevisionId</dd><dt>Policy contract</dt><dd>@published.Version</dd><dt>Publication revision</dt><dd>@published.Revision</dd><dt>Program reference required</dt><dd>@published.RequireReferenceForProgramOrders</dd><dt>Independent approval required</dt><dd>@published.RequireApprovalForProgramOrders</dd><dt>Published by</dt><dd>@published.PublishedByAccountId</dd><dt>Published (UTC)</dt><dd>@published.PublishedAt.ToString("u")</dd><dt>Observed authorization revision</dt><dd>@published.ObservedAuthorizationRevision</dd></dl>
+            <p>The private platform administrator separately selects and activates a profile using this published policy. Existing pinned Order policy is unchanged.</p>
+        </section>
+    }
+</BusinessShell>
+
+@code {
+    private TenantPolicyRecord? policy;
+    private PolicyCommandReceipt? receipt;
+    private long editRevision, publishRevision = 1;
+    private bool requireReference, requireApproval, editConfirmed, publishConfirmed, pendingPublish;
+    private bool Locked => Busy || PendingCommand is not null;
+    protected override void Reset() { policy = null; receipt = null; editRevision = 0; publishRevision = 1; requireReference = requireApproval = editConfirmed = publishConfirmed = pendingPublish = false; }
+    protected override Task LoadAsync(CancellationToken ct) => ReadAsync(ct);
+    private Task ReloadAsync() => RunAsync(ReadAsync);
+    private async Task ReadAsync(CancellationToken ct)
+    {
+        policy = null; receipt = null; editConfirmed = publishConfirmed = false;
+        var result = await Api.GetAsync<TenantPolicyRecord>(TenantId, "profile-policy", x => TenantAdministrationContracts.Policy(x, TenantId), ct);
+        if (result.Value is { } value) ApplyPolicy(value);
+        Show(result);
+    }
+    private void ApplyPolicy(TenantPolicyRecord value)
+    {
+        policy = value; editRevision = value.Revision; publishRevision = Math.Max(1, value.Revision);
+        requireReference = value.RequireReferenceForProgramOrders; requireApproval = value.RequireApprovalForProgramOrders;
+        editConfirmed = publishConfirmed = false;
+    }
+    private Task EditAsync() => RunAsync(async ct =>
+    {
+        if (editRevision < 0 || editRevision == long.MaxValue || PendingCommand is null && !editConfirmed)
+        { Message = "Review a supported draft revision and confirm both requirements."; Tone = "error"; return; }
+        pendingPublish = false;
+        var value = await SaveAsync<PolicyCommandReceipt>("profile-policy", new { expectedRevision = editRevision, requireReferenceForProgramOrders = requireReference, requireApprovalForProgramOrders = requireApproval },
+            x => TenantAdministrationContracts.PolicyReceipt(x, TenantId, false, editRevision, requireReference, requireApproval), ct, HttpMethod.Put);
+        if (value is not null) { receipt = value; ApplyPolicy(value.Policy!); Message += " Draft saved. Publication and private profile activation are separate actions."; }
+    });
+    private Task PublishAsync() => RunAsync(async ct =>
+    {
+        if (publishRevision < 1 || publishRevision == long.MaxValue || PendingCommand is null && !publishConfirmed)
+        { Message = "Enter the exact saved policy revision and confirm immutable publication."; Tone = "error"; return; }
+        pendingPublish = true;
+        var value = await SaveAsync<PolicyCommandReceipt>("profile-policy/publish", new { expectedRevision = publishRevision },
+            x => TenantAdministrationContracts.PolicyReceipt(x, TenantId, true, publishRevision,
+                policy?.Revision == publishRevision ? policy.RequireReferenceForProgramOrders : x.PublishedPolicy?.RequireReferenceForProgramOrders ?? false,
+                policy?.Revision == publishRevision ? policy.RequireApprovalForProgramOrders : x.PublishedPolicy?.RequireApprovalForProgramOrders ?? false), ct);
+        if (value is not null)
+        {
+            receipt = value; publishConfirmed = false;
+            if (value.Policy is { } head) ApplyPolicy(head);
+            else { policy = null; editRevision = value.PublishedPolicy!.Revision; publishRevision = editRevision; }
+            Message += " Policy publication saved. This does not activate a tenant application profile.";
+        }
+    });
+    private Task RetryAsync() => pendingPublish ? PublishAsync() : EditAsync();
+}

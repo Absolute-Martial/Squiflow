@@ -203,8 +203,19 @@ Regression guards cover host-neutral permission/intents, PostgreSQL idempotency/
 
 Until those new tests execute in an environment with the locked NuGet graph, PostgreSQL 17 and OpenFGA, this source is **implemented / dynamic acceptance pending**. An earlier GATE-001 run does not qualify code introduced after that baseline.
 
-This slice does not introduce automatic Worker reconciliation, tenant Web/Admin Web UI, branch/resource-scoped custom roles, explicit deny, provider identity lifecycle, default Staff tuple materialization, arbitrary permission definitions, or background role cleanup.
+This slice does not introduce automatic Worker reconciliation, private Admin Web UI, branch/resource-scoped custom roles, explicit deny, provider identity lifecycle, default Staff tuple materialization, arbitrary permission definitions, or background role cleanup.
 
 ## 9. Requalification triggers
 
 Requalify on execution-lock/connection lifetime, retained outcome-code meaning, provider write atomicity/retries, timeout/cancellation and quarantine/recovery policy, permission catalog IDs/relations, delegation ceiling, role/assignment ceilings, proposal arbitration, authorization revision semantics, OpenFGA model/store ID, consistency mode, Owner-transfer/step-up policy, membership semantics, runtime DB grants, or activation of automatic background reconciliation.
+
+### Tenant Web presentation (2026-10-18)
+
+The bounded online Owner journey is introduced under
+[Web commercial workspace](WEB_COMMERCIAL_WORKSPACE.md). It initiates the existing
+proposal, explicit reconciliation, custom-role and Owner-handoff APIs; it owns no
+provider authority or automatic recovery. It preserves Pending/Uncertain evidence,
+manual retry limits and current original-Owner enforcement described above. Its
+controlled browser guard is `eng/test-tenant-administration-web.cjs`; native provider
+and durability evidence remains in CoreApi/Tenancy tests. A browser fixture cannot
+qualify the provider protocol or live identity assurance.
