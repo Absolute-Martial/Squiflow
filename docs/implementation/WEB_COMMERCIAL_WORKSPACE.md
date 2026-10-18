@@ -84,14 +84,31 @@ After explicit tenant selection, the workspace provides working navigation to:
   private platform profile or replace policy pinned to existing Orders. Authorized
   editing/publication can use known revisions when the independent read is denied.
 
-Customer attribution on an Order is not debtor or payment authority. Customer
-duplicate/import and Workstation business screens remain outside this admitted patch.
-Private Platform Admin Web remains pending by user decision. No navigation points
-to absent pages.
+- Customer duplicate review: bounded signal search (two candidates), explicit
+  exact-pair review decisions, a separately confirmed consolidation redirect and
+  five-receipt resolution-history pages. Matching is not identity or merge authority.
+  Existing individual reads expose current redirect/revision facts before a new
+  deliberate decision; immutable receipts retain the original identities.
+- Customer imports: protected template download, bounded UTF-8 CSV selection and
+  retained planning, explicit default-seven-day/archive retention, saved import
+  lookup, two-row detailed preview/result pages, exact row-hash decisions across
+  all pages and acceptance of durable work. Required duplicate decisions are never
+  automatically selected. Nonduplicate valid rows use the backend's documented
+  CreateNew default only after explicit acceptance. Saved work/results are refreshed
+  on demand; no automatic polling or separate Web import executor is added.
+  Retained source download verifies byte length/SHA-256 against saved metadata.
+  Downloads use a short-lived browser Blob; no CSV is executed or stored by Web
+  in browser local/session storage. Private storage keys and provider scopes are
+  not presentation contracts.
+
+Customer attribution on an Order is not debtor or payment authority. Workstation
+business screens remain outside this admitted patch. Private Platform Admin Web
+remains pending by user decision. No navigation points to absent pages.
 
 Canonical backend owners:
 [Customers and programs](CUSTOMER_ORGANIZATION_PROGRAM_ATTRIBUTION_SLICE.md),
 [contacts and representatives](CUSTOMER_CONTACTS_REPRESENTATIVES_SLICE.md),
+[duplicate review and imports](CUSTOMER_DUPLICATES_AND_IMPORTS_SLICE.md),
 [Catalog](CATALOG_AND_UNIT_BOUNDARY.md),
 [Pricing](PRICING_POLICY_AND_PUBLICATION.md),
 [Orders](ORDER_DRAFT_INTAKE_SLICE.md),
@@ -116,15 +133,18 @@ request and retry. Workspace entry is checked before business loads.
 
 The server-only client restricts relative tenant paths, pins the configured
 origin, never follows redirects, uses explicit response DTOs, caps response
-bodies at 256 KiB (including chunked bodies), caps ordinary requests at 8 KiB and
-Quotation requests at their existing 64 KiB backend boundary, and gives each
-request an eight-second budget. Unsupported shapes, identity/parent mismatches,
+JSON bodies at 256 KiB (including chunked bodies), caps ordinary requests at 8 KiB,
+Quotation requests at their existing 64 KiB boundary and import acceptance decisions
+at the backend's 2 MiB boundary. CSV planning/source download alone permits 10 MiB;
+template download is capped at 8 KiB. Detailed import previews and matching queries
+use small pages to stay inside the unchanged JSON response budget. Every request
+has an eight-second budget. Unsupported shapes, identity/parent mismatches,
 invalid enums and page bounds fail closed. Caller cancellation differs from a
 request deadline. Ticket validity is checked before dispatch, after headers and
 after consuming the body; signing out during a read discards the result.
 
-A mutation freezes its HTTP method, tenant, serialized payload, session and
-idempotency key. A timeout, connection loss, redirect, malformed successful
+A mutation freezes its HTTP method, tenant, exact serialized payload or CSV bytes,
+source-retention header, session and idempotency key. A timeout, connection loss, redirect, malformed successful
 response or ambiguous server failure keeps the same request for explicit retry.
 Controls stay locked until its result is known. A denied or conflicting retry
 does not prove an earlier unknown attempt failed, so it preserves the recovery
@@ -179,7 +199,8 @@ explicit review/confirmation. Business state does not grant permissions.
 The local client/framework/UI contract scope is guarded by
 `BusinessClientTests`, `BusinessPageTests`, their financial/strong-auth regressions,
 Quotation/Approval/Operations and tenant administration/policy tests, plus the
-entry, business, quotation, operations and tenant administration browser scripts
+entry, business, quotation, operations, tenant administration and customer operations
+browser scripts
 combined by `eng/verify-web-browser.sh`. The shared skip link preserves
 the current route and query before replacing its fragment with `#main`; the actual
 browser guard exercises keyboard activation on a nested route.

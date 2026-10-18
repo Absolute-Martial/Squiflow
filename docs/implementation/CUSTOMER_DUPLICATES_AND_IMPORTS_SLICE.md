@@ -752,3 +752,22 @@ Consolidation preserves original customer price history without automatic
 carryover; new work uses the survivor's applicable prices. Explicit retirement
 and replacement require independent Pricing authority. The Pricing owner remains
 `docs/implementation/PRICING_POLICY_AND_PUBLICATION.md`.
+
+## Bounded Tenant Web presentation — 2026-10-18
+
+The [Web owner](WEB_COMMERCIAL_WORKSPACE.md) introduces online duplicate review
+and CSV import journeys over these existing APIs. Web owns encoded presentation,
+exact request/retention recovery and explicit row decisions, not duplicate identity,
+consolidation, raw-source authority or import execution. The two-row preview pages
+bind exact row hashes and contiguous pagination to the saved row count before
+acceptance. Required decisions remain explicit; other valid rows retain this
+owner's CreateNew default after acceptance. Work status is distinct from customer
+effects and is refreshed from retained API facts. Protected source downloads
+verify the saved byte length and SHA-256 before offering the browser file.
+
+The permanent presentation guard is `eng/test-customer-operations-web.cjs`, included
+in `eng/verify-web-browser.sh`; client boundary tests are in Application.Web.Tests.
+These controlled protocol fixtures do not replace the PostgreSQL/provider evidence
+above or qualify live object-store custody. Requalify on CSV/decision/DTO changes,
+current-authority/session/origin changes, retained-source semantics, pagination,
+request/body budgets, upload/download transport or framework/token changes.

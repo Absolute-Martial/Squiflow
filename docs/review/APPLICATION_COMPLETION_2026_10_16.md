@@ -198,7 +198,8 @@ Policy publication follows the actual persisted revision increment and displays
 the immutable publication and current policy head together. Private profile
 publication/activation, private Admin Web and Workstation remain outside this patch.
 
-Customer import/duplicate screens remain unintroduced. The repository coverage,
+At the Owner/policy checkpoint, customer import/duplicate screens were unintroduced.
+Their later receiving scope is recorded below. The repository coverage,
 dependency audit, mutation and live-provider qualification limits above remain open.
 
 The exact current Web Release suite completed with exit 0: **128 passed, 0 failed,
@@ -220,3 +221,58 @@ failed compile/fixture runs remain in the same directory and are superseded only
 by the inspected passing runs. No additional packages or browser binaries were
 downloaded for this continuation. CoreApi source is unchanged since its inspected
 724-test pass; those are existing backend evidence, not newly rerun tests.
+
+## Customer duplicate/import continuation — 2026-10-18
+
+The prior five commits, including Owner/policy Web, were successfully pushed as
+`github/codex/application-completion` at `ab808449` after the initial DNS failure.
+The customer continuation introduces the [focused Web scope](../implementation/WEB_COMMERCIAL_WORKSPACE.md):
+manual duplicate review/consolidation/history, retained CSV planning and retention,
+explicit row decisions across bounded pages, durable acceptance and progress/result
+reads, plus protected template/source downloads. Existing CoreApi and capability
+authority remains unchanged. Private Admin Web is still pending by user decision;
+Workstation source and target qualification remain excluded.
+
+The raw CSV extension uses the existing fixed-origin server ticket transport. Only
+planning/source CSV permits 10 MiB and only exact import-accept paths permit 2 MiB
+decision JSON/202 work receipts. Ordinary request/response budgets remain unchanged.
+Unknown planning/acceptance preserves exact source bytes, retention, row hashes and
+request identity for the same actor session. Acceptance is not presented as customer
+creation. Contiguous row numbers, exact expected page size and final cursor must
+match the retained row count before the UI can acknowledge a complete review.
+No import directory, automatic polling, Web worker or provider repair path was added.
+
+The final current Web Release suite completed with exit 0: **138 passed, 0 failed,
+0 skipped**. Current architecture tests passed **17/17**, full Web graph format
+verification and independent Web publication completed with exit 0, and all **11**
+quality-wrapper self-checks passed. These self-check fixtures prove failure handling,
+not application business behavior.
+
+The combined **six-journey** browser wrapper completed with exit 0 on installed
+Chrome 155, retaining **83 screenshots, 80 accessibility reports and 0 reported
+violations**. 20 reports retain incomplete rules requiring manual assessment;
+no accessibility conformance is inferred. The customer journey verifies rendered
+duplicate review and consolidation, exact source-byte upload/download, decisions
+across pages, lost-response replay and accepted/completed work presentation against
+the local HTTPS issuer/API fixtures. Those fixtures do not qualify real PostgreSQL
+import effects, autonomous execution or live object-store/identity providers. Actual
+320px import results and consolidation/history screenshots were inspected for
+readable labels, wrapping and encoded untrusted text.
+
+Evidence is retained under
+`artifacts/application-completion-2026-10-15/customer-operations-web/`:
+`final-results.json`, final Web test/format/publication logs,
+`architecture-results.json`, `architecture-tests.log`, `combined-six-browser.log`,
+`browser-summary.json` and the copied `combined-six-browser/SHA256SUMS`.
+Earlier compile and fixture failures remain retained and are superseded only by
+the inspected final passing runs.
+
+The exact `COLLECT_COVERAGE=1 ./eng/verify.sh` attempt with the offline NuGet
+configuration exited **1 during restore** because Workstation's Avalonia/MVVM/OIDC
+packages are uncached. `canonical-offline-result.json` and `canonical-offline.log`
+record this current attempt. No full repository gate or coverage pass is inferred,
+and the incoming `eng/verify.sh` remains unchanged. No desktop package, browser
+binary, container image or additional model download was performed for this slice.
+Dependency audit, scoped mutation and live-provider qualification remain pending.
+CoreApi source is unchanged since its inspected 724-test pass recorded above;
+those backend tests were not rerun for this UI-only continuation.
