@@ -1,4 +1,4 @@
-SELECT id, availability, created_at, disabled_at
+SELECT id, availability, created_at, disabled_at, revision
 FROM identity_access.accounts
 WHERE (@after_account_id IS NULL OR id > @after_account_id)
 ORDER BY id

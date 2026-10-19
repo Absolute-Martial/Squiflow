@@ -10,12 +10,24 @@ partial class IdentityAccessDbContextModelSnapshot : ModelSnapshot
 {
     protected override void BuildModel(ModelBuilder modelBuilder)
     {
-        IdentityAccessModel.BuildOnboarding(modelBuilder);
+        IdentityAccessModel.BuildLifecycle(modelBuilder);
     }
 }
 
 internal static class IdentityAccessModel
 {
+    internal static void BuildLifecycle(ModelBuilder modelBuilder)
+    {
+        BuildOnboarding(modelBuilder);
+        modelBuilder.Entity("Application.IdentityAccess.Postgres.AccountRow", entity =>
+        {
+            entity.Property<int>("Revision").ValueGeneratedOnAdd().HasColumnType("integer")
+                .HasColumnName("revision").HasDefaultValue(1);
+            entity.ToTable("accounts", "identity_access", table =>
+                table.HasCheckConstraint("ck_accounts_revision", "revision >= 1"));
+        });
+    }
+
     internal static void BuildOnboarding(ModelBuilder modelBuilder)
     {
         Build(modelBuilder);

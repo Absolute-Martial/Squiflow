@@ -586,6 +586,12 @@ public sealed class RequestBudgetTests(AdminApiTestEnvironment environment)
         public Task<bool> CanReadTenantsAsync(Guid platformPrincipalId, CancellationToken cancellationToken) =>
             Task.FromResult(true);
 
+        public Task<bool> CanReadAuditAsync(Guid platformPrincipalId, CancellationToken cancellationToken) =>
+            CanReadAccountsAsync(platformPrincipalId, cancellationToken);
+
+        public Task<bool> CanManageAccountsAsync(Guid platformPrincipalId, CancellationToken cancellationToken) =>
+            CanReadAccountsAsync(platformPrincipalId, cancellationToken);
+
         public Task<bool> CanReadAccountsAsync(Guid platformPrincipalId, CancellationToken cancellationToken) =>
             Task.FromResult(true);
 
@@ -664,6 +670,12 @@ public sealed class RequestBudgetTests(AdminApiTestEnvironment environment)
         public Task<bool> CanReadTenantsAsync(Guid platformPrincipalId, CancellationToken cancellationToken) =>
             Task.FromResult(true);
 
+        public Task<bool> CanReadAuditAsync(Guid platformPrincipalId, CancellationToken cancellationToken) =>
+            CanReadAccountsAsync(platformPrincipalId, cancellationToken);
+
+        public Task<bool> CanManageAccountsAsync(Guid platformPrincipalId, CancellationToken cancellationToken) =>
+            CanReadAccountsAsync(platformPrincipalId, cancellationToken);
+
         public Task<bool> CanReadAccountsAsync(Guid platformPrincipalId, CancellationToken cancellationToken) =>
             Task.FromResult(true);
 
@@ -729,6 +741,12 @@ public sealed class RequestBudgetTests(AdminApiTestEnvironment environment)
 
         public Task<bool> CanReadTenantsAsync(Guid platformPrincipalId, CancellationToken cancellationToken) =>
             Task.FromResult(true);
+
+        public Task<bool> CanReadAuditAsync(Guid platformPrincipalId, CancellationToken cancellationToken) =>
+            CanReadAccountsAsync(platformPrincipalId, cancellationToken);
+
+        public Task<bool> CanManageAccountsAsync(Guid platformPrincipalId, CancellationToken cancellationToken) =>
+            CanReadAccountsAsync(platformPrincipalId, cancellationToken);
 
         public Task<bool> CanReadAccountsAsync(Guid platformPrincipalId, CancellationToken cancellationToken) =>
             Task.FromResult(true);

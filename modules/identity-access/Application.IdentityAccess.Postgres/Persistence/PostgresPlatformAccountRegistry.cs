@@ -31,5 +31,5 @@ public sealed class PostgresPlatformAccountRegistry(NpgsqlDataSource dataSource)
 
     private static PlatformAccountRegistryEntry ReadAccount(NpgsqlDataReader reader) => new(
         reader.GetGuid(0), (AccountAvailability)reader.GetInt16(1), reader.GetFieldValue<DateTimeOffset>(2),
-        reader.IsDBNull(3) ? null : reader.GetFieldValue<DateTimeOffset>(3));
+        reader.IsDBNull(3) ? null : reader.GetFieldValue<DateTimeOffset>(3), reader.GetInt32(4));
 }

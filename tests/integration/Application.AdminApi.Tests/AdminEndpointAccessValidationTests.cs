@@ -166,6 +166,12 @@ public sealed class AdminEndpointAccessValidationTests
         public Task<bool> CanReadTenantsAsync(Guid platformPrincipalId, CancellationToken cancellationToken) =>
             Record(PlatformAdminPermission.ReadTenants);
 
+        public Task<bool> CanReadAuditAsync(Guid platformPrincipalId, CancellationToken cancellationToken) =>
+            Record(PlatformAdminPermission.ReadAudit);
+
+        public Task<bool> CanManageAccountsAsync(Guid platformPrincipalId, CancellationToken cancellationToken) =>
+            Record(PlatformAdminPermission.ManageAccounts);
+
         public Task<bool> CanReadAccountsAsync(Guid platformPrincipalId, CancellationToken cancellationToken) =>
             Record(PlatformAdminPermission.ReadAccounts);
 

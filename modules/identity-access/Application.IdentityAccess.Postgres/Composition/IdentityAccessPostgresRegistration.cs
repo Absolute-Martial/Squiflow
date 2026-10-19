@@ -19,6 +19,9 @@ public static class IdentityAccessPostgresRegistration
         services.AddScoped<IAccountOnboardingStore, PostgresAccountOnboardingStore>();
         services.AddScoped<ResolveAccountBinding>();
         services.AddScoped<AccountOnboarding>();
+        services.AddScoped<IAccountLifecycleStore, PostgresAccountLifecycleStore>();
+        services.AddScoped<IAccountLifecycleHistory, PostgresAccountLifecycleHistory>();
+        services.AddScoped<ManageAccountAvailability>();
 
         return services;
     }

@@ -44,10 +44,11 @@ Account detail/browse returns only:
 
 - account ID;
 - active/disabled availability;
+- current account lifecycle revision;
 - created timestamp;
 - disabled timestamp when present.
 
-No external identity issuer/subject, provider payload or binding list is exposed. Account lifecycle is not yet introduced, so there is no invented account revision.
+No external identity issuer/subject, provider payload or binding list is exposed. The revision is owned by the implemented [local account lifecycle](IDENTITY_ACCOUNT_LIFECYCLE.md).
 
 Membership detail/browse returns only:
 

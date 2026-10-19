@@ -8,6 +8,9 @@ internal enum AdminEndpointAuditOperation
     PlatformAccess,
     TenantProvision,
     AccountOnboard,
+    AccountLifecycleTransition,
+    AccessAuditBrowse,
+    AccountHistoryBrowse,
     IdentityLink,
     MembershipInvite,
     MembershipBootstrapOwner,
@@ -82,6 +85,10 @@ internal static class AdminApiPlatformAuthorization
         AdminEndpointAuditOperation.PlatformAccess => "platform_access",
         AdminEndpointAuditOperation.TenantProvision => "tenant_provision",
         AdminEndpointAuditOperation.AccountOnboard => "account_onboard",
+        AdminEndpointAuditOperation.AccessAuditBrowse => "access_audit_browse",
+        AdminEndpointAuditOperation.AccountHistoryBrowse => $"account_history_browse:{RouteGuid(context, "accountId", allowEmpty: true):N}",
+        AdminEndpointAuditOperation.AccountLifecycleTransition =>
+            $"account_{KnownOperation(context, "operation", "suspend", "reactivate")}:{RouteGuid(context, "accountId", allowEmpty: true):N}",
         AdminEndpointAuditOperation.IdentityLink => "identity_link",
         AdminEndpointAuditOperation.MembershipInvite => "membership_invite",
         AdminEndpointAuditOperation.MembershipBootstrapOwner => "membership_bootstrap_owner",
@@ -105,10 +112,10 @@ internal static class AdminApiPlatformAuthorization
         _ => throw new InvalidOperationException("Unknown Admin API audit operation declaration."),
     };
 
-    private static Guid RouteGuid(HttpContext context, string name)
+    private static Guid RouteGuid(HttpContext context, string name, bool allowEmpty = false)
     {
         var value = context.Request.RouteValues[name]?.ToString();
-        return Guid.TryParse(value, out var parsed) && parsed != Guid.Empty
+        return Guid.TryParse(value, out var parsed) && (allowEmpty || parsed != Guid.Empty)
             ? parsed
             : throw new InvalidOperationException($"Protected Admin API route value '{name}' was not a valid identifier.");
     }

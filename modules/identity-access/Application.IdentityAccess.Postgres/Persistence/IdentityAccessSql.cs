@@ -14,6 +14,11 @@ internal static class IdentityAccessSql
     internal static readonly string InsertBinding = Load(nameof(InsertBinding));
     internal static readonly string InsertAccountReceipt = Load(nameof(InsertAccountReceipt));
     internal static readonly string InsertLinkReceipt = Load(nameof(InsertLinkReceipt));
+    internal static readonly string BrowseAccountLifecycleHistory = Load(nameof(BrowseAccountLifecycleHistory));
+    internal static readonly string FindAccountLifecycleReceipt = Load(nameof(FindAccountLifecycleReceipt));
+    internal static readonly string FindAccountLifecycleState = Load(nameof(FindAccountLifecycleState));
+    internal static readonly string TransitionAccountAvailability = Load(nameof(TransitionAccountAvailability));
+    internal static readonly string InsertAccountLifecycleReceipt = Load(nameof(InsertAccountLifecycleReceipt));
 
     private static string Load(string name)
     {

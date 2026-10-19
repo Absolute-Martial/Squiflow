@@ -18,6 +18,8 @@ internal enum PlatformAdminPermission
     ReadMemberships = 9,
     PublishTenantProfile = 10,
     ActivateTenantProfile = 11,
+    ManageAccounts = 12,
+    ReadAudit = 13,
 }
 
 internal sealed record PlatformAdminRequestAccess(Guid PrincipalId, Guid DeviceId);
@@ -125,6 +127,12 @@ internal sealed class PlatformAdminRequestAuthorizer(
         {
             allowed = permission switch
             {
+                PlatformAdminPermission.ReadAudit => await authorization
+                    .CanReadAuditAsync(access.PrincipalId, context.RequestAborted)
+                    .ConfigureAwait(false),
+                PlatformAdminPermission.ManageAccounts => await authorization
+                    .CanManageAccountsAsync(access.PrincipalId, context.RequestAborted)
+                    .ConfigureAwait(false),
                 PlatformAdminPermission.Access => await authorization
                     .CanAccessAsync(access.PrincipalId, context.RequestAborted)
                     .ConfigureAwait(false),

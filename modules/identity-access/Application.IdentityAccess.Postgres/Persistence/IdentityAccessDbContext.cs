@@ -22,7 +22,10 @@ public sealed class IdentityAccessDbContext(DbContextOptions<IdentityAccessDbCon
         modelBuilder.Entity<AccountRow>(entity =>
         {
             entity.ToTable("accounts", table =>
-                table.HasCheckConstraint("ck_accounts_availability", "availability IN (1, 2)"));
+                {
+                    table.HasCheckConstraint("ck_accounts_availability", "availability IN (1, 2)");
+                    table.HasCheckConstraint("ck_accounts_revision", "revision >= 1");
+                });
             entity.HasKey(account => account.Id).HasName("pk_accounts");
             entity.Property(account => account.Id).HasColumnName("id");
             entity.Property(account => account.Availability)
@@ -30,6 +33,7 @@ public sealed class IdentityAccessDbContext(DbContextOptions<IdentityAccessDbCon
                 .HasColumnName("availability");
             entity.Property(account => account.CreatedAt).HasColumnName("created_at");
             entity.Property(account => account.DisabledAt).HasColumnName("disabled_at");
+            entity.Property(account => account.Revision).HasDefaultValue(1).HasColumnName("revision");
         });
 
         modelBuilder.Entity<ExternalIdentityBindingRow>(entity =>
@@ -123,6 +127,8 @@ internal sealed class AccountRow
     public DateTimeOffset CreatedAt { get; set; }
 
     public DateTimeOffset? DisabledAt { get; set; }
+
+    public int Revision { get; set; } = 1;
 }
 
 internal sealed class ExternalIdentityBindingRow

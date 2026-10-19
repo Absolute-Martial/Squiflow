@@ -113,6 +113,25 @@
               }
             ]
           }
+        },
+        "can_manage_accounts": {
+          "computedUserset": {
+            "relation": "administrator"
+          }
+        },
+        "can_read_audit": {
+          "union": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "administrator"
+                }
+              },
+              {
+                "this": {}
+              }
+            ]
+          }
         }
       },
       "metadata": {
@@ -171,6 +190,16 @@
             ]
           },
           "can_read_memberships": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
+          },
+          "can_manage_accounts": {
+            "directly_related_user_types": []
+          },
+          "can_read_audit": {
             "directly_related_user_types": [
               {
                 "type": "user"

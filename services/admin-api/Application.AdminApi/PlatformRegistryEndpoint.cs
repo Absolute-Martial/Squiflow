@@ -92,7 +92,7 @@ internal static class PlatformRegistryEndpoint
         item.CreatedAt, item.SuspendedAt);
 
     private static AccountRegistryResponse AccountResponse(PlatformAccountRegistryEntry item) => new(
-        item.AccountId, item.Availability.ToString().ToLowerInvariant(), item.CreatedAt, item.DisabledAt);
+        item.AccountId, item.Availability.ToString().ToLowerInvariant(), item.CreatedAt, item.DisabledAt, item.Revision);
 
     private static MembershipRegistryResponse MembershipResponse(PlatformMembershipRegistryEntry item) => new(
         item.TenantId, item.AccountId, item.Availability.ToString().ToLowerInvariant(), item.Revision,
@@ -102,7 +102,7 @@ internal static class PlatformRegistryEndpoint
 
 internal sealed record RegistryPage<T>(IReadOnlyList<T> Items, string? NextCursor);
 internal sealed record TenantRegistryResponse(Guid TenantId, string DisplayName, string Availability, int Revision, DateTimeOffset CreatedAt, DateTimeOffset? SuspendedAt);
-internal sealed record AccountRegistryResponse(Guid AccountId, string Availability, DateTimeOffset CreatedAt, DateTimeOffset? DisabledAt);
+internal sealed record AccountRegistryResponse(Guid AccountId, string Availability, DateTimeOffset CreatedAt, DateTimeOffset? DisabledAt, int Revision);
 internal sealed record MembershipRegistryResponse(Guid TenantId, Guid AccountId, string Availability, int Revision, DateTimeOffset InvitedAt, DateTimeOffset? ActivatedAt, DateTimeOffset? SuspendedAt, DateTimeOffset? RemovedAt, bool IsInitialOwner);
 
 internal enum RegistryCursorKind { Tenant, Account, Membership }

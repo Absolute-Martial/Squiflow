@@ -211,6 +211,27 @@ app.MapGet("/api/v1/platform/tenants/{tenantId:guid}/memberships/{accountId:guid
     .RequireAuthorization()
     .RequireRateLimiting(AdminApiAdmission.PolicyName);
 
+app.MapGet("/api/v1/platform/audit/access", PlatformAuditEndpoint.BrowseAccessAsync)
+    .WithMetadata(new AdminEndpointAccessMetadata(AdminEndpointAccess.ProtectedPlatformAdministration))
+    .WithMetadata(new AdminEndpointPermissionMetadata(PlatformAdminPermission.ReadAudit))
+    .WithMetadata(new AdminEndpointAuditMetadata(AdminEndpointAuditOperation.AccessAuditBrowse))
+    .RequireAuthorization()
+    .RequireRateLimiting(AdminApiAdmission.PolicyName);
+
+app.MapGet("/api/v1/platform/accounts/{accountId:guid}/history", PlatformAuditEndpoint.BrowseAccountHistoryAsync)
+    .WithMetadata(new AdminEndpointAccessMetadata(AdminEndpointAccess.ProtectedPlatformAdministration))
+    .WithMetadata(new AdminEndpointPermissionMetadata(PlatformAdminPermission.ReadAudit))
+    .WithMetadata(new AdminEndpointAuditMetadata(AdminEndpointAuditOperation.AccountHistoryBrowse))
+    .RequireAuthorization()
+    .RequireRateLimiting(AdminApiAdmission.PolicyName);
+
+app.MapPost("/api/v1/platform/accounts/{accountId:guid}/lifecycle/{operation}", AccountLifecycleEndpoint.PostAsync)
+    .WithMetadata(new AdminEndpointAccessMetadata(AdminEndpointAccess.ProtectedPlatformAdministration))
+    .WithMetadata(new AdminEndpointPermissionMetadata(PlatformAdminPermission.ManageAccounts))
+    .WithMetadata(new AdminEndpointAuditMetadata(AdminEndpointAuditOperation.AccountLifecycleTransition))
+    .RequireAuthorization()
+    .RequireRateLimiting(AdminApiAdmission.PolicyName);
+
 app.MapTenantProfileEndpoints();
 app.MapPost("/api/v1/platform/tenants/{tenantId:guid}/profiles/legacy-orders/{orderId:guid}/assign",
         LegacyOrderProfileAssignmentEndpoint.PostAsync)

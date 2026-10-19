@@ -15,6 +15,7 @@ public static class PlatformAdministrationPostgresRegistration
                 serviceProvider.GetRequiredService<NpgsqlDataSource>()));
         services.AddScoped<IPlatformAdminAccessDirectory, PostgresPlatformAdminAccessDirectory>();
         services.AddScoped<IPlatformAdminAccessAuditStore, PostgresPlatformAdminAccessAuditStore>();
+        services.AddScoped<IPlatformAdminAuditReader, PostgresPlatformAdminAuditReader>();
         return services;
     }
 }

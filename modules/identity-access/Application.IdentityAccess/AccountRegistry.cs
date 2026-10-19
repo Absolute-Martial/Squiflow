@@ -4,7 +4,8 @@ public sealed record PlatformAccountRegistryEntry(
     Guid AccountId,
     AccountAvailability Availability,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? DisabledAt);
+    DateTimeOffset? DisabledAt,
+    int Revision = 1);
 
 public sealed record PlatformAccountRegistryPage(
     IReadOnlyList<PlatformAccountRegistryEntry> Items,

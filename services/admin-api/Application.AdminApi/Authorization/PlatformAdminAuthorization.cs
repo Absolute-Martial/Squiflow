@@ -8,6 +8,8 @@ namespace Application.AdminApi.Authorization;
 
 internal interface IPlatformAdminAuthorization
 {
+    Task<bool> CanReadAuditAsync(Guid platformPrincipalId, CancellationToken cancellationToken);
+    Task<bool> CanManageAccountsAsync(Guid platformPrincipalId, CancellationToken cancellationToken);
     Task<bool> CanAccessAsync(Guid platformPrincipalId, CancellationToken cancellationToken);
     Task<bool> CanProvisionTenantAsync(Guid platformPrincipalId, CancellationToken cancellationToken);
     Task<bool> CanOnboardAccountAsync(Guid platformPrincipalId, CancellationToken cancellationToken);
@@ -28,6 +30,8 @@ internal sealed class OpenFgaPlatformAdminAuthorization(
     ILogger<OpenFgaPlatformAdminAuthorization> logger) : IPlatformAdminAuthorization
 {
     private const string PlatformObject = "platform:root";
+    private const string ReadAuditRelation = "can_read_audit";
+    private const string ManageAccountsRelation = "can_manage_accounts";
     private const string AccessRelation = "can_access_admin";
     private const string ProvisionTenantRelation = "can_provision_tenant";
     private const string OnboardAccountRelation = "can_onboard_account";
@@ -42,7 +46,9 @@ internal sealed class OpenFgaPlatformAdminAuthorization(
     private static readonly string[] RequiredPlatformRelations =
     [
         "administrator",
+        ReadAuditRelation,
         AccessRelation,
+        ManageAccountsRelation,
         ProvisionTenantRelation,
         OnboardAccountRelation,
         LinkIdentityRelation,
@@ -69,6 +75,18 @@ internal sealed class OpenFgaPlatformAdminAuthorization(
             LogLevel.Error,
             new EventId(3, nameof(AuthorizationModelContractMismatch)),
             "Pinned platform OpenFGA model {ModelId} does not satisfy the required platform authorization contract.");
+
+    public Task<bool> CanReadAuditAsync(Guid platformPrincipalId, CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfEqual(platformPrincipalId, Guid.Empty);
+        return CheckAsync($"user:{platformPrincipalId:N}", ReadAuditRelation, cancellationToken);
+    }
+
+    public Task<bool> CanManageAccountsAsync(Guid platformPrincipalId, CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfEqual(platformPrincipalId, Guid.Empty);
+        return CheckAsync($"user:{platformPrincipalId:N}", ManageAccountsRelation, cancellationToken);
+    }
 
     public Task<bool> CanAccessAsync(
         Guid platformPrincipalId,

@@ -1,7 +1,8 @@
 -- Apply after the IdentityAccess, PlatformAdministration, Tenancy, Profiles and Orders migrations.
 -- AdminApi reads active principal/device registration, appends access audit, and owns
--- tenant/account onboarding plus membership and tenant-lifecycle write paths. It
--- cannot mutate bootstrap authority, identity account state or retained evidence.
+-- tenant/account onboarding plus membership and lifecycle write paths. Account
+-- availability uses a restricted transition function; audit reads use a redacted
+-- bounded function. Bootstrap authority and retained evidence remain immutable.
 DO $provision$
 DECLARE
     runtime_role text := nullif(current_setting('app.provision_admin_api_role', true), '');
@@ -65,9 +66,12 @@ BEGIN
         'identity_access.accounts',
         'identity_access.external_identity_bindings',
         'identity_access.account_onboarding_receipts',
-        'identity_access.identity_link_receipts'] LOOP
+        'identity_access.identity_link_receipts',
+        'identity_access.account_lifecycle_receipts'] LOOP
         EXECUTE format('GRANT SELECT, INSERT ON TABLE %s TO %I', target_table, runtime_role);
     END LOOP;
+    EXECUTE format(
+        'GRANT EXECUTE ON FUNCTION identity_access.transition_account_availability(uuid, integer, smallint, timestamptz) TO %I', runtime_role);
     EXECUTE format(
         'GRANT EXECUTE ON FUNCTION identity_access.lock_account_for_identity_link(uuid) TO %I',
         runtime_role);
@@ -78,6 +82,9 @@ BEGIN
     END LOOP;
     EXECUTE format(
         'GRANT INSERT ON TABLE platform_administration.access_audit_events TO %I',
+        runtime_role);
+    EXECUTE format(
+        'GRANT EXECUTE ON FUNCTION platform_administration.read_access_audit(timestamptz, uuid, uuid, smallint, integer) TO %I',
         runtime_role);
     EXECUTE format('GRANT SELECT, INSERT ON TABLE tenancy.tenants TO %I', runtime_role);
     EXECUTE format(
@@ -145,7 +152,8 @@ BEGIN
         'identity_access.accounts',
         'identity_access.external_identity_bindings',
         'identity_access.account_onboarding_receipts',
-        'identity_access.identity_link_receipts'] LOOP
+        'identity_access.identity_link_receipts',
+        'identity_access.account_lifecycle_receipts'] LOOP
         IF NOT has_table_privilege(runtime_role, target_table, 'SELECT')
            OR NOT has_table_privilege(runtime_role, target_table, 'INSERT')
            OR has_table_privilege(runtime_role, target_table, 'UPDATE')
@@ -159,6 +167,9 @@ BEGIN
             RAISE EXCEPTION 'Admin API identity-onboarding table privileges are unsafe on %', target_table;
         END IF;
     END LOOP;
+    IF NOT has_function_privilege(runtime_role, 'identity_access.transition_account_availability(uuid, integer, smallint, timestamptz)', 'EXECUTE') THEN
+        RAISE EXCEPTION 'Admin API account lifecycle function privilege is missing';
+    END IF;
     IF NOT has_function_privilege(
             runtime_role,
             'identity_access.lock_account_for_identity_link(uuid)',
@@ -190,6 +201,10 @@ BEGIN
        OR has_table_privilege(runtime_role, 'platform_administration.access_audit_events', 'REFERENCES')
        OR has_table_privilege(runtime_role, 'platform_administration.access_audit_events', 'TRIGGER') THEN
         RAISE EXCEPTION 'Admin API access-audit privileges are unsafe';
+    END IF;
+    IF NOT has_function_privilege(runtime_role,
+        'platform_administration.read_access_audit(timestamptz, uuid, uuid, smallint, integer)', 'EXECUTE') THEN
+        RAISE EXCEPTION 'Admin API audit read function is unavailable';
     END IF;
     IF has_table_privilege(runtime_role, 'platform_administration.bootstrap_state', 'SELECT')
        OR has_table_privilege(runtime_role, 'platform_administration.audit_events', 'SELECT') THEN
