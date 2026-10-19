@@ -4,6 +4,8 @@
 
 This directory records deployment/reproducibility direction. It must not imply that a target process exists merely because architecture reserves a path for it.
 
+The [HAProxy ingress profile](haproxy/README.md) now provides validated TLS-passthrough public Web/CoreApi routing, API load balancing and a separate private AdminApi listener from deployment-owned addresses. Its live local TLS regression is separate from production network/provider qualification.
+
 ## Current executable responsibilities
 
 - `Application.CoreApi` — public bootstrap/health/OpenAPI and protected account, membership, workspace, customer organization/program and Orders draft APIs. Current operations and evidence are owned by `README.IMPLEMENTATION.md`.

@@ -15,6 +15,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  ingress:
+    name: HAProxy TLS and private Admin transport
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install HAProxy for the local TLS fixtures
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install --yes --no-install-recommends haproxy
+      - name: Verify routing, API balancing and certificate preservation
+        run: python3 eng/test-haproxy.py
+
   repository:
     name: Repository-wide compatibility gate
     runs-on: ubuntu-latest
