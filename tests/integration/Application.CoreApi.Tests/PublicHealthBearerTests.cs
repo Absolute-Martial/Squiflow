@@ -21,7 +21,7 @@ public sealed class PublicHealthBearerTests
     // completion, response delivery and cleanup draining. The application deadlines under test
     // stay configured on the host; this budget only prevents a loaded parallel run from failing
     // the assertion by starving the harness.
-    private static readonly TimeSpan Watchdog = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan Watchdog = TimeSpan.FromMinutes(2);
     [Theory]
     [InlineData("/health/live", false)]
     [InlineData("/health/live", true)]

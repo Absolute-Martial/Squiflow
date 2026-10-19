@@ -16,6 +16,9 @@ namespace Application.CoreApi.Tests;
 
 public sealed class RequestBudgetTests
 {
+    // Bound test dispatch and draining separately from the configured application deadlines.
+    private static readonly TimeSpan Watchdog = TimeSpan.FromSeconds(30);
+
     [Fact]
     public async Task SlowProtectedBodyReadTimesOutBeforeCustomerMutation()
     {
@@ -41,8 +44,8 @@ public sealed class RequestBudgetTests
         });
         // Observe the blocked body read independently of TestServer request dispatch.
         // The server budget remains one second; only the test watchdog changes.
-        await slowBody.Entered.Task.WaitAsync(TimeSpan.FromSeconds(30));
-        var completed = await pending.WaitAsync(TimeSpan.FromSeconds(10));
+        await slowBody.Entered.Task.WaitAsync(Watchdog);
+        var completed = await pending.WaitAsync(Watchdog);
         Assert.True(slowBody.Exited.Task.IsCompleted);
         Assert.True(slowBody.CancellationObserved);
         Assert.Equal(StatusCodes.Status504GatewayTimeout, completed.Response.StatusCode);
@@ -62,7 +65,7 @@ public sealed class RequestBudgetTests
         using var baseline = new WhiteLabelApiFactory();
         using var factory = baseline.WithWebHostBuilder(builder =>
         {
-            builder.UseSetting(CoreApiRequestBudgets.TimeoutKey, clientCancels ? "30" : "1");
+            builder.UseSetting(CoreApiRequestBudgets.TimeoutKey, clientCancels ? "120" : "1");
             builder.UseSetting(CoreApiAdmission.PermitLimitKey, "1");
             builder.ConfigureTestServices(services =>
             {
@@ -76,16 +79,16 @@ public sealed class RequestBudgetTests
         using var request = AuthenticatedRequest(baseline.CreateToken());
         request.Headers.Add("traceparent", "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01");
         var pending = client.SendAsync(request, cancellation.Token);
-        await directory.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        await directory.Entered.Task.WaitAsync(Watchdog);
         if (clientCancels)
         {
             cancellation.Cancel();
             await Assert.ThrowsAnyAsync<OperationCanceledException>(
-                () => pending.WaitAsync(TimeSpan.FromSeconds(10)));
+                () => pending.WaitAsync(Watchdog));
         }
         else
         {
-            using var response = await pending.WaitAsync(TimeSpan.FromSeconds(10));
+            using var response = await pending.WaitAsync(Watchdog);
             Assert.Equal(HttpStatusCode.GatewayTimeout, response.StatusCode);
             Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
             Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
@@ -95,7 +98,7 @@ public sealed class RequestBudgetTests
             Assert.DoesNotContain("aaaaaaaa", problem.RootElement.GetProperty("traceId").GetString()!);
             Assert.DoesNotContain("private-timeout-canary", body);
         }
-        await directory.Exited.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        await directory.Exited.Task.WaitAsync(Watchdog);
         await AssertCapacityRecoveryAsync(client, baseline.CreateToken(), directory);
         Assert.DoesNotContain(logs.Messages, message => message.Contains("private-timeout-canary", StringComparison.Ordinal));
     }
@@ -108,7 +111,7 @@ public sealed class RequestBudgetTests
         using var baseline = new WhiteLabelApiFactory();
         using var factory = baseline.WithWebHostBuilder(builder =>
         {
-            builder.UseSetting(CoreApiRequestBudgets.TimeoutKey, "30");
+            builder.UseSetting(CoreApiRequestBudgets.TimeoutKey, "120");
             builder.UseSetting(CoreApiAdmission.PermitLimitKey, "1");
             builder.ConfigureTestServices(services =>
             {
@@ -121,11 +124,11 @@ public sealed class RequestBudgetTests
         using var request = AuthenticatedRequest(baseline.CreateToken());
         var pending = client.SendAsync(request);
 
-        await directory.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        await directory.Entered.Task.WaitAsync(Watchdog);
         using var bootstrap = await client.GetAsync("/api/v1/application/bootstrap")
-            .WaitAsync(TimeSpan.FromSeconds(10));
+            .WaitAsync(Watchdog);
         using var live = await client.GetAsync("/health/live")
-            .WaitAsync(TimeSpan.FromSeconds(10));
+            .WaitAsync(Watchdog);
         Assert.Equal(HttpStatusCode.OK, bootstrap.StatusCode);
         Assert.True(bootstrap.Headers.CacheControl?.Public);
         Assert.NotNull(bootstrap.Headers.ETag);
@@ -134,9 +137,9 @@ public sealed class RequestBudgetTests
         Assert.False(pending.IsCompleted);
 
         directory.Release();
-        using var completed = await pending.WaitAsync(TimeSpan.FromSeconds(10));
+        using var completed = await pending.WaitAsync(Watchdog);
         Assert.Equal(HttpStatusCode.OK, completed.StatusCode);
-        await directory.Exited.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        await directory.Exited.Task.WaitAsync(Watchdog);
         await AssertCapacityRecoveryAsync(client, baseline.CreateToken(), directory);
         Assert.DoesNotContain(logs.Messages, message => message.Contains("private-timeout-canary", StringComparison.Ordinal));
     }
@@ -146,7 +149,7 @@ public sealed class RequestBudgetTests
         string token,
         SlowBindingDirectory directory)
     {
-        using var recoveryBudget = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var recoveryBudget = new CancellationTokenSource(Watchdog);
         while (true)
         {
             using var retry = AuthenticatedRequest(token);
