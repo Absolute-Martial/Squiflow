@@ -1,0 +1,42 @@
+{
+  "name": "ruflo-federation",
+  "description": "Cross-installation agent federation with zero-trust security, peer discovery, consensus-based task routing, and per-call budget circuit breaker (ADR-097)",
+  "version": "0.3.6",
+  "author": {
+    "name": "ruvnet",
+    "url": "https://github.com/ruvnet"
+  },
+  "homepage": "https://github.com/ruvnet/ruflo",
+  "license": "MIT",
+  "keywords": [
+    "ruflo",
+    "federation",
+    "zero-trust",
+    "peer-discovery",
+    "consensus",
+    "multi-agent",
+    "distributed",
+    "circuit-breaker",
+    "budget",
+    "token-quota",
+    "mcp",
+    "pii-pipeline",
+    "audit-log",
+    "mod",
+    "function-hooks",
+    "guard"
+  ],
+  "userConfig": {
+    "guard": {
+      "type": "string",
+      "title": "Secret guard",
+      "description": "Refuse outbound federation messages (secrets and obvious PII) that hold a key, token or password. On by default; it only ever tightens.",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    }
+  }
+}

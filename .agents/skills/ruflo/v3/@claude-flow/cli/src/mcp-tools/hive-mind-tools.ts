@@ -1,0 +1,1359 @@
+/**
+ * Hive-Mind MCP Tools for CLI
+ *
+ * Tool definitions for collective intelligence and swarm coordination.
+ */
+
+import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync, chmodSync, unlinkSync } from 'node:fs';
+import { join } from 'node:path';
+import { randomBytes, createHash, timingSafeEqual } from 'node:crypto';
+import { type MCPTool, getProjectCwd } from './types.js';
+import { validateIdentifier, validateText } from './validate-input.js';
+
+// Storage paths
+const STORAGE_DIR = '.claude-flow';
+const HIVE_DIR = 'hive-mind';
+const HIVE_FILE = 'state.json';
+
+// ADR-093 F3: persist the consensus *strategy* alongside the existing
+// `consensus` field (which holds protocol pending/history). #1700 item 4
+// reported that init params for consensus didn't round-trip — they didn't,
+// because the schema lacked the parameter and the state had nowhere to
+// keep it. consensusStrategy fixes both.
+type ConsensusStrategyName = 'raft' | 'byzantine' | 'gossip' | 'crdt' | 'quorum';
+
+interface HiveState {
+  initialized: boolean;
+  topology: 'mesh' | 'hierarchical' | 'ring' | 'star';
+  consensusStrategy?: ConsensusStrategyName;
+  queen?: {
+    agentId: string;
+    electedAt: string;
+    term: number;
+  };
+  // Capability token minted by hive-mind_init and stored in state.json
+  // (0600). It is NEVER returned by a tool response (ADR-476). Remote
+  // callers may present it (or the operator bootstrap secret) to the gated
+  // tools -- see authorizeHive(); local stdio/CLI callers need no credential.
+  // Undefined means no token was ever minted: a remote caller then has only
+  // the bootstrap secret to authenticate with, never "any caller".
+  hiveToken?: string;
+  workers: string[];
+  consensus: {
+    pending: ConsensusProposal[];
+    history: ConsensusResult[];
+  };
+  sharedMemory: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+type ConsensusStrategy = 'bft' | 'raft' | 'quorum';
+type QuorumPreset = 'unanimous' | 'majority' | 'supermajority';
+
+interface ConsensusProposal {
+  proposalId: string;
+  type: string;
+  value: unknown;
+  proposedBy: string;
+  proposedAt: string;
+  votes: Record<string, boolean>;
+  status: 'pending' | 'approved' | 'rejected';
+  strategy: ConsensusStrategy;
+  term?: number;              // Raft: term number
+  quorumPreset?: QuorumPreset; // Quorum: threshold preset
+  byzantineVoters?: string[]; // BFT: detected Byzantine voters
+  timeoutAt?: string;         // Raft: timeout for re-proposal
+}
+
+interface ConsensusResult {
+  proposalId: string;
+  type: string;
+  result: 'approved' | 'rejected';
+  votes: { for: number; against: number };
+  decidedAt: string;
+  strategy: ConsensusStrategy;
+  term?: number;
+  byzantineDetected?: string[];
+}
+
+/**
+ * Calculate required votes for a given strategy and total node count.
+ */
+function calculateRequiredVotes(
+  strategy: ConsensusStrategy,
+  totalNodes: number,
+  quorumPreset: QuorumPreset = 'majority',
+): number {
+  if (totalNodes <= 0) return 1;
+  switch (strategy) {
+    case 'bft':
+      // BFT: requires 2/3 + 1 of total nodes
+      return Math.floor((totalNodes * 2) / 3) + 1;
+    case 'raft':
+      // Raft: simple majority
+      return Math.floor(totalNodes / 2) + 1;
+    case 'quorum':
+      switch (quorumPreset) {
+        case 'unanimous':
+          return totalNodes;
+        case 'supermajority':
+          return Math.floor((totalNodes * 2) / 3) + 1;
+        case 'majority':
+        default:
+          return Math.floor(totalNodes / 2) + 1;
+      }
+    default:
+      return Math.floor(totalNodes / 2) + 1;
+  }
+}
+
+/**
+ * Detect Byzantine behavior: a voter who has cast conflicting votes
+ * across proposals in the same round (same type, overlapping time).
+ * Here we check if the voter already voted differently on this proposal
+ * (which shouldn't happen if we block double-votes, so this checks
+ * cross-proposal conflicting votes for same type within the pending set).
+ */
+function detectByzantineVoters(
+  pending: ConsensusProposal[],
+  currentProposal: ConsensusProposal,
+  voterId: string,
+  newVote: boolean,
+): boolean {
+  // Check if voter cast opposite votes on proposals of the same type
+  for (const p of pending) {
+    if (p.proposalId === currentProposal.proposalId) continue;
+    if (p.type !== currentProposal.type) continue;
+    if (voterId in p.votes && p.votes[voterId] !== newVote) {
+      return true; // Conflicting vote detected
+    }
+  }
+  return false;
+}
+
+/**
+ * Try to resolve a proposal based on its strategy.
+ * Returns 'approved', 'rejected', or null if still pending.
+ */
+function tryResolveProposal(
+  proposal: ConsensusProposal,
+  totalNodes: number,
+): 'approved' | 'rejected' | null {
+  const votesFor = Object.values(proposal.votes).filter(v => v).length;
+  const votesAgainst = Object.values(proposal.votes).filter(v => !v).length;
+  const required = calculateRequiredVotes(
+    proposal.strategy,
+    totalNodes,
+    proposal.quorumPreset,
+  );
+
+  if (votesFor >= required) return 'approved';
+  if (votesAgainst >= required) return 'rejected';
+
+  // For quorum with 'unanimous', also reject if any vote is against
+  if (proposal.strategy === 'quorum' && proposal.quorumPreset === 'unanimous' && votesAgainst > 0) {
+    return 'rejected';
+  }
+
+  // Check if it's impossible to reach quorum (remaining potential votes can't tip it)
+  const totalVotes = Object.keys(proposal.votes).length;
+  const remaining = totalNodes - totalVotes;
+  if (votesFor + remaining < required && votesAgainst + remaining < required) {
+    // Deadlock: neither side can win -- reject
+    return 'rejected';
+  }
+
+  return null;
+}
+
+/**
+ * ADR-476: hive-mind caller authorization.
+ *
+ * The trust decision is made from the SERVER-SIDE `context` the dispatcher
+ * builds (never from a tool argument an injected agent could forge):
+ *
+ *   - `context` absent        -> in-process call (CLI subcommands, library, tests): local
+ *   - `context.transport`     -> 'stdio' | 'cli': local (same user, same machine)
+ *   - anything else           -> remote ('http', 'websocket', or a context that
+ *                                names no transport): fail closed
+ *   - RUFLO_HIVE_REQUIRE_AUTH=1 -> every caller is treated as remote
+ *
+ * Local callers need no credential. Remote callers must present the operator's
+ * secret out of band: `bootstrapSecret` (any gated tool) or the hive's
+ * `hiveToken` (every gated tool except hive-mind_init). Neither value is ever
+ * returned by a tool response or written to a log.
+ *
+ * Honest limit: a local caller (including a prompt-injected agent) can read the
+ * same files, so for local callers this is not a boundary -- it matters when the
+ * MCP surface is reachable by someone who cannot read the project directory.
+ */
+type HiveCaller = 'local' | 'remote';
+
+const LOCAL_TRANSPORTS = new Set(['stdio', 'cli']);
+const MIN_ENV_SECRET_LENGTH = 16;
+const BOOTSTRAP_FILE = 'bootstrap.secret';
+
+function classifyCaller(context: Record<string, unknown> | undefined): HiveCaller {
+  if (process.env.RUFLO_HIVE_REQUIRE_AUTH === '1') return 'remote';
+  if (context === undefined || context === null) return 'local';
+  const transport = context.transport;
+  return typeof transport === 'string' && LOCAL_TRANSPORTS.has(transport) ? 'local' : 'remote';
+}
+
+/**
+ * Constant-time string equality. Both sides are hashed first so the compare is
+ * over fixed-length digests: no early exit and no length side channel.
+ */
+function constantTimeEqual(expected: string, supplied: string): boolean {
+  const a = createHash('sha256').update(expected, 'utf-8').digest();
+  const b = createHash('sha256').update(supplied, 'utf-8').digest();
+  return timingSafeEqual(a, b);
+}
+
+function getBootstrapSecretPath(): string {
+  return join(getHiveDir(), BOOTSTRAP_FILE);
+}
+
+/**
+ * Operator secret: env `RUFLO_HIVE_BOOTSTRAP_SECRET` wins (>= 16 chars), else
+ * the 0600 file. Read-only: never creates anything.
+ */
+function readBootstrapSecret(): string | undefined {
+  const fromEnv = process.env.RUFLO_HIVE_BOOTSTRAP_SECRET?.trim();
+  if (fromEnv && fromEnv.length >= MIN_ENV_SECRET_LENGTH) return fromEnv;
+  try {
+    const path = getBootstrapSecretPath();
+    if (existsSync(path)) {
+      const fromFile = readFileSync(path, 'utf-8').trim();
+      if (fromFile) return fromFile;
+    }
+  } catch {
+    // unreadable file == no secret configured
+  }
+  return undefined;
+}
+
+/**
+ * Create the 0600 secret file if neither env nor file provides one. Only local
+ * callers ever reach this (hive-mind_init, local path). Returns nothing: the
+ * value is never handed to a caller.
+ */
+function ensureBootstrapSecret(): void {
+  if (readBootstrapSecret()) return;
+  ensureHiveDir();
+  try {
+    writeFileSync(getBootstrapSecretPath(), randomBytes(32).toString('hex'), {
+      encoding: 'utf-8',
+      mode: 0o600,
+      flag: 'wx', // never clobber a secret another process just created
+    });
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
+  }
+}
+
+/**
+ * Authorize a caller for a gated hive-mind operation. Returns an error string
+ * on denial, null on success. Denial text never contains either credential.
+ */
+function authorizeHive(
+  state: HiveState | undefined,
+  input: Record<string, unknown>,
+  context: Record<string, unknown> | undefined,
+  opts: { allowToken?: boolean } = {},
+): string | null {
+  if (classifyCaller(context) === 'local') return null;
+
+  const secret = readBootstrapSecret();
+  const suppliedSecret = typeof input.bootstrapSecret === 'string' ? input.bootstrapSecret : '';
+  if (secret && suppliedSecret && constantTimeEqual(secret, suppliedSecret)) return null;
+
+  const allowToken = opts.allowToken !== false;
+  const suppliedToken = typeof input.hiveToken === 'string' ? input.hiveToken : '';
+  if (allowToken && state?.hiveToken && suppliedToken && constantTimeEqual(state.hiveToken, suppliedToken)) {
+    return null;
+  }
+
+  if (!suppliedSecret && !suppliedToken) {
+    return allowToken
+      ? 'hiveToken is required (remote callers must present the operator credential: hiveToken or bootstrapSecret; local stdio/CLI callers are exempt; see ADR-476)'
+      : 'bootstrapSecret is required (remote callers must present the operator secret; set RUFLO_HIVE_BOOTSTRAP_SECRET on the server; see ADR-476)';
+  }
+  return suppliedSecret ? 'Invalid bootstrapSecret' : 'Invalid hiveToken';
+}
+
+/**
+ * Read the current hiveToken directly off disk, for same-machine callers
+ * (the CLI's own `hive-mind join/leave/consensus` subcommands) -- NOT exposed
+ * over any MCP tool response.
+ */
+export function getHiveTokenForCli(): string | undefined {
+  return loadHiveState().hiveToken;
+}
+
+function getHiveDir(): string {
+  return join(getProjectCwd(), STORAGE_DIR, HIVE_DIR);
+}
+
+function getHivePath(): string {
+  return join(getHiveDir(), HIVE_FILE);
+}
+
+function ensureHiveDir(): void {
+  const dir = getHiveDir();
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
+  }
+  // The directory holds the capability token and operator secret: owner-only.
+  // Best effort (no-op on Windows, may fail on a directory we do not own).
+  try { chmodSync(dir, 0o700); } catch { /* not ours / unsupported */ }
+}
+
+function loadHiveState(): HiveState {
+  try {
+    const path = getHivePath();
+    if (existsSync(path)) {
+      const data = readFileSync(path, 'utf-8');
+      return JSON.parse(data);
+    }
+  } catch {
+    // Return default state on error
+  }
+  return {
+    initialized: false,
+    topology: 'mesh',
+    workers: [],
+    consensus: { pending: [], history: [] },
+    sharedMemory: {},
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function saveHiveState(state: HiveState): void {
+  ensureHiveDir();
+  state.updatedAt = new Date().toISOString();
+  // state.json embeds hiveToken: write it owner-only (0600) and atomically
+  // (temp file in the same directory, then rename) so a reader never sees a
+  // half-written file and the token is never briefly world-readable.
+  const path = getHivePath();
+  const tmp = `${path}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`;
+  try {
+    writeFileSync(tmp, JSON.stringify(state, null, 2), { encoding: 'utf-8', mode: 0o600, flag: 'wx' });
+    try { chmodSync(tmp, 0o600); } catch { /* unsupported */ }
+    renameSync(tmp, path);
+  } catch (err) {
+    try { unlinkSync(tmp); } catch { /* already gone */ }
+    throw err;
+  }
+}
+
+// Import agent store helpers for spawn functionality
+import { existsSync as agentStoreExists, readFileSync as readAgentStore, writeFileSync as writeAgentStore, mkdirSync as mkdirAgentStore } from 'node:fs';
+
+function loadAgentStore(): { agents: Record<string, unknown> } {
+  const storePath = join(getProjectCwd(), '.claude-flow', 'agents.json');
+  try {
+    if (agentStoreExists(storePath)) {
+      return JSON.parse(readAgentStore(storePath, 'utf-8'));
+    }
+  } catch { /* ignore */ }
+  return { agents: {} };
+}
+
+function saveAgentStore(store: { agents: Record<string, unknown> }): void {
+  const storeDir = join(getProjectCwd(), '.claude-flow');
+  if (!agentStoreExists(storeDir)) {
+    mkdirAgentStore(storeDir, { recursive: true });
+  }
+  writeAgentStore(join(storeDir, 'agents.json'), JSON.stringify(store, null, 2), 'utf-8');
+}
+
+export const hiveMindTools: MCPTool[] = [
+  {
+    name: 'hive-mind_spawn',
+    description: 'Spawn workers and automatically join them to the hive-mind (combines agent/spawn + hive-mind/join) Use when native Task is wrong because you need queen-led collective intelligence — Byzantine-FT consensus, broadcast across many worker agents, shared memory with bounded conflict. For a single subagent, native Task is fine. Pair with swarm_init first to set topology.',
+    category: 'hive-mind',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        count: { type: 'number', description: 'Number of workers to spawn (default: 1)', default: 1 },
+        role: { type: 'string', enum: ['worker', 'specialist', 'scout'], description: 'Worker role in hive', default: 'worker' },
+        agentType: { type: 'string', description: 'Agent type for spawned workers', default: 'worker' },
+        prefix: { type: 'string', description: 'Prefix for worker IDs', default: 'hive-worker' },
+        hiveToken: { type: 'string', description: 'Remote/HTTP callers only: hive capability token (read from the server, never returned by tools). Local stdio/CLI callers omit it. See ADR-476.' },
+        bootstrapSecret: { type: 'string', description: 'Remote/HTTP callers only: operator secret (alternative to hiveToken). See ADR-476.' },
+      },
+    },
+    handler: async (input, context) => {
+      const state = loadHiveState();
+
+      if (!state.initialized) {
+        return { success: false, error: 'Hive-mind not initialized. Run hive-mind/init first.' };
+      }
+
+      // Fail-closed: spawned agents are pushed straight into state.workers,
+      // which hive-mind_consensus's vote tally treats as legitimate voting
+      // roster members (`state.workers.includes(voterId)`). Without this
+      // gate, an unauthenticated caller could mint arbitrary "workers" here
+      // and then vote as them -- bypassing #3291's join/leave/vote Sybil
+      // fix entirely via this sibling tool. No token, no spawn.
+      const tokenError = authorizeHive(state, input, context);
+      if (tokenError) {
+        return { success: false, error: tokenError };
+      }
+
+      if (input.agentType) { const v = validateIdentifier(input.agentType as string, 'agentType'); if (!v.valid) return { success: false, error: v.error }; }
+      if (input.prefix) { const v = validateIdentifier(input.prefix as string, 'prefix'); if (!v.valid) return { success: false, error: v.error }; }
+
+      const count = Math.min(Math.max(1, (input.count as number) || 1), 20); // Cap at 20
+      const role = (input.role as string) || 'worker';
+      const agentType = (input.agentType as string) || 'worker';
+      const prefix = (input.prefix as string) || 'hive-worker';
+      const agentStore = loadAgentStore();
+
+      const spawnedWorkers: Array<{ agentId: string; role: string; joinedAt: string }> = [];
+
+      for (let i = 0; i < count; i++) {
+        const agentId = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
+        // Create agent record (like agent/spawn)
+        agentStore.agents[agentId] = {
+          agentId,
+          agentType,
+          status: 'idle',
+          health: 1.0,
+          taskCount: 0,
+          config: { role, hiveRole: role },
+          createdAt: new Date().toISOString(),
+          domain: 'hive-mind',
+        };
+
+        // Join to hive-mind (like hive-mind/join)
+        if (!state.workers.includes(agentId)) {
+          state.workers.push(agentId);
+        }
+
+        spawnedWorkers.push({
+          agentId,
+          role,
+          joinedAt: new Date().toISOString(),
+        });
+      }
+
+      saveAgentStore(agentStore);
+      saveHiveState(state);
+
+      return {
+        success: true,
+        spawned: count,
+        workers: spawnedWorkers,
+        totalWorkers: state.workers.length,
+        hiveStatus: 'active',
+        message: `Spawned ${count} worker(s) and joined them to the hive-mind`,
+      };
+    },
+  },
+  {
+    name: 'hive-mind_init',
+    description: 'Initialize the hive-mind collective Use when native Task is wrong because you need queen-led collective intelligence — Byzantine-FT consensus, broadcast across many worker agents, shared memory with bounded conflict. For a single subagent, native Task is fine. Pair with swarm_init first to set topology.',
+    category: 'hive-mind',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        topology: { type: 'string', enum: ['mesh', 'hierarchical', 'ring', 'star'], description: 'Network topology' },
+        // ADR-093 F3: schema now exposes the consensus strategy so callers
+        // can actually request raft / byzantine / quorum / etc. Default
+        // matches the documented anti-drift posture (raft).
+        consensus: {
+          type: 'string',
+          enum: ['raft', 'byzantine', 'gossip', 'crdt', 'quorum'],
+          description: 'Consensus strategy. Default: raft (anti-drift). Use byzantine for f<n/3 fault tolerance.',
+        },
+        queenId: { type: 'string', description: 'Initial queen agent ID' },
+        bootstrapSecret: { type: 'string', description: 'Operator secret (RUFLO_HIVE_BOOTSTRAP_SECRET or .claude-flow/hive-mind/bootstrap.secret). Only needed by remote/HTTP callers; local stdio/CLI callers omit it. See ADR-476.' },
+      },
+    },
+    handler: async (input, context) => {
+      // ADR-476: init is the credential-issuance point, so it is gated too
+      // (first-time bootstrap and re-init alike). hiveToken is not accepted
+      // here: only the operator secret may (re)initialize a hive remotely.
+      const bootstrapError = authorizeHive(undefined, input, context, { allowToken: false });
+      if (bootstrapError) {
+        return { success: false, error: bootstrapError };
+      }
+      // Local first init materialises the 0600 operator secret so a later
+      // remote/HTTP deployment has something to be told out of band. The
+      // value is never returned.
+      if (classifyCaller(context) === 'local') ensureBootstrapSecret();
+
+      if (input.queenId) { const v = validateIdentifier(input.queenId as string, 'queenId'); if (!v.valid) return { success: false, error: v.error }; }
+
+      const state = loadHiveState();
+      const hiveId = `hive-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const queenId = (input.queenId as string) || `queen-${Date.now()}`;
+
+      const requestedConsensus = (input.consensus as ConsensusStrategyName) || 'raft';
+      state.initialized = true;
+      state.topology = (input.topology as HiveState['topology']) || 'mesh';
+      state.consensusStrategy = requestedConsensus;
+      state.createdAt = new Date().toISOString();
+      state.queen = {
+        agentId: queenId,
+        electedAt: new Date().toISOString(),
+        term: 1,
+      };
+      // Mint a capability token on first init; a re-init (topology/consensus
+      // change on an already-initialized hive) keeps the existing token and
+      // roster rather than silently invalidating workers who already hold
+      // it -- only re-generated if somehow absent (e.g. state predates this
+      // field).
+      if (!state.hiveToken) {
+        state.hiveToken = randomBytes(32).toString('hex');
+      }
+
+      saveHiveState(state);
+
+      return {
+        success: true,
+        hiveId,
+        topology: state.topology,
+        consensus: state.consensusStrategy,
+        queenId,
+        status: 'initialized',
+        // Deliberately NOT echoing state.hiveToken here (even though this
+        // call is itself now bootstrap-secret-gated): the CLI never reads
+        // it off this response (it uses getHiveTokenForCli()'s direct
+        // same-machine state.json read instead), so there's no reason to
+        // widen the token's exposure onto an MCP tool response at all.
+        config: {
+          topology: state.topology,
+          consensus: state.consensusStrategy,
+          maxAgents: input.maxAgents || 15,
+          persist: input.persist !== false,
+          memoryBackend: input.memoryBackend || 'hybrid',
+        },
+        createdAt: state.createdAt,
+      };
+    },
+  },
+  {
+    name: 'hive-mind_status',
+    description: 'Get hive-mind status Use when native Task is wrong because you need queen-led collective intelligence — Byzantine-FT consensus, broadcast across many worker agents, shared memory with bounded conflict. For a single subagent, native Task is fine. Pair with swarm_init first to set topology.',
+    category: 'hive-mind',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        verbose: { type: 'boolean', description: 'Include detailed information' },
+      },
+    },
+    handler: async (input) => {
+      const state = loadHiveState();
+
+      const uptime = state.createdAt ? Date.now() - new Date(state.createdAt).getTime() : 0;
+
+      // Load agent store once for all workers
+      const agentStore = loadAgentStore();
+
+      // Compute real task metrics from task store
+      const taskStorePath = join(getProjectCwd(), '.claude-flow', 'tasks', 'store.json');
+      let pendingTaskCount = 0;
+      let activeTaskCount = 0;
+      let completedTaskCount = 0;
+      try {
+        if (existsSync(taskStorePath)) {
+          const taskStore = JSON.parse(readFileSync(taskStorePath, 'utf-8'));
+          for (const task of Object.values(taskStore.tasks || {}) as Array<{ status: string }>) {
+            if (task.status === 'pending') pendingTaskCount++;
+            else if (task.status === 'in_progress') activeTaskCount++;
+            else if (task.status === 'completed') completedTaskCount++;
+          }
+        }
+      } catch { /* ignore */ }
+
+      const workerCount = Math.max(1, state.workers.length);
+      const realLoad = activeTaskCount / workerCount;
+
+      const status = {
+        // CLI expected fields
+        hiveId: `hive-${state.createdAt ? new Date(state.createdAt).getTime() : Date.now()}`,
+        status: state.initialized ? 'active' : 'offline',
+        topology: state.topology,
+        // ADR-093 F3: surface the persisted strategy instead of a hardcoded "byzantine".
+        consensus: state.consensusStrategy ?? 'byzantine',
+        queen: state.queen ? {
+          id: state.queen.agentId,
+          agentId: state.queen.agentId,
+          status: 'active',
+          load: Math.round(realLoad * 1000) / 1000,
+          tasksQueued: pendingTaskCount,
+          electedAt: state.queen.electedAt,
+          term: state.queen.term,
+        } : { id: 'N/A', status: 'offline', load: 0, tasksQueued: 0 },
+        workers: state.workers.map(w => {
+          const agent = agentStore.agents[w] as Record<string, unknown> | undefined;
+          return {
+            id: w,
+            type: (agent?.agentType as string) || 'worker',
+            status: (agent?.status as string) || 'unknown',
+            currentTask: (agent?.currentTask as string) || null,
+            tasksCompleted: (agent?.taskCount as number) || 0,
+          };
+        }),
+        metrics: {
+          totalTasks: pendingTaskCount + activeTaskCount + completedTaskCount,
+          completedTasks: completedTaskCount,
+          activeTasks: activeTaskCount,
+          pendingTasks: pendingTaskCount,
+          failedTasks: 0,
+          consensusRounds: state.consensus.history.length,
+          memoryUsage: `${Object.keys(state.sharedMemory).length * 2} KB`,
+        },
+        health: {
+          overall: 'healthy',
+          queen: state.queen ? 'healthy' : 'unhealthy',
+          workers: state.workers.length > 0 ? 'healthy' : 'degraded',
+          consensus: 'healthy',
+          memory: 'healthy',
+        },
+        // Additional fields
+        id: `hive-${state.createdAt ? new Date(state.createdAt).getTime() : Date.now()}`,
+        initialized: state.initialized,
+        workerCount: state.workers.length,
+        pendingConsensus: state.consensus.pending.length,
+        sharedMemoryKeys: Object.keys(state.sharedMemory).length,
+        uptime,
+        createdAt: state.createdAt,
+        updatedAt: state.updatedAt,
+      };
+
+      if (input.verbose) {
+        return {
+          ...status,
+          workerDetails: state.workers,
+          consensusHistory: state.consensus.history.slice(-10),
+          sharedMemory: state.sharedMemory,
+        };
+      }
+
+      return status;
+    },
+  },
+  {
+    name: 'hive-mind_join',
+    description: 'Join an agent to the hive-mind Use when native Task is wrong because you need queen-led collective intelligence — Byzantine-FT consensus, broadcast across many worker agents, shared memory with bounded conflict. For a single subagent, native Task is fine. Pair with swarm_init first to set topology.',
+    category: 'hive-mind',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        agentId: { type: 'string', description: 'Agent ID to join' },
+        role: { type: 'string', enum: ['worker', 'specialist', 'scout'], description: 'Agent role in hive' },
+        hiveToken: { type: 'string', description: 'Remote/HTTP callers only: hive capability token (read from the server, never returned by tools). Local stdio/CLI callers omit it. See ADR-476.' },
+        bootstrapSecret: { type: 'string', description: 'Remote/HTTP callers only: operator secret (alternative to hiveToken). See ADR-476.' },
+      },
+      required: ['agentId'],
+    },
+    handler: async (input, context) => {
+      const state = loadHiveState();
+      const agentId = input.agentId as string;
+
+      { const v = validateIdentifier(agentId, 'agentId'); if (!v.valid) return { success: false, error: v.error }; }
+
+      if (!state.initialized) {
+        return { success: false, error: 'Hive-mind not initialized' };
+      }
+
+      // Fail-closed: an unrecognized/missing token makes no membership
+      // change at all -- state.workers is untouched, not just left
+      // unsaved (the write below never happens on this path).
+      const tokenError = authorizeHive(state, input, context);
+      if (tokenError) {
+        return { success: false, agentId, error: tokenError };
+      }
+
+      if (!state.workers.includes(agentId)) {
+        state.workers.push(agentId);
+        saveHiveState(state);
+      }
+
+      return {
+        success: true,
+        agentId,
+        role: input.role || 'worker',
+        totalWorkers: state.workers.length,
+        joinedAt: new Date().toISOString(),
+      };
+    },
+  },
+  {
+    name: 'hive-mind_leave',
+    description: 'Remove an agent from the hive-mind Use when native Task is wrong because you need queen-led collective intelligence — Byzantine-FT consensus, broadcast across many worker agents, shared memory with bounded conflict. For a single subagent, native Task is fine. Pair with swarm_init first to set topology.',
+    category: 'hive-mind',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        agentId: { type: 'string', description: 'Agent ID to remove' },
+        hiveToken: { type: 'string', description: 'Remote/HTTP callers only: hive capability token (read from the server, never returned by tools). Local stdio/CLI callers omit it. See ADR-476.' },
+        bootstrapSecret: { type: 'string', description: 'Remote/HTTP callers only: operator secret (alternative to hiveToken). See ADR-476.' },
+      },
+      required: ['agentId'],
+    },
+    handler: async (input, context) => {
+      const state = loadHiveState();
+      const agentId = input.agentId as string;
+
+      { const v = validateIdentifier(agentId, 'agentId'); if (!v.valid) return { success: false, agentId, error: v.error }; }
+
+      // Fail-closed: a denied caller makes no membership change -- the
+      // splice/save below is unreachable on this path.
+      const tokenError = authorizeHive(state, input, context);
+      if (tokenError) {
+        return { success: false, agentId, error: tokenError };
+      }
+
+      const index = state.workers.indexOf(agentId);
+      if (index > -1) {
+        state.workers.splice(index, 1);
+        saveHiveState(state);
+        return {
+          success: true,
+          agentId,
+          leftAt: new Date().toISOString(),
+          remainingWorkers: state.workers.length,
+        };
+      }
+
+      return { success: false, agentId, error: 'Agent not in hive' };
+    },
+  },
+  {
+    name: 'hive-mind_consensus',
+    description: 'Propose or vote on consensus with BFT, Raft, or Quorum strategies Use when native Task is wrong because you need queen-led collective intelligence — Byzantine-FT consensus, broadcast across many worker agents, shared memory with bounded conflict. For a single subagent, native Task is fine. Pair with swarm_init first to set topology.',
+    category: 'hive-mind',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['propose', 'vote', 'status', 'list'], description: 'Consensus action' },
+        proposalId: { type: 'string', description: 'Proposal ID (for vote/status)' },
+        type: { type: 'string', description: 'Proposal type (for propose)' },
+        value: { description: 'Proposal value (for propose)' },
+        vote: { type: 'boolean', description: 'Vote (true=for, false=against)' },
+        voterId: { type: 'string', description: 'Voter agent ID' },
+        hiveToken: { type: 'string', description: 'Remote/HTTP callers only: hive capability token (read from the server, never returned by tools). Local stdio/CLI callers omit it. See ADR-476.' },
+        bootstrapSecret: { type: 'string', description: 'Remote/HTTP callers only: operator secret (alternative to hiveToken). See ADR-476.' },
+        strategy: { type: 'string', enum: ['bft', 'raft', 'quorum'], description: 'Consensus strategy (default: raft)' },
+        quorumPreset: { type: 'string', enum: ['unanimous', 'majority', 'supermajority'], description: 'Quorum threshold preset (for quorum strategy, default: majority)' },
+        term: { type: 'number', description: 'Term number (for raft strategy)' },
+        timeoutMs: { type: 'number', description: 'Timeout in ms for raft re-proposal (default: 30000)' },
+      },
+      required: ['action'],
+    },
+    handler: async (input, context) => {
+      if (input.proposalId) { const v = validateIdentifier(input.proposalId as string, 'proposalId'); if (!v.valid) return { action: input.action, error: v.error }; }
+      if (input.voterId) { const v = validateIdentifier(input.voterId as string, 'voterId'); if (!v.valid) return { action: input.action, error: v.error }; }
+      if (input.type) { const v = validateText(input.type as string, 'type'); if (!v.valid) return { action: input.action, error: v.error }; }
+
+      const state = loadHiveState();
+      const action = input.action as string;
+      const strategy = (input.strategy as ConsensusStrategy) || 'raft';
+      const totalNodes = state.workers.length || 1;
+
+      if (action === 'propose') {
+        // Fail-closed: an unauthenticated caller could otherwise inject
+        // arbitrary consensus proposals (type/value of their choosing) for
+        // legitimate workers to vote on, or exhaust raft's one-pending-
+        // proposal-per-term slot as a denial-of-service. No token, no
+        // proposal recorded.
+        const proposeTokenError = authorizeHive(state, input, context);
+        if (proposeTokenError) {
+          return { action, error: proposeTokenError };
+        }
+
+        const proposalId = `proposal-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const quorumPreset = (input.quorumPreset as QuorumPreset) || 'majority';
+        const term = (input.term as number) || (state.queen?.term ?? 1);
+        const timeoutMs = (input.timeoutMs as number) || 30000;
+
+        // Raft: check if there's already a pending proposal for this term
+        if (strategy === 'raft') {
+          const existingTermProposal = state.consensus.pending.find(
+            p => p.strategy === 'raft' && p.term === term && p.status === 'pending',
+          );
+          if (existingTermProposal) {
+            return {
+              action,
+              error: `Raft term ${term} already has a pending proposal: ${existingTermProposal.proposalId}. Wait for resolution or use a higher term.`,
+              existingProposalId: existingTermProposal.proposalId,
+              term,
+            };
+          }
+        }
+
+        const required = calculateRequiredVotes(strategy, totalNodes, quorumPreset);
+
+        const proposal: ConsensusProposal = {
+          proposalId,
+          type: (input.type as string) || 'general',
+          value: input.value,
+          proposedBy: (input.voterId as string) || 'system',
+          proposedAt: new Date().toISOString(),
+          votes: {},
+          status: 'pending',
+          strategy,
+          term: strategy === 'raft' ? term : undefined,
+          quorumPreset: strategy === 'quorum' ? quorumPreset : undefined,
+          byzantineVoters: strategy === 'bft' ? [] : undefined,
+          timeoutAt: strategy === 'raft' ? new Date(Date.now() + timeoutMs).toISOString() : undefined,
+        };
+
+        state.consensus.pending.push(proposal);
+        saveHiveState(state);
+
+        return {
+          action,
+          proposalId,
+          type: proposal.type,
+          strategy,
+          status: 'pending',
+          required,
+          totalNodes,
+          term: proposal.term,
+          quorumPreset: proposal.quorumPreset,
+          timeoutAt: proposal.timeoutAt,
+        };
+      }
+
+      if (action === 'vote') {
+        const proposal = state.consensus.pending.find(p => p.proposalId === input.proposalId);
+        if (!proposal) {
+          return { action, error: 'Proposal not found or already resolved' };
+        }
+
+        const voterId = input.voterId as string;
+        if (!voterId) {
+          return { action, error: 'voterId is required for voting' };
+        }
+
+        // Fail-closed: a denied caller records no vote at all -- the
+        // votes[voterId] write below is unreachable on this path, and
+        // nothing about the proposal (vote tallies, status) changes.
+        const tokenError = authorizeHive(state, input, context);
+        if (tokenError) {
+          return { action, error: tokenError, proposalId: proposal.proposalId };
+        }
+
+        // voterId was previously trusted as-is: any caller-supplied string
+        // was recorded into proposal.votes and counted toward
+        // calculateRequiredVotes()'s threshold (derived from
+        // state.workers.length), with no check that it named a worker who
+        // actually joined this hive-mind. That let a single caller cross
+        // any strategy's quorum (raft/bft/quorum alike) by voting under
+        // fabricated ids — a Sybil attack on consensus, not merely a
+        // double-vote. Require the voter to be a registered worker.
+        if (!state.workers.includes(voterId)) {
+          return {
+            action,
+            error: `Voter ${voterId} is not a registered hive-mind worker`,
+            proposalId: proposal.proposalId,
+          };
+        }
+
+        const voteValue = input.vote as boolean;
+        const proposalStrategy = proposal.strategy || 'raft';
+        const required = calculateRequiredVotes(
+          proposalStrategy,
+          totalNodes,
+          proposal.quorumPreset,
+        );
+
+        // Prevent double-voting
+        if (voterId in proposal.votes) {
+          const previousVote = proposal.votes[voterId];
+          if (previousVote === voteValue) {
+            return {
+              action,
+              error: `Voter ${voterId} has already cast the same vote on this proposal`,
+              proposalId: proposal.proposalId,
+              existingVote: previousVote,
+            };
+          }
+          // Conflicting vote from same voter
+          if (proposalStrategy === 'bft') {
+            // BFT: detect as Byzantine behavior
+            if (!proposal.byzantineVoters) proposal.byzantineVoters = [];
+            if (!proposal.byzantineVoters.includes(voterId)) {
+              proposal.byzantineVoters.push(voterId);
+            }
+            // Remove their vote entirely -- Byzantine voter is excluded
+            delete proposal.votes[voterId];
+            saveHiveState(state);
+
+            return {
+              action,
+              proposalId: proposal.proposalId,
+              voterId,
+              byzantineDetected: true,
+              message: `Byzantine behavior detected: voter ${voterId} attempted conflicting vote. Vote invalidated.`,
+              byzantineVoters: proposal.byzantineVoters,
+              status: proposal.status,
+            };
+          }
+          if (proposalStrategy === 'raft') {
+            // Raft: only one vote per node per term, reject the change
+            return {
+              action,
+              error: `Raft: voter ${voterId} already voted in term ${proposal.term}. Cannot change vote.`,
+              proposalId: proposal.proposalId,
+              term: proposal.term,
+            };
+          }
+          // Quorum: reject double-vote
+          return {
+            action,
+            error: `Voter ${voterId} has already voted on this proposal`,
+            proposalId: proposal.proposalId,
+          };
+        }
+
+        // BFT: check for cross-proposal Byzantine behavior
+        if (proposalStrategy === 'bft') {
+          const isByzantine = detectByzantineVoters(
+            state.consensus.pending,
+            proposal,
+            voterId,
+            voteValue,
+          );
+          if (isByzantine) {
+            if (!proposal.byzantineVoters) proposal.byzantineVoters = [];
+            if (!proposal.byzantineVoters.includes(voterId)) {
+              proposal.byzantineVoters.push(voterId);
+            }
+            saveHiveState(state);
+            return {
+              action,
+              proposalId: proposal.proposalId,
+              voterId,
+              byzantineDetected: true,
+              message: `Byzantine behavior detected: voter ${voterId} cast conflicting votes across proposals of same type. Vote rejected.`,
+              byzantineVoters: proposal.byzantineVoters,
+              status: proposal.status,
+            };
+          }
+        }
+
+        // Record the vote
+        proposal.votes[voterId] = voteValue;
+
+        const votesFor = Object.values(proposal.votes).filter(v => v).length;
+        const votesAgainst = Object.values(proposal.votes).filter(v => !v).length;
+
+        // Try to resolve
+        const resolution = tryResolveProposal(proposal, totalNodes);
+        let resolved = false;
+
+        if (resolution !== null) {
+          resolved = true;
+          proposal.status = resolution;
+          state.consensus.history.push({
+            proposalId: proposal.proposalId,
+            type: proposal.type,
+            result: resolution,
+            votes: { for: votesFor, against: votesAgainst },
+            decidedAt: new Date().toISOString(),
+            strategy: proposalStrategy,
+            term: proposal.term,
+            byzantineDetected: proposal.byzantineVoters?.length ? proposal.byzantineVoters : undefined,
+          });
+          state.consensus.pending = state.consensus.pending.filter(
+            p => p.proposalId !== proposal.proposalId,
+          );
+        }
+
+        saveHiveState(state);
+
+        // Persist consensus result in AgentDB for searchable history
+        if (resolved) {
+          try {
+            const bridge = await import('../memory/memory-bridge.js');
+            await bridge.bridgeStoreEntry({
+              key: `consensus-${proposal.proposalId}`,
+              value: JSON.stringify({
+                proposalId: proposal.proposalId,
+                type: proposal.type,
+                strategy: proposalStrategy,
+                status: proposal.status,
+                votes: proposal.votes,
+                resolvedAt: new Date().toISOString(),
+              }),
+              namespace: 'hive-consensus',
+              tags: [proposal.type, proposalStrategy || 'raft', proposal.status],
+            });
+          } catch { /* AgentDB not available — JSON store is primary */ }
+        }
+
+        return {
+          action,
+          proposalId: proposal.proposalId,
+          voterId,
+          vote: voteValue,
+          strategy: proposalStrategy,
+          votesFor,
+          votesAgainst,
+          required,
+          totalNodes,
+          resolved,
+          result: resolved ? resolution : undefined,
+          status: proposal.status,
+          term: proposal.term,
+          byzantineVoters: proposal.byzantineVoters?.length ? proposal.byzantineVoters : undefined,
+        };
+      }
+
+      if (action === 'status') {
+        const proposal = state.consensus.pending.find(p => p.proposalId === input.proposalId);
+        if (!proposal) {
+          // Check history
+          const historical = state.consensus.history.find(h => h.proposalId === input.proposalId);
+          if (historical) {
+            return { action, ...historical, historical: true, resolved: true };
+          }
+          return { action, error: 'Proposal not found' };
+        }
+
+        const votesFor = Object.values(proposal.votes).filter(v => v).length;
+        const votesAgainst = Object.values(proposal.votes).filter(v => !v).length;
+        const proposalStrategy = proposal.strategy || 'raft';
+        const required = calculateRequiredVotes(
+          proposalStrategy,
+          totalNodes,
+          proposal.quorumPreset,
+        );
+
+        // Raft: check timeout
+        let timedOut = false;
+        if (proposalStrategy === 'raft' && proposal.timeoutAt) {
+          timedOut = new Date().getTime() > new Date(proposal.timeoutAt).getTime();
+        }
+
+        return {
+          action,
+          proposalId: proposal.proposalId,
+          type: proposal.type,
+          strategy: proposalStrategy,
+          status: proposal.status,
+          votesFor,
+          votesAgainst,
+          totalVotes: Object.keys(proposal.votes).length,
+          required,
+          totalNodes,
+          resolved: false,
+          term: proposal.term,
+          quorumPreset: proposal.quorumPreset,
+          byzantineVoters: proposal.byzantineVoters?.length ? proposal.byzantineVoters : undefined,
+          timedOut,
+          timeoutAt: proposal.timeoutAt,
+          hint: timedOut ? `Raft timeout reached. Re-propose with term ${(proposal.term || 1) + 1}.` : undefined,
+        };
+      }
+
+      if (action === 'list') {
+        return {
+          action,
+          pending: state.consensus.pending.map(p => ({
+            proposalId: p.proposalId,
+            type: p.type,
+            strategy: p.strategy || 'raft',
+            proposedAt: p.proposedAt,
+            totalVotes: Object.keys(p.votes).length,
+            required: calculateRequiredVotes(
+              p.strategy || 'raft',
+              totalNodes,
+              p.quorumPreset,
+            ),
+            term: p.term,
+            status: p.status,
+          })),
+          recentHistory: state.consensus.history.slice(-5),
+        };
+      }
+
+      return { action, error: 'Unknown action' };
+    },
+  },
+  {
+    name: 'hive-mind_broadcast',
+    description: 'Broadcast message to all workers Use when native Task is wrong because you need queen-led collective intelligence — Byzantine-FT consensus, broadcast across many worker agents, shared memory with bounded conflict. For a single subagent, native Task is fine. Pair with swarm_init first to set topology.',
+    category: 'hive-mind',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', description: 'Message to broadcast' },
+        priority: { type: 'string', enum: ['low', 'normal', 'high', 'critical'], description: 'Message priority' },
+        fromId: { type: 'string', description: 'Sender agent ID' },
+        hiveToken: { type: 'string', description: 'Remote/HTTP callers only: hive capability token (read from the server, never returned by tools). Local stdio/CLI callers omit it. See ADR-476.' },
+        bootstrapSecret: { type: 'string', description: 'Remote/HTTP callers only: operator secret (alternative to hiveToken). See ADR-476.' },
+      },
+      required: ['message'],
+    },
+    handler: async (input, context) => {
+      const state = loadHiveState();
+
+      if (!state.initialized) {
+        return { success: false, error: 'Hive-mind not initialized' };
+      }
+
+      // Fail-closed: no token, no message stored -- otherwise any caller
+      // could inject spoofed broadcasts (arbitrary fromId) into shared
+      // memory that every real worker reads.
+      const tokenError = authorizeHive(state, input, context);
+      if (tokenError) {
+        return { success: false, error: tokenError };
+      }
+
+      { const v = validateText(input.message as string, 'message'); if (!v.valid) return { success: false, error: v.error }; }
+      if (input.fromId) { const v = validateIdentifier(input.fromId as string, 'fromId'); if (!v.valid) return { success: false, error: v.error }; }
+
+      const messageId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+      // Store in shared memory
+      const messages = (state.sharedMemory.broadcasts as Array<unknown>) || [];
+      messages.push({
+        messageId,
+        message: input.message,
+        priority: input.priority || 'normal',
+        fromId: input.fromId || 'system',
+        timestamp: new Date().toISOString(),
+      });
+
+      // Keep only last 100 broadcasts
+      state.sharedMemory.broadcasts = messages.slice(-100);
+      saveHiveState(state);
+
+      return {
+        success: true,
+        messageId,
+        recipients: state.workers.length,
+        priority: input.priority || 'normal',
+        broadcastAt: new Date().toISOString(),
+      };
+    },
+  },
+  {
+    name: 'hive-mind_shutdown',
+    description: 'Shutdown the hive-mind and terminate all workers Use when native Task is wrong because you need queen-led collective intelligence — Byzantine-FT consensus, broadcast across many worker agents, shared memory with bounded conflict. For a single subagent, native Task is fine. Pair with swarm_init first to set topology.',
+    category: 'hive-mind',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        graceful: { type: 'boolean', description: 'Graceful shutdown (wait for pending tasks)', default: true },
+        force: { type: 'boolean', description: 'Force immediate shutdown', default: false },
+        hiveToken: { type: 'string', description: 'Remote/HTTP callers only: hive capability token (read from the server, never returned by tools). Local stdio/CLI callers omit it. See ADR-476.' },
+        bootstrapSecret: { type: 'string', description: 'Remote/HTTP callers only: operator secret (alternative to hiveToken). See ADR-476.' },
+      },
+    },
+    handler: async (input, context) => {
+      const state = loadHiveState();
+
+      if (!state.initialized) {
+        return { success: false, error: 'Hive-mind not initialized or already shut down' };
+      }
+
+      // Fail-closed: no token, no shutdown -- otherwise any caller could
+      // terminate a running hive (wiping workers/pending consensus/shared
+      // memory) as a denial-of-service with zero proof of membership.
+      const tokenError = authorizeHive(state, input, context);
+      if (tokenError) {
+        return { success: false, error: tokenError };
+      }
+
+      const graceful = input.graceful !== false;
+      const force = input.force === true;
+      const workerCount = state.workers.length;
+      const pendingConsensus = state.consensus.pending.length;
+
+      // If graceful and there are pending consensus items, warn (unless forced)
+      if (graceful && pendingConsensus > 0 && !force) {
+        return {
+          success: false,
+          error: `Cannot gracefully shutdown with ${pendingConsensus} pending consensus items. Use force: true to override.`,
+          pendingConsensus,
+          workerCount,
+        };
+      }
+
+      // Clear workers from agent store
+      const agentStore = loadAgentStore();
+      for (const workerId of state.workers) {
+        if (agentStore.agents[workerId]) {
+          delete agentStore.agents[workerId];
+        }
+      }
+      saveAgentStore(agentStore);
+
+      // Reset hive state
+      const shutdownTime = new Date().toISOString();
+      const previousQueen = state.queen?.agentId;
+
+      state.initialized = false;
+      state.queen = undefined;
+      state.workers = [];
+      state.consensus.pending = [];
+      // Keep history for reference
+      state.sharedMemory = {};
+      saveHiveState(state);
+
+      return {
+        success: true,
+        shutdownAt: shutdownTime,
+        graceful,
+        workersTerminated: workerCount,
+        previousQueen,
+        consensusCleared: pendingConsensus,
+        message: `Hive-mind shutdown complete. ${workerCount} workers terminated.`,
+      };
+    },
+  },
+  {
+    name: 'hive-mind_memory',
+    description: 'Access hive shared memory Use when native Task is wrong because you need queen-led collective intelligence — Byzantine-FT consensus, broadcast across many worker agents, shared memory with bounded conflict. For a single subagent, native Task is fine. Pair with swarm_init first to set topology.',
+    category: 'hive-mind',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['get', 'set', 'delete', 'list'], description: 'Memory action' },
+        key: { type: 'string', description: 'Memory key' },
+        value: { description: 'Value to store (for set)' },
+        hiveToken: { type: 'string', description: 'Remote/HTTP callers only: hive capability token (read from the server, never returned by tools). Local stdio/CLI callers omit it. See ADR-476.' },
+        bootstrapSecret: { type: 'string', description: 'Remote/HTTP callers only: operator secret (alternative to hiveToken). See ADR-476.' },
+      },
+      required: ['action'],
+    },
+    handler: async (input, context) => {
+      if (input.key) { const v = validateIdentifier(input.key as string, 'key'); if (!v.valid) return { action: input.action, error: v.error }; }
+
+      const state = loadHiveState();
+      const action = input.action as string;
+      const key = input.key as string;
+
+      if (action === 'get') {
+        if (!key) return { action, error: 'Key required' };
+        return {
+          action,
+          key,
+          value: state.sharedMemory[key],
+          exists: key in state.sharedMemory,
+        };
+      }
+
+      if (action === 'set') {
+        if (!key) return { action, error: 'Key required' };
+        // Fail-closed: no token, no write -- otherwise any caller could
+        // tamper with or inject entries into shared memory every worker
+        // and the queen read, the same attack class hive-mind_broadcast
+        // was gated for.
+        const tokenError = authorizeHive(state, input, context);
+        if (tokenError) {
+          return { action, key, error: tokenError };
+        }
+        state.sharedMemory[key] = input.value;
+        saveHiveState(state);
+
+        // Also store in AgentDB for searchable hive memory
+        try {
+          const bridge = await import('../memory/memory-bridge.js');
+          await bridge.bridgeStoreEntry({
+            key: `hive-memory-${key}`,
+            value: JSON.stringify(input.value),
+            namespace: 'hive-memory',
+          });
+        } catch { /* AgentDB not available */ }
+
+        return {
+          action,
+          key,
+          success: true,
+          updatedAt: new Date().toISOString(),
+        };
+      }
+
+      if (action === 'delete') {
+        if (!key) return { action, error: 'Key required' };
+        // Fail-closed, same reasoning as 'set' above.
+        const tokenError = authorizeHive(state, input, context);
+        if (tokenError) {
+          return { action, key, error: tokenError };
+        }
+        const existed = key in state.sharedMemory;
+        delete state.sharedMemory[key];
+        saveHiveState(state);
+        return {
+          action,
+          key,
+          deleted: existed,
+        };
+      }
+
+      if (action === 'list') {
+        return {
+          action,
+          keys: Object.keys(state.sharedMemory),
+          count: Object.keys(state.sharedMemory).length,
+        };
+      }
+
+      return { action, error: 'Unknown action' };
+    },
+  },
+  {
+    // #1916: `ruflo hive-mind optimize-memory` referenced an unregistered
+    // `hive-mind_optimize-memory` tool. Best-effort today: prunes obviously-
+    // empty shared-memory keys and reports the before/after counts; pattern
+    // quality consolidation is a follow-up (it belongs in the intelligence
+    // pipeline / agentdb curator, not here).
+    name: 'hive-mind_optimize-memory',
+    description: 'Compact the hive-mind shared-memory store (drops null/empty keys) and report before/after pattern counts. Use when native conversation memory is wrong because you need the queen-led collective\'s persisted shared state cleaned up between phases. For one-shot scratch state, no tool needed. (Pattern-quality consolidation is delegated to the intelligence pipeline — this only does the cheap structural pass for now.)',
+    category: 'hive-mind',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        qualityThreshold: { type: 'number', description: 'Quality threshold for pattern retention (advisory — not enforced yet)' },
+        hiveToken: { type: 'string', description: 'Remote/HTTP callers only: hive capability token (read from the server, never returned by tools). Local stdio/CLI callers omit it. See ADR-476.' },
+        bootstrapSecret: { type: 'string', description: 'Remote/HTTP callers only: operator secret (alternative to hiveToken). See ADR-476.' },
+      },
+    },
+    handler: async (input, context) => {
+      const t0 = Date.now();
+      const state = loadHiveState();
+      if (!state.initialized) return { optimized: false, error: 'Hive-mind not initialized', before: { patterns: 0, memory: '0' }, after: { patterns: 0, memory: '0' }, removed: 0, consolidated: 0, timeMs: 0 };
+      // Fail-closed: no token, no prune -- this mutates state.sharedMemory
+      // via the same saveHiveState() path set/delete/broadcast were gated
+      // for (found in round 2 review, #3339).
+      const tokenError = authorizeHive(state, input, context);
+      if (tokenError) {
+        return { optimized: false, error: tokenError, before: { patterns: 0, memory: '0' }, after: { patterns: 0, memory: '0' }, removed: 0, consolidated: 0, timeMs: 0 };
+      }
+      const beforeKeys = Object.keys(state.sharedMemory);
+      const before = beforeKeys.length;
+      for (const k of beforeKeys) {
+        const v = state.sharedMemory[k];
+        if (v === null || v === undefined || (typeof v === 'object' && v !== null && Object.keys(v as object).length === 0)) {
+          delete state.sharedMemory[k];
+        }
+      }
+      const after = Object.keys(state.sharedMemory).length;
+      const removed = before - after;
+      if (removed > 0) saveHiveState(state);
+      const sizeStr = (n: number) => `${Buffer.byteLength(JSON.stringify(state.sharedMemory))}B (~${n} keys)`;
+      return {
+        optimized: removed > 0,
+        before: { patterns: before, memory: `~${before} keys` },
+        after: { patterns: after, memory: sizeStr(after) },
+        removed,
+        consolidated: 0,
+        timeMs: Date.now() - t0,
+        note: 'structural compaction only; pattern-quality consolidation is delegated to the intelligence pipeline (#1916 follow-up)',
+      };
+    },
+  },
+];

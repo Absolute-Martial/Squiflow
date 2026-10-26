@@ -1,0 +1,38 @@
+{
+  "name": "ruflo-observability",
+  "description": "Structured logging, distributed tracing, and metrics — correlate agent swarm activity with application telemetry. As a mod (ADR-445): a tighten-only guard on its tools, /observe-mod, and a status file the console shows",
+  "version": "0.3.5",
+  "author": {
+    "name": "ruvnet",
+    "url": "https://github.com/ruvnet"
+  },
+  "homepage": "https://github.com/ruvnet/ruflo",
+  "license": "MIT",
+  "keywords": [
+    "ruflo",
+    "observability",
+    "logging",
+    "tracing",
+    "metrics",
+    "telemetry",
+    "mcp",
+    "distributed-tracing",
+    "anomaly-detection",
+    "mod",
+    "function-hooks",
+    "guard"
+  ],
+  "userConfig": {
+    "guard": {
+      "type": "string",
+      "title": "Guard",
+      "description": "Refuse calls and memory writes that hold a secret, SSN or card number. On by default.",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    }
+  }
+}

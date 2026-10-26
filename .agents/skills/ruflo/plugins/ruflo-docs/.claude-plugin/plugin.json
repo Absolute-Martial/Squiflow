@@ -1,0 +1,36 @@
+{
+  "name": "ruflo-docs",
+  "description": "Documentation generation, API docs (JSDoc/TSDoc/OpenAPI), and drift detection — drives the `document` background worker via hooks_worker-dispatch; uses Haiku model for cost-efficient docs work",
+  "version": "0.3.4",
+  "author": {
+    "name": "ruvnet",
+    "url": "https://github.com/ruvnet"
+  },
+  "homepage": "https://github.com/ruvnet/ruflo",
+  "license": "MIT",
+  "keywords": [
+    "ruflo",
+    "documentation",
+    "api-docs",
+    "drift-detection",
+    "jsdoc",
+    "openapi",
+    "mcp",
+    "mod",
+    "function-hooks",
+    "guard"
+  ],
+  "userConfig": {
+    "guard": {
+      "type": "string",
+      "title": "Secret guard",
+      "description": "Refuse docs memory writes and the document worker that hold a key, token or password. On by default; it only ever tightens.",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    }
+  }
+}

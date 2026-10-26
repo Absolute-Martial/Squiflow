@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "dotnet-architect": {
+      "source": "sickn33/agentic-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/dotnet-architect/SKILL.md",
+      "computedHash": "7caac10a170acf544d1e1716fae899a0224326a7d7a30af42a16af53b70e8fbc"
+    },
+    "ruflo": {
+      "source": "ruvnet/ruflo",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "eb4ced451d1dd9598e4fe9f697c1d2aa19bba70988068ab767f71ec7ff1f1ebd"
+    }
+  }
+}

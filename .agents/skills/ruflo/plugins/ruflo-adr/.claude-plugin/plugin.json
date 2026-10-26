@@ -1,0 +1,37 @@
+{
+  "name": "ruflo-adr",
+  "description": "ADR lifecycle management — create, index, reconcile, supersede, check compliance, and link Architecture Decision Records to code via AgentDB hierarchical store + causal edges (supersedes/amends/depends-on/related)",
+  "version": "0.5.8",
+  "author": {
+    "name": "ruvnet",
+    "url": "https://github.com/ruvnet"
+  },
+  "homepage": "https://github.com/ruvnet/ruflo",
+  "license": "MIT",
+  "keywords": [
+    "ruflo",
+    "adr",
+    "architecture",
+    "decisions",
+    "documentation",
+    "lifecycle",
+    "compliance",
+    "causal-graph",
+    "mcp",
+    "mod",
+    "function-hooks"
+  ],
+  "userConfig": {
+    "guard": {
+      "type": "string",
+      "title": "ADR guard",
+      "description": "Refuse ADR writes (agentdb_hierarchical-store, agentdb_causal-edge, memory_store into an adr* namespace) that hold a key, token or password.",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    }
+  }
+}

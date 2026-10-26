@@ -1,0 +1,38 @@
+{
+  "name": "ruflo-ruvllm",
+  "description": "RuVLLM local inference with chat formatting (Claude/GPT/Gemini/Ollama/Cohere), model configuration, MicroLoRA fine-tuning, and SONA real-time adaptation. As a mod (ADR-445): a guard that keeps secrets out of adapters and the pattern router, /ruvllm-mod, and a status file the console shows",
+  "version": "0.3.6",
+  "author": {
+    "name": "ruvnet",
+    "url": "https://github.com/ruvnet"
+  },
+  "homepage": "https://github.com/ruvnet/ruflo",
+  "license": "MIT",
+  "keywords": [
+    "ruflo",
+    "ruvllm",
+    "llm",
+    "inference",
+    "microlora",
+    "fine-tuning",
+    "mcp",
+    "local-inference",
+    "chat-templates",
+    "mod",
+    "function-hooks",
+    "guard"
+  ],
+  "userConfig": {
+    "guard": {
+      "type": "string",
+      "title": "Secret guard",
+      "description": "Refuse calls to this plugin's write tools that hold a key, token or password.",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    }
+  }
+}

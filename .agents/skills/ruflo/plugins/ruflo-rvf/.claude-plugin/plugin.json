@@ -1,0 +1,38 @@
+{
+  "name": "ruflo-rvf",
+  "description": "RVF format for portable agent memory, session persistence, and cross-platform transfer. As a mod (ADR-445): a write guard that keeps secrets out of memory, sessions and transfers, /rvf-mod, and a status file the console shows",
+  "version": "0.3.7",
+  "author": {
+    "name": "ruvnet",
+    "url": "https://github.com/ruvnet"
+  },
+  "homepage": "https://github.com/ruvnet/ruflo",
+  "license": "MIT",
+  "keywords": [
+    "ruflo",
+    "rvf",
+    "memory",
+    "session",
+    "persistence",
+    "transfer",
+    "mcp",
+    "cognitive-containers",
+    "lineage-tracking",
+    "mod",
+    "function-hooks",
+    "guard"
+  ],
+  "userConfig": {
+    "guard": {
+      "type": "string",
+      "title": "Secret guard",
+      "description": "Refuse calls to this plugin's write tools that hold a key, token or password.",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    }
+  }
+}
